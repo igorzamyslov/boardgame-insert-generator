@@ -229,15 +229,18 @@ function readKnownComponent(r: Reader, kind: ComponentKind): Component {
       return r.finish({
         ...base,
         kind,
-        figures: r.objects("figures").map((f) =>
-          f.finish({
+        figures: r.objects("figures").map((f) => {
+          const keepUpright = f.optBool("keepUpright");
+          return f.finish({
             name: f.str("name", ""),
             w: f.num("w"),
             d: f.num("d"),
             h: f.num("h"),
             count: f.num("count"),
-          }),
-        ),
+            // Only when set, so a figure that may lie reads (and saves) as it did before 0.2.3.
+            ...(keepUpright === true ? { keepUpright } : {}),
+          });
+        }),
         storage: r.oneOf("storage", ["pockets", "bulk"], COMPONENT_DEFAULTS.minis.storage),
       });
     case "custom":

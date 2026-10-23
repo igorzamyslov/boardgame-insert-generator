@@ -153,7 +153,18 @@ export interface TilesComponent extends ComponentBase {
 
 export interface MinisComponent extends ComponentBase {
   kind: "minis";
-  figures: { name: string; w: number; d: number; h: number; count: number }[];
+  /**
+   * keepUpright: never laid on its side or its back, for a fragile figure: only `w` and `d` may
+   * swap (a turn in plan). Absent: the figure may be laid down where that makes a smaller tray.
+   */
+  figures: {
+    name: string;
+    w: number;
+    d: number;
+    h: number;
+    count: number;
+    keepUpright?: boolean;
+  }[];
   storage: "pockets" | "bulk";
 }
 

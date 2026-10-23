@@ -37,6 +37,15 @@ const PICKER = "Add opens a kind picker";
 const SUMMARY = "A row's line under the name is short";
 const CHIPS = "The rail's rule chips are one per rule";
 const CLEAR = "Clear all my choices lifts every pin";
+const UPRIGHT = "A figure may lie on any side";
+const MINIS_STATES = [
+  "editor-minis",
+  "editor-minis-more",
+  "m-edit",
+  "m-edit-more",
+  "kit-member",
+  "m-kit-member",
+] as const;
 const NOTE = "The rules note says what stays";
 // 0.7.0 Task 13: Turned, the rules note's turn sentence and Between decks
 const TURNED = "A tray turned and not pinned says";
@@ -397,6 +406,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: SETTINGS_STATES,
     ruling: SET_GAPS,
   },
+  { text: "{name} stays upright", states: MINIS_STATES, ruling: UPRIGHT },
+  { text: "Never laid on its side", states: MINIS_STATES, ruling: UPRIGHT },
   { text: "Back to a spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
   { text: "Extra space beside walls to reach in", states: SETTINGS_STATES, ruling: SET_WORDS },
