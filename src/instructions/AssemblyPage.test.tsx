@@ -3,7 +3,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
-import type { Component } from "../model/types";
+import { printableParts } from "../layout";
+import type { Component, FeatureSpec, StoredLayout } from "../model/types";
+import { COPY_RULINGS } from "../screens/copy-rulings";
+import { loadSeed } from "../test-support/harbourKings";
+import { unruled } from "../test-support/boardCopy";
 import { AssemblyPage } from "./AssemblyPage";
 import printCss from "./assembly.css?raw";
 
@@ -115,7 +119,7 @@ describe("AssemblyPage", () => {
     expect(table.querySelector("caption")?.className).toBe("visually-hidden");
     // The layer is the section's heading, not a column.
     const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent);
-    expect(heads).toEqual(["Name", "Engraved as", "Size", "Position", "Holds"]);
+    expect(heads).toEqual(["Name", "Engraved as", "Size", "Position", "Holds", "Lift"]);
     expect(
       [...document.querySelectorAll("tbody th")].map((th) => [
         th.textContent,
@@ -171,7 +175,7 @@ describe("AssemblyPage", () => {
     const heads = [...(document.querySelectorAll("thead")[0]?.querySelectorAll("th") ?? [])].map(
       (th) => th.textContent,
     );
-    expect(heads).toEqual(["Name", "Engraved as", "Size", "Position", "Holds"]);
+    expect(heads).toEqual(["Name", "Engraved as", "Size", "Position", "Holds", "Lift"]);
     const cells = [...document.querySelectorAll("tbody tr")].map(
       (tr) => tr.children[1]?.textContent,
     );
@@ -223,7 +227,7 @@ describe("AssemblyPage", () => {
     expect([...table.querySelectorAll("tr")].every((tr) => tr.getAttribute("role") === "row")).toBe(
       true,
     );
-    expect(table.querySelectorAll("th[role=columnheader]")).toHaveLength(5);
+    expect(table.querySelectorAll("th[role=columnheader]")).toHaveLength(6);
     expect(table.querySelectorAll("tbody th[role=rowheader]")).toHaveLength(1);
     expect(
       [...table.querySelectorAll("td")].every((td) => td.getAttribute("role") === "cell"),
@@ -439,5 +443,175 @@ describe("AssemblyPage for a group's trays (spec §7.7)", () => {
       "Layer 1 (bottom): trays Player kit 1, Player kit 2",
     );
     expect(document.body.textContent).not.toMatch(/\(P\d+\)/);
+  });
+});
+
+describe("AssemblyPage: taking it out", () => {
+  const cut: FeatureSpec = {
+    type: "wallCutout",
+    side: "left",
+    at: 10,
+    width: 18,
+    depth: 12,
+    floorNotch: 0,
+  };
+  const withCut = (over: Parameters<typeof makeTray>[0]) =>
+    makeTray({
+      compartments: [
+        {
+          x: 1.6,
+          y: 1.6,
+          w: 96.8,
+          d: 76.8,
+          floorZ: 1.2,
+          kind: "well",
+          contents: "Deck A ×40",
+          features: [cut],
+        },
+      ],
+      ...over,
+    });
+  const gripped = makeLayout("h", [
+    withCut({ key: "a:p0:0", stack: 0, level: 0 }),
+    withCut({ key: "b:p0:0", stack: 0, level: 1, z: 40 }),
+  ]);
+  const strip = makeTray({
+    key: "leftover:0",
+    part: "leftover",
+    solid: true,
+    compartments: [],
+    stack: 9,
+    x: 0,
+    y: 80.2,
+    w: 100,
+    d: 10,
+  });
+  const flagged = makeLayout("h", [withCut({ key: "a:p0:0" }), strip]);
+  const liftCells = () =>
+    [...document.querySelectorAll('tbody td[data-label="Lift"]')].map((td) => td.textContent ?? "");
+
+  it("adds a Lift column to each layer's table, one line a row", () => {
+    render(<AssemblyPage project={deckProject()} layout={gripped} onBack={vi.fn()} />);
+    const table = screen.getByRole("table", {
+      name: "Layer 1 (bottom), in the order to put them in",
+    });
+    expect(screen.getAllByRole("columnheader", { name: "Lift" })).toHaveLength(2);
+    expect(
+      [...table.querySelectorAll("tbody tr")].map(
+        (tr) => tr.querySelector("td:last-child")?.textContent,
+      ),
+    ).toEqual(["Lift it by the finger cut"]);
+    expect(liftCells()).toEqual(["Lift it by the finger cut", "Lift it by the finger cut"]);
+  });
+
+  it("says once, above the layers, to start with the top layer and read each table from the last row up", () => {
+    render(<AssemblyPage project={deckProject()} layout={gripped} onBack={vi.fn()} />);
+    const note = document.querySelector(".assembly-takeout") as HTMLElement;
+    expect(note.textContent).toBe(
+      "Taking it out. Start with the top layer. Read its table from the last row up, then do the same for the layer below.",
+    );
+    // above the exploded view and the layers, and not a section of its own
+    const sections = [...document.querySelectorAll(".assembly > *")];
+    expect(sections.indexOf(note)).toBeLessThan(
+      sections.indexOf(document.querySelector(".assembly-exploded") as Element),
+    );
+    expect(note.closest("section")).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Taking it out/ })).toBeNull();
+  });
+
+  it("flags nothing, and adds no note, when every part has a grip", () => {
+    render(<AssemblyPage project={deckProject()} layout={gripped} onBack={vi.fn()} />);
+    expect(document.querySelector(".assembly-flag")).toBeNull();
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
+  it("flags a part with no grip of its own in its row and names it in one note above the layers", () => {
+    render(<AssemblyPage project={deckProject()} layout={flagged} onBack={vi.fn()} />);
+    const note = screen.getByRole("note");
+    expect(note.textContent).toBe(
+      "No grip of its own: Spacer by Deck A. Each needs something else out first.",
+    );
+    // the note comes before the first layer
+    expect(
+      note.compareDocumentPosition(document.querySelector(".assembly-layer") as Element) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const rows = [...document.querySelectorAll("tbody tr")];
+    const strip = rows.find((r) => r.querySelector("th")?.textContent === "Spacer by Deck A");
+    const cell = strip?.querySelector('td[data-label="Lift"]') as HTMLElement;
+    expect(cell.querySelector(".assembly-flag")?.textContent).toBe("No grip of its own");
+    expect(cell.textContent).toBe("No grip of its own Take out Deck A first, then tip it out");
+    expect(cell.getAttribute("data-grip")).toBe("none");
+    // the tray beside it has a cut and carries no flag
+    const tray = rows.find((r) => r.querySelector("th")?.textContent === "Deck A");
+    expect(tray?.querySelector(".assembly-flag")).toBeNull();
+  });
+
+  it("flags in words, not in colour alone, and prints the flag as a black outline", () => {
+    expect(printBlock).toMatch(/\.assembly-flag\s*\{[^}]*border:\s*1px solid #000/);
+    expect(printBlock).toMatch(/\.assembly-takeout\s*\{[^}]*break-inside:\s*avoid/);
+    expect(printCss).toMatch(/\.assembly-flag\s*\{[^}]*display:\s*block/);
+  });
+
+  it("keeps the flag and the line in one box of the phone's card", () => {
+    render(<AssemblyPage project={deckProject()} layout={flagged} onBack={vi.fn()} />);
+    for (const td of document.querySelectorAll('tbody td[data-label="Lift"]')) {
+      expect(td.children).toHaveLength(1);
+      expect(td.children[0]?.localName).toBe("span");
+    }
+  });
+
+  it("says nothing of a lift when the guide has nothing to pack", () => {
+    render(<AssemblyPage project={deckProject()} layout={makeLayout("h", [])} onBack={vi.fn()} />);
+    expect(document.querySelector(".assembly-takeout")).toBeNull();
+  });
+
+  it("prints only words the copy rulings allow", () => {
+    render(<AssemblyPage project={deckProject()} layout={flagged} onBack={vi.fn()} />);
+    const strings = [
+      ...liftCells().map((t) => t.replace(/^No grip of its own /, "")),
+      ...[...document.querySelectorAll(".assembly-takeout p")].map((p) =>
+        (p.textContent ?? "").replace(/^Taking it out\. /, ""),
+      ),
+      ...screen.getAllByRole("columnheader", { name: "Lift" }).map((th) => th.textContent ?? ""),
+      "No grip of its own",
+    ];
+    const rulings = COPY_RULINGS.filter(
+      (r) => r.states === "all" || r.states.includes("packing-guide"),
+    );
+    expect(rulings.length).toBeGreaterThan(8);
+    expect(
+      unruled(strings, { literals: new Set(), rulings, data: new Set(), engine: new Set() }),
+    ).toEqual([]);
+  });
+
+  it("names the two gripless strips of Harbour Kings before printing, with the tray each waits for", () => {
+    const { project } = loadSeed("harbour-kings");
+    const trays = printableParts(project.layout?.trays ?? [], {
+      components: project.components,
+      settings: project.settings,
+      printer: project.printer,
+      locks: project.locks,
+    }).trays;
+    render(
+      <AssemblyPage
+        project={project}
+        layout={{ ...(project.layout as StoredLayout), trays }}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("note").textContent).toBe(
+      "No grip of its own: Spacer by Event cards, Spacer by Starter decks 1. Each needs something else out first.",
+    );
+    const top = screen.getByRole("region", { name: "Layer 2 (top)" });
+    const lines = [...top.querySelectorAll("tbody tr")].map((tr) => [
+      tr.querySelector("th")?.textContent,
+      tr.querySelector('td[data-label="Lift"]')?.textContent,
+    ]);
+    expect(lines).toContainEqual([
+      "Spacer by Event cards",
+      "No grip of its own Take out Event cards first, then tip it out",
+    ]);
+    expect(lines).toContainEqual(["Event cards", "Lift it by the finger cut"]);
   });
 });
