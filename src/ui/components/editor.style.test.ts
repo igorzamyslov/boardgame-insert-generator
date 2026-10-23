@@ -199,4 +199,62 @@ describe("the editor's stage", () => {
     // ringed in the page colour, so it shows on a pressed chip's ink as well
     expect(ruleFor(".k-chip__dot", kit)).toMatch(/box-shadow:\s*0 0 0 1\.5px var\(--sheet\)/);
   });
+
+  describe("holds still where it must, and never scrolls sideways", () => {
+    it("keeps the head (the back link and the item) at the top while the form scrolls under it", () => {
+      const head = ruleFor(".ed-head", css);
+      expect(head).toMatch(/position:\s*sticky/);
+      expect(head).toMatch(/top:\s*0/);
+      // opaque, so the fields scrolling under it do not show through
+      expect(head).toMatch(/background:\s*var\(--sheet\)/);
+      expect(head).toMatch(/z-index:\s*1/);
+      // it never shrinks away, and the 20 px gap under it is the board's
+      expect(head).toMatch(/flex:\s*none/);
+      expect(head).toMatch(/gap:\s*var\(--s-20\)/);
+      // a field scrolled to by the keyboard is kept clear of it
+      expect(ruleFor(".ed", css)).toMatch(/scroll-padding-top:/);
+      // the foot stays at the bottom, as before
+      expect(ruleFor(".ed-foot", css)).toMatch(/position:\s*sticky/);
+      expect(ruleFor(".ed-foot", css)).toMatch(/bottom:\s*0/);
+    });
+
+    it("lets the phone's editor take the sheet's height, so its header stays and only the form scrolls", () => {
+      // the sheet's body is a column the editor fills ...
+      const body = ruleFor('.k-sheet[data-editing="true"] > .k-sheet__body', kit);
+      expect(body).toMatch(/display:\s*flex/);
+      expect(body).toMatch(/flex-direction:\s*column/);
+      expect(body).toMatch(/overflow:\s*hidden/);
+      // ... the editor is held to that height (a percentage of an unsized body is no height) ...
+      const phone = ruleFor(".ed--phone", css);
+      expect(phone).toMatch(/flex:\s*1 1 auto/);
+      expect(phone).toMatch(/min-height:\s*0/);
+      expect(phone).toMatch(/overflow:\s*hidden/);
+      expect(phone).not.toMatch(/height:\s*100%/);
+      // ... and the header holds its height while the form scrolls
+      expect(ruleFor(".ed-bar", css)).toMatch(/flex:\s*none/);
+      expect(ruleFor(".ed-scroll", css)).toMatch(/overflow:\s*auto/);
+    });
+
+    it("leaves a disclosure row's chevron its room: a long hint wraps, never pushes the chevron out of the row", () => {
+      // the text is held short of the row by the chevron and the gaps round it ...
+      const text = ruleFor(".k-drow__text", kit);
+      expect(text).toMatch(
+        /max-width:\s*calc\(100% - var\(--s-10\) - var\(--s-6\) - var\(--k-chevron\)\)/,
+      );
+      expect(text).not.toMatch(/max-width:\s*100%/);
+      // ... the value gives way to the chevron, which is not shrunk
+      expect(ruleFor(".k-drow__meta", kit)).toMatch(
+        /min-width:\s*calc\(var\(--k-chevron\) \+ var\(--s-6\)\)/,
+      );
+      expect(ruleFor(".k-drow__chevron", kit)).toMatch(/flex:\s*none/);
+      expect(ruleFor(".k-drow", kit)).toMatch(/--k-chevron:\s*16px/);
+    });
+
+    it("does not hide a sideways overflow: no overflow-x rule on the panels", () => {
+      // an overflowing child is fixed where it is (the drow rule above), not clipped by its parent
+      for (const selector of [".ed", ".ed-head", ".ed-foot", ".ed-scroll", ".ed--phone"]) {
+        expect(ruleFor(selector, css), selector).not.toMatch(/overflow-x:\s*hidden/);
+      }
+    });
+  });
 });

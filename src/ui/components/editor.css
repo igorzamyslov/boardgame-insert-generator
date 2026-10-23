@@ -15,7 +15,11 @@
   overflow: hidden;
 }
 
-/* The panel: it scrolls inside the rail, and its foot stays in sight (Edit: the foot sits at the rail's bottom). */
+/*
+ * The panel: it scrolls inside the rail, and its head (the back link and the item) and its foot stay
+ * in sight (Edit: the foot sits at the rail's bottom). A focused field scrolled to is kept clear of
+ * the head (`scroll-padding-top`: the back link, the 20 px gap, the 44 px tile, the head's cover).
+ */
 .ed {
   display: flex;
   flex: 1 1 auto;
@@ -23,6 +27,25 @@
   gap: var(--s-20);
   min-height: 0;
   overflow: auto;
+  scroll-padding-top: calc(var(--control-h) * 2 + var(--s-20) + var(--s-8));
+}
+
+/*
+ * The head holds still at the top of the scrolling panel: the form scrolls under it. Its cover (8 px
+ * of padding, taken back by the margin so the 20 px gap under it stays) hides the fields as they
+ * go, as the foot's does at the bottom.
+ */
+.ed-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--s-20);
+  margin-bottom: calc(-1 * var(--s-8));
+  padding-bottom: var(--s-8);
+  background: var(--sheet);
 }
 
 .ed-back {
@@ -498,8 +521,9 @@
 
 /* ---- The phone: MobileEdit's full-screen sheet ---- */
 .ed--phone {
+  flex: 1 1 auto;
   gap: 0;
-  height: 100%;
+  min-height: 0;
   overflow: hidden;
   background: var(--sheet);
   font-size: 16px;

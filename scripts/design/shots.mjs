@@ -1135,6 +1135,12 @@ async function openApp(browser, appUrl, name, state, seeds) {
     if (stage !== null && stage.scrollWidth > stage.clientWidth + 1) {
       out.push("the stage");
     }
+    // an editor's scrolling parts: the rail's panel, the phone's form
+    for (const el of document.querySelectorAll(".ed, .ed-scroll")) {
+      if (el.scrollWidth > el.clientWidth + 1) {
+        out.push(`the ${el.className.split(" ")[0]}`);
+      }
+    }
     return out;
   });
   if (sideways.length > 0) {
