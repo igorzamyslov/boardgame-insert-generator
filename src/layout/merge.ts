@@ -1,7 +1,7 @@
 import { effective } from "../model/settings";
 import type { BoxMm, Printer, Settings, TraySpec } from "../model/types";
 import { fitsBed, type Bed } from "./bed";
-import { roundMm, toU, toUFloor } from "./units";
+import { roundMm, toMm, toU, toUFloor } from "./units";
 
 /** What mergeParts reads from a project. */
 export interface MergeInputs {
@@ -123,6 +123,184 @@ function bridgeBetween(a: Item, b: Item, fit: BridgeFit): BoxMm | null {
     };
   }
   return null;
+}
+
+/** A box in whole units (hundredths of a mm), for the slit search. */
+interface UBox {
+  readonly x0: number;
+  readonly x1: number;
+  readonly y0: number;
+  readonly y1: number;
+  readonly z0: number;
+  readonly z1: number;
+}
+
+const unitBox = (b: BoxMm): UBox => ({
+  x0: toU(b.x),
+  x1: toU(b.x + b.w),
+  y0: toU(b.y),
+  y1: toU(b.y + b.d),
+  z0: toU(b.z),
+  z1: toU(b.z + b.h),
+});
+
+/**
+ * The solid that closes the slits left in a merged part: the air no wider than the tray gap that
+ * the members and their pairwise bridges surround. A bridge joins two members across the gap
+ * between them over the stretch they share, so where three or four members meet at a corner the
+ * gap between them is a small square that no bridge covers (each stops at the edge of the member
+ * it runs along): a slit through the part, a hole in a solid that should have none. The search
+ * is in plan, at every height the boxes change at: the cells of the grid their edges make that no
+ * box covers and that do not open to the outside are the air the part encloses; a pocket of air
+ * that is thin all through (no wider than `gap` in x or in y at every cell) is a slit and is
+ * filled, over the height it exists. Air that is wider at some cell is where a tray stands (a
+ * ring of fillers round a tray keeps its opening) and stays.
+ */
+export function slitFills(
+  members: readonly BoxMm[],
+  bridges: readonly BoxMm[],
+  gap: number,
+): BoxMm[] {
+  const boxes = [...members, ...bridges].map(unitBox);
+  const limit = toU(gap) + 1;
+  const axis = (lo: (b: UBox) => number, hi: (b: UBox) => number): number[] =>
+    [...new Set(boxes.flatMap((b) => [lo(b), hi(b)]))].sort((a, b) => a - b);
+  const xs = axis(
+    (b) => b.x0,
+    (b) => b.x1,
+  );
+  const ys = axis(
+    (b) => b.y0,
+    (b) => b.y1,
+  );
+  const zs = axis(
+    (b) => b.z0,
+    (b) => b.z1,
+  );
+  const nx = xs.length - 1;
+  const ny = ys.length - 1;
+  // pending[rect] = the open fills of that rectangle, extended upwards band by band
+  const open = new Map<string, { rect: UBox; z0: number; z1: number }>();
+  const done: { rect: UBox; z0: number; z1: number }[] = [];
+  for (let k = 0; k + 1 < zs.length; k++) {
+    const zLo = zs[k] as number;
+    const zHi = zs[k + 1] as number;
+    // air[i][j]: the cell is not covered by any box standing across this band
+    const air: boolean[][] = Array.from({ length: nx }, (_, i) =>
+      Array.from({ length: ny }, (_, j) => {
+        const [x0, x1] = [xs[i] as number, xs[i + 1] as number];
+        const [y0, y1] = [ys[j] as number, ys[j + 1] as number];
+        return !boxes.some(
+          (b) => b.x0 <= x0 && x1 <= b.x1 && b.y0 <= y0 && y1 <= b.y1 && b.z0 <= zLo && zHi <= b.z1,
+        );
+      }),
+    );
+    // the air that reaches the edge of the grid is outside
+    const outside = new Set<number>();
+    const stack: [number, number][] = [];
+    const reach = (i: number, j: number): void => {
+      if (i >= 0 && j >= 0 && i < nx && j < ny && air[i]?.[j] && !outside.has(i * ny + j)) {
+        outside.add(i * ny + j);
+        stack.push([i, j]);
+      }
+    };
+    for (let i = 0; i < nx; i++) {
+      reach(i, 0);
+      reach(i, ny - 1);
+    }
+    for (let j = 0; j < ny; j++) {
+      reach(0, j);
+      reach(nx - 1, j);
+    }
+    for (let at = stack.pop(); at; at = stack.pop()) {
+      const [i, j] = at;
+      reach(i + 1, j);
+      reach(i - 1, j);
+      reach(i, j + 1);
+      reach(i, j - 1);
+    }
+    // enclosed air: its connected pockets
+    const seen = new Set<number>();
+    const rects: UBox[] = [];
+    for (let i0 = 0; i0 < nx; i0++) {
+      for (let j0 = 0; j0 < ny; j0++) {
+        const id = i0 * ny + j0;
+        if (!air[i0]?.[j0] || outside.has(id) || seen.has(id)) {
+          continue;
+        }
+        const cells: [number, number][] = [];
+        const pending: [number, number][] = [[i0, j0]];
+        seen.add(id);
+        for (let at = pending.pop(); at; at = pending.pop()) {
+          cells.push(at);
+          for (const [di, dj] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ] as const) {
+            const i = at[0] + di;
+            const j = at[1] + dj;
+            if (air[i]?.[j] && !outside.has(i * ny + j) && !seen.has(i * ny + j)) {
+              seen.add(i * ny + j);
+              pending.push([i, j]);
+            }
+          }
+        }
+        const runX = (i: number, j: number): number => {
+          let a = i;
+          let b = i;
+          while (air[a - 1]?.[j]) a--;
+          while (air[b + 1]?.[j]) b++;
+          return (xs[b + 1] as number) - (xs[a] as number);
+        };
+        const runY = (i: number, j: number): number => {
+          let a = j;
+          let b = j;
+          while (air[i]?.[a - 1]) a--;
+          while (air[i]?.[b + 1]) b++;
+          return (ys[b + 1] as number) - (ys[a] as number);
+        };
+        if (cells.every(([i, j]) => Math.min(runX(i, j), runY(i, j)) <= limit)) {
+          for (const [i, j] of cells) {
+            rects.push({
+              x0: xs[i] as number,
+              x1: xs[i + 1] as number,
+              y0: ys[j] as number,
+              y1: ys[j + 1] as number,
+              z0: zLo,
+              z1: zHi,
+            });
+          }
+        }
+      }
+    }
+    // a cell filled in the band below goes on up; the rest start here
+    const next = new Map<string, { rect: UBox; z0: number; z1: number }>();
+    for (const rect of rects) {
+      const key = `${rect.x0},${rect.x1},${rect.y0},${rect.y1}`;
+      const below = open.get(key);
+      next.set(key, below ? { ...below, z1: zHi } : { rect, z0: zLo, z1: zHi });
+    }
+    for (const [key, fill] of open) {
+      if (!next.has(key)) {
+        done.push(fill);
+      }
+    }
+    open.clear();
+    for (const [key, fill] of next) {
+      open.set(key, fill);
+    }
+  }
+  done.push(...open.values());
+  return done.map(({ rect, z0, z1 }) => ({
+    x: toMm(rect.x0),
+    y: toMm(rect.y0),
+    z: toMm(z0),
+    w: toMm(rect.x1 - rect.x0),
+    d: toMm(rect.y1 - rect.y0),
+    h: toMm(z1 - z0),
+  }));
 }
 
 interface Bounds {
@@ -380,6 +558,21 @@ export function mergeParts(trays: readonly TraySpec[], o: MergeInputs): TraySpec
           return inside.has(i as number) && inside.has(j as number);
         })
         .map(([, b]) => b);
+      // the slits where three or more members meet at a corner
+      joint.push(
+        ...slitFills(
+          members.map((i) => ({
+            x: i.x0,
+            y: i.y0,
+            z: i.z0,
+            w: i.x1 - i.x0,
+            d: i.y1 - i.y0,
+            h: i.z1 - i.z0,
+          })),
+          joint,
+          fit.gap,
+        ),
+      );
       return { members, joint, flipped: check(members, bed).flipped };
     })
     .sort((p, q) => {

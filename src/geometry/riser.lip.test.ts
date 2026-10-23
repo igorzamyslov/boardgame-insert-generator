@@ -148,21 +148,22 @@ describe(
       expect(problemsOf(m, folded[0] as TraySpec, settings)).toEqual([]);
     });
 
-    it("builds every part of the plan the app prints that has the rim, as closed printable solids", () => {
+    it("builds every part of the plan the app prints, as closed printable solids", () => {
       const printed = printableParts(plan, {
         components: p.components,
         settings,
         printer: p.printer,
         locks: p.locks,
       });
-      // trays with the lip or the groove, the riser with its lip, and what the riser is folded into
-      // (a plain part is another test's: the Trade deck's folded part has a 0.2 mm slit where its
-      // three members meet at a corner, with or without the lip)
+      // trays with the lip or the groove, the riser with its lip, what the riser is folded into,
+      // and the plain parts too: the folded part under the Trade deck is one solid, no slit where
+      // its three members meet at a corner
       const withRim = printed.trays.filter(
         (t) => t.lip || t.onRiser || t.merged?.members.some((x) => x.lip) === true,
       );
       expect(withRim.length).toBeGreaterThanOrEqual(4);
-      for (const t of withRim) {
+      expect(printed.trays.length).toBeGreaterThan(withRim.length);
+      for (const t of printed.trays) {
         expect(problemsOf(m, t, settings), t.key).toEqual([]);
       }
     });
