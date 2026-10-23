@@ -261,7 +261,8 @@ uses the relative base `./`, so it works under that subpath without configuratio
 
 Pull requests to `main` also run the `version-bump` job in `.github/workflows/ci.yml`
 (`scripts/check-version-bump.mjs`), which fails unless `version` in `package.json` is a higher
-semver than on `main`.
+semver than on `main`. Renovate raises the patch version itself (`bumpVersion` in
+`renovate.json`) on the pull requests that change `package.json`.
 
 ### One-time setup
 
