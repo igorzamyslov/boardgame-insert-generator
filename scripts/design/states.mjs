@@ -132,7 +132,7 @@ export const SEEDS = {
 function starStates() {
   const out = {};
   const sizes = { 2400: { width: 2400, height: 1300 }, 1440: DESKTOP };
-  const to3d = [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }];
+  const to3d = [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }];
   for (const [width, viewport] of Object.entries(sizes)) {
     for (const mode of ["normal", "edit"]) {
       for (const view of ["top", "3d"]) {
@@ -192,7 +192,7 @@ export const STATES = {
     probes: ["plan-gaps"],
   },
   // 0.9.0 (WideStage2): at 2400 the app is one centred block, 1600 px at most, the page behind it; in the
-  // stage the heading with Keep searching beside it, the switches, the tray bar and the frame are one
+  // stage the heading with Try another arrangement beside it, the switches, the tray bar and the frame are one
   // 900 px column. The board draws the owner's Star Realms (a tall box); the seed is Harbour Kings, so
   // the frame's shape and the words differ by design, the layout does not.
   "workspace-2400": {
@@ -213,7 +213,7 @@ export const STATES = {
     seed: "harbour-kings",
     needsWebGL: true,
     noPageScroll: true,
-    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   // 0.9.0 Task 3: WideStage2's own insert, the owner's Star Realms (a 101 x 195 x 37 mm box, Trade deck,
   // Starter deck in 3 trays, Counter), in the board's eight states: normal and editing the Starter deck,
@@ -251,7 +251,7 @@ export const STATES = {
     noPageScroll: true,
   },
   // The same at 820 px, where the status row's controls take two rows (stage.css): the View switch still
-  // stays where it is when Keep searching turns into Stop and when the 3D view adds "All" to the Layer switch.
+  // stays where it is when Try another arrangement turns into Stop and when the 3D view adds "All" to the Layer switch.
   "workspace-820-searching": {
     board: "Main",
     boardOpts: { state: { searching: true } },
@@ -260,7 +260,8 @@ export const STATES = {
     seed: "harbour-kings",
     holds: ["search"],
     steps: [
-      { click: { role: "button", name: "Keep searching", in: STATUS } },
+      { click: { role: "button", name: "Plan options", in: STATUS } },
+      { click: { role: "button", name: "Try another arrangement", in: STATUS } },
       { waitFor: { role: "button", name: "Stop" } },
     ],
   },
@@ -271,7 +272,7 @@ export const STATES = {
     viewport: { width: 820, height: 1180 },
     seed: "harbour-kings",
     needsWebGL: true,
-    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   // The band between the narrow two-row controls and the wide one row (a stage of about 600 to 750 px):
   // 3D's "All" (586 px of controls) and three layers (617, and 664 with All) once overflowed a 940 to 960 px
@@ -294,7 +295,7 @@ export const STATES = {
     seed: "harbour-kings-wide",
     needsWebGL: true,
     noPageScroll: true,
-    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   "workspace-wide-1440": {
     board: "Main",
@@ -332,7 +333,7 @@ export const STATES = {
     viewport: { width: 940, height: 800 },
     seed: "harbour-kings",
     needsWebGL: true,
-    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   "workspace-940-searching": {
     board: "Main",
@@ -342,7 +343,8 @@ export const STATES = {
     seed: "harbour-kings",
     holds: ["search"],
     steps: [
-      { click: { role: "button", name: "Keep searching", in: STATUS } },
+      { click: { role: "button", name: "Plan options", in: STATUS } },
+      { click: { role: "button", name: "Try another arrangement", in: STATUS } },
       { waitFor: { role: "button", name: "Stop" } },
     ],
   },
@@ -361,7 +363,7 @@ export const STATES = {
     viewport: { width: 960, height: 800 },
     seed: "harbour-kings-long",
     needsWebGL: true,
-    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   "workspace-searching": {
     board: "Main",
@@ -370,7 +372,8 @@ export const STATES = {
     seed: "harbour-kings",
     holds: ["search"],
     steps: [
-      { click: { role: "button", name: "Keep searching", in: STATUS } },
+      { click: { role: "button", name: "Plan options", in: STATUS } },
+      { click: { role: "button", name: "Try another arrangement", in: STATUS } },
       { waitFor: { role: "button", name: "Stop" } },
     ],
   },
@@ -398,6 +401,41 @@ export const STATES = {
     noStageScroll: true,
   },
   // The 3D view: three.js in the plan's frame. Main's own 3D is a CSS tilt of the flat box.
+  // 0.14.0 board 2 (Layers): the one Layer switch, on Layer 2 in Top (layer 2 lit over layer 1 ghosted), the
+  // same pick in 3D (layer 1 and 2 shown), and on All in Top.
+  "workspace-layer2": {
+    board: "Main",
+    nearest: "docs/design/ux-review-2026-10-23 Layers (option A)",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: "Layer 2", in: SWITCHES } }],
+  },
+  "workspace-all": {
+    board: "Main",
+    nearest: "docs/design/ux-review-2026-10-23 Layers (option A)",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: "All", in: SWITCHES } }],
+  },
+  "workspace-3d-layer1": {
+    board: "Main",
+    nearest: "docs/design/ux-review-2026-10-23 Layers (option A)",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [
+      { click: { role: "button", name: "3D", in: STATUS } },
+      { click: { role: "button", name: "Layer 1", in: SWITCHES } },
+      { wait: 3000 },
+    ],
+  },
+  "m-workspace-layer2": {
+    board: "MobileWorkspace",
+    nearest: "docs/design/ux-review-2026-10-23 Layers (option A)",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: "Layer 2", in: SWITCHES } }],
+  },
   "workspace-3d": {
     board: "Main",
     boardOpts: { state: { view: "3d" } },
@@ -405,7 +443,7 @@ export const STATES = {
     viewport: DESKTOP,
     seed: "harbour-kings",
     needsWebGL: true,
-    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   // A long box in 3D (feedback on 0.5.0, point 10): the camera fits it however it is turned and spread.
   "workspace-3d-1920": {
@@ -416,7 +454,7 @@ export const STATES = {
     viewport: WIDE,
     seed: "harbour-kings",
     needsWebGL: true,
-    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   "workspace-3d-wide": {
     board: "Main",
@@ -425,7 +463,7 @@ export const STATES = {
     viewport: DESKTOP,
     seed: "harbour-kings-wide",
     needsWebGL: true,
-    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
     probes: ["fit-3d"],
   },
   // One selection for both views (parity): a tray chosen in the top view, then the 3D view. Its bar
@@ -438,7 +476,7 @@ export const STATES = {
     viewport: DESKTOP,
     seed: "harbour-kings",
     needsWebGL: true,
-    steps: [SELECT_MARKET, { click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [SELECT_MARKET, { click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
     probes: ["selection-parity"],
   },
   "workspace-menu": {
@@ -1185,7 +1223,7 @@ export const STATES = {
     viewport: DESKTOP,
     seed: "harbour-kings-kit",
     needsWebGL: true,
-    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   "kit-download": {
     board: "Export",

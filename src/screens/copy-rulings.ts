@@ -131,6 +131,10 @@ const BANNERS = "The plan banners use DESIGN's words";
 const NOTES = "Layout and sizing notices sit under the plan caption";
 // Task 7: the plan's caption and pin marks. The states are the plan cases of copy.board.test.tsx.
 const CAPTION = "The plan's caption names its layer";
+// 0.14.0 board 1: the stage header
+const HEADER = "The stage header is one toolbar row";
+// 0.14.0 board 2: the Layer switch
+const LAYER_ONE = "One Layer switch, the same in Top and 3D";
 const PHONE_PINS = "A phone's plan shows the pin marks";
 const FAILED = ["workspace-failed"] as const;
 const ERRORS = ["workspace-error"] as const;
@@ -620,7 +624,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   { text: "Edit {name}", states: [...ERRORS, ...FIT_PROBLEMS], ruling: HOMES },
   // Task 12: the fit problems' panel offers what the engine can do, in its own words
-  { text: "Keep searching", states: NO_FIT, ruling: FIT_PANEL },
+  { text: "Try another arrangement", states: NO_FIT, ruling: FIT_PANEL },
   { text: "Change the box", states: ["workspace-box-error"], ruling: HOMES },
   { text: "The {name} tray doesn't fit yet", states: NO_FIT, ruling: NOFIT },
   { text: "Not everything fits yet", states: NO_FIT, ruling: NOFIT },
@@ -652,6 +656,18 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Warning:", states: ["workspace-notes"], ruling: NOTES },
   { text: "Note:", states: ["workspace-notes"], ruling: NOTES },
   { text: "Error:", states: ["workspace-notes", "no-fit", "no-fit-bed"], ruling: NOTES },
+  // 0.14.0 board 1: the toolbar's sub-line, "Searching…", and the hint that ends the caption
+  { text: "All", states: "all", ruling: LAYER_ONE },
+  { text: "All layers, seen from above. Front of the box", states: "all", ruling: LAYER_ONE },
+  { text: "{name} trays", states: "all", ruling: HEADER },
+  { text: "{name} tray", states: "all", ruling: HEADER },
+  { text: "{name} layers", states: "all", ruling: HEADER },
+  { text: "{name} layer", states: "all", ruling: HEADER },
+  { text: "{name} of {name} mm", states: "all", ruling: HEADER },
+  { text: "Searching…", states: "all", ruling: HEADER },
+  { text: "Top", states: ["kit-member-moved", "kit-member-out"], ruling: HEADER },
+  { text: "3D", states: ["kit-member-moved", "kit-member-out"], ruling: HEADER },
+  { text: "· tap a tray for details", states: "all", ruling: HEADER },
   // Task 7: under the box, and the marks a phone's plan keeps
   {
     text: "{name}, seen from above. Front of the box",

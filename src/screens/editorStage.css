@@ -15,6 +15,7 @@
 
 .ed-slot__row {
   display: flex;
+  gap: var(--s-14);
   align-items: center;
 }
 

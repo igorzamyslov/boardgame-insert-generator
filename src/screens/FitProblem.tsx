@@ -3,7 +3,7 @@
 // layout, and PinConflict's, for pins that block one. The heading is the page's h1 in the warn
 // tone; under it the plan as a picture (the closest attempt dimmed with the tray that overhangs
 // marked, or the plan the runner kept with its pins) and a panel of what the engine can do about
-// it: Edit the tray and Keep searching, or Unpin / Unlock size per conflict. No outcome
+// it: Edit the tray and Try another arrangement, or Unpin / Unlock size per conflict. No outcome
 // is promised and no figure invented (DESIGN §6: trial runs are Phase 3). On a phone the same
 // cards are the peek sheet's (MobileFix), and the stage holds the heading and the picture.
 import type { ComponentChildren } from "preact";

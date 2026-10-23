@@ -17,7 +17,7 @@ import type { History } from "./history";
 export type RunKind = "edit" | "improve";
 export type RunState =
   | { status: "idle" }
-  /** `kind` is why it runs: an edit's new plan, or "Keep searching" ("improve"); absent reads as an edit. */
+  /** `kind` is why it runs: an edit's new plan, or "Try another arrangement" ("improve"); absent reads as an edit. */
   | { status: "running"; done: number; total: number; kind?: RunKind }
   | { status: "done" }
   | { status: "error"; message: string };
@@ -29,7 +29,7 @@ export const STALE_CODE = "layout.stale";
 export const CAPPED_CODE = NOTICE_CODES.capped;
 export const GEOMETRY_MAJOR_CODE = "geometry.olderMajor";
 /** The banner copy of the two plan notices (the UI shows these words). */
-/** What a run says while it works: a new plan for an edit, a search for "Keep searching". */
+/** What a run says while it works: a new plan for an edit, a search for "Try another arrangement". */
 export const MAKING_PLAN_MESSAGE = "Making a new plan…";
 export const SEARCHING_MESSAGE = "Searching…";
 export const STALE_MESSAGE = "This plan is from before your last changes.";
@@ -55,13 +55,13 @@ export interface State {
   /** Undo and redo steps of the open project (whole projects). */
   history: History;
   selection: Signal<string | null>;
-  /** Index of the layer the plan shows (0 = the bottom layer); the plan clamps it to the layers there are. */
-  viewLevel: Signal<number>;
   /**
-   * What the 3D view's Layer switch cuts to: the index of the highest layer drawn (layers 1 to it),
-   * or null for all of them (the switch's "All"). The top view shows one layer, `viewLevel`.
+   * The Layer switch, one for the top view and the 3D view alike (board 2): the index of the layer
+   * picked (0 = the bottom layer), so layers 1 to it are shown (the top view lights it and ghosts the
+   * layers below, 3D peels off the ones above), or null for "All". `undefined` until the person picks:
+   * the top view then shows the bottom layer and 3D shows all of them. Clamped to the layers there are.
    */
-  viewCut: Signal<number | null>;
+  viewLayer: Signal<number | null | undefined>;
   /** The tray a "Swap with…" is under way from, or null; reset on Escape, after a swap, on clearing the selection and on a new project. */
   swapFrom: Signal<string | null>;
   /** What the tray picked next does while `swapFrom` is set: swaps with it, or is stood on it ("Put on…"). */
@@ -214,7 +214,7 @@ export function createState(
       out.push({
         level: "info",
         code: CAPPED_CODE,
-        message: "The search stopped at its limit. Try “Keep searching”.",
+        message: "The search stopped at its limit. Try “Try another arrangement”.",
       });
     }
     if (stale.value) {
@@ -246,8 +246,7 @@ export function createState(
     lockConflicts: signal<LockConflict[]>([]),
     history: createHistory(undefined, now),
     selection: signal<string | null>(null),
-    viewLevel: signal(0),
-    viewCut: signal<number | null>(null),
+    viewLayer: signal<number | null | undefined>(undefined),
     swapFrom: signal<string | null>(null),
     pickMode: signal<"swap" | "putOn">("swap"),
     appNotices: signal<Notice[]>([]),

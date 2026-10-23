@@ -1,5 +1,5 @@
 // scripts/design/jump.mjs
-// The "nothing jumps" check of the screenshot harness (UI rebuild, Review Focus 4): Keep searching
+// The "nothing jumps" check of the screenshot harness (UI rebuild, Review Focus 4): Try another arrangement
 // turning into Stop must not move the page. shots.mjs measures these regions in `workspace` and
 // `workspace-searching`; `jumpProblems` says what moved.
 

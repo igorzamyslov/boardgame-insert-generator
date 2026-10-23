@@ -41,7 +41,7 @@ describe("the stage's top, in the app", () => {
     expect(h1s()[0]?.textContent).toBe("Everything fits");
     expect(screen.queryByRole("heading", { name: "Insert Generator" })).toBeNull();
     const line = document.querySelector(".k-status__line")?.textContent ?? "";
-    expect(line).toMatch(/^\d+ trays in \d+ layers?, \d+(\.\d)? of 70 mm high$/);
+    expect(line).toMatch(/^\d+ trays · \d+ layers? · \d+(\.\d)? of 70 mm$/);
   });
 
   it("gives the h1 to the first visit's own heading, which has no status", () => {
@@ -70,7 +70,7 @@ describe("the stage's top, in the app", () => {
       store.state.runScheduled.value = true;
     });
     expect(h1s()[0]?.textContent).toBe("Making a new plan…");
-    expect(within(stage()).queryByRole("button", { name: "Keep searching" })).toBeNull();
+    expect(within(stage()).queryByRole("button", { name: "Try another arrangement" })).toBeNull();
   });
 
   it("shows the run error with Retry", () => {
@@ -180,10 +180,10 @@ describe("the stage's top, in the app", () => {
         within(group)
           .getAllByRole("button")
           .map((b) => b.textContent),
-      ).toEqual(["Layer 1 (bottom)", "Layer 2 (top)"]);
+      ).toEqual(["Layer 1", "Layer 2", "All"]);
       expect(document.querySelector('.plan-tile[data-key="a:p0:0"]')).not.toBeNull();
       expect(document.querySelector('.plan-tile[data-key="b:p0:0"]')).toBeNull();
-      fireEvent.click(within(group).getByRole("button", { name: "Layer 2 (top)" }));
+      fireEvent.click(within(group).getByRole("button", { name: "Layer 2" }));
       expect(document.querySelector('.plan-tile[data-key="b:p0:0"]')).not.toBeNull();
       expect(document.querySelector('.plan-tile[data-key="a:p0:0"]')).toBeNull();
     });
@@ -194,9 +194,9 @@ describe("the stage's top, in the app", () => {
       const labels = within(screen.getByRole("group", { name: "Layer" }))
         .getAllByRole("button")
         .map((b) => b.textContent ?? "");
-      expect(labels).toHaveLength(2);
+      expect(labels).toEqual(["Layer 1", "Layer 2", "All"]);
       expect(labels.join(" ")).not.toMatch(/mm/);
-      expect(document.querySelector(".k-status__line")?.textContent).toMatch(/of 70 mm high$/);
+      expect(document.querySelector(".k-status__line")?.textContent).toMatch(/of 70 mm$/);
     });
 
     it("has no Layer group for one layer, and the plan has no picker of its own", () => {
@@ -337,6 +337,9 @@ describe("the plan's column, in the app", () => {
     expect(kids.slice(0, 2)).toEqual(["stage-slot", "viewer"]);
     expect(plan().querySelector(":scope > .viewer > .plan-fit")).not.toBeNull();
     expect(plan().querySelector(".plan-fit > .viewer-stage canvas.viewer-canvas")).not.toBeNull();
-    expect(screen.getByText("Tap a tray for details.")).toBeTruthy();
+    // the hint is the caption row's now, with Spread apart at its right end
+    const caption = plan().querySelector(":scope > .viewer > .plan-caption--3d");
+    expect(caption?.textContent).toContain("tap a tray for details");
+    expect(within(caption as HTMLElement).getByLabelText("Spread apart")).toBeTruthy();
   });
 });

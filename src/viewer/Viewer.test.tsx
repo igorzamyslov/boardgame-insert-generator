@@ -445,7 +445,7 @@ describe("Viewer", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("draws the canvas in the plan's frame, sized from the box, with the controls over its foot", async () => {
+  it("draws the canvas in the plan's frame, sized from the box, with Spread apart in the caption row under it", async () => {
     const scene = stubScene();
     const { container } = render(
       <Viewer {...props({ box: { ...DEFAULT_BOX, innerWidth: 300, innerDepth: 150 } }, scene)} />,
@@ -456,15 +456,14 @@ describe("Viewer", () => {
     expect(fit?.style.getPropertyValue("--box-l")).toBe("150");
     const frame = fit?.querySelector(".viewer-stage");
     expect(frame?.querySelector("canvas.viewer-canvas")).not.toBeNull();
-    // the one row of controls is inside the frame, out of the flow
+    // messages are inside the frame, out of the flow; the one control, Spread apart, is in the caption row under it
     const under = container.querySelector(".viewer-under");
-    const row = under?.querySelector(".viewer-controls");
+    const row = container.querySelector(".plan-caption--3d");
     expect(row).not.toBeNull();
-    // Spread apart is the one control in the row (the Layer switch is the status row's); nothing else sits in the strip but messages
     expect(row?.querySelectorAll("input[type=range], select")).toHaveLength(1);
-    expect(row?.querySelector("select")).toBeNull();
-    expect(under?.querySelector("ul, li")).toBeNull();
+    expect(under?.querySelector("input, select, ul, li")).toBeNull();
     expect(frame?.contains(under ?? null)).toBe(true);
+    expect(frame?.contains(row ?? null)).toBe(false);
     expect(frame?.getAttribute("data-region")).toBe("plan-box");
   });
 

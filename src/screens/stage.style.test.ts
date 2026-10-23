@@ -33,10 +33,12 @@ describe("stage.css", () => {
     expect(ruleFor(".stage-segs--phone > .k-seg")).toMatch(/flex:\s*1\b/);
   });
 
-  it("draws Stop with a 1 px ink border and 18 px of padding, as Main does", () => {
+  it('draws Stop after "Searching…" as a 44 px target that adds no height to the title\'s line', () => {
     const stop = ruleFor(".stage-stop");
-    expect(stop).toMatch(/--k-edge:\s*var\(--ink\)/);
-    expect(stop).toMatch(/padding:\s*0 var\(--s-18\)/);
+    expect(stop).toMatch(/--k-fg:\s*var\(--ink\)/);
+    expect(stop).toMatch(
+      /margin-block:\s*calc\(\(var\(--h1\) \* 1\.2 - var\(--control-h\)\) \/ 2\)/,
+    );
   });
 
   it("lets the heading's row wrap, so a row of actions drops under the heading instead of squeezing it", () => {

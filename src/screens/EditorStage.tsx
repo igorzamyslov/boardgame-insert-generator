@@ -23,7 +23,7 @@ import { Viewer } from "../viewer/Viewer";
 import type { ViewerProps } from "../viewer/Viewer";
 import { StageSlot } from "./StageSlot";
 import type { StageSlotProps } from "./StageSlot";
-import { ViewSwitch, WebGlNote, layerOptions } from "./StageTop";
+import { ViewSwitch, WebGlNote, layerOptions, layerValueOf } from "./StageTop";
 import type { EditorProblem, StageView } from "./StageTop";
 import { SETTLE_MS, useSettled } from "./useSettled";
 import { useNoteClock } from "../kit/Toast";
@@ -317,9 +317,12 @@ function Slot({
   onNoteDone,
   problem,
   onRetry,
+  trailing,
 }: {
   /** The sentence, drawn or not (`hidden`: the note is in its place). */
   sentence: (hidden: boolean) => ComponentChildren;
+  /** At the row's right end: the Top / 3D switch, where the normal stage's toolbar has it. */
+  trailing?: ComponentChildren;
   note: EditNote | null;
   onNoteDone: () => void;
   problem?: EditorProblem | null;
@@ -330,6 +333,7 @@ function Slot({
       <div class="ed-slot__row">
         <Toast message={note?.text ?? null} nonce={note?.id} onDone={onNoteDone} />
         {sentence(note !== null)}
+        {trailing}
       </div>
       {problem ? <ProblemLine problem={problem} onRetry={onRetry} /> : null}
     </div>
@@ -421,10 +425,9 @@ export function EditorStage({
   viewer = null,
   normal,
 }: EditorStageProps) {
-  // The layer the person picked, for this item or group only: another one opens on its own layer.
-  const [picked, setPicked] = useState<{ id: string; layer: number } | null>(null);
-  // In 3D the switch cuts instead (layers 1 to it, or null for All), as the workspace's does.
-  const [cutPicked, setCutPicked] = useState<{ id: string; cut: number | null } | null>(null);
+  // The layer the person picked (null: All), for this item or group only, for the top view and 3D
+  // alike: another item opens on its own layer.
+  const [picked, setPicked] = useState<{ id: string; layer: number | null } | null>(null);
   // The 3D scene is redrawn once a change has settled, not on each keystroke: it is given the
   // model as it stood when the last change was over.
   const [sTrays, sComponents, sGroups, sBox, sSettings, sStale] = useSettled(
@@ -442,32 +445,26 @@ export function EditorStage({
   // it to see the others (the top view's: one layer at a time).
   const levels = levelsOf(trays);
   const home = mine[0] === undefined ? 0 : Math.max(0, levels.indexOf(mine[0].level));
-  const chosen = picked !== null && picked.id === target.id ? picked.layer : null;
-  const at = chosen !== null && chosen < levels.length ? chosen : home;
   const in3d = view === "3d" && plan !== null && !phone;
-  const cut =
-    cutPicked !== null && cutPicked.id === target.id && (cutPicked.cut ?? 0) < levels.length
-      ? cutPicked.cut
-      : null;
+  // Until a pick, the top view shows the item's own layer and 3D shows every layer, as the workspace's do.
+  const choice = picked !== null && picked.id === target.id ? picked : null;
+  const pick: number | null =
+    choice !== null && (choice.layer === null || choice.layer < levels.length)
+      ? choice.layer
+      : in3d
+        ? null
+        : home;
+  const at = pick ?? Math.max(0, levels.length - 1);
+  const cut = pick;
   const layers =
     levels.length > 1 ? (
-      in3d ? (
-        <Segmented
-          label="Layer"
-          tone="track"
-          options={layerOptions(trays, true)}
-          value={cut === null ? "all" : String(cut)}
-          onChange={(v) => setCutPicked({ id: target.id, cut: v === "all" ? null : Number(v) })}
-        />
-      ) : (
-        <Segmented
-          label="Layer"
-          tone="track"
-          options={layerOptions(trays)}
-          value={String(at)}
-          onChange={(v) => setPicked({ id: target.id, layer: Number(v) })}
-        />
-      )
+      <Segmented
+        label="Layer"
+        tone="track"
+        options={layerOptions(trays)}
+        value={layerValueOf(pick, levels.length)}
+        onChange={(v) => setPicked({ id: target.id, layer: v === "all" ? null : Number(v) })}
+      />
     ) : undefined;
   const showView = plan !== null && !phone;
   const status = phone ? undefined : (
@@ -477,16 +474,20 @@ export function EditorStage({
       onNoteDone={onNoteDone}
       problem={problem}
       onRetry={onRetry}
+      trailing={
+        showView ? (
+          <span data-region="view-switch">
+            <ViewSwitch view={view} onViewChange={onViewChange} webgl={webgl} />
+          </span>
+        ) : undefined
+      }
     />
   );
-  // The same row as the workspace's (StageTop): Layer, then View last.
+  // The same rows as the workspace's (StageTop): the toolbar holds the View switch, the Layer switch has the row under it.
   const switches =
-    phone || (layers === undefined && !showView) ? null : (
+    phone || layers === undefined ? null : (
       <div class="stage-segs" data-region="switches">
         <div class="stage-segs__layer">{layers}</div>
-        <div class="stage-segs__view" data-region="view-switch">
-          {showView ? <ViewSwitch view={view} onViewChange={onViewChange} webgl={webgl} /> : null}
-        </div>
       </div>
     );
   // The tray bar's place stays, empty, so the frame is where the normal stage's is.
@@ -507,7 +508,7 @@ export function EditorStage({
   const threeD =
     plan !== null && in3d && viewer !== null
       ? {
-          slot: { quiet: true },
+          slot: {},
           viewer: {
             ...viewer,
             trays: sTrays ?? trays,
@@ -527,7 +528,7 @@ export function EditorStage({
   const body =
     plan === null ? (
       <>
-        {phone ? null : <StageSlot quiet />}
+        {phone ? null : <StageSlot />}
         {placeholder}
       </>
     ) : (
@@ -536,6 +537,7 @@ export function EditorStage({
         bar={phone ? undefined : band}
         {...target.edited}
         level={at}
+        layerAll={pick === null}
         onLevelChange={nothing}
         selectedKey={null}
         onSelect={nothing}

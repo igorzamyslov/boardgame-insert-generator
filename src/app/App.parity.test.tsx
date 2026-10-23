@@ -294,38 +294,41 @@ describe("the Layer switch drives the 3D view", () => {
       name: name === "All" ? name : new RegExp(`^${name.replace(/[()]/g, "\\$&")}`),
     });
 
-  it("opens on All, peels the layers one by one, and keeps the top view's own layer", async () => {
+  it("opens 3D on All, and one pick drives both views: Top lights layer n, 3D peels the ones above", async () => {
     const scene = stubScene();
     renderApp({ project: threeLayers(), overrides: { viewerProps: scene.viewerProps } });
-    // the top view: one layer, no All
-    expect(within(screen.getByRole("group", { name: "Layer" })).queryByText("All")).toBeNull();
+    // the top view opens on the bottom layer, with the same three-and-All switch as 3D
+    expect(layer("Layer 1").getAttribute("aria-pressed")).toBe("true");
+    expect(within(screen.getByRole("group", { name: "Layer" })).queryByText("All")).not.toBeNull();
+    // a pick made in the top view is the 3D view's too
     fireEvent.click(layer("Layer 2"));
     await inThreeD();
-    expect(layer("All").getAttribute("aria-pressed")).toBe("true");
-    await waitFor(() => expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null));
+    expect(layer("Layer 2").getAttribute("aria-pressed")).toBe("true");
+    await waitFor(() => expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(1));
     // there is no select of its own any more
     expect(screen.queryByLabelText("Show layers")).toBeNull();
-    fireEvent.click(layer("Layer 1 (bottom)"));
+    fireEvent.click(layer("Layer 1"));
     expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(0);
-    fireEvent.click(layer("Layer 2"));
-    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(1);
-    fireEvent.click(layer("Layer 3 (top)"));
+    fireEvent.click(layer("Layer 3"));
     expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(2);
     fireEvent.click(layer("All"));
     expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null);
-    // back in the top view, the layer it had is still its own
-    fireEvent.click(layer("Layer 1 (bottom)"));
+    // back in the top view the pick is still All
     openView("Top");
+    expect(layer("All").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(layer("Layer 2"));
+    openView("3D");
     expect(layer("Layer 2").getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("opens 3D on All again each time", async () => {
+  it("opens 3D on All until a layer is picked, then keeps the pick", async () => {
     const scene = stubScene();
     renderApp({ project: threeLayers(), overrides: { viewerProps: scene.viewerProps } });
     await inThreeD();
-    fireEvent.click(layer("Layer 1 (bottom)"));
+    expect(layer("All").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(layer("Layer 1"));
     openView("Top");
     openView("3D");
-    expect(layer("All").getAttribute("aria-pressed")).toBe("true");
+    expect(layer("Layer 1").getAttribute("aria-pressed")).toBe("true");
   });
 });

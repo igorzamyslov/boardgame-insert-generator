@@ -245,7 +245,7 @@ describe("app store", () => {
     expect(store.state.project.value.name).toBe("Two");
   });
 
-  it("a Keep searching result is one undo step", async () => {
+  it("a Try another arrangement result is one undo step", async () => {
     const { store, stub } = setup();
     const p = fixtureProject();
     const first = makeLayout(inputsHash(p));

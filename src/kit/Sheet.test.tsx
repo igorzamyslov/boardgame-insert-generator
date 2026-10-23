@@ -153,12 +153,12 @@ describe("Sheet", () => {
         title="List"
         expanded={false}
         onExpandedChange={() => undefined}
-        action={<button type="button">Keep searching</button>}
+        action={<button type="button">Try another arrangement</button>}
       >
         <p>Inside</p>
       </Sheet>,
     );
-    const action = screen.getByRole("button", { name: "Keep searching" });
+    const action = screen.getByRole("button", { name: "Try another arrangement" });
     expect(action.closest("[inert]")).toBeNull();
     expect(action.parentElement).toBe(screen.getByRole("button", { name: "List" }).parentElement);
   });

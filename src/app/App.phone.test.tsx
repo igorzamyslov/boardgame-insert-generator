@@ -309,10 +309,10 @@ describe("the phone layout", () => {
     expect(rowIn(/^Market,/)).toBeTruthy();
   });
 
-  it("offers Keep searching on a card of the sheet when the trays do not fit", async () => {
+  it("offers Try another arrangement on a card of the sheet when the trays do not fit", async () => {
     phone();
     const { store, stub } = renderApp({ project: project() });
-    expect(within(sheet()).queryByRole("button", { name: "Keep searching" })).toBeNull();
+    expect(within(sheet()).queryByRole("button", { name: "Try another arrangement" })).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Add" })).toBeTruthy();
     act(() => {
       store.state.lastResult.value = makeResult(null, {
@@ -324,11 +324,11 @@ describe("the phone layout", () => {
     const fix = screen.getByRole("region", { name: "Ways to make it fit" });
     expect(within(fix).getByRole("heading", { name: "Ways to make it fit" })).toBeTruthy();
     expect(within(fix).queryByRole("button", { name: "Add" })).toBeNull();
-    const keep = within(fix).getByRole("button", { name: "Keep searching" });
+    const keep = within(fix).getByRole("button", { name: "Try another arrangement" });
     expect(keep.closest("[inert]")).toBeNull();
     fireEvent.click(keep);
     await waitFor(() => expect(stub.calls).toHaveLength(1));
-    expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
     // the card went with the search: Stop, which took its place, has the focus
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Stop" }));
   });

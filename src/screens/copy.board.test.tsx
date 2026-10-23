@@ -257,7 +257,7 @@ const breakFirst = (store: Store): void => {
   expect(screen.getByText("Needs attention")).toBeTruthy();
 };
 
-/** A run that "Keep searching" started, and that has not finished. */
+/** A run that "Try another arrangement" started, and that has not finished. */
 const searching = (store: Store): void => {
   act(() => {
     store.state.run.value = { status: "running", done: 5, total: 100, kind: "improve" };

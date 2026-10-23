@@ -47,6 +47,8 @@ export interface PlanViewProps {
   stale?: boolean;
   /** A search is running: the trays that are not pinned are dimmed, as Main draws it. */
   searching?: boolean;
+  /** The caption says what a tap does ("tap a tray for details"): the normal stage, not the editor's. */
+  tapHint?: boolean;
   /** The tray bar, shown in the slot above the box while a tray is selected (the app owns it). */
   bar?: ComponentChildren;
   /**
@@ -67,6 +69,11 @@ export interface PlanViewProps {
   ownedId?: string;
   /** Index of the layer shown (0 = the bottom layer); the app owns it. Clamped to the layers there are. */
   level: number;
+  /**
+   * The Layer switch is on "All" (board 2): every layer is drawn, the upper over the lower. Otherwise
+   * layer `level` is lit and the layers below it are ghosted under it.
+   */
+  layerAll?: boolean;
   onLevelChange: (level: number) => void;
   /** The tray a "Swap with…" is under way from, or null; the app owns it. */
   swapFrom: string | null;
@@ -226,9 +233,29 @@ export function PlanView(props: PlanViewProps) {
   const names = trayNames(numbered, components, groups);
   const putOnPrompt = (from: string): string =>
     `Pick the tray to put ${names.get(from)?.full ?? "this tray"} on.`;
-  const shown = traysAt(trays, level);
+  const layerAll = props.layerAll === true && levels.length > 1;
+  // "All": every layer, the lower first so the upper stands over it (a merged part once, as all its members).
+  const shown = layerAll
+    ? levels
+        .flatMap((l) => traysAt(trays, l))
+        .filter((t, i, list) => list.findIndex((o) => o.key === t.key) === i)
+    : traysAt(trays, level);
+  const feet = (t: TraySpec) =>
+    layerAll
+      ? t.merged
+        ? t.merged.members.filter((m) => m.part !== "riser")
+        : [t]
+      : footprintsAt(t, level);
+  // "Layer n" lights layer n and ghosts the layers below it, under it: not tiles, nothing to press.
+  const ghosts = layerAll
+    ? []
+    : levels
+        .filter((l) => l < level)
+        .flatMap((l) => traysAt(trays, l).map((t) => ({ t, l })))
+        .filter(({ t }) => !shown.some((s) => s.key === t.key))
+        .flatMap(({ t, l }) => footprintsAt(t, l).map((f, i) => ({ t, f, i })));
   const rects = shown.flatMap((t) =>
-    footprintsAt(t, level).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
+    feet(t).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
   );
   const pillType = phone ? PHONE_PILL : DESKTOP_PILL;
   const pxPerMm = floorPx / frame.innerW;
@@ -529,7 +556,6 @@ export function PlanView(props: PlanViewProps) {
       {readOnly ? null : (
         <StageSlot
           idle={phone && !hasBar && message === null}
-          quiet={message !== null}
           live={
             // always mounted, so a reader hears a note arrive
             <div role="status">
@@ -552,13 +578,37 @@ export function PlanView(props: PlanViewProps) {
           class="plan-box"
           data-region="plan-box"
           role="group"
-          aria-label={`Plan of layer ${idx + 1} of ${Math.max(1, levels.length)}, seen from above, box front at the bottom`}
+          aria-label={
+            layerAll
+              ? "Plan of all layers, seen from above, box front at the bottom"
+              : `Plan of layer ${idx + 1} of ${Math.max(1, levels.length)}, seen from above, box front at the bottom`
+          }
           data-readonly={readOnly ? "true" : undefined}
           {...handlers}
         >
           <div class="plan-floor" ref={floorRef}>
+            {ghosts.map(({ t, f, i }) => {
+              const look = lookOfTray(t, components, groups);
+              const a = toSvgRect(f, frame);
+              return (
+                <div
+                  key={`${t.key}:${i}`}
+                  aria-hidden="true"
+                  class="plan-tile is-ghost"
+                  style={{
+                    ...(look === null || look.group
+                      ? {}
+                      : { "--tile-fill": look.shade.fill, "--tile-line": look.shade.line }),
+                    "--x": pct(((frame.bc + a.x) / frame.innerW) * 100),
+                    "--y": pct(((frame.bc + a.y) / frame.innerD) * 100),
+                    "--w": pct((a.w / frame.innerW) * 100),
+                    "--d": pct((a.h / frame.innerD) * 100),
+                  }}
+                />
+              );
+            })}
             {shown.map((t) => {
-              const all = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
+              const all = feet(t).map((f) => toSvgRect(f, frame));
               const r = largestOf(all) ?? toSvgRect(t, frame);
               const name = names.get(t.key)?.full ?? t.key;
               const locked = lockedKeys.has(t.key);
@@ -717,15 +767,19 @@ export function PlanView(props: PlanViewProps) {
           "Front of the box"
         ) : (
           <>
-            {`${layerLabel(idx, levels.length)}, seen from above. Front of the box`}
+            {`${layerAll ? "All layers" : layerLabel(idx, levels.length)}, seen from above. Front of the box`}
             <Icon name="arrow-down" size={12} />
           </>
         )}
+        {props.tapHint === true && !phone ? " · tap a tray for details" : null}
       </p>
       {lockedKeys.size > 0 && !readOnly ? (
         <p class="plan-pins">Spacers fill the gaps again when the plan updates.</p>
       ) : null}
-      <ul class="visually-hidden" aria-label={`Trays on layer ${idx + 1}`}>
+      <ul
+        class="visually-hidden"
+        aria-label={layerAll ? "Trays on all layers" : `Trays on layer ${idx + 1}`}
+      >
         {shown.map((t) => (
           <li key={t.key}>
             {`${names.get(t.key)?.full ?? t.key}${lockedKeys.has(t.key) ? ", pinned" : ""}${sizeLockedKeys.has(t.key) ? ", size locked" : ""}`}

@@ -241,7 +241,7 @@ it only with a written reason in the code or the PR.
   `document.body`, so you never steal it from where the person moved it. Examples:
   - `ui/components/ComponentList.tsx`: a chip's × moves focus to the next chip, else to the
     row's button.
-  - `screens/StageTop.tsx`: Keep searching and Stop swap places in the status row, so the one
+  - `screens/StageTop.tsx`: Stop (after "Searching…") and the ⋯ menu's Try another arrangement trade the focus, so the one
     that appears takes focus.
   - `ui/components/EditorPanel.tsx`: the Remove… and Cancel confirmation pair. It moves the focus
     unconditionally: the button that went was the one just pressed, so nothing is stolen.
@@ -466,7 +466,7 @@ inside a region that already exists.
 has the same problem (`ui/SavedStatus.tsx` keeps its region mounted and empty while saving works).
 
 **Focus lands on `<body>` after a click.**
-For example, after a chip's ×, after Keep searching turns into Stop, or after deleting the last
+For example, after a chip's ×, after Try another arrangement turns into Stop, or after deleting the last
 row.
 → The focused element unmounted.
 → In an effect after the re-render, if `document.activeElement` is `body` (or null), focus the
@@ -626,7 +626,7 @@ in `model/hash.test.ts`.
      so type tags and keys aren't flagged.
 3. If the test flags your text, reword it. Add an exception only for a real control or a real
    label:
-   - A legitimate phrase: add it to `ALLOWED` (e.g. "Lock size", "Keep searching", "Part of it").
+   - A legitimate phrase: add it to `ALLOWED` (e.g. "Lock size", "Try another arrangement", "Part of it").
      The phrase is removed before the check, and the rest of the string is still checked.
    - "part" and "parts" are allowed only in `PART_FILES` (the download list, export reasons and
      part names). Add a file there only if it writes that list.
