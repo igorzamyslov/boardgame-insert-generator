@@ -165,8 +165,16 @@ import type { Semver } from "../model/version";
  * was taller than its cards), `RealizeOptions.padding`. And in 0.9.0 too (the layout only; planTray
  * accepted these heights before): an upper tray is only as high as its groove needs, `upperTrayMinH`
  * (3.65 mm at the defaults), where it was lip.height + 3 mm (5 mm); the height goes into the riser.
+ *
+ * 0.9.1 closes the slit in a merged part where three or four members meet at a corner (`mergeParts`,
+ * `slitFills`; found in the owner's Star Realms file, the Trade deck's folded part). The members
+ * stand a tray gap apart and a bridge joins one pair across the stretch they share, so the gap
+ * square at a corner no bridge covers was a 0.2 mm hole through the part (genus 1): the part now
+ * has a solid fill there, over the height it exists. A mesh-only fix in a printed filler or riser
+ * part: outer size, fit and every tray are as before, and a single, unmerged part does not change.
+ * A PATCH, as 0.8.2 (one rounding of a merged part) was.
  */
-export const GEOMETRY_VERSION = "0.9.0";
+export const GEOMETRY_VERSION = "0.9.1";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

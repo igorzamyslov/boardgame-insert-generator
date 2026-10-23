@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Printer, Settings, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
-import { mergeParts, MIN_JOIN_MM } from "./merge";
+import { mergeParts, MIN_JOIN_MM, slitFills } from "./merge";
 import { TEST_PRINTER, traySpec } from "./test-utils";
 import { toU, toUFloor } from "./units";
 
@@ -401,5 +401,49 @@ describe("mergeParts: the star realms comb", () => {
       ["leftover:2", "leftover:3", "leftover:5"],
     ]);
     expect(out.every((p) => p.merged?.flipped === true)).toBe(true);
+  });
+});
+
+describe("mergeParts: the slit where members meet at a corner", () => {
+  const corner = (cH = 35): TraySpec[] => [
+    filler({ key: "leftover:0", x: 0, y: 20 + GAP, w: 30, d: 30 }),
+    filler({ key: "leftover:1", x: 30 + GAP, y: 20 + GAP, w: 30, d: 30 }),
+    filler({ key: "leftover:2", x: 0, y: 0, w: 60 + GAP, d: 20, h: cH }),
+  ];
+
+  it("three members: the bridges get a fill for the gap x gap square between them", () => {
+    const merged = mergeParts(corner(), inputs()).find((t) => t.merged) as TraySpec;
+    const fill = merged.merged?.bridges.find(
+      (b) => Math.abs(b.w - GAP) < 1e-6 && Math.abs(b.d - GAP) < 1e-6,
+    );
+    expect(fill).toEqual({ x: 30, y: 20, z: 0, w: GAP, d: GAP, h: 35 });
+  });
+
+  it("the lower member across them: the fill is as high as the lower one", () => {
+    const merged = mergeParts(corner(12), inputs()).find((t) => t.merged) as TraySpec;
+    const fill = merged.merged?.bridges.find(
+      (b) => Math.abs(b.w - GAP) < 1e-6 && Math.abs(b.d - GAP) < 1e-6,
+    );
+    expect(fill).toMatchObject({ x: 30, y: 20, z: 0, h: 12 });
+  });
+
+  it("two members side by side: nothing to fill", () => {
+    const parts = [
+      filler({ key: "leftover:0", x: 0, y: 0, w: 30, d: 30 }),
+      filler({ key: "leftover:1", x: 30 + GAP, y: 0, w: 30, d: 30 }),
+    ];
+    const merged = mergeParts(parts, inputs()).find((t) => t.merged) as TraySpec;
+    expect(merged.merged?.bridges).toHaveLength(1);
+  });
+
+  it("slitFills leaves air wider than the gap alone (the place of a tray)", () => {
+    const box = (x: number, y: number, w: number, d: number) => ({ x, y, z: 0, w, d, h: 10 });
+    const ring = [box(0, 0, 50, 5), box(50, 0, 5, 50), box(5, 50, 50, 5), box(0, 5, 5, 50)];
+    expect(slitFills(ring, [], GAP)).toEqual([]);
+    // a slit between two blocks closed at both ends by a third and fourth
+    const slit = [box(0, 0, 10, 10), box(10 + GAP, 0, 10, 10), box(0, 10, 20 + GAP, 5)];
+    expect(slitFills(slit, [], GAP)).toEqual([]); // open at the front: not enclosed
+    const closed = [...slit, box(0, -5, 20 + GAP, 5)];
+    expect(slitFills(closed, [], GAP)).toEqual([{ x: 10, y: 0, z: 0, w: GAP, d: 10, h: 10 }]);
   });
 });

@@ -1,7 +1,7 @@
 {
   "layout": {
-    "createdWith": "0.10.0",
-    "geometryVersion": "0.9.0",
+    "createdWith": "0.11.0",
+    "geometryVersion": "0.9.1",
     "inputsHash": "1b894917413e7c",
     "seed": 1,
     "iterations": 100000,
@@ -1060,10 +1060,6 @@
     "mergeRisers": true,
     "minRiser": 3,
     "filamentG": 1141.8,
-    "filamentAtInfillG": 1005.6,
-    "infillPct": 15,
-    "printMinutes": 3379.2,
-    "longestPartMinutes": 518.2,
     "playLimit": 1.5,
     "playX": 1.4,
     "playY": 1.8,
