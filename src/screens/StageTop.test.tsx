@@ -569,6 +569,27 @@ describe("statusOf, the fit problems", () => {
     });
   });
 
+  it("speaks for a box that is too small in its line, naming no tray", () => {
+    const volume = {
+      verdict: "over" as const,
+      line: "Your items need at least 7.2 L as trays. The box has 6.8 L under the headroom.",
+      judgement: "This can't fit: take something out or reserve less space on top.",
+      biggest: [],
+      leaveOut: null,
+    };
+    expect(noFit({ noFit: { misfit: null, shortfall: { x: 0, y: 0, z: 17.2 }, volume } })).toEqual({
+      tone: "warn",
+      fit: "noFit",
+      title: "Not everything fits yet",
+      line: `${volume.line} ${volume.judgement}`,
+      actions: [{ kind: "keep", label: "Keep searching" }],
+    });
+    // a tight box says nothing here: the note under the cards does
+    expect(noFit({ noFit: { misfit, volume: { ...volume, verdict: "tight" } } }).line).toBe(
+      "There's no room left for it in the box.",
+    );
+  });
+
   it("adds the closest plan's shortfall to the box reason, and not to the bed's", () => {
     const shortfall = { x: 0, y: 0, z: 17.2 };
     expect(noFit({ noFit: { misfit, shortfall } }).line).toBe(
