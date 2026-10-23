@@ -48,6 +48,8 @@ import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
 import { componentIdsOfTray, mm } from "../ui/identity";
 import { misfitOf, namedConflicts } from "../ui/noFit";
+import { volumeNote } from "../ui/volumeFit";
+import { projectVolume } from "./volume";
 import {
   SettingsContext,
   SizingContext,
@@ -572,9 +574,15 @@ export function App(props: AppProps) {
   const selectedIds =
     selectedTray === undefined ? [] : componentIdsOfTray(selectedTray, project.components);
   // The tray the closest attempt could not fit, for the status and for the picture that marks it.
-  const misfit = noFit
+  const volume = useMemo(() => {
+    const budget = noFit ? projectVolume(project) : null;
+    return budget === null ? null : volumeNote(budget, project.box.headroom > 0);
+  }, [noFit, project]);
+  const closest = noFit
     ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components, project.groups)
     : null;
+  // Needing more room than the box has is no one tray's fault: none is blamed, unless the bed is the cause.
+  const misfit = volume?.verdict === "over" && closest?.reason !== "bed" ? null : closest;
   // What the status says (the heading; and, while an editor is open, the problems it still tells).
   const statusInput: StatusInput = {
     run,
@@ -584,7 +592,7 @@ export function App(props: AppProps) {
     hasLayout: layout !== undefined,
     fits,
     canSearchMore: !s.geometryOld.value,
-    noFit: noFit ? { misfit, shortfall: s.noFitAttempt.value?.shortfall ?? null } : null,
+    noFit: noFit ? { misfit, shortfall: s.noFitAttempt.value?.shortfall ?? null, volume } : null,
     conflicts,
     hiddenErrors: errorsWithoutField(validation),
     problems,
@@ -627,6 +635,7 @@ export function App(props: AppProps) {
   const fixes = {
     kind: fitKind ?? "noFit",
     actions: status.actions,
+    volume: fitKind === "noFit" ? volume : null,
     onShow: showSection,
     onKeepSearching: () => {
       store.refit();

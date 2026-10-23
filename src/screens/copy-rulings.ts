@@ -114,6 +114,7 @@ const PINS =
   "Pins in the way: the first conflict names the heading, the engine's reasons are its line, and each conflict is a card";
 const FIT_PANEL = "The fit problems are a stage of their own";
 const NOFIT_FIGURE = "The no-fit line gives the closest plan's shortfall";
+const VOLUME = "The no-fit screen says how much room the items need";
 const FIT_ROW = "The rail marks the tray that does not fit: Doesn't fit";
 const BANNERS = "The plan banners use DESIGN's words";
 const NOTES = "Layout and sizing notices sit under the plan caption";
@@ -124,6 +125,28 @@ const FAILED = ["workspace-failed"] as const;
 const ERRORS = ["workspace-error"] as const;
 const FIT_PROBLEMS = ["no-fit", "no-fit-bed", "pin-conflict", "m-fix", "m-pin-conflict"] as const;
 const NO_FIT = ["no-fit", "no-fit-bed", "m-fix"] as const;
+/** The volume note's sentences; `{name}` stands for a figure in litres or an item's name. */
+const NEEDS = "Your items need at least {name} L as trays.";
+const HAS = ["The box has {name} L.", "The box has {name} L under the headroom."];
+const OVER = [
+  "This can't fit: take something out or reserve less space on top.",
+  "This can't fit: take something out.",
+];
+const VOLUME_RULINGS: readonly CopyRuling[] = [
+  ...HAS.map((has) => ({ text: `${NEEDS} ${has}`, states: NO_FIT, ruling: VOLUME })),
+  ...OVER.map((text) => ({ text, states: NO_FIT, ruling: VOLUME })),
+  // over the box's volume the heading says both: the figures, then the judgement
+  ...HAS.flatMap((has) =>
+    OVER.map((over) => ({ text: `${NEEDS} ${has} ${over}`, states: NO_FIT, ruling: VOLUME })),
+  ),
+  { text: "Very tight: expect to change settings.", states: NO_FIT, ruling: VOLUME },
+  { text: "{name} takes {name} L", states: NO_FIT, ruling: VOLUME },
+  {
+    text: "Leaving out {name} would bring it under the box's {name} L.",
+    states: NO_FIT,
+    ruling: VOLUME,
+  },
+];
 const PIN_CONFLICT = ["pin-conflict", "m-pin-conflict"] as const;
 // Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
 const MORE = "More holds Swap with… and Lock size";
@@ -586,6 +609,9 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: NOFIT_FIGURE,
   },
   { text: "The closest plan is {name}.", states: NO_FIT, ruling: NOFIT_FIGURE },
+  // 0.14.0: the volume note under the cards, and (over the box's volume) the heading's line. Its
+  // sentences are `volumeNote`'s (src/ui/volumeFit.ts), with and without a headroom.
+  ...VOLUME_RULINGS,
   { text: "It's too big for your printer's bed.", states: ["no-fit-bed"], ruling: NOFIT },
   { text: "{name} doesn't fit with your pins", states: PIN_CONFLICT, ruling: PINS },
   { text: "{name} doesn't fit with its size locked", states: PIN_CONFLICT, ruling: PINS },

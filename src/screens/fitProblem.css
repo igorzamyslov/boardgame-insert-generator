@@ -93,6 +93,31 @@
   min-width: 0;
 }
 
+/* NoFit's volume note (0.14.0): plain words under the cards, the judgement in the warn ink. */
+.fp-volume {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  min-width: 0;
+  padding-top: var(--s-4);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.fp-volume p,
+.fp-volume ul {
+  margin: 0;
+}
+
+.fp-volume__judgement {
+  color: var(--warn-ink);
+}
+
+.fp-volume__list {
+  padding-left: var(--s-16);
+}
+
 /*
  * One thing to do: its words alone, 600. 14 px in, a 1 px field line and 12 px round (PinConflict's
  * cards are 14); the first of NoFit's has a 1.5 px ink edge. A button, so it is 44 px at the least.
