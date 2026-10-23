@@ -3,6 +3,7 @@
   "extends": ["config:recommended", ":dependencyDashboard"],
   "labels": ["dependencies"],
   "platformAutomerge": true,
+  "bumpVersion": "patch",
   "lockFileMaintenance": {
     "enabled": true
   },
