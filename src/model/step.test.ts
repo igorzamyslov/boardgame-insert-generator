@@ -3,7 +3,7 @@
 // base on request; hashed only when it is the step, so no saved plan goes stale.
 import { describe, expect, it } from "vitest";
 import { sampleProject } from "../test-support/sample";
-import { inputsHash } from "./hash";
+import { canonicalJson, inputsHash, lipForHash } from "./hash";
 import { bottomEdgeOf, rimOn, socketOf, stepOf, stepOn, upperTrayMinH } from "./lip";
 import { noForeign, parseProject, serializeProject } from "./schema";
 import { DEFAULT_SETTINGS } from "./settings";
@@ -50,6 +50,36 @@ describe("the rim's kind", () => {
     const stepped = inputsHash(withLip(p, { kind: "step" }));
     expect(stepped).not.toBe(before);
     expect(inputsHash(withLip(p, { kind: "step", stepHeight: 2.5 }))).not.toBe(stepped);
+  });
+
+  it("hashes the step under a key no file holds, so an older app sees a stepped plan as stale", () => {
+    // An older app keeps a newer file's lip.kind and lip.stepHeight as they are and hashes them so.
+    const stepped = { ...DEFAULT_SETTINGS.lip, kind: "step" as const };
+    expect(canonicalJson(lipForHash(stepped))).not.toBe(canonicalJson(stepped));
+    expect(lipForHash(stepped)).not.toHaveProperty("kind");
+    expect(lipForHash(stepped)).not.toHaveProperty("stepHeight");
+    expect(lipForHash(stepped)).toHaveProperty("stepBase", 1.5);
+  });
+
+  it("asks the step to be the lip play (times Fit) and MIN_FEATURE_MM high, at least", () => {
+    const at = (fit: number, play: number, stepHeight: number) =>
+      validateProject({
+        ...withLip(sampleProject(), { kind: "step", play, stepHeight }),
+        settings: {
+          ...withLip(sampleProject(), { kind: "step", play, stepHeight }).settings,
+          fit,
+        },
+      }).filter((n) => n.code === "field.stepPlay");
+    expect(at(3, 0.4, 1)).toHaveLength(1);
+    expect(at(2, 0.5, 1)).toHaveLength(1);
+    expect(at(1, 0.2, 1)).toHaveLength(0);
+    expect(at(1, 0.25, 1.5)).toHaveLength(0);
+    // the rim asks nothing of the step's height
+    const rimmed = validateProject({
+      ...withLip(sampleProject(), { kind: "rim", play: 0.5, stepHeight: 1 }),
+    }).filter((n) => n.code === "field.stepPlay");
+    expect(rimmed).toHaveLength(0);
+    expect(at(3, 0.4, 1)[0]?.path).toBe("/settings/lip/stepHeight");
   });
 
   it("validates the step's height, and asks no lip ledge of the step", () => {

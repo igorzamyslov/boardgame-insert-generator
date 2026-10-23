@@ -1,4 +1,4 @@
-import { lipAbove } from "../model/lip";
+import { lipAbove, stepOn } from "../model/lip";
 import { effective } from "../model/settings";
 import type { BoxMm, Printer, Settings, TraySpec } from "../model/types";
 import { fitsBed, type Bed } from "./bed";
@@ -57,15 +57,19 @@ interface BridgeFit {
   readonly gap: number;
   /** The outer corner radius (an upper bound: sizing may use less), mm. */
   readonly radius: number;
+  /** The stepped base is on: a lipped member (a riser) has a socket in its top. */
+  readonly socketed: boolean;
 }
 
 /**
  * How far into a member a bridge reaches: as far as the member's rounded corner cuts away (the
  * corner radius), but not into an open member's pocket (past its wall) nor across a solid one
- * (past half its width).
+ * (past half its width), nor into a socketed member's socket (past its wall, where the socket
+ * starts: the bridge stands to the member's top and would fill it).
  */
 function reach(m: TraySpec, across: number, fit: BridgeFit): number {
-  return roundMm(Math.max(0, Math.min(fit.radius, m.solid ? across / 2 : m.wall)));
+  const inside = m.solid && !(fit.socketed && m.lip) ? across / 2 : m.wall;
+  return roundMm(Math.max(0, Math.min(fit.radius, inside)));
 }
 
 interface Span {
@@ -531,6 +535,7 @@ export function mergeParts(trays: readonly TraySpec[], o: MergeInputs): TraySpec
   const fit: BridgeFit = {
     gap: effective(settings).trayGap,
     radius: Math.max(0, settings.cornerRadius),
+    socketed: stepOn(settings),
   };
   const bed: Bed = {
     w: toUFloor(printer.bedX - 2 * printer.bedMargin),

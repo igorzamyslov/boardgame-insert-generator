@@ -254,6 +254,13 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   const groove = grooveOf(settings, level);
   const step = stepOf(settings, level);
   const edge = groove ? grooveEdge(groove) : step ? stepEdge(step) : plainEdge(chamfer);
+  // The step starts the play under the seam: the slab keeps MIN_FEATURE_MM of side below that.
+  if (step !== null && !(step.height - step.play >= MIN_FEATURE_MM - TOL)) {
+    fail(
+      spec,
+      `a ${step.height} mm step leaves less than ${MIN_FEATURE_MM} mm of slab under its ${step.play} mm play`,
+    );
+  }
   // A part with another stacked on it has, with the stepped base, the socket the slab drops into.
   const socket =
     spec.part === "spacer" || spec.part === "divider" ? null : socketOf(settings, spec.lip);
@@ -343,7 +350,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     groove,
     step: stepPlan,
     socket: socketPlan,
-    compartments: planTopFillets(compartments, spec, cornerRadius, lip),
+    compartments: planTopFillets(compartments, spec, cornerRadius, lip, socketPlan),
     notch: planNotchFillets(notch, spec, cornerRadius),
   };
 }

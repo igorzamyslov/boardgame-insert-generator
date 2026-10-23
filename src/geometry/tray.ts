@@ -328,7 +328,11 @@ function buildCutter(
         m,
         scope,
         cut,
-        filletReach(cut, filletStrip(cut, plan, plan.lip), plan.lip !== null),
+        filletReach(
+          cut,
+          filletStrip(cut, plan, plan.lip, plan.socket),
+          plan.lip !== null || plan.socket !== null,
+        ),
       ),
     ]),
     // A divider's slot: from the bottom of the slot up into the well, EPS over its floor.

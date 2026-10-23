@@ -19,9 +19,11 @@ import type { Project, Settings, TraySpec } from "../model/types";
 import { size } from "../sizing";
 import { loadManifold } from "./load";
 import { planTray } from "./plan";
+import { filletStrip } from "./plan-cuts";
 import { checkPrintability } from "./printability";
 import { buildTray } from "./tray";
 import { problemsOf } from "./test-build";
+import { compartment, cutout, traySpec } from "./test-specs";
 import { bounds } from "./test-mesh";
 import type { Mesh } from "./types";
 
@@ -84,16 +86,19 @@ describe("the stepped base in the owner's Star Realms file", { timeout: 120_000 
       : risers.find((r) => r.key === `${t.key}:riser`);
 
   /** How much of `upper` (at its place, shifted by dx, dy) is inside `lower`, mm³. */
-  const interference = (lower: TraySpec, upper: TraySpec, dx = 0, dy = 0, lift = 0): number => {
-    const st = planTray(upper, settings).step;
+  const interference = (
+    lower: TraySpec,
+    upper: TraySpec,
+    dx = 0,
+    dy = 0,
+    lift = 0,
+    s: Settings = settings,
+  ): number => {
+    const st = planTray(upper, s).step;
     // a mesh's bed face is its slab's, when it has one
-    const under = planTray(lower, settings).step?.height ?? 0;
-    const a = solid(buildTray(m, lower, settings).mesh).translate([
-      lower.x,
-      lower.y,
-      lower.z - under,
-    ]);
-    const b = solid(buildTray(m, upper, settings).mesh).translate([
+    const under = lower.merged ? 0 : (planTray(lower, s).step?.height ?? 0);
+    const a = solid(buildTray(m, lower, s).mesh).translate([lower.x, lower.y, lower.z - under]);
+    const b = solid(buildTray(m, upper, s).mesh).translate([
       upper.x + dx,
       upper.y + dy,
       upper.z - (st?.height ?? 0) + lift,
@@ -217,6 +222,65 @@ describe("the stepped base in the owner's Star Realms file", { timeout: 120_000 
       expect(block, block.key).toMatchObject({ lip: true, solid: true });
       expect(problemsOf(m, block, solidSettings), block.key).toEqual([]);
     }
+  });
+
+  it("seats the tray on a solid riser folded into its spacer: no bridge fills the socket", () => {
+    const solidSettings: Settings = { ...settings, leftover: "solid" };
+    const printed = printableParts(plan, {
+      components: p.components,
+      settings: solidSettings,
+      printer: p.printer,
+      locks: p.locks,
+    }).trays;
+    const folded = printed.filter(
+      (t) => t.merged?.members.some((x) => x.part === "riser" && x.solid && x.lip) === true,
+    );
+    expect(folded.length).toBeGreaterThan(0);
+    for (const f of folded) {
+      expect(problemsOf(m, f, solidSettings), f.key).toEqual([]);
+      const riser = f.merged?.members.find((x) => x.part === "riser") as TraySpec;
+      const tray = printed.find((t) => `${t.key}:riser` === riser.key) as TraySpec;
+      expect(tray.onRiser, tray.key).toBe(true);
+      expect(interference(f, tray, 0, 0, 0, solidSettings), `${tray.key} on ${f.key}`).toBeLessThan(
+        1e-3,
+      );
+    }
+  });
+
+  it("rounds a cut through a socketed divider at the divider's top, under the socket", () => {
+    // two wells side by side, a finger cut from the left one through the divider into the right
+    const spec = traySpec({
+      key: "divided-socket:p0:0",
+      w: 100,
+      d: 60,
+      h: 30,
+      lip: true,
+      compartments: [
+        compartment({ x: 1.6, y: 1.6, w: 47.8, d: 56.8, features: [cutout("right", 30, 15)] }),
+        compartment({ x: 50.6, y: 1.6, w: 47.8, d: 56.8, features: [cutout("left", 30, 15)] }),
+      ],
+    });
+    const tp = planTray(spec, settings);
+    const cuts = tp.compartments.flatMap((c) => c.cuts.filter((x) => x.into !== null));
+    expect(cuts.length).toBeGreaterThan(0);
+    for (const cut of cuts) {
+      expect(filletStrip(cut, tp, tp.lip, tp.socket).top).toBeCloseTo(
+        spec.h - (tp.socket?.depth ?? 0),
+        9,
+      );
+      expect(cut.topFillets.some((r) => r > 0)).toBe(true);
+    }
+    expect(problemsOf(m, spec, settings)).toEqual([]);
+  });
+
+  it("refuses a step no taller than its play and MIN_FEATURE_MM", () => {
+    const t = trays.find((x) => x.level > 0) as TraySpec;
+    const low: Settings = {
+      ...settings,
+      fit: 2,
+      lip: { ...settings.lip, play: 0.5, stepHeight: 1 },
+    };
+    expect(() => planTray(t, low)).toThrow(/step leaves less than/);
   });
 
   it("builds the risers folded into their joined spacers, socket and all", () => {

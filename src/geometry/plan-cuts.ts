@@ -12,7 +12,7 @@ import {
   separation,
 } from "../model/cut-rules";
 import { FINGER_FILLET_MM, INNER_CORNER_RADIUS_MM, MIN_FILLET } from "./plan-types";
-import type { CompartmentPlan, CutPlan, LipPlan, Rect, ReliefPlan } from "./plan-types";
+import type { CompartmentPlan, CutPlan, LipPlan, Rect, ReliefPlan, SocketPlan } from "./plan-types";
 
 // Wall cutouts (FeatureSpec "wallCutout", spec §6.1, roadmap §4.6): planned and checked once every
 // compartment rectangle is known, because a cut runs from its compartment to the next one across.
@@ -322,8 +322,21 @@ export function filletStrip(
   cut: CutPlan,
   frame: { w: number; d: number; h: number },
   lip: LipPlan | null,
+  socket: SocketPlan | null = null,
 ): { top: number; v0: number; v1: number } {
   const { v0, v1 } = axes(cut, cut.side);
+  if (socket !== null) {
+    // A socket takes everything inside its wall down to its floor: a divider's top is there, and
+    // through the outer wall only the wall beside the socket stands to the rim.
+    if (cut.into !== null) {
+      return { top: frame.h - socket.depth, v0, v1 };
+    }
+    const outer = { front: 0, back: frame.d, left: 0, right: frame.w }[cut.side];
+    const far = cut.side === "back" || cut.side === "right";
+    return far
+      ? { top: frame.h, v0: outer - socket.wall, v1: outer }
+      : { top: frame.h, v0: outer, v1: outer + socket.wall };
+  }
   if (cut.into !== null || lip === null) {
     return { top: frame.h, v0, v1 };
   }
@@ -402,11 +415,12 @@ export function planTopFillets(
   frame: { w: number; d: number; h: number },
   cornerRadius: number,
   lip: LipPlan | null,
+  socket: SocketPlan | null = null,
 ): CompartmentPlan[] {
   return plans.map((plan) => ({
     ...plan,
     cuts: plan.cuts.map((cut) => {
-      const strip = filletStrip(cut, frame, lip);
+      const strip = filletStrip(cut, frame, lip, socket);
       const across = (r: Rect): boolean => {
         const o = axes(r, cut.side);
         return o.v0 < strip.v1 - TOL && o.v1 > strip.v0 + TOL;

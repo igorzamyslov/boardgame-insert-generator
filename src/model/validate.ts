@@ -10,7 +10,7 @@ import {
   topPlane,
 } from "./settings";
 import { DEFAULT_GROUP_NAME } from "./groups";
-import { rimOn } from "./lip";
+import { rimOn, stepOn } from "./lip";
 import type { Component, ForeignData, Group, Lock, Notice, Project, Settings } from "./types";
 
 /**
@@ -34,6 +34,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     layerHeight: "field.layerHeight",
     length: "field.length",
     lipBearing: "field.lipBearing",
+    stepPlay: "field.stepPlay",
     lockPath: "field.lockPath",
     lockStack: "field.lockStack",
     separators: "field.separators",
@@ -643,6 +644,20 @@ function checkSettings(ck: Checker, settings: Settings): void {
       VALIDATION_NOTICE_CODES.field.bottomChamfer,
       "/settings/bottomChamfer",
       `Bottom chamfer must be at most ${Math.floor(limit * 100 + 1e-6) / 100} mm for this wall and floor.`,
+    );
+    return;
+  }
+  // The stepped base's slab keeps MIN_FEATURE_MM of side under its play (model/lip.ts stepOf: the
+  // step starts the play under the seam, the slab's bed face `stepHeight` under it).
+  if (
+    stepOn(settings) &&
+    !["lip/play", "lip/stepHeight", "fit"].some((path) => outside.has(path)) &&
+    !(effective(settings).lipPlay <= settings.lip.stepHeight - MIN_FEATURE_MM + FLOAT_EPSILON)
+  ) {
+    ck.error(
+      VALIDATION_NOTICE_CODES.field.stepPlay,
+      "/settings/lip/stepHeight",
+      `Step height must be at least the lip play (times Fit) plus ${MIN_FEATURE_MM} mm, ${Math.ceil((effective(settings).lipPlay + MIN_FEATURE_MM) * 100) / 100} mm.`,
     );
     return;
   }
