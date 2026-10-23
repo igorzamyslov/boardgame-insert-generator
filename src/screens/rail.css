@@ -347,10 +347,10 @@
   color: var(--muted);
 }
 
-/* The whole border, not its colour: the swatch's own is a var() the group has no value for. */
+/* The group's own hue: the header gives `--shade-*`. */
 .gc-head--compact .k-row__swatch--group {
-  border: 2px solid var(--muted-strong);
-  background: var(--sheet);
+  border: 2px solid var(--shade-line, var(--muted-strong));
+  background: var(--shade-fill, var(--sheet));
 }
 
 .gc--compact .gc-members {

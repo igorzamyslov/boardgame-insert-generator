@@ -1049,11 +1049,12 @@ describe("ExportPanel for a group's trays", () => {
   const asked = () =>
     props({ trays: [copy(0), copy(1), own], groups: [kit], components: [...components, hex] });
 
-  it("lists a chip per copy, named by the group, in the neutral swatch", () => {
+  it("lists a chip per copy, named by the group, in its group's hue", () => {
     render(<ExportPanel {...asked()} />);
     const chips = screen.getAllByRole("listitem") as HTMLElement[];
     expect(chips.map((c) => c.textContent)).toEqual(["Player kit 1", "Player kit 2", "Hex tiles"]);
     const neutral = shadeOf("group", 0);
+    // (the one group is the project's first: its hue is the first)
     for (const chip of chips.slice(0, 2)) {
       expect(chip.style.getPropertyValue("--shade-fill")).toBe(neutral.fill);
       expect(chip.style.getPropertyValue("--shade-line")).toBe(neutral.line);

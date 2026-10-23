@@ -2,6 +2,7 @@
 import type { Component, ComponentKind, Group, TraySpec } from "../model/types";
 import {
   componentIndexOfTray,
+  groupShadeIndexOfTray,
   isGroupTray,
   memberShadeOfCompartment,
   shadeIndexOf,
@@ -41,7 +42,11 @@ export function lookOfTray(
     return null;
   }
   if (isGroupTray(tray, { components, groups })) {
-    return { kind: component.kind, shade: shadeOf("group", 0), group: true };
+    return {
+      kind: component.kind,
+      shade: shadeOf("group", groupShadeIndexOfTray(tray, { components, groups })),
+      group: true,
+    };
   }
   return {
     kind: component.kind,

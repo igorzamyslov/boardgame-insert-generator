@@ -60,21 +60,36 @@ const SHADE_STEPS: readonly { l: number; s: number }[] = [
 const DARK_L_STEPS: readonly number[] = [0, 5, -4, 9, 13];
 
 const DARK_FILL_MAX_L = 40;
+/** A group's dark fills start deeper than a kind's, so their lightest step stops lower for light ink to read. */
+const GROUP_DARK_FILL_MAX_L = 28;
 const MIN_LINE_CONTRAST = 3.2;
 const MIN_INK_CONTRAST = 4.8;
 
 /**
- * A group's tray is neutral: a mixed tray has no single kind, so no kind hue stands for it. Light
- * mirrors `--sheet` (the fill) and `--muted-strong` (the line and the ink); the line keeps 3:1 on
- * the box and on the fill, the ink 4.5:1 on the fill. In 3D the body takes `fill`; the wells are
- * not tinted there.
+ * A group's own hues, none of them a kind's (blue, amber, green, pink, violet) and none a neutral
+ * (spacers are warm grey): teal, terracotta and olive, each in a mid tone where a kind's is a
+ * pastel, so a group's tray body reads as another family of colour and not as a sixth kind, with its
+ * members' pastel wells on it. Group `n` takes hue `n % 3` and, every third group on, the next
+ * lightness step of `SHADE_STEPS`. Line and ink keep the contrast `shadeHex` asks of any shade.
  */
-export const GROUP_SHADE: Record<ColorScheme, Shade> = {
-  light: { fill: "#ffffff", line: "#3e413c", ink: "#3e413c" },
-  dark: { fill: "#26241f", line: "#d6d3c8", ink: "#e6e3d9" },
+const GROUP_TEAL: Record<ColorScheme, Shade> = {
+  light: { fill: "#74C2B8", line: "#14554E", ink: "#0C3A35" },
+  dark: { fill: "#1F5D56", line: "#7FD1C6", ink: "#C4ECE6" },
 };
 
-/** What a shade is asked for: a component's kind, or "group" for the neutral of a group's tray. */
+export const GROUP_BASES: readonly Record<ColorScheme, Shade>[] = [
+  GROUP_TEAL,
+  {
+    light: { fill: "#EDA08C", line: "#8E3219", ink: "#64210F" },
+    dark: { fill: "#6E3322", line: "#F0A892", ink: "#F4D2C7" },
+  },
+  {
+    light: { fill: "#C3CF6A", line: "#4D5A0B", ink: "#363F07" },
+    dark: { fill: "#4B5413", line: "#CAD677", ink: "#E4EBB8" },
+  },
+];
+
+/** What a shade is asked for: a component's kind, or "group" for the nth group's own hue. */
 export type ShadeKind = ComponentKind | "group";
 
 /**
@@ -85,10 +100,23 @@ export type ShadeKind = ComponentKind | "group";
  * until it keeps 4.5:1 on the fill, so any shade can be used for outlines and for text.
  */
 export function shadeHex(kind: ShadeKind, index: number, scheme: ColorScheme): Shade {
+  const n = Math.trunc(index);
   if (kind === "group") {
-    return { ...GROUP_SHADE[scheme] };
+    const hues = GROUP_BASES.length;
+    const hue = ((n % hues) + hues) % hues;
+    const round = Math.floor((n - hue) / hues);
+    return stepped((GROUP_BASES[hue] ?? GROUP_TEAL)[scheme], round, scheme, GROUP_DARK_FILL_MAX_L);
   }
-  const base = KIND_BASES[kind][scheme];
+  return stepped(KIND_BASES[kind][scheme], n, scheme);
+}
+
+/** A base shade moved `index` steps within its hue (`SHADE_STEPS`), for one colour scheme. */
+function stepped(
+  base: Shade,
+  index: number,
+  scheme: ColorScheme,
+  darkMaxL = DARK_FILL_MAX_L,
+): Shade {
   const slot = ((Math.trunc(index) % SHADE_COUNT) + SHADE_COUNT) % SHADE_COUNT;
   if (slot === 0) {
     return { ...base };
@@ -102,7 +130,7 @@ export function shadeHex(kind: ShadeKind, index: number, scheme: ColorScheme): S
   const fill = hslToHex({
     h: f.h,
     s: Math.min(f.s, Math.max(f.s * 0.5, f.s * (1 + step.s / 100))),
-    l: scheme === "light" ? f.l + dL : Math.min(DARK_FILL_MAX_L, f.l + dL),
+    l: scheme === "light" ? f.l + dL : Math.min(darkMaxL, f.l + dL),
   });
   // Away from the box and the fill: darker on a light page, lighter on a dark one.
   const away = (hex: string, against: readonly string[], need: number): string => {
@@ -413,13 +441,35 @@ export function traysOfGroup(
 
 /**
  * Whether a tray is a group's: a tray (not a spacer, riser, divider or spare) of a group. It is
- * drawn and shaded neutral everywhere (spec §7.6): a mixed tray has no single kind.
+ * drawn and shaded in its group's own hue everywhere (`groupShadeIndexOf`): a mixed tray has no
+ * single kind, and so no kind's hue.
  */
 export function isGroupTray(
   tray: TraySpec,
   p: { components: readonly Component[]; groups?: readonly Group[] },
 ): boolean {
   return tray.part === "tray" && (p.groups?.length ?? 0) > 0 && groupOfTray(tray, p) !== undefined;
+}
+
+/**
+ * Which of the group hues a group takes: its place among the project's groups, in their order, so
+ * every copy and every part of a group is one colour and a colour moves only when a group before
+ * it goes. 0 for an id that is not among them.
+ */
+export function groupShadeIndexOf(groups: readonly Group[] | undefined, id: string): number {
+  return Math.max(
+    0,
+    (groups ?? []).findIndex((g) => g.id === id),
+  );
+}
+
+/** The group hue of a group's tray (`groupShadeIndexOf`); 0 for a tray of no group. */
+export function groupShadeIndexOfTray(
+  tray: TraySpec,
+  p: { components: readonly Component[]; groups?: readonly Group[] },
+): number {
+  const group = groupOfTray(tray, p);
+  return group === undefined ? 0 : groupShadeIndexOf(p.groups, group.id);
 }
 
 /** What a compartment is drawn in: its member's kind, and the member's place among its kind. */

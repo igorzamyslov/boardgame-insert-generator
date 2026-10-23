@@ -15,7 +15,9 @@ import tokens from "../styles/tokens.css?raw";
 import { contrast, hexToHsl, hexToRgb, rgbToHex } from "./color";
 import {
   BOX_COLOR,
-  GROUP_SHADE,
+  GROUP_BASES,
+  groupShadeIndexOf,
+  groupShadeIndexOfTray,
   SPACER_SHADE,
   SHADE_COUNT,
   compartmentWords,
@@ -222,32 +224,75 @@ describe("component shades", () => {
     }
   });
 
-  it("gives a group's tray one neutral shade, light and dark, the same through shadeHex", () => {
+  it("gives each group a hue of its own: three hues, then their lightness steps, light and dark", () => {
+    const hues = GROUP_BASES.length;
     for (const scheme of SCHEMES) {
-      expect(shadeHex("group", 0, scheme)).toEqual(GROUP_SHADE[scheme]);
-      // it does not move with the index: a group has no kind to step through
-      expect(shadeHex("group", 3, scheme)).toEqual(GROUP_SHADE[scheme]);
-      const { fill, line, ink } = GROUP_SHADE[scheme];
-      expect(contrast(line, BOX_COLOR[scheme]), `${scheme} line on box`).toBeGreaterThanOrEqual(3);
-      expect(contrast(line, fill), `${scheme} line on fill`).toBeGreaterThanOrEqual(3);
-      expect(contrast(ink, fill), `${scheme} ink on fill`).toBeGreaterThanOrEqual(4.5);
-      // no kind hue stands for a mixed tray: none of them is one of the kinds' fills
-      for (const kind of KINDS) {
-        expect(fill.toLowerCase()).not.toBe(shadeHex(kind, 0, scheme).fill.toLowerCase());
+      for (let i = 0; i < hues; i++) {
+        expect(shadeHex("group", i, scheme)).toEqual(GROUP_BASES[i]?.[scheme]);
       }
+      // the next group of a hue steps inside it, as a component's second shade does
+      const first = hexToHsl(shadeHex("group", 0, scheme).fill);
+      const again = hexToHsl(shadeHex("group", hues, scheme).fill);
+      expect(Math.abs(first.h - again.h)).toBeLessThan(2);
+      expect(shadeHex("group", hues, scheme).fill).not.toBe(shadeHex("group", 0, scheme).fill);
     }
-    // it is not the spacer's neutral either
-    expect(GROUP_SHADE.light.fill).not.toBe(SPACER_SHADE.light.fill);
-    expect(GROUP_SHADE.dark.fill).not.toBe(SPACER_SHADE.dark.fill);
   });
 
-  it("mirrors the neutral tokens: the sheet ground and the strong muted line", () => {
-    const found = new Map(
-      [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
-    );
-    expect(GROUP_SHADE.light.fill.toLowerCase()).toBe(found.get("--sheet"));
-    expect(GROUP_SHADE.light.line.toLowerCase()).toBe(found.get("--muted-strong"));
-    expect(GROUP_SHADE.light.ink.toLowerCase()).toBe(found.get("--muted-strong"));
+  it("keeps a group's line at 3:1 on the box and the fill and its ink at 4.5:1, for any group", () => {
+    for (const scheme of SCHEMES) {
+      for (let i = 0; i < GROUP_BASES.length * SHADE_COUNT; i++) {
+        const { fill, line, ink } = shadeHex("group", i, scheme);
+        expect(
+          contrast(line, BOX_COLOR[scheme]),
+          `${scheme} ${i} line on box`,
+        ).toBeGreaterThanOrEqual(3);
+        expect(contrast(line, fill), `${scheme} ${i} line on fill`).toBeGreaterThanOrEqual(3);
+        expect(contrast(ink, fill), `${scheme} ${i} ink on fill`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it("keeps groups apart from components and spacers: no group fill is a kind's, a spacer's or another group's", () => {
+    for (const scheme of SCHEMES) {
+      const groups = Array.from({ length: GROUP_BASES.length * SHADE_COUNT }, (_, i) =>
+        shadeHex("group", i, scheme).fill.toLowerCase(),
+      );
+      expect(new Set(groups).size).toBe(groups.length);
+      const others = [
+        SPACER_SHADE[scheme].fill,
+        ...KINDS.flatMap((k) =>
+          Array.from({ length: SHADE_COUNT }, (_, i) => shadeHex(k, i, scheme).fill),
+        ),
+      ].map((x) => x.toLowerCase());
+      for (const g of groups) {
+        expect(others).not.toContain(g);
+      }
+      // the base of each group hue is a mid tone where a kind's base is a pastel
+      for (const k of KINDS) {
+        for (let i = 0; i < GROUP_BASES.length; i++) {
+          const kind = hexToHsl(shadeHex(k, 0, scheme).fill);
+          const group = hexToHsl(shadeHex("group", i, scheme).fill);
+          const apart = Math.min(Math.abs(kind.h - group.h), 360 - Math.abs(kind.h - group.h));
+          expect(apart > 25 || Math.abs(kind.l - group.l) > 8, `${scheme} ${k} vs group ${i}`).toBe(
+            true,
+          );
+        }
+      }
+    }
+  });
+
+  it("numbers a group by its place among the project's groups, the same for every tray of it", () => {
+    const g = (id: string): Group => ({ id, name: id, copies: 1, access: "often", memberIds: [] });
+    const groups = [g("a"), g("b"), g("c")];
+    expect(groupShadeIndexOf(groups, "a")).toBe(0);
+    expect(groupShadeIndexOf(groups, "c")).toBe(2);
+    expect(groupShadeIndexOf(groups, "gone")).toBe(0);
+    expect(groupShadeIndexOf(undefined, "a")).toBe(0);
+    const tray = (key: string) => makeTray({ key, compartments: [] });
+    const p = { components: [], groups };
+    expect(groupShadeIndexOfTray(tray("b:p0:0"), p)).toBe(1);
+    expect(groupShadeIndexOfTray(tray("b:p3:2"), p)).toBe(1);
+    expect(groupShadeIndexOfTray(tray("loose:p0:0"), p)).toBe(0);
   });
 
   it("keeps every shade's line at 3:1 on the box and on its own fill, and its ink at 4.5:1 on the fill", () => {

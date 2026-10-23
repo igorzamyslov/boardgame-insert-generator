@@ -114,15 +114,10 @@
 }
 
 /*
- * A group's tray is neutral (G1, spec §7.6): a mixed tray has no single kind, so the page's own
- * tokens stand for it, `--sheet` for the ground and `--muted-strong` for the 2 px line, the pill's
- * ink and Edit's lift; its cells say what is where, each in its member's kind colours.
+ * A group's tray (G1, spec §7.6) has no kind, so no kind's hue: its tile takes its group's own
+ * (`--tile-*`, set inline from `groupShadeIndexOfTray`) and its cells say what is where, each in
+ * its member's kind colours.
  */
-.plan-tile.is-group {
-  --tile-fill: var(--sheet);
-  --tile-line: var(--muted-strong);
-  --tile-ink: var(--muted-strong);
-}
 
 /* Spare trays and spacers belong to no component: hatched, with a dashed edge (Main). */
 .plan-tile.is-leftover {
