@@ -139,6 +139,16 @@
   opacity: 0.6;
 }
 
+/*
+ * A layer below the one the Layer switch lights (board 2): its trays under the lit layer, faint, with
+ * nothing to press. It is the plan's picture of what the lit layer stands on.
+ */
+.plan-tile.is-ghost {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
 .plan-tile.is-source {
   opacity: 0.6;
 }

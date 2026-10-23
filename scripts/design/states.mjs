@@ -398,6 +398,41 @@ export const STATES = {
     noStageScroll: true,
   },
   // The 3D view: three.js in the plan's frame. Main's own 3D is a CSS tilt of the flat box.
+  // 0.14.0 board 2 (Layers): the one Layer switch, on Layer 2 in Top (layer 2 lit over layer 1 ghosted), the
+  // same pick in 3D (layer 1 and 2 shown), and on All in Top.
+  "workspace-layer2": {
+    board: "Main",
+    nearest: "docs/design/ux-review-2026-10-23 Layers (option A)",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: "Layer 2", in: SWITCHES } }],
+  },
+  "workspace-all": {
+    board: "Main",
+    nearest: "docs/design/ux-review-2026-10-23 Layers (option A)",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: "All", in: SWITCHES } }],
+  },
+  "workspace-3d-layer1": {
+    board: "Main",
+    nearest: "docs/design/ux-review-2026-10-23 Layers (option A)",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [
+      { click: { role: "button", name: "3D", in: STATUS } },
+      { click: { role: "button", name: "Layer 1", in: SWITCHES } },
+      { wait: 3000 },
+    ],
+  },
+  "m-workspace-layer2": {
+    board: "MobileWorkspace",
+    nearest: "docs/design/ux-review-2026-10-23 Layers (option A)",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: "Layer 2", in: SWITCHES } }],
+  },
   "workspace-3d": {
     board: "Main",
     boardOpts: { state: { view: "3d" } },

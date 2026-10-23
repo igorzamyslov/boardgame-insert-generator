@@ -180,10 +180,10 @@ describe("the stage's top, in the app", () => {
         within(group)
           .getAllByRole("button")
           .map((b) => b.textContent),
-      ).toEqual(["Layer 1 (bottom)", "Layer 2 (top)"]);
+      ).toEqual(["Layer 1", "Layer 2", "All"]);
       expect(document.querySelector('.plan-tile[data-key="a:p0:0"]')).not.toBeNull();
       expect(document.querySelector('.plan-tile[data-key="b:p0:0"]')).toBeNull();
-      fireEvent.click(within(group).getByRole("button", { name: "Layer 2 (top)" }));
+      fireEvent.click(within(group).getByRole("button", { name: "Layer 2" }));
       expect(document.querySelector('.plan-tile[data-key="b:p0:0"]')).not.toBeNull();
       expect(document.querySelector('.plan-tile[data-key="a:p0:0"]')).toBeNull();
     });
@@ -194,7 +194,7 @@ describe("the stage's top, in the app", () => {
       const labels = within(screen.getByRole("group", { name: "Layer" }))
         .getAllByRole("button")
         .map((b) => b.textContent ?? "");
-      expect(labels).toHaveLength(2);
+      expect(labels).toEqual(["Layer 1", "Layer 2", "All"]);
       expect(labels.join(" ")).not.toMatch(/mm/);
       expect(document.querySelector(".k-status__line")?.textContent).toMatch(/of 70 mm$/);
     });

@@ -270,8 +270,7 @@ export function createPersistence(
       state.lockConflicts.value = [];
       state.selection.value = null;
       state.swapFrom.value = null;
-      state.viewLevel.value = 0;
-      state.viewCut.value = null;
+      state.viewLayer.value = undefined;
       state.run.value = { status: "idle" };
       state.conflict.value = false;
       // a project newly opened starts clean: its own first write says whether saving works

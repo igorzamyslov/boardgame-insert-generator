@@ -199,6 +199,10 @@ export function App(props: AppProps) {
   }, [boxOpen]);
   // The View segment's choice is a signal of the stage (`stageView`), reset when the app goes.
   const view = stageView.value;
+  // The Layer switch is one pick for both views; until the person makes it the top view shows the
+  // bottom layer and 3D shows every layer.
+  const pickedLayer = s.viewLayer.value;
+  const layerNow = pickedLayer !== undefined ? pickedLayer : view === "plan" ? 0 : null;
   useEffect(() => {
     return () => {
       stageView.value = "plan";
@@ -210,10 +214,6 @@ export function App(props: AppProps) {
   function showView(next: StageView): void {
     if (next !== "plan") {
       s.swapFrom.value = null;
-    }
-    if (next === "3d") {
-      // 3D opens on every layer; the cut is a look at the model, not a choice to carry back
-      s.viewCut.value = null;
     }
     stageView.value = next;
   }
@@ -1125,13 +1125,9 @@ export function App(props: AppProps) {
                 {...statusInput}
                 trays={layout?.trays}
                 levels={planLevels}
-                level={s.viewLevel.value}
-                onLevelChange={(l) => {
-                  s.viewLevel.value = l;
-                }}
-                cut={s.viewCut.value}
-                onCutChange={(c) => {
-                  s.viewCut.value = c;
+                layer={layerNow}
+                onLayerChange={(l) => {
+                  s.viewLayer.value = l;
                 }}
                 view={view}
                 onViewChange={showView}
@@ -1149,9 +1145,10 @@ export function App(props: AppProps) {
                   {...planProps}
                   tapHint
                   selectedKey={s.selection.value}
-                  level={s.viewLevel.value}
+                  level={layerNow ?? 0}
+                  layerAll={layerNow === null}
                   onLevelChange={(l) => {
-                    s.viewLevel.value = l;
+                    s.viewLayer.value = l;
                   }}
                   onSelect={(key) => {
                     s.selection.value = key;
@@ -1203,7 +1200,7 @@ export function App(props: AppProps) {
                       stale: s.stale.value,
                       meshes,
                       selectedKey: s.selection.value,
-                      topLayer: s.viewCut.value,
+                      topLayer: layerNow,
                       levels: planLevels,
                       tapHint: true,
                       onSelect: (key) => {

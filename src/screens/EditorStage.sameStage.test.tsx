@@ -130,7 +130,7 @@ describe("the editor on the normal stage", () => {
 });
 
 describe("the editor in 3D", () => {
-  it("opens the 3D view from the same View switch, with All among the layers", async () => {
+  it("opens the 3D view from the same View switch, with All as the switch's last segment", async () => {
     const scene = stubScene();
     renderApp({
       project: loadSeed("harbour-kings").project,
@@ -144,7 +144,7 @@ describe("the editor in 3D", () => {
       within(layers)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["All", "Layer 1 (bottom)", "Layer 2 (top)"]);
+    ).toEqual(["Layer 1", "Layer 2", "All"]);
     expect(
       within(viewGroup())
         .getAllByRole("button", { pressed: true })

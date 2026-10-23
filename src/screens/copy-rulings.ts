@@ -121,6 +121,8 @@ const NOTES = "Layout and sizing notices sit under the plan caption";
 const CAPTION = "The plan's caption names its layer";
 // 0.14.0 board 1: the stage header
 const HEADER = "The stage header is one toolbar row";
+// 0.14.0 board 2: the Layer switch
+const LAYER_ONE = "One Layer switch, the same in Top and 3D";
 const PHONE_PINS = "A phone's plan shows the pin marks";
 const FAILED = ["workspace-failed"] as const;
 const ERRORS = ["workspace-error"] as const;
@@ -606,6 +608,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Note:", states: ["workspace-notes"], ruling: NOTES },
   { text: "Error:", states: ["workspace-notes", "no-fit", "no-fit-bed"], ruling: NOTES },
   // 0.14.0 board 1: the toolbar's sub-line, "Searching…", and the hint that ends the caption
+  { text: "All", states: "all", ruling: LAYER_ONE },
+  { text: "All layers, seen from above. Front of the box", states: "all", ruling: LAYER_ONE },
   { text: "{name} trays", states: "all", ruling: HEADER },
   { text: "{name} tray", states: "all", ruling: HEADER },
   { text: "{name} layers", states: "all", ruling: HEADER },
