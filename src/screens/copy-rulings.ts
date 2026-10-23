@@ -129,7 +129,7 @@ const NO_FIT = ["no-fit", "no-fit-bed", "m-fix"] as const;
 const PIN_CONFLICT = ["pin-conflict", "m-pin-conflict"] as const;
 // Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
 const MORE = "More holds Swap with… and Lock size";
-// 0.14.0: Put on… (a stack lock without a position: the pair moves anywhere together)
+// 0.15.0: Put on… (a stack lock without a position: the pair moves anywhere together)
 const PUT_ON = "Put on… stands one tray on another";
 /** The states that draw a put-on: the plan's prompt while the base is chosen, and the rail after it. */
 const PUT_ON_PICK = ["workspace-put-on-pick", "m-put-on-pick"] as const;
