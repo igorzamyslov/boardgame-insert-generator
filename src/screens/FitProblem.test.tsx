@@ -261,6 +261,24 @@ describe("when it doesn't fit (NoFit)", () => {
     );
   });
 
+  it("takes the focus without scrolling the stage, so the heading and the plan's top stay in view", () => {
+    const app = fitProblem("harbour-kings-nofit");
+    const keep = within(options()).getByRole("button", { name: "Keep searching" });
+    vi.spyOn(app.store, "refit").mockImplementation(() => {
+      act(() => {
+        app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "improve" };
+      });
+    });
+    keep.focus();
+    fireEvent.click(keep);
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    act(() => {
+      app.store.state.run.value = { status: "done" };
+    });
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    focus.mockRestore();
+  });
+
   it("does not take the focus from where the person put it", () => {
     const app = fitProblem("harbour-kings-nofit");
     act(() => {

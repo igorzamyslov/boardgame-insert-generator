@@ -260,7 +260,8 @@ export function App(props: AppProps) {
       keptFromFit.current = false;
       const card = document.querySelector<HTMLElement>("[data-fit-first]");
       if (card !== null) {
-        card.focus();
+        // not into view: a card under the picture would scroll the stage and cut off the heading and the plan's top
+        card.focus({ preventScroll: true });
       } else if (fitSeen.current) {
         downloadButtonRef.current?.focus();
       }
