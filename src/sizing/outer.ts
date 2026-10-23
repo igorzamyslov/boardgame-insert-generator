@@ -1,5 +1,5 @@
 import { MIN_FEATURE_MM, MIN_WALL_MM, effectiveBottomChamfer } from "../model/settings";
-import { bottomEdgeOf, bottomMinimums, grooveWall } from "../model/lip";
+import { bottomEdgeOf, bottomMinimums, grooveWall, rimOn, socketOf, stepWall } from "../model/lip";
 import type { BottomEdge } from "../model/lip";
 import type { Settings, Side } from "../model/types";
 import { cutoutSides } from "./common";
@@ -7,14 +7,15 @@ import type { CompartmentReq, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, maxOf, sum } from "./units";
 
 /**
- * Outer wall thickness: max(wall, MIN_WALL_MM); lipped walls are at least lip.thickness +
- * lip.ledge, and with the lip on a tray above level 0 (`level`) is at least what its groove
- * leaves around the wells (grooveWall; 2.25 mm at the defaults) (spec §6.1).
+ * Outer wall thickness: max(wall, MIN_WALL_MM); with the rim, lipped walls are at least
+ * lip.thickness + lip.ledge, and a tray above level 0 (`level`) is at least what its groove
+ * leaves around the wells (grooveWall; 2.25 mm at the defaults) (spec §6.1). The stepped base
+ * keeps the base wall on both sides of the joint (its stepWall is under it at the defaults).
  */
 export function wallFor(settings: Settings, lipped: boolean, level = 0): number {
   const base = Math.max(settings.wall, MIN_WALL_MM);
-  const grooved = Math.max(base, grooveWall(settings, level));
-  if (!lipped || !settings.lip.enabled) {
+  const grooved = Math.max(base, grooveWall(settings, level), stepWall(settings, level));
+  if (!lipped || !rimOn(settings)) {
     return grooved;
   }
   return Math.max(grooved, settings.lip.thickness + settings.lip.ledge);
@@ -136,6 +137,12 @@ export interface MinLayout {
    * tray's minimum asks for more; the difference is height the tray has beyond its contents.
    */
   content: number;
+  /**
+   * The room a socketed tray (lipped, with the stepped base) keeps over its contents for the slab
+   * of the tray above (model/lip socketOf: its depth), rounded up; 0 otherwise. `h` is at least
+   * content + socket, and every well's contents stay that far under the rim.
+   */
+  socket: number;
 }
 
 function cutsOn(c: CompartmentReq | undefined, side: Side): boolean {
@@ -250,8 +257,11 @@ export function minLayoutU(
   const content =
     floor + maxOf(part.compartments.map((c) => ceilU(c.minH) + ceilU(c.floorExtra ?? 0)));
   const chamfer = chamferMinimumsU(settings, opts.level);
-  // chamfer.h is, above level 0 with the lip on, what the groove needs (upperTrayMinH).
-  const h = Math.max(content, chamfer.h);
+  // The slab of the tray above drops into a socketed tray's opening: its contents stay under it.
+  const socketed = socketOf(settings, opts.lipped);
+  const socket = socketed === null ? 0 : ceilU(socketed.depth);
+  // chamfer.h is, above level 0 with the lip on, what the groove (or the step) needs (upperTrayMinH).
+  const h = Math.max(content + socket, chamfer.h);
   return {
     wall,
     divider,
@@ -272,5 +282,6 @@ export function minLayoutU(
     d: Math.max(innerD + 2 * wall, chamfer.side),
     h,
     content,
+    socket,
   };
 }

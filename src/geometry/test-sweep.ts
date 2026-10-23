@@ -17,6 +17,7 @@ import {
   CHAMFER_1,
   FIXTURE_SETTINGS,
   SWEEP_FIXTURES,
+  STEPPED,
   SWEEP_OPTIONS,
   THINNEST,
   THIN_WALLS,
@@ -57,6 +58,15 @@ const MESH_PROFILES: MeshProfile[] = [
   ["thinnest wall, floor, lip and the largest chamfer", THINNEST],
   ["thinnest wall, floor and divider", THIN_WALLS, [{ lipped: false, level: 0 }]],
   ["a 1 mm chamfer", CHAMFER_1, [{ lipped: false, level: 1 }]],
+  // the slab under an upper tray, and the socket in one with another on it
+  [
+    "the stepped base",
+    STEPPED,
+    [
+      { lipped: true, level: 0 },
+      { lipped: true, level: 1 },
+    ],
+  ],
 ];
 
 // Thicker outer walls where wall cutouts leave the tray, on a lipped and an upper tray (the other

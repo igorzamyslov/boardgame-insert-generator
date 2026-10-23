@@ -161,6 +161,12 @@ function readPrinter(r: Reader | null): Printer {
  */
 export const LIP_ENABLED_WHEN_ABSENT = false;
 
+/**
+ * What a file with no `lip.kind` means: the rim (a lip and groove), the only joint there was
+ * before schema 0.2.2. It is also the default, so a saved insert keeps its trays and its plan.
+ */
+export const LIP_KIND_WHEN_ABSENT = "rim";
+
 function readSettings(r: Reader | undefined): Settings {
   const d = DEFAULT_SETTINGS;
   if (!r) {
@@ -202,10 +208,12 @@ function readSettings(r: Reader | undefined): Settings {
     lip: lip
       ? lip.finish({
           enabled: lip.bool("enabled", LIP_ENABLED_WHEN_ABSENT),
+          kind: lip.oneOf("kind", ["rim", "step"], LIP_KIND_WHEN_ABSENT),
           height: lip.num("height", d.lip.height),
           thickness: lip.num("thickness", d.lip.thickness),
           ledge: lip.num("ledge", d.lip.ledge),
           play: lip.num("play", d.lip.play),
+          stepHeight: lip.num("stepHeight", d.lip.stepHeight),
         })
       : { ...d.lip, enabled: LIP_ENABLED_WHEN_ABSENT },
     topPressFit: r.num("topPressFit", d.topPressFit),

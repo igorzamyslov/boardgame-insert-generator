@@ -9,11 +9,17 @@ import {
 import {
   LIP_INNER_MIN,
   bottomMinimums,
+  builtLevel,
   grooveEdge,
   grooveOf,
   grooveWall,
   lipShape,
   plainEdge,
+  rimOn,
+  socketCornerCap,
+  socketOf,
+  stepEdge,
+  stepOf,
 } from "../model/lip";
 import type { BottomEdge } from "../model/lip";
 import { keepsApart } from "../model/cut-rules";
@@ -51,7 +57,8 @@ function isPositive(n: number): boolean {
 }
 
 function planLip(spec: TraySpec, settings: Settings): LipPlan | null {
-  if (!spec.lip) {
+  // With the stepped base a lipped part has a socket instead (planTray).
+  if (!spec.lip || !rimOn(settings)) {
     return null;
   }
   const { height, thickness, ledge } = settings.lip;
@@ -239,17 +246,20 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   }
   // Spacers and dividers are always built with the level 0 chamfer. A tray on a riser that carries
   // the lip is built as one above level 0 is: with the groove (`onRiser`, set by splitRisers).
-  const level =
-    spec.part === "spacer" || spec.part === "divider"
-      ? 0
-      : spec.onRiser === true
-        ? Math.max(1, spec.level)
-        : spec.level;
+  const level = builtLevel(spec);
   const chamfer = effectiveBottomChamfer(settings, level);
-  // With the lip on, a tray above level 0 has a groove along its outer bottom edge instead of the
-  // plain chamfer (its foot edge keeps the chamfer, at most as high as the groove's inner wall).
+  // With the rim on, a tray above level 0 has a groove along its outer bottom edge instead of the
+  // plain chamfer (its foot edge keeps the chamfer, at most as high as the groove's inner wall);
+  // with the stepped base it has the step and the slab under it (model/lip.ts stepOf).
   const groove = grooveOf(settings, level);
-  const edge = groove ? grooveEdge(groove) : plainEdge(chamfer);
+  const step = stepOf(settings, level);
+  const edge = groove ? grooveEdge(groove) : step ? stepEdge(step) : plainEdge(chamfer);
+  // A part with another stacked on it has, with the stepped base, the socket the slab drops into.
+  const socket =
+    spec.part === "spacer" || spec.part === "divider" ? null : socketOf(settings, spec.lip);
+  if (socket !== null && !(spec.h - socket.depth >= MIN_FEATURE_MM - TOL)) {
+    fail(spec, `height ${spec.h} mm leaves no floor under the ${socket.depth} mm socket`);
+  }
   const min = bottomMinimums(settings, level);
   // With TOL, like every limit here: 2.27 + 0.8 = 3.0700000000000003 must accept h = 3.07.
   if (Math.min(spec.w, spec.d) < min.side - TOL || spec.h < min.h - TOL) {
@@ -292,25 +302,47 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
 
   const notch = planSpacerNotch(spec, spec.features ?? [], chamfer, failWith);
   const edges = notchEdges(spec, notch);
-  const cornerRadius = planCornerRadius(spec, settings.cornerRadius, edge, compartments, edges);
+  // A socketed part's corners stay no rounder than its wall beside the socket allows.
+  const asked = socket
+    ? Math.min(settings.cornerRadius, socketCornerCap(socket))
+    : settings.cornerRadius;
+  const cornerRadius = planCornerRadius(spec, asked, edge, compartments, edges);
   const thin = thinCorner(spec, cornerRadius, edge, compartments, edges);
   if (thin !== null) {
     fail(
       spec,
-      `the ${edge.reach} mm bottom ${groove ? "groove" : "chamfer"} forces an outer corner radius of ${cornerRadius} mm, and ${thin}`,
+      `the ${edge.reach} mm bottom ${groove ? "groove" : step ? "step" : "chamfer"} forces an outer corner radius of ${cornerRadius} mm, and ${thin}`,
     );
   }
+  // The slab's foot chamfer, at most what the corner leaves outside the step's inset ring: its
+  // rings stay exact offsets of a corner as round as the foot, and inside the step's bottom ring.
+  const stepPlan = step
+    ? (() => {
+        const foot = Math.max(0, Math.min(step.foot, cornerRadius - step.inset));
+        return { ...step, foot, reach: step.inset + foot };
+      })()
+    : null;
+  // The socket's corner: as round as the part's, at most the slab's inset (socketOf), less its wall.
+  const socketPlan = socket
+    ? {
+        wall: socket.wall,
+        depth: socket.depth,
+        radius: Math.max(0, Math.min(cornerRadius, socket.round) - socket.wall),
+      }
+    : null;
 
   return {
     w: spec.w,
     d: spec.d,
     h: spec.h,
     topZ: spec.h + (lip ? lip.height : 0),
-    chamfer: groove ? groove.foot : chamfer,
+    chamfer: groove ? groove.foot : stepPlan ? stepPlan.foot : chamfer,
     cornerRadius,
     outerWall,
     lip,
     groove,
+    step: stepPlan,
+    socket: socketPlan,
     compartments: planTopFillets(compartments, spec, cornerRadius, lip),
     notch: planNotchFillets(notch, spec, cornerRadius),
   };

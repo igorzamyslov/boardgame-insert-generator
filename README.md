@@ -84,7 +84,8 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
 7. **Settings.** A drawer on the right (full screen on a phone), opened from the project menu, the
    rail's footer or the status heading, with "<n> changed" and "Reset all" in its header and
    "Done" at its foot. "This insert" is "How the trays sit" (Fit in the box, Walls, Room for
-   fingers, Rim between layers, Fill to the lid) and "Exact numbers": a search, then groups of
+   fingers, Rim between layers with its kind: a rim and groove, or a stepped base that leaves the
+   walls thin, Fill to the lid) and "Exact numbers": a search, then groups of
    numbers (Walls and floors, Cards, Finger cuts, Rim between layers, Spacers and space and more),
    each value with a dot and "Back to <default>" when it differs. "My printer" is the bed (Small,
    Medium, Large or your own size), "Printer details" (margin, layer height) and "Printing"

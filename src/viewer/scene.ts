@@ -43,6 +43,8 @@ interface TrayObject {
   // The part this one is spread apart with: a card spacer travels with its tray, everything
   // else with itself.
   anchor: TraySpec;
+  /** SceneTray.below: the mesh's bed face is this far under the spec's z. */
+  below: number;
   object: ThreeMesh;
   material: MeshStandardMaterial;
   /**
@@ -153,7 +155,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   function apply(): void {
     for (const t of trays) {
       const [x, y, z] = trayPosition(t.spec, explode, center, t.anchor);
-      t.object.position.set(x, y, z);
+      t.object.position.set(x, y, z - t.below);
       t.object.visible = isVisible(t.spec, maxLevel);
       t.material.emissive.setHex(emissiveOf(t.spec.key, selected, lit, edited));
       t.material.color.copy(t.base).lerp(pageColor, fadeOf(t.spec.key, selected, lit, edited));
@@ -323,7 +325,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
     setTrays(list: readonly SceneTray[]) {
       clearTrays();
       const byKey = new Map(list.map(({ spec }) => [spec.key, spec]));
-      list.forEach(({ spec, mesh, color }) => {
+      list.forEach(({ spec, mesh, color, below }) => {
         const geometry = new BufferGeometry();
         geometry.setAttribute("position", new BufferAttribute(mesh.positions, 3));
         geometry.setIndex(new BufferAttribute(mesh.indices, 1));
@@ -350,7 +352,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         object.add(depth);
         scene.add(object);
         const anchor = anchorOf(spec, byKey);
-        trays.push({ spec, anchor, object, material, depth, base });
+        trays.push({ spec, anchor, object, material, depth, base, below: below ?? 0 });
       });
       refit();
       apply();

@@ -1,3 +1,4 @@
+import { lipAbove } from "../model/lip";
 import { effective } from "../model/settings";
 import type { BoxMm, Printer, Settings, TraySpec } from "../model/types";
 import { fitsBed, type Bed } from "./bed";
@@ -29,6 +30,8 @@ interface Item {
   readonly z1: number;
   /** Where the part's highest point is: z1, or the lip a riser carries above it. */
   readonly top: number;
+  /** A riser with the socket the stepped base leaves in its top for the tray on it. */
+  readonly socketed: boolean;
   readonly volume: number;
 }
 
@@ -42,6 +45,8 @@ function itemOf(spec: TraySpec, lipHeight: number): Item {
     z0: spec.z,
     z1: spec.z + spec.h,
     top: spec.z + spec.h + (spec.lip ? lipHeight : 0),
+    // lipHeight is 0 only with the stepped base (or no joint, when no part is lipped)
+    socketed: spec.lip && lipHeight === 0,
     volume: spec.w * spec.d * spec.h,
   };
 }
@@ -352,7 +357,8 @@ function check(items: readonly Item[], bed: Bed): { ok: boolean; flipped: boolea
   if (level((i) => i.z0)) {
     return { ok: true, flipped: false };
   }
-  const flat = items.every((i) => i.spec.solid) && level((i) => i.z1);
+  // A socketed riser (`lip`, with the stepped base) would print its socket facing the bed.
+  const flat = items.every((i) => i.spec.solid && !i.socketed) && level((i) => i.z1);
   return { ok: flat, flipped: flat };
 }
 
@@ -511,12 +517,14 @@ export function mergeParts(trays: readonly TraySpec[], o: MergeInputs): TraySpec
   }
   // With the lip on a filler in a stack level has a groove along its outer edge for the lip of the
   // tray below, and the lip runs along that tray's outer edge, under the filler's. A bridge to a
-  // part beside it would reach over the lip, so such a filler stays a part of its own.
+  // part beside it would reach over the lip, so such a filler stays a part of its own. With the
+  // stepped base it has the slab that drops into the tray below instead, under the bridges' floor:
+  // it stays a part of its own too.
   const candidate = (t: TraySpec): boolean =>
     t.merged === undefined &&
     !(settings.lip.enabled && t.level > 0) &&
     (t.part === "leftover" || (settings.mergeRisers && t.part === "riser"));
-  const items = trays.filter(candidate).map((t) => itemOf(t, settings.lip.height));
+  const items = trays.filter(candidate).map((t) => itemOf(t, lipAbove(settings, true)));
   if (items.length < 2) {
     return [...trays];
   }

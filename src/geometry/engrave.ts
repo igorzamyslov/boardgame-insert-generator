@@ -82,7 +82,8 @@ function alongOf(face: Side, plan: TrayPlan, x: number, y: number): number {
 
 /** The material between the face and the nearest well (or relief) that the letters could meet. */
 function thicknessBehind(plan: TrayPlan, face: Side, top: number): number {
-  let t = Infinity;
+  // A socket leaves only its wall at the top, from its depth under the rim.
+  let t = plan.socket && top > plan.h - plan.socket.depth ? plan.socket.wall : Infinity;
   for (const c of plan.compartments) {
     if (c.floorZ >= top) {
       continue; // the wall there is the floor's, which is thick
@@ -208,7 +209,9 @@ function engraveIn(
   // The band of the part's height the text sits in, in the printed frame. It starts above the
   // chamfer, or above the groove (roof included), which leaves the outer face standing only from
   // `zTop`; the tighter band keeps its margin above that too, so a name never touches the groove.
-  const lo = (plan.groove ? plan.groove.zTop : plan.chamfer) + belowChamfer;
+  // A stepped part's outer face stands whole from the step's top, the wall's size above the seam.
+  const lo =
+    (plan.groove ? plan.groove.zTop : plan.step ? plan.step.wall : plan.chamfer) + belowChamfer;
   const hi = plan.h - belowRim;
   const band = flipped ? { lo: plan.h - hi, hi: plan.h - lo } : { lo, hi };
   const byHeight = (band.hi - band.lo) / GLYPH_ROWS;
@@ -405,6 +408,12 @@ function throughFloor(plan: TrayPlan): Rect[] {
 
 /** The floor's thickness under `box`: the lowest floor or divider slot floor beside it. */
 function floorUnder(plan: TrayPlan, box: Rect): number {
+  // Measured from the bed face: under a stepped part, the slab's bed face.
+  const slab = plan.step?.height ?? 0;
+  return slab + floorAbove(plan, box);
+}
+
+function floorAbove(plan: TrayPlan, box: Rect): number {
   let t = plan.h; // a solid part, or text not over a well: the whole height
   for (const c of plan.compartments) {
     if (!overlaps(c.rect, box, EDGE_MM / 3)) {
@@ -433,13 +442,16 @@ export function planUnderside(plan: TrayPlan, text: string): UndersidePlan | nul
   if (text === "" || !isEngravable(text)) {
     return null;
   }
-  // The bed face is the footprint pulled in by the chamfer or the groove's reach.
-  const reach = plan.groove ? plan.groove.reach : plan.chamfer;
+  // The bed face is the footprint pulled in by the chamfer or the groove's reach, or the slab's
+  // (sharp-cornered at its foot, model/lip.ts stepOf).
+  const reach = plan.groove ? plan.groove.reach : plan.step ? plan.step.reach : plan.chamfer;
   const arc = Math.max(plan.cornerRadius - reach, 0);
-  const margin = Math.max(
-    reach + EDGE_MM,
-    plan.cornerRadius - (arc - EDGE_MM) / Math.SQRT2, // the text box's corner lies inside the arc
-  );
+  const margin = plan.step
+    ? reach + EDGE_MM
+    : Math.max(
+        reach + EDGE_MM,
+        plan.cornerRadius - (arc - EDGE_MM) / Math.SQRT2, // the text box's corner lies inside the arc
+      );
   const free = { x: plan.w - 2 * margin, y: plan.d - 2 * margin };
   if (!(free.x > 0 && free.y > 0)) {
     return null;
@@ -562,10 +574,14 @@ export function buildEngravings(
   scope: Scope,
   e: Engravings,
   part: { w: number; d: number; h: number },
+  // the bed face's height in the part's frame: below 0 under a stepped part's slab
+  bed = 0,
 ): Manifold | null {
-  const pieces = [
-    ...e.walls.flatMap((w) => engravingPieces(w, part)),
-    ...(e.underside ? undersidePieces(e.underside) : []),
-  ].map((points) => hullPoints(m, scope, points));
+  const under = (e.underside ? undersidePieces(e.underside) : []).map((points) =>
+    points.map(([x, y, z]): Vec3 => [x, y, z + bed]),
+  );
+  const pieces = [...e.walls.flatMap((w) => engravingPieces(w, part)), ...under].map((points) =>
+    hullPoints(m, scope, points),
+  );
   return pieces.length === 0 ? null : scope.track(m.Manifold.union(pieces));
 }

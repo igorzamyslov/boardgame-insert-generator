@@ -1,5 +1,5 @@
 import { OPPOSITE } from "../model/cut-rules";
-import { grooveOf } from "../model/lip";
+import { grooveOf, stepOf } from "../model/lip";
 import { MIN_CUT_MM, MIN_FEATURE_MM, effectiveBottomChamfer } from "../model/settings";
 import type { RectMm } from "../model/cut-rules";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
@@ -176,9 +176,11 @@ function spacerNotch(
   cuts: CutsBySide,
   height: number,
   settings: Settings,
+  // MinLayout.socket: the well's contents, and so the spacer, stop that far under the rim
+  socket = 0,
 ): { features: FeatureSpec[]; height: number } {
   const cut = cuts.get("right")?.[0] ?? cuts.get("left")?.[0];
-  const depth = cut === undefined ? 0 : cut.depth - toU(SPACER_TOP_GAP);
+  const depth = cut === undefined ? 0 : cut.depth - socket - toU(SPACER_TOP_GAP);
   if (cut === undefined || depth < 1) {
     return { features: [], height };
   }
@@ -818,10 +820,16 @@ function layoutAt(
   const frame: Frame = { W, D, forced, cut };
   const placed = columns ? placeColumns(min, frame, settings) : placeRows(min, frame, settings);
 
+  // A socketed tray's wells stand `min.socket` under its rim: the slab of the tray above takes
+  // that room, so the contents end there (`top`) and every well is that much deeper from the rim.
+  const top = H - min.socket;
   // The height beyond the contents that is not padding goes above the wells whose contents may
   // not grow, so the floor under the deepest is the floor setting, not a thicker one.
-  const lift = padding === null ? 0 : Math.max(0, H - padding - min.content);
-  const sized = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor, lift) }));
+  const lift = padding === null ? 0 : Math.max(0, top - padding - min.content);
+  const sized = placed.map((p) => ({
+    ...p,
+    depth: contentDepth(p.req, p.alloc, top, floor, lift),
+  }));
   // A well filling in height (group Max, spec §2) goes down to the tray's deepest floor: the least
   // floorZ of the wells that do not fill. Never shallower than its own content depth. The tray's
   // height was decided without it, so this is depth the tray already has.
@@ -829,7 +837,9 @@ function layoutAt(
   const items = sized.map((p) =>
     p.req.fill?.h === true ? { ...p, depth: Math.max(p.depth, deepest) } : p,
   );
-  const { byOwner: cuts, placed: cutsPlaced } = wallCutouts(items, {
+  // The cuts are placed from the rim, so they reach each well's floor through the socket.
+  const rimItems = items.map((p) => ({ ...p, depth: p.depth + min.socket }));
+  const { byOwner: cuts, placed: cutsPlaced } = wallCutouts(rimItems, {
     trayKey: part.trayKey,
     W,
     D,
@@ -840,10 +850,10 @@ function layoutAt(
 
   const spacers: TraySpec[] = [];
   const compartments: CompartmentSpec[] = items.map(({ req, alloc, spacer, depth }, i) => {
-    const floorZ = H - depth;
+    const floorZ = top - depth;
     if (spacer > 0) {
       const height = depth - toU(SPACER_TOP_GAP);
-      const notch = spacerNotch(alloc, cuts[i] ?? new Map(), height, settings);
+      const notch = spacerNotch(alloc, cuts[i] ?? new Map(), height, settings, min.socket);
       spacers.push(spacerSpec(part.trayKey, alloc, spacer, floorZ, notch));
     }
     return {
@@ -913,7 +923,10 @@ function withCutRoom(
   settings: Settings,
   opts: RealizeOptions,
 ): MinLayout {
-  if (grooveOf(settings, opts.level) === null || min.h >= cutHeightU(min)) {
+  if (
+    (grooveOf(settings, opts.level) === null && stepOf(settings, opts.level) === null) ||
+    min.h >= cutHeightU(min)
+  ) {
     return min;
   }
   try {

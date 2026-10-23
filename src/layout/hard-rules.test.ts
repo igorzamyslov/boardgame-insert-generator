@@ -148,7 +148,17 @@ describe("checkHardRules catches broken layouts", () => {
 
     const stackInput = makeInput([boxReq("a", 120, 80, 10), boxReq("b", 110, 70, 10)], {
       box: { innerWidth: 135, innerDepth: 95, innerHeight: 40 },
-      settings: { lip: { enabled: false, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 } },
+      settings: {
+        lip: {
+          enabled: false,
+          kind: "rim",
+          height: 2,
+          thickness: 1.2,
+          ledge: 1.7,
+          play: 0.25,
+          stepHeight: 1.5,
+        },
+      },
     });
     let sr: LayoutResult;
     beforeAll(() => {

@@ -37,7 +37,15 @@ export const GEO: Settings = {
   cornerRadius: 3,
   scoopRadius: 12,
   fingerPocket: { width: 22, floorNotch: 11, wallRoom: 0, dividerRoom: 0 },
-  lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
+  lip: {
+    enabled: true,
+    kind: "rim",
+    height: 2,
+    thickness: 1.2,
+    ledge: 1.7,
+    play: 0.25,
+    stepHeight: 1.5,
+  },
 };
 
 export function traySpec(
@@ -487,6 +495,9 @@ export const THINNEST: Profile = (s) =>
     lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM, height: 1 },
   });
 
+/** The stepped base (lip.kind "step") on the fixture's settings. */
+export const STEPPED: Profile = (s) => ({ ...s, lip: { ...s.lip, enabled: true, kind: "step" } });
+
 // Settings at the SETTING_RANGES extremes; each is valid (settingsValid), so the chamfer profiles
 // sit exactly on maxBottomChamfer.
 export const PROFILES: readonly [string, Profile][] = [
@@ -515,6 +526,13 @@ export const PROFILES: readonly [string, Profile][] = [
     (s) => ({ ...s, lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM } }),
   ],
   ["finger room in the cut walls (Extra finger room switch on)", (s) => applyFingerRoom(s, true)],
+  ["the stepped base", STEPPED],
+  ["the stepped base, thinnest wall, floor and the largest chamfer", (s) => STEPPED(THINNEST(s))],
+  [
+    "the stepped base, its highest step and most play, finger room",
+    (s) =>
+      applyFingerRoom({ ...STEPPED(s), lip: { ...STEPPED(s).lip, stepHeight: 4, play: 2 } }, true),
+  ],
   [
     "the widest finger room and floor notch, thinnest walls and largest chamfer",
     (s) => {

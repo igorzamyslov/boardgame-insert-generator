@@ -209,6 +209,11 @@ export function AssemblyPage(p: AssemblyPageProps) {
               A lip is the raised edge on top of a tray that locates the tray stacked on it.
             </p>
           ) : null}
+          {layers.some((l) => l.rows.some((r) => r.size.includes("with its step"))) ? (
+            <p class="hint">
+              A step is the solid base under a tray that drops into the tray below it.
+            </p>
+          ) : null}
         </>
       )}
     </article>

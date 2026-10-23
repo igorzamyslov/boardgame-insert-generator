@@ -1,5 +1,5 @@
 import { buildable } from "../geometry/buildable";
-import { bottomMinimums, upperTrayMinH } from "../model/lip";
+import { bottomMinimums, lipAbove, rimOn, socketOf, stepBelow, upperTrayMinH } from "../model/lip";
 import type { Lock, Printer, Settings, TraySpec } from "../model/types";
 import { MIN_RISER_POCKET, MIN_SPARE, RISER_SUFFIX } from "../sizing/constants";
 import { roundDownTo, roundMm, roundUpTo, toMm, toU, toUCeil, toUFloor, type U } from "./units";
@@ -17,10 +17,12 @@ export interface RiserInputs {
  * walled box with a floor (a solid block when it is too small to open: narrower than MIN_SPARE
  * inside, or with a pocket shallower than MIN_RISER_POCKET).
  *
- * With `lipped` it carries the locating lip on its rim, as a lower tray does, and the bottom tray
- * on it has the groove (splitRisers sets `onRiser` on it): the rim between layers holds the first
- * layer as it holds every other. Its wall is then a lipped tray's (the lip and the ledge the tray
- * on it rests on) and the pocket starts inside it. The lip stands above `h`, as a tray's does.
+ * With `lipped` it carries the joint, as a lower tray does, and the bottom tray on it has the
+ * other half (splitRisers sets `onRiser` on it): the rim between layers holds the first layer as
+ * it holds every other. With the rim it carries the locating lip on its rim, its wall is a lipped
+ * tray's (the lip and the ledge the tray on it rests on), the pocket starts inside it and the lip
+ * stands above `h`, as a tray's does. With the stepped base it keeps the tray's wall, and planTray
+ * cuts the socket the tray's slab drops into in its top (a solid riser) or over its pocket.
  */
 function riserSpec(
   bottom: TraySpec,
@@ -29,7 +31,8 @@ function riserSpec(
 ): TraySpec {
   const { wall, floor } = bottom;
   const { lip } = o.settings;
-  const inner = o.lipped ? toMm(toUCeil(Math.max(wall, lip.thickness + lip.ledge))) : wall;
+  const inner =
+    o.lipped && rimOn(o.settings) ? toMm(toUCeil(Math.max(wall, lip.thickness + lip.ledge))) : wall;
   const w = roundMm(bottom.w - 2 * inner);
   const d = roundMm(bottom.d - 2 * inner);
   const solid =
@@ -92,7 +95,7 @@ function splitStack(
   if (!bottom) {
     return null;
   }
-  const limit = roundDownTo(toU(printer.bedZ) - (lipped ? toU(settings.lip.height) : 0), c.layer);
+  const limit = roundDownTo(toU(printer.bedZ) - toU(lipAbove(settings, lipped)), c.layer);
   // The least height a tray keeps: what its bottom edge asks, and for one standing on a lipped part
   // (above level 0, or the bottom one on a lipped riser) what its groove needs (upperTrayMinH).
   const leastOf = (t: TraySpec): number => {
@@ -134,6 +137,16 @@ function splitStack(
   // be as tall as one (a tray already lower than that cannot be given a groove).
   if (lipped && bottom.h - toMm(raise.get(bottom) ?? 0) < leastOf(bottom) - 1e-9) {
     return null;
+  }
+  // With the stepped base the bottom tray's slab hangs into the riser: the riser keeps a floor
+  // under the socket, and the tray, printed slab down, still fits the bed.
+  const socket = socketOf(settings, lipped);
+  if (socket !== null) {
+    const printed = bottom.h - toMm(raise.get(bottom) ?? 0) + stepBelow(settings, 1);
+    const floor = toUCeil(socket.depth) + toUCeil(bottomMinimums(settings, 0).h);
+    if (total < floor || printed > printer.bedZ + 1e-9) {
+      return null;
+    }
   }
   const made = new Map<TraySpec, TraySpec[]>();
   let riser: TraySpec | null = null;
@@ -196,11 +209,13 @@ function splitStack(
  * riser is derived, not stored: it is a pure function of the stored trays and these inputs, so a
  * stored layout (and a share link) is the same with or without it.
  *
- * With the lip on the riser carries it, and the bottom tray on it has the groove (`onRiser`): the
- * rim between layers is the same between the riser and the first tray as between any two trays.
- * Where the bottom tray cannot take a groove (see splitStack) the riser stays plain and the tray
- * as it was, which is the only way a tray alone in its stack can have one: its 1.6 mm wall has no
- * room for a groove, and the wells are fixed by the stored layout.
+ * With the lip on the riser carries the joint, and the bottom tray on it has the other half
+ * (`onRiser`): the rim between layers is the same between the riser and the first tray as between
+ * any two trays. With the rim, where the bottom tray cannot take a groove (see splitStack) the
+ * riser stays plain and the tray as it was, which is the only way a tray alone in its stack can
+ * have one: its 1.6 mm wall has no room for a groove, and the wells are fixed by the stored
+ * layout. The stepped base needs no wall of its own (the slab is under the floor), so a tray alone
+ * in its stack locks onto its riser too.
  *
  * Only whole layers move, a tray never goes below the height it needs as a lipped, chamfered
  * upper tray, a size-locked tray keeps its height, and the riser (and its lip) is never taller

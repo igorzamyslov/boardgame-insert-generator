@@ -172,6 +172,9 @@ export type Lock =
   // Turn only: fixes the tray's rotation, and nothing else (it stays free to move).
   | { kind: "turn"; trayKey: string; rotated: boolean };
 
+/** The joint between stacked trays (Settings.lip.kind): a lip and groove, or a stepped base. */
+export type LipKind = "rim" | "step";
+
 export interface Settings {
   wall: number;
   floor: number;
@@ -193,7 +196,22 @@ export interface Settings {
     wallRoom: number;
     dividerRoom: number;
   };
-  lip: { enabled: boolean; height: number; thickness: number; ledge: number; play: number };
+  /**
+   * Rim between layers: how a tray stacked on another keys into it, while `enabled`. `kind` "rim"
+   * (the default): a lip on the lower tray's rim and a groove under the upper tray's edge (lipped
+   * walls of thickness + ledge). "step": a solid slab `stepHeight` tall under the upper part's
+   * floor drops into the opening of the part below, which keeps that much room above its contents;
+   * walls stay at `wall` (model/lip.ts stepOf).
+   */
+  lip: {
+    enabled: boolean;
+    kind: LipKind;
+    height: number;
+    thickness: number;
+    ledge: number;
+    play: number;
+    stepHeight: number;
+  };
   topPressFit: number;
   packingFactor: number;
   leftover: "spare" | "solid";
@@ -313,11 +331,14 @@ export interface TraySpec {
   rotated: boolean;
   wall: number;
   floor: number;
-  lip: boolean; // true when another tray is stacked on this one and settings.lip.enabled
+  // true when another tray is stacked on this one and settings.lip.enabled: it carries the lower
+  // half of the joint, the lip (rim) or the socket the slab above drops into (step)
+  lip: boolean;
   /**
-   * Set on a tray that stands on a riser carrying the lip (splitRisers), never stored: the tray
-   * has the groove for it under its edge, as any tray above level 0 has with the lip on. Absent:
-   * the tray stands on the box floor or a plain riser, with the plain bottom chamfer.
+   * Set on a tray that stands on a riser carrying the joint (splitRisers), never stored: the tray
+   * has the groove (rim) or the slab (step) under it, as any tray above level 0 has with the rim
+   * between layers on. Absent: the tray stands on the box floor or a plain riser, with the plain
+   * bottom chamfer.
    */
   onRiser?: boolean;
   solid: boolean;

@@ -1,4 +1,5 @@
-import type { TraySpec } from "../model/types";
+import { socketOf } from "../model/lip";
+import type { Settings, TraySpec } from "../model/types";
 import { DIVIDER_END_PLAY, DIVIDER_PLAY, SPACER_TOP_GAP } from "../sizing/constants";
 import { roundMm } from "./units";
 
@@ -15,21 +16,24 @@ export const DIVIDER_SUFFIX = ":divider:";
  *
  * A plate is a solid part of its own, keyed `<trayKey>:divider:<n>` from 1 over the tray's
  * compartments in order and each one's slots from the front or left. Everything that isn't a tray
- * with slots is returned as it is, the plates following the tray they stand in.
+ * with slots is returned as it is, the plates following the tray they stand in. With `settings`,
+ * a socketed tray's plates (the stepped base) stop SPACER_TOP_GAP under its contents' top, the
+ * socket's depth under the rim, clear of the slab of the tray above.
  */
-export function splitDividers(trays: readonly TraySpec[]): TraySpec[] {
+export function splitDividers(trays: readonly TraySpec[], settings?: Settings): TraySpec[] {
   return trays.flatMap((t): TraySpec[] => {
     if (t.part !== "tray") {
       return [t];
     }
     const plates: TraySpec[] = [];
+    const socket = settings === undefined ? 0 : (socketOf(settings, t.lip)?.depth ?? 0);
     for (const c of t.compartments) {
       const slots = c.features
         .flatMap((f) => (f.type === "dividerSlot" ? [f] : []))
         .sort((a, b) => a.at - b.at);
       for (const f of slots) {
         const thick = roundMm(f.width - DIVIDER_PLAY);
-        const standing = roundMm(f.depth + t.h - c.floorZ - SPACER_TOP_GAP);
+        const standing = roundMm(f.depth + t.h - socket - c.floorZ - SPACER_TOP_GAP);
         // A slot along y (x: the plate is thin in x) spans the well's depth, one along x its width.
         const across = f.axis === "y";
         const start = roundMm((across ? c.y : c.x) + DIVIDER_END_PLAY);

@@ -200,7 +200,8 @@ it only with a written reason in the code or the PR.
     features and PATCH for fixes.
 - MUST keep engraving clear of the stacking groove. Since geometry 0.8.0 an upper tray with the
   lip on has a groove along its bottom edge, and `geometry/engrave.ts` starts both text bands at
-  `groove.zTop`. The underside name stays `EDGE_MM` inside the groove's `reach`. Tests fail if the
+  `groove.zTop` (with the stepped base, geometry 0.9.2, at the step's top, and the underside name
+  goes on the slab's bed face; a socketed wall is only the socket's wall thick at the top). The underside name stays `EDGE_MM` inside the groove's `reach`. Tests fail if the
   groove is ignored (`engrave.test.ts`, "on three faces").
 - MUST engrave on at most three faces, each only where it has room (`planEngravings`): the wall
   `planEngraving` prefers, the wall across from it (the thinnest feature kept between the two

@@ -1,4 +1,5 @@
 // src/instructions/numbering.ts
+import { lipAbove, rimOn, slabUnder } from "../model/lip";
 import { carriesName } from "../model/part-name";
 import type { Settings, TraySpec } from "../model/types";
 import { isAddOn } from "../plan/layers";
@@ -179,8 +180,9 @@ export function partsByKey(parts: readonly NumberedPart[]): Map<string, Numbered
 }
 
 /**
- * The height a tray prints at: `spec.h` plus the lip a lipped tray carries on top (plan 4's
- * over-bed and `layout.bed` notices report this height), on the 0.01 mm grid.
+ * The height a tray prints at: `spec.h` plus the lip a lipped tray carries on top, or the slab a
+ * stepped one hangs below it (plan 4's over-bed and `layout.bed` notices report this height), on
+ * the 0.01 mm grid.
  */
 export function printedHeight(spec: TraySpec, settings: Settings): number {
   return Math.round(printedTop(spec, settings) * 100) / 100;
@@ -192,21 +194,27 @@ export function printedHeight(spec: TraySpec, settings: Settings): number {
  * part's box, and the part stands as tall as the highest member with its lip.
  */
 function printedTop(spec: TraySpec, settings: Settings): number {
-  const own = spec.h + (spec.lip ? settings.lip.height : 0);
+  const own = spec.h + lipAbove(settings, spec.lip) + slabUnder(settings, spec);
   if (spec.merged === undefined) {
     return own;
   }
   return spec.merged.members.reduce(
-    (top, m) => Math.max(top, m.z + m.h + (m.lip ? settings.lip.height : 0) - spec.z),
+    (top, m) => Math.max(top, m.z + m.h + lipAbove(settings, m.lip) - spec.z),
     own,
   );
 }
 
-/** "W × D × H mm" with the printed height; a lipped tray says so (its H includes the lip). */
+/**
+ * "W × D × H mm" with the printed height; a lipped tray says so (its H includes the lip), and so
+ * does a tray with the stepped base's step under it (its H includes the step).
+ */
 export function outerSizeText(spec: TraySpec, settings: Settings): string {
   const height = printedHeight(spec, settings);
   const size = `${spec.w.toFixed(1)} × ${spec.d.toFixed(1)} × ${height.toFixed(1)} mm`;
+  if (slabUnder(settings, spec) > 0) {
+    return `${size} with its step`;
+  }
   // a merged part says so when its height includes a member's lip (it stands above the part's box)
-  const lipped = spec.merged === undefined ? spec.lip : height > spec.h;
+  const lipped = spec.merged === undefined ? spec.lip && rimOn(settings) : height > spec.h;
   return lipped ? `${size} with its lip` : size;
 }

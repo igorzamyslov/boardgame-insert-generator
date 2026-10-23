@@ -173,8 +173,18 @@ import type { Semver } from "../model/version";
  * has a solid fill there, over the height it exists. A mesh-only fix in a printed filler or riser
  * part: outer size, fit and every tray are as before, and a single, unmerged part does not change.
  * A PATCH, as 0.8.2 (one rounding of a merged part) was.
+ *
+ * 0.9.2 adds the stepped base, a second joint between stacked parts (owner, 2026-10-23;
+ * `settings.lip.kind` "step", model/lip.ts stepOf and socketOf). A part above another has a solid
+ * slab under its floor, inset by the wall and the play, with a 45° step out to its outer face that
+ * rests on the inner edge of the rim below, and the part below a socket: everything inside its wall
+ * stops slab + play under its rim. The walls stay at the Wall setting. A stepped part's mesh has
+ * z = 0 at its slab's bed face (its spec's z less the slab). It is opt-in, and with the rim (the
+ * default, and every file that says nothing) every part builds exactly as before: a new optional
+ * feature, a PATCH. planTray also caps a socketed part's corner radius and refuses one too low for
+ * its socket, which no part made before can be.
  */
-export const GEOMETRY_VERSION = "0.9.1";
+export const GEOMETRY_VERSION = "0.9.2";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

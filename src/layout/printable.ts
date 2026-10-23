@@ -27,6 +27,6 @@ export function printableParts(
 ): { trays: TraySpec[]; notices: Notice[] } {
   const risered = splitRisers(trays, o);
   const split = splitSeparators(risered, o);
-  const opened = openSpacers(splitDividers(split.trays), o);
+  const opened = openSpacers(splitDividers(split.trays, o.settings), o);
   return { trays: mergeParts(opened, o), notices: split.notices };
 }

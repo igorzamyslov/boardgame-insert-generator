@@ -1,4 +1,4 @@
-import type { Groove } from "../model/lip";
+import type { Groove, Step } from "../model/lip";
 import type { Side } from "../model/types";
 
 // Constants and result types of tray planning (plan.ts). A TrayPlan holds
@@ -82,6 +82,12 @@ export interface LipPlan {
   zIn: number;
 }
 
+export interface SocketPlan {
+  wall: number;
+  depth: number;
+  radius: number;
+}
+
 export interface TrayPlan {
   w: number;
   d: number;
@@ -94,6 +100,13 @@ export interface TrayPlan {
   // The groove under a tray that stands on a lipped tray (model/lip.ts grooveOf): replaces the
   // outer bottom chamfer, which the groove runs along the whole outer edge instead of.
   groove: Groove | null;
+  // The stepped base under a part that stands on a socketed one (model/lip.ts stepOf): the slab
+  // hangs `height` below z = 0, the seam, and the 45° step replaces the bottom chamfer. `foot` is
+  // the slab's bed chamfer as planned (at most the corner radius less the inset).
+  step: Step | null;
+  // The socket a part with one stacked on it has (the stepped base, socketOf): everything more than
+  // `wall` in from the outer faces stops `depth` under the rim; its corners have `radius`.
+  socket: SocketPlan | null;
   compartments: CompartmentPlan[];
   notch: CutPlan | null; // a card spacer's notch: its channel running on through it (plan-cuts.ts)
 }

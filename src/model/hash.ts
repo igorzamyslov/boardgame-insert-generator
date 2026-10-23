@@ -108,10 +108,15 @@ export function inputsHash(p: Project): string {
   // infill only scales the filament estimate; no part depends on it, so it must not stale the plan.
   // wallAbsorb is hashed under its old name, wallGrowth: renaming the setting must not change the
   // hash of every saved project and so mark all of their plans stale.
-  const { wallAbsorb, oneWall, playLimit, ...rest } = p.settings;
+  const { wallAbsorb, oneWall, playLimit, lip, ...rest } = p.settings;
+  // The joint's kind and the step's height are hashed only for the stepped base: the rim, the only
+  // joint before schema 0.2.2, is left out so every saved plan keeps its hash, and the step's
+  // height changes nothing with the rim.
+  const { kind, stepHeight, ...rim } = lip;
   // mergeFillers and mergeRisers are print-time decompositions (mergeParts), so they are out too, as is minRiser (splitRisers).
   const settings = {
     ...rest,
+    lip: kind === "step" ? { ...rim, kind, stepHeight } : rim,
     wallGrowth: wallAbsorb,
     // It moves where leaf slack goes, so it is hashed, but only when on: off is left out so every
     // project saved before the setting existed keeps its hash and its plan stays current.

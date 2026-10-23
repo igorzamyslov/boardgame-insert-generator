@@ -4,6 +4,7 @@ import type { MeshSource } from "../app/meshes";
 import { STALE_MESSAGE } from "../app/state";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
+import { slabUnder } from "../model/lip";
 import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
@@ -178,6 +179,7 @@ export function Viewer(p: ViewerProps) {
             spec,
             mesh: built.mesh,
             color: shadeColorOf(spec, p.components ?? [], scheme, p.groups ?? []),
+            below: slabUnder(p.settings, spec),
           };
         } catch {
           failed += 1;

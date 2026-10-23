@@ -7,6 +7,11 @@ export interface SceneTray {
   mesh: Mesh;
   /** A plain hex colour (the shade of the tray's component, as in the top view); absent: the neutral. */
   color?: string;
+  /**
+   * How far the mesh's bed face is under the spec's z, mm: the slab a part with the stepped base
+   * hangs into the part below (model/lip.ts slabUnder); absent: 0.
+   */
+  below?: number;
 }
 
 export interface BoxOutline {

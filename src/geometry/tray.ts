@@ -1,5 +1,5 @@
 import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
-import type { Groove } from "../model/lip";
+import type { Groove, Step } from "../model/lip";
 import type { BoxMm, MergedPart, Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
@@ -33,6 +33,9 @@ function buildOuter(m: ManifoldToplevel, scope: Scope, plan: TrayPlan): Manifold
   const n = quarterSegments(r);
   if (plan.groove) {
     return buildGroovedOuter(m, scope, plan, plan.groove);
+  }
+  if (plan.step) {
+    return buildSteppedOuter(m, scope, plan, plan.step);
   }
   const outer = roundedRectRing(0, 0, w, d, r, n);
   if (c <= 0) {
@@ -68,6 +71,52 @@ function buildGroovedOuter(m: ManifoldToplevel, scope: Scope, plan: TrayPlan, g:
     { ring: ring(0), z: h },
   ]);
   return scope.track(m.Manifold.union([foot, roof]));
+}
+
+// The outer body of a part with the stepped base under it (model/lip.ts stepOf), in the spec frame
+// (z = 0 at the seam; buildPart lifts it so the slab is on the bed), as two convex lofts: the body,
+// from the step's ring at the slab's side (inset, z = −play) out at 45° to the outer face at
+// z = wall, then straight up, its rings offsets of the outline (radius r − u; plan keeps r at least
+// the inset); and the slab under it, from its bed ring (inset + foot, sharp) up the foot chamfer to
+// its side (inset, radius foot), then straight up into the body. The slab's corners are at most as
+// round as the body's ring at the inset, so its top is a ledge facing up where they differ, and
+// every face that looks down is the bed face or slopes at 45°.
+function buildSteppedOuter(m: ManifoldToplevel, scope: Scope, plan: TrayPlan, st: Step): Manifold {
+  const { w, d, h, cornerRadius: r } = plan;
+  const n = quarterSegments(r);
+  const ring = (u: number): Vec2[] => roundedRectRing(u, u, w - u, d - u, Math.max(r - u, 0), n);
+  const body = loft(m, scope, [
+    { ring: ring(st.inset), z: -st.play },
+    { ring: ring(0), z: st.wall },
+    { ring: ring(0), z: h },
+  ]);
+  const slabRing = (u: number): Vec2[] =>
+    roundedRectRing(u, u, w - u, d - u, Math.max(st.foot - (u - st.inset), 0), n);
+  // Its top takes the body's bottom ring too: where the two corners are as round (foot = r −
+  // inset) their facets differ, and the body's would stand out over the slab's as slivers facing
+  // down.
+  const slab = loft(m, scope, [
+    { ring: slabRing(st.inset + st.foot), z: -st.height },
+    { ring: slabRing(st.inset), z: -st.height + st.foot },
+    { ring: [...slabRing(st.inset), ...ring(st.inset)], z: -st.play + EPS },
+  ]);
+  return scope.track(m.Manifold.union([body, slab]));
+}
+
+// The socket of a part with another stacked on it, with the stepped base: everything more than the
+// wall in from the outer faces, from `depth` under the rim up (dividers, the tops of the wells'
+// walls), so the slab above drops in with the play all round and under it. Its corners are rounded
+// with the plan's radius (at most the slab's inset, less the wall), so every slab fits.
+function buildSocket(
+  m: ManifoldToplevel,
+  scope: Scope,
+  plan: TrayPlan,
+  socket: NonNullable<TrayPlan["socket"]>,
+): Manifold {
+  const { w, d, h } = plan;
+  const u = socket.wall;
+  const ring = roundedRectRing(u, u, w - u, d - u, socket.radius, quarterSegments(socket.radius));
+  return prism(m, scope, ring, h - socket.depth, plan.topZ + OVERSHOOT);
 }
 
 // Locating lip (spec §6.1): the outer `thickness` of the wall rises `height` above the rim at the
@@ -176,14 +225,21 @@ function cutReach(cut: CutPlan): Rect {
 // the far corners rounded with half the width (at most the reach): a half-disc when the notch
 // reaches half the width. All are vertical prisms or open at the top, so nothing overhangs
 // (spec §6.1).
-function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number): Manifold[] {
+function buildCut(
+  m: ManifoldToplevel,
+  scope: Scope,
+  cut: CutPlan,
+  top: number,
+  // where a cut through the floor ends, OVERSHOOT under the bed (under a part's slab, if it has one)
+  bottom = -OVERSHOOT,
+): Manifold[] {
   const reach = cutReach(cut);
   const u = buildU(m, scope, { ...cut, ...reach }, top);
   if (cut.notch <= 0) {
     return [u];
   }
   // Through the floor down to the bed, EPS into the compartments at its ends like the U.
-  const through = box(m, scope, [reach.x0, reach.y0, -OVERSHOOT], [reach.x1, reach.y1, top]);
+  const through = box(m, scope, [reach.x0, reach.y0, bottom], [reach.x1, reach.y1, top]);
   // In the floor, along the side (u) and into the compartment (v = face + inward·distance).
   const face = cutFace(cut);
   const alongX = cut.side === "front" || cut.side === "back";
@@ -201,7 +257,7 @@ function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number):
     const far = cut.notch - rho + rho * Math.sin(t);
     ring.push(point(a + rho - rho * Math.cos(t), far), point(b - rho + rho * Math.cos(t), far));
   }
-  return [u, through, prism(m, scope, ring, -OVERSHOOT, top)];
+  return [u, through, prism(m, scope, ring, bottom, top)];
 }
 
 // A U's top fillets (CutPlan.topFillets): at each top corner the square of radius r beside the
@@ -267,7 +323,7 @@ function buildCutter(
   }
   const extras = [
     ...c.cuts.flatMap((cut) => [
-      ...buildCut(m, scope, cut, top),
+      ...buildCut(m, scope, cut, top, -(plan.step?.height ?? 0) - OVERSHOOT),
       ...buildTopFillets(
         m,
         scope,
@@ -314,6 +370,9 @@ function buildCutters(
   engravings: Engravings | null,
 ): Manifold[] {
   const cutters = plan.compartments.map((c) => buildCutter(m, scope, plan, c));
+  if (plan.socket) {
+    cutters.push(buildSocket(m, scope, plan, plan.socket));
+  }
   if (plan.notch) {
     // A spacer's notch leaves through both end faces: past them by OVERSHOOT.
     const n = plan.notch;
@@ -327,7 +386,10 @@ function buildCutters(
       : { v0: -OVERSHOOT, v1: plan.d + OVERSHOOT };
     cutters.push(...buildTopFillets(m, scope, n, { top: plan.h, ...strip }));
   }
-  const engraved = engravings ? buildEngravings(m, scope, engravings, spec) : null;
+  // An underside name is cut into the bed face: the slab's, below the seam, on a stepped part.
+  const engraved = engravings
+    ? buildEngravings(m, scope, engravings, spec, -(plan.step?.height ?? 0))
+    : null;
   if (engraved) {
     cutters.push(engraved);
   }
@@ -375,7 +437,9 @@ function buildPart(
   settings: Settings,
 ): Manifold {
   const plan = planTray(spec, settings);
-  return buildSolid(m, scope, spec, settings, plan, engravingsOf(plan, spec));
+  const solid = buildSolid(m, scope, spec, settings, plan, engravingsOf(plan, spec));
+  // The mesh frame has z = 0 at the bed: a stepped part's slab, built under the seam, goes up.
+  return plan.step ? scope.track(solid.translate([0, 0, plan.step.height])) : solid;
 }
 
 // A merged part (several fillers and risers printed as one, mergeParts) is its members and the
@@ -389,8 +453,9 @@ function buildPart(
 // bridge only fills so far). Each member's own cuts (its pocket, notch and engraving) are then
 // taken out of it, and only out of it.
 //
-// A flipped part (members on different floors, printed upside down), a member with a groove or a
-// lip, and members with different chamfers are built the way each member would be alone, joined by
+// A socketed riser (the stepped base) is built once like any other: its socket is one of its own
+// cuts (buildCutters). A flipped part (members on different floors, printed upside down), a member
+// with a groove, a lip or a step, and members with different chamfers are built the way each member would be alone, joined by
 // the bridges (buildMergedAsMembers).
 function buildMerged(
   m: ManifoldToplevel,
@@ -458,7 +523,11 @@ function buildMergedOnce(
     !first ||
     merged.flipped ||
     plans.some(
-      (p) => p.lip !== null || p.groove !== null || Math.abs(p.chamfer - first.chamfer) > 1e-9,
+      (p) =>
+        p.lip !== null ||
+        p.groove !== null ||
+        p.step !== null ||
+        Math.abs(p.chamfer - first.chamfer) > 1e-9,
     )
   ) {
     return null;
@@ -542,7 +611,8 @@ function buildMergedOnce(
 // Builds one printed part from its TraySpec alone, plus the settings that define
 // the lip and the bottom chamfer and cap the outer corner radius (scoop radii
 // and every other size come from the spec). A merged part (`spec.merged`) is built from its
-// members. Mesh frame: tray-local, origin at the outer min corner, z = 0 at the bottom.
+// members. Mesh frame: tray-local, origin at the outer min corner, z = 0 at the bottom (a part with
+// the stepped base under it: at the slab's bed face, its spec's z less the slab's height).
 // Throws TraySpecError (a RangeError) for a spec planTray rejects, UnsupportedFeatureError for
 // parts or features from a newer app version, Error if the kernel fails.
 export function buildTray(

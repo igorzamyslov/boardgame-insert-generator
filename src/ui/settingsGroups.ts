@@ -42,7 +42,14 @@ export const EXACT_GROUPS: readonly ExactGroup[] = [
   {
     id: "rim",
     title: "Rim between layers",
-    paths: ["lip/height", "lip/thickness", "lip/ledge", "lip/play", "topPressFit"],
+    paths: [
+      "lip/height",
+      "lip/thickness",
+      "lip/ledge",
+      "lip/play",
+      "lip/stepHeight",
+      "topPressFit",
+    ],
   },
   {
     id: "shape",
