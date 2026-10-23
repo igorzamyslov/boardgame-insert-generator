@@ -9,7 +9,7 @@ import { newComponent } from "../model/defaults";
 import { inputsHash } from "../model/hash";
 import type { Component, Project } from "../model/types";
 import { hoveredComponent } from "../screens/hover";
-import { shadeHex } from "../ui/identity";
+import { shadeHex, shadeOf } from "../ui/identity";
 import { fixtureProject, makeLayout, makeTray } from "./test-helpers";
 import { renderApp } from "./test-app";
 
@@ -169,14 +169,14 @@ describe("a tray that holds a group's items", () => {
     expect(tile("tab:p0:0").classList.contains("is-lifted")).toBe(true);
   });
 
-  it("draws the tray neutral, with each member's own colour in its wells", () => {
+  it("draws the tray in the group's hue, with each member's own colour in its wells", () => {
     const project = grouped(true);
     renderApp({ project });
     showLayer(/^Layer 2/);
     const group = tile("kit:p0:0");
-    // no kind's shade on the tile: the neutral tokens of the plan's CSS stand for it
+    // no kind's shade on the tile: the group's own hue (the first group's)
     expect(group.classList.contains("is-group")).toBe(true);
-    expect(group.style.getPropertyValue("--tile-fill")).toBe("");
+    expect(group.style.getPropertyValue("--tile-fill")).toBe(shadeOf("group", 0).fill);
     // the wells wear the members' own kinds: Market's cards, then Gems' bits
     const wells = [...group.querySelectorAll<HTMLElement>(".plan-cell")];
     expect(wells.map((c) => c.style.getPropertyValue("--cell-own-fill"))).toEqual([

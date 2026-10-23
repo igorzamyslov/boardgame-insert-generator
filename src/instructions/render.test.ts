@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { GROUP_SHADE, shadeHex } from "../ui/identity";
+import { shadeHex } from "../ui/identity";
 import type { Component, Project } from "../model/types";
 import { pngSize, svgDataUrl } from "./png";
 import { escapeXml, layerInfo, packingGuide, render, truncate, whatGoesWhere } from "./render";
@@ -805,15 +805,17 @@ describe("a group's trays in the packing guide (spec §7.7)", () => {
   };
   const kitLayout = makeLayout("h", [copy(0, 0), copy(1, 125)]);
 
-  it("draws a group's tray neutral with each well in its member's colours", () => {
+  it("draws a group's tray in its group's hue with each well in its member's colours", () => {
     const [svg] = render(kitLayout, grouped);
     const doc = parse(svg ?? "");
     const rects = [...doc.querySelectorAll("rect")];
     const tray = rects.find(
-      (r) => r.getAttribute("fill") === GROUP_SHADE.light.fill && r.getAttribute("rx") === "1.5",
+      (r) =>
+        r.getAttribute("fill") === shadeHex("group", 0, "light").fill &&
+        r.getAttribute("rx") === "1.5",
     );
-    expect(tray, "a neutral tray").toBeTruthy();
-    expect(tray?.getAttribute("stroke")).toBe(GROUP_SHADE.light.line);
+    expect(tray, "a tray in the group hue").toBeTruthy();
+    expect(tray?.getAttribute("stroke")).toBe(shadeHex("group", 0, "light").line);
     const cards = shadeHex("cards", 0, "light");
     // both members are cards here: the second takes the second shade of the hue, as in the rail
     const bulk = shadeHex("cards", 1, "light");

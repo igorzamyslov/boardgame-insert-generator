@@ -81,7 +81,7 @@
   white-space: nowrap;
 }
 
-/* A group's tray has the neutral swatch (white on the sheet): a 1.5 px line of its own keeps it in sight. */
+/* A group's tray has its group's hue, as a component's has its kind's; the 1.5 px line marks it as a group's. */
 .export-chip[data-group="true"] {
   border: 1.5px solid var(--shade-line);
   line-height: 27px;

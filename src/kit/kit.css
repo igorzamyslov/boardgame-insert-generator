@@ -494,10 +494,10 @@
   color: var(--shade-ink, var(--kind-ink, var(--muted)));
 }
 
-/* A group's tile (G1, G3): the neutral ground with the strong ink, where a kind's has its own. */
+/* A group's tile (G1, G3): its group's own hue where its caller gives one (`--shade-*`), else the neutral ground (the Add picker's). */
 .k-tile[data-tone="group"] {
-  background: var(--icon-ground);
-  color: var(--muted-strong);
+  background: var(--shade-fill, var(--icon-ground));
+  color: var(--shade-ink, var(--muted-strong));
 }
 
 .k-tile--34 {

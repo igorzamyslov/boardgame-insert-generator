@@ -596,7 +596,7 @@ export function PlanView(props: PlanViewProps) {
                   aria-hidden="true"
                   class="plan-tile is-ghost"
                   style={{
-                    ...(look === null || look.group
+                    ...(look === null
                       ? {}
                       : { "--tile-fill": look.shade.fill, "--tile-line": look.shade.line }),
                     "--x": pct(((frame.bc + a.x) / frame.innerW) * 100),
@@ -654,9 +654,9 @@ export function PlanView(props: PlanViewProps) {
               ]
                 .filter((c) => c !== "")
                 .join(" ");
-              // A group's tile takes the page's neutral tokens (plan.css), not a kind's shade.
+              // A group's look carries its own hue (`lookOfTray`), a component's its kind's shade.
               const shade =
-                look === null || grouped
+                look === null
                   ? {}
                   : {
                       "--tile-fill": look.shade.fill,

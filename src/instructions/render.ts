@@ -10,6 +10,7 @@ import type {
 import {
   SPACER_SHADE,
   componentIndexOfTray,
+  groupShadeIndexOfTray,
   isGroupTray,
   memberShadeOfCompartment,
   shadeHex,
@@ -98,7 +99,7 @@ const GHOST = "#767676";
  */
 export function paperShadeOf(t: TraySpec, project: Project): Shade | null {
   if (isGroupTray(t, project)) {
-    return shadeHex("group", 0, "light");
+    return shadeHex("group", groupShadeIndexOfTray(t, project), "light");
   }
   const index = t.part === "leftover" ? null : componentIndexOfTray(t, project.components);
   const component = index === null ? undefined : project.components[index];

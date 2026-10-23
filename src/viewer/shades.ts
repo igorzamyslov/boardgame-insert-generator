@@ -3,6 +3,7 @@ import type { Component, Group, TraySpec } from "../model/types";
 import {
   SPACER_SHADE,
   componentIndexOfTray,
+  groupShadeIndexOfTray,
   isGroupTray,
   shadeHex,
   shadeIndexOf,
@@ -36,7 +37,7 @@ export function shadeColorOf(
     return SPACER_SHADE[scheme].fill;
   }
   if (isGroupTray(spec, { components, groups })) {
-    return shadeHex("group", 0, scheme).fill;
+    return shadeHex("group", groupShadeIndexOfTray(spec, { components, groups }), scheme).fill;
   }
   const index = componentIndexOfTray(spec, components);
   const kind = index === null ? undefined : components[index]?.kind;

@@ -6,6 +6,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { Button, GripIcon, GroupGlyph, Icon, IconButton, IconTile, Stepper } from "../../kit";
 import { DEFAULT_GROUP_NAME } from "../../model/groups";
+import { shadeVars } from "../identity";
 import type { Access, ComponentKind, Group } from "../../model/types";
 import { COPIES } from "../limits";
 import { ACCESS_OPTIONS } from "./CommonOptions";
@@ -322,7 +323,7 @@ export function GroupEditor({
           <Icon name="chevron-left" size={16} />
           What&apos;s inside
         </button>
-        <div class="ed-id">
+        <div class="ed-id" style={shadeVars("group", Math.max(0, index))}>
           <IconTile size={44} tone="group">
             <GroupGlyph size={22} />
           </IconTile>

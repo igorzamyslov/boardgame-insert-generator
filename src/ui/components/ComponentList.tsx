@@ -15,6 +15,7 @@ import {
   groupOfTray,
   kindIndexOf,
   layerWords,
+  groupShadeIndexOf,
   shadeVars,
   sharingTrayWith,
 } from "../identity";
@@ -380,6 +381,7 @@ export function ComponentList({
             <li class="rail-item" key={group.id}>
               <GroupCard
                 group={group}
+                shade={shadeVars("group", groupShadeIndexOf(groups, group.id))}
                 members={views}
                 trays={trays === undefined ? undefined : groupTrays}
                 layer={layerOfGroup(groupTrays, trays)}

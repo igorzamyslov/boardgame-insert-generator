@@ -6,7 +6,7 @@ import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { GROUP_SHADE, SPACER_SHADE, shadeHex } from "../ui/identity";
+import { SPACER_SHADE, shadeHex } from "../ui/identity";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import type { Component } from "../model/types";
 import type { SceneFactory, SceneHandle } from "./types";
@@ -189,14 +189,14 @@ describe("Viewer", () => {
     const own = makeTray({ key: "own:p0:0", level: 0, compartments: [deckWell("Market ×20")] });
     const base = { components: fixtureProject().components, groups: [kit] };
 
-    it("takes the neutral body colour of the group, and an ungrouped tray its kind's shade", async () => {
+    it("takes the body colour of its group's hue, and an ungrouped tray its kind's shade", async () => {
       const scene = stubScene();
       render(<Viewer {...props({ ...base, trays: [inKit(0), inKit(1), own] }, scene)} />);
       await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
       const shown = vi.mocked(scene.handle.setTrays).mock.calls.at(-1)?.[0] ?? [];
       const got = Object.fromEntries(shown.map((t) => [t.spec.key, t.color]));
-      expect(got["kit:p0:0"]).toBe(GROUP_SHADE.light.fill);
-      expect(got["kit:p1:0"]).toBe(GROUP_SHADE.light.fill);
+      expect(got["kit:p0:0"]).toBe(shadeHex("group", 0, "light").fill);
+      expect(got["kit:p1:0"]).toBe(shadeHex("group", 0, "light").fill);
       expect(got["own:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
     });
 
