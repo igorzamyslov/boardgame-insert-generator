@@ -223,6 +223,26 @@ const setTurn = (store: Store): void => {
   );
 };
 
+/** Put on… from the first component's tray onto the second's: the stack lock the pick writes. */
+const setPutOn = (store: Store): void => {
+  act(() =>
+    store.edit((q) => {
+      const [a, b] = q.components;
+      if (a === undefined || b === undefined) {
+        throw new Error("the seed has fewer than two components");
+      }
+      return { ...q, locks: [{ kind: "stack", trayKeys: [`${b.id}:p0:0`, `${a.id}:p0:0`] }] };
+    }),
+  );
+};
+
+/** Put on… chosen on the Market deck's tray, and not yet on a base: the plan's prompt. */
+const choosePutOn = (): void => {
+  selectTray(/^Market deck/)();
+  openMore();
+  fireEvent.click(screen.getByRole("button", { name: "Put on…" }));
+};
+
 /** A count no deck can have: the first component's editor holds an error. */
 const breakFirst = (store: Store): void => {
   act(() =>
@@ -805,6 +825,9 @@ const CASES: readonly Case[] = [
   { state: "workspace-rules", board: "Main", region: "rail", steps: setRules },
   // 0.7.0 Task 13: Turn 90° alone (the Turned chip and its note), and the Cards editor's Between decks
   { state: "workspace-turned", board: "Main", region: "rail", steps: setTurn },
+  // 0.14.0: Put on…, the pill that asks for the base, and the On chip with its note
+  { state: "workspace-put-on", board: "Main", region: "rail", steps: setPutOn },
+  { state: "workspace-put-on-pick", board: "Main", region: "tray-bar", steps: choosePutOn },
   {
     state: "editor-flat-decks",
     board: "Edit",
@@ -886,6 +909,7 @@ const CASES: readonly Case[] = [
     steps: setRules,
   },
   { state: "m-turned", board: "MobileWorkspace", region: "sheet", phone: true, steps: setTurn },
+  { state: "m-put-on", board: "MobileWorkspace", region: "sheet", phone: true, steps: setPutOn },
   // Task 6: the status heading with its switches and action, the banner, the notes
   { state: "workspace", board: "Main", region: "status", steps: () => undefined },
   { state: "workspace-searching", board: "Main", region: "status", steps: searching },

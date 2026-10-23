@@ -5,8 +5,8 @@ import type { Lock, Project, StoredLayout, TraySpec } from "../model/types";
 import { createCtx } from "../layout/context";
 import { resolveLocks } from "../layout/locks";
 import { warmHints } from "../layout/warmstart";
-import { toggleLock, turnTray } from "./actions";
-import { canTurn, turnLocks } from "./dryRun";
+import { putOnLocks, standingOn, takeOff, toggleLock, turnTray } from "./actions";
+import { canPutOn, canTurn, turnLocks } from "./dryRun";
 import { buildLayoutInput } from "./runner";
 import { fixtureProject, makeLayout, makeTray } from "./test-helpers";
 
@@ -273,5 +273,98 @@ describe("turn, then pin", () => {
       warmHints(ctx, (p.layout as StoredLayout).trays),
     );
     expect(conflicts).toEqual([]);
+  });
+});
+
+describe("canPutOn", () => {
+  const nameOf = (key: string): string => `Tray ${key.slice(0, 8)}`;
+
+  it("allows a tray on another, from any layer, and writes the order base-first", () => {
+    const p = planned();
+    expect(canPutOn(p, ALONE, LOW, nameOf)).toEqual({ ok: true });
+    // the base's own stack comes first: the tray ends up on top of it
+    expect(putOnLocks(p, ALONE, HIGH)).toEqual([{ kind: "stack", trayKeys: [LOW, HIGH, ALONE] }]);
+    expect(putOnLocks(p, ALONE, LOW)).toEqual([{ kind: "stack", trayKeys: [LOW, ALONE] }]);
+  });
+
+  it("needs a plan, two different trays that are in it", () => {
+    expect(canPutOn(fixtureProject(), ALONE, LOW, nameOf).reason).toBe("Make a plan first.");
+    expect(canPutOn(planned(), ALONE, "nope:p0:0", nameOf).reason).toMatch(/isn't in the plan/);
+    expect(canPutOn(planned(), ALONE, ALONE, nameOf).ok).toBe(false);
+  });
+
+  it("says when the stack would be taller than the box", () => {
+    const base = planned();
+    const low = { ...base, box: { ...base.box, innerHeight: 30 } };
+    const r = canPutOn(low, ALONE, LOW, nameOf);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe(
+      `${nameOf(ALONE)} doesn't go on ${nameOf(LOW)}: the stack is taller than the space in the box.`,
+    );
+  });
+
+  it("refuses a fifth tray, by the stack limit", () => {
+    const top = "fxcrd001:p0:0";
+    const spare = "fxcrd009:p0:0";
+    const stack: Lock = { kind: "stack", trayKeys: [LOW, HIGH, ALONE, top] };
+    const p = planned(
+      [stack],
+      [
+        tray(LOW, { path: "10", level: 0 }),
+        tray(HIGH, { path: "10", level: 1 }),
+        tray(ALONE, { path: "10", level: 2 }),
+        tray(top, { path: "10", level: 3 }),
+        tray(spare, { path: "0" }),
+      ],
+    );
+    const r = canPutOn(p, spare, top, nameOf);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe(`${nameOf(top)} already has 3 trays on it. A stack holds at most 4.`);
+  });
+
+  it("refuses a tray, or a base, that is pinned, and names it", () => {
+    const pins: Lock[] = [{ kind: "position", trayKey: ALONE, path: "0", rotated: false }];
+    expect(canPutOn(planned(pins), ALONE, LOW, nameOf).reason).toBe(
+      `${nameOf(ALONE)} is pinned. Unpin it before you put trays on it.`,
+    );
+    expect(canPutOn(planned(pins), LOW, ALONE, nameOf).reason).toMatch(/is pinned/);
+  });
+
+  it("does not change the project, and never throws", () => {
+    const p = planned();
+    const before = JSON.stringify(p);
+    canPutOn(p, ALONE, LOW, nameOf);
+    expect(JSON.stringify(p)).toBe(before);
+    expect(() =>
+      canPutOn({ ...p, layout: undefined, locks: null as never }, ALONE, LOW, nameOf),
+    ).not.toThrow();
+  });
+});
+
+describe("putOnLocks and takeOff", () => {
+  it("replaces the stack locks the trays were in and keeps the other locks", () => {
+    const turn: Lock = { kind: "turn", trayKey: ALONE, rotated: true };
+    const p = planned([turn, { kind: "stack", trayKeys: [LOW, HIGH] }]);
+    expect(putOnLocks(p, HIGH, ALONE)).toEqual([turn, { kind: "stack", trayKeys: [ALONE, HIGH] }]);
+  });
+
+  it("lists what stands on what, and a tray is taken off with the rest of its stack kept", () => {
+    const p = planned([{ kind: "stack", trayKeys: [LOW, HIGH, ALONE] }]);
+    expect([...standingOn(p.locks)]).toEqual([
+      [HIGH, LOW],
+      [ALONE, HIGH],
+    ]);
+    expect(takeOff(p, ALONE).locks).toEqual([{ kind: "stack", trayKeys: [LOW, HIGH] }]);
+    expect(takeOff(takeOff(p, ALONE), HIGH).locks).toEqual([]);
+    expect(takeOff(p, LOW)).toBe(p);
+  });
+
+  it("does not count the stack lock a pin comes with", () => {
+    const pins: Lock[] = [
+      { kind: "position", trayKey: LOW, path: "10", rotated: false },
+      { kind: "position", trayKey: HIGH, path: "10", rotated: false },
+      { kind: "stack", trayKeys: [LOW, HIGH] },
+    ];
+    expect(standingOn(pins).size).toBe(0);
   });
 });
