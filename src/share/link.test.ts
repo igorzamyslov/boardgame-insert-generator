@@ -53,7 +53,7 @@ describe("decodeHash", () => {
 
   it("keeps foreign components, unknown values and unknown fields of a newer-minor project", () => {
     const raw = JSON.parse(serializeProject(newProject(), noForeign())) as Record<string, unknown>;
-    raw.schemaVersion = "0.2.3";
+    raw.schemaVersion = "0.2.4";
     raw.components = [{ id: "dial0001", kind: "dial", diameter: 40 }];
     raw.futureField = { nested: [1, 2, 3] };
     (raw.settings as Record<string, unknown>).leftover = "hollow";

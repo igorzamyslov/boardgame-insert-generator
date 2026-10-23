@@ -305,7 +305,8 @@ describe("size", () => {
       const { requirements, notices } = size([m], s);
       expect(notices).toEqual([]);
       const req = at(requirements, 0);
-      expect(req.variants.map((v) => v.id)).toEqual([
+      // (the figures as measured; their other resting faces are options of their own)
+      expect(req.variants.map((v) => v.id).filter((id) => id.startsWith("standing|"))).toEqual([
         "standing|strip|split1",
         "standing|strip|split2",
         "standing|rows2|split1",

@@ -165,6 +165,26 @@ describe("MinisEditor", () => {
   });
 });
 
+describe("MinisEditor: keep upright", () => {
+  it("keeps one figure upright, and takes the key away again when it is off", () => {
+    const onChange = vi.fn<(c: MinisComponent) => void>();
+    const one = { ...of("minis"), figures: [{ name: "Hero", w: 30, d: 30, h: 38, count: 6 }] };
+    const view = render(<MinisEditor component={one} index={0} onChange={onChange} />);
+    const box = screen.getByRole("checkbox", { name: "Hero stays upright" });
+    expect((box as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(box);
+    expect(lastOf(onChange).figures[0]).toEqual({ ...one.figures[0], keepUpright: true });
+    const kept = lastOf(onChange);
+    view.rerender(<MinisEditor component={kept} index={0} onChange={onChange} />);
+    expect(
+      (screen.getByRole("checkbox", { name: "Hero stays upright" }) as HTMLInputElement).checked,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Hero stays upright" }));
+    expect(lastOf(onChange).figures[0]).toEqual(one.figures[0]);
+    expect(Object.keys(lastOf(onChange).figures[0] ?? {})).not.toContain("keepUpright");
+  });
+});
+
 describe("toggles", () => {
   it("defaults tokens to a curved floor without finger cuts, and turns cuts on", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
