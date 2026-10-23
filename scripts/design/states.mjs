@@ -868,6 +868,8 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [
       { click: { role: "button", name: "Download" } },
+      // the filament is counted from the built parts: the tile has its figure once the worker is done
+      { waitFor: { text: /^about \d+ g$/, timeout: 120_000 } },
       { click: { role: "button", name: "Other formats" } },
     ],
   },
@@ -973,7 +975,10 @@ export const STATES = {
     board: "MobileDownload",
     viewport: PHONE,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: "Download" } }],
+    steps: [
+      { click: { role: "button", name: "Download" } },
+      { waitFor: { text: /^about \d+ g$/, timeout: 120_000 } },
+    ],
   },
   // The packing guide on a phone: one column, a card for each tray (no board: MobileDownload's cards are the nearest).
   "m-packing-guide": {
@@ -1157,6 +1162,7 @@ export const STATES = {
     seed: "harbour-kings-kit",
     steps: [
       { click: { role: "button", name: "Download" } },
+      { waitFor: { text: /^about \d+ g$/, timeout: 120_000 } },
       { click: { role: "button", name: "Other formats" } },
     ],
   },

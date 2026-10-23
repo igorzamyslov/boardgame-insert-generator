@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import kit from "../kit/kit.css?raw";
 import tokens from "../styles/tokens.css?raw";
 import css from "./trayBar.css?raw";
 import { toggleLock, turnTray } from "../app/actions";
-import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
+import type { MeshSource } from "../app/meshes";
+import { cubeMesh, fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { inputsHash } from "../model/hash";
 import type { Lock, Project, TraySpec } from "../model/types";
 import { shadeOf } from "./identity";
@@ -26,6 +27,22 @@ function planned(trays: TraySpec[], locks: Lock[] = []): Project {
 const tray = (over: Partial<TraySpec> = {}): TraySpec =>
   makeTray({ key: KEY, w: 72, d: 96, ...over });
 
+/** Meshes for the filament line: every part is a 72 × 96 × 40 mm box, 40 % of it plastic. */
+function stubMeshes(): MeshSource {
+  return {
+    get: vi.fn(() =>
+      Promise.resolve({ mesh: cubeMesh([72, 96, 40]), volumeMm3: 72 * 96 * 40 * 0.4 }),
+    ),
+    reset: vi.fn(),
+    forget: vi.fn(),
+    dispose: vi.fn(),
+  };
+}
+
+/** The meta line once the filament has been counted. */
+const counted = (el: Element | null): Promise<void> =>
+  waitFor(() => expect(el?.textContent).toMatch(/ · about \d+ g$/));
+
 function props(over: Partial<TrayBarProps> = {}): TrayBarProps {
   const t = over.tray ?? tray();
   return {
@@ -33,6 +50,7 @@ function props(over: Partial<TrayBarProps> = {}): TrayBarProps {
     tray: t,
     name: "Region deck",
     layer: "Layer 1 (bottom)",
+    meshes: stubMeshes(),
     onPin: vi.fn(),
     onTurn: vi.fn(),
     onToggleSizeLock: vi.fn(),
@@ -184,16 +202,36 @@ describe("TrayBar", () => {
     expect(ruleFor(".tray-more__dot")).toMatch(/position:\s*absolute/);
   });
 
-  it("reads the meta from the layout", () => {
+  it("reads the meta from the layout, and the filament once the part is built", async () => {
     bar();
     const meta = region().querySelector(".tray-bar__meta");
+    expect(meta?.textContent).toBe("Layer 1 (bottom) · 72 × 96 × 40 mm");
+    await counted(meta);
     expect(meta?.textContent).toMatch(
-      /^Layer \d \((bottom|top)\) · \d+ × \d+ × \d+ mm · about [\d.]+ (h|min), \d+ g$/,
+      /^Layer \d \((bottom|top)\) · \d+ × \d+ × \d+ mm · about \d+ g$/,
     );
+    expect(meta?.textContent).not.toMatch(/ h| min/);
     expect(meta?.textContent).toBe(
       `Layer 1 (bottom) · 72 × 96 × 40 mm · ${/about .+/.exec(meta?.textContent ?? "")?.[0]}`,
     );
     expect(region().textContent).not.toMatch(/#\d/);
+  });
+
+  it("gives no filament without meshes, or when the part cannot be built", async () => {
+    bar({ meshes: undefined });
+    await Promise.resolve();
+    expect(region().querySelector(".tray-bar__meta")?.textContent).toBe(
+      "Layer 1 (bottom) · 72 × 96 × 40 mm",
+    );
+    cleanup();
+    const failing = stubMeshes();
+    vi.mocked(failing.get).mockImplementation(() => Promise.reject(new Error("no")));
+    bar({ meshes: failing });
+    await waitFor(() => expect(failing.get).toHaveBeenCalled());
+    await Promise.resolve();
+    expect(region().querySelector(".tray-bar__meta")?.textContent).toBe(
+      "Layer 1 (bottom) · 72 × 96 × 40 mm",
+    );
   });
 
   it("names the tray in full in its title, on one line", () => {
@@ -465,17 +503,21 @@ describe("TrayBar as the phone's sheet", () => {
     expect(document.activeElement).toBe(within(dialog()).getByRole("heading", { level: 2 }));
   });
 
-  it("says the layer and the compartments, then the size and what it costs to print", () => {
+  it("says the layer and the compartments, then the size and the filament", async () => {
     sheet();
     expect(dialog().querySelector(".tray-sheet__meta")?.textContent).toBe(
       "Layer 1 (bottom) · 6 figure pockets",
     );
     const dts = [...dialog().querySelectorAll("dt")].map((e) => e.textContent);
-    expect(dts).toEqual(["Size", "Printing"]);
+    expect(dts).toEqual(["Size"]);
     expect(dialog().querySelector("dd")?.textContent).toBe("72 × 96 × 40 mm");
-    expect(dialog().querySelectorAll("dd")[1]?.textContent).toMatch(
-      /^about [\d.]+ (h|min), \d+ g$/,
+    await waitFor(() =>
+      expect([...dialog().querySelectorAll("dt")].map((e) => e.textContent)).toEqual([
+        "Size",
+        "Filament",
+      ]),
     );
+    expect(dialog().querySelectorAll("dd")[1]?.textContent).toMatch(/^about \d+ g$/);
   });
 
   it("has a full-width Edit <name>, the three tiles and Close", () => {
@@ -601,14 +643,16 @@ describe("TrayBar for a group's tray (G1)", () => {
     );
   });
 
-  it("says the size, the compartments and what it costs to print", () => {
+  it("says the size, the compartments and the filament", async () => {
     kit();
+    await counted(region().querySelector(".tray-bar__meta"));
     const meta = region().querySelector(".tray-bar__meta")?.textContent ?? "";
-    expect(meta).toMatch(/^72 × 96 × 40 mm · 5 compartments · about [\d.]+ (h|min), \d+ g$/);
+    expect(meta).toMatch(/^72 × 96 × 40 mm · 5 compartments · about \d+ g$/);
   });
 
-  it("puts the layer first only when the plan has two", () => {
+  it("puts the layer first only when the plan has two", async () => {
     kit({ layerCount: 2 });
+    await counted(region().querySelector(".tray-bar__meta"));
     expect(region().querySelector(".tray-bar__meta")?.textContent).toMatch(
       /^Layer 1 \(bottom\) · 72 × 96 × 40 mm · 5 compartments · about /,
     );

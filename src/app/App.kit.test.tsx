@@ -3,7 +3,7 @@
 // The Player kit seed (G1): four copies of a group's tray are called "Player kit 1" to "4" in the plan,
 // the tray bar, the Download dialog and the packing guide; choosing one selects that tray alone and
 // lights all four.
-import { cleanup, fireEvent, screen, within } from "@testing-library/preact";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadSeed } from "../test-support/harbourKings";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
@@ -53,7 +53,7 @@ describe("the Player kit seed", () => {
     }
   });
 
-  it("selects one tray and lights all four copies; the tray bar says Player kit 2", () => {
+  it("selects one tray and lights all four copies; the tray bar says Player kit 2", async () => {
     renderApp({ project: project() });
     const two = kitTiles().find((t) => nameOf(t) === "Player kit 2") as HTMLElement;
     fireEvent.keyDown(two, { key: "Enter" });
@@ -69,8 +69,11 @@ describe("the Player kit seed", () => {
     const bar = screen.getByRole("region", { name: "Selected tray" });
     expect(bar.querySelector(".tray-bar__name")?.textContent).toBe("Player kit 2");
     expect(bar.querySelectorAll(".tray-bar__cell").length).toBe(3);
-    expect(bar.querySelector(".tray-bar__meta")?.textContent).toMatch(
-      /^\d+(\.\d)? × \d+(\.\d)? × \d+(\.\d)? mm · \d+ compartments · about [\d.]+ (h|min), \d+ g$/,
+    // the filament comes once the part is built
+    await waitFor(() =>
+      expect(bar.querySelector(".tray-bar__meta")?.textContent).toMatch(
+        /^\d+(\.\d)? × \d+(\.\d)? × \d+(\.\d)? mm · \d+ compartments · about \d+ g$/,
+      ),
     );
     // the rail's card is pressed for it
     const rail = screen.getByRole("complementary", { name: "What's inside" });

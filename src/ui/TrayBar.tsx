@@ -6,8 +6,8 @@ import type { CSSProperties } from "preact";
 import { useEffect, useId, useMemo, useRef, useState } from "preact/hooks";
 import { isLockable, lockedKeys, sizeLockedKeys, stackOf, turnedKeys } from "../app/actions";
 import { canTurn } from "../app/dryRun";
+import type { MeshSource } from "../app/meshes";
 import { printedHeight } from "../instructions/numbering";
-import { summarize } from "../layout";
 import {
   Button,
   CloseButton,
@@ -20,9 +20,10 @@ import {
 } from "../kit";
 import type { ForeignData, Project, TraySpec } from "../model/types";
 import type { TrayLook } from "../plan/glyph";
-import { formatPrintCost } from "./estimates";
+import { formatGrams } from "./estimates";
 import { mm } from "./identity";
 import type { Shade } from "./identity";
+import { useFilament } from "./useFilament";
 import "./trayBar.css";
 
 export interface TrayBarProps {
@@ -49,6 +50,8 @@ export interface TrayBarProps {
   carries?: string | null;
   /** What the compartments are, in words: the phone's line ("6 figure pockets"), and a group's ("5 compartments"). */
   compartments?: string | null;
+  /** Where the part's mesh comes from, for the filament line; without it the bar gives none. */
+  meshes?: MeshSource;
   /** The phone's modal sheet, not the bar in the stage's slot. */
   phone?: boolean;
   /** A "Swap with…" is under way from this tray. */
@@ -61,21 +64,6 @@ export interface TrayBarProps {
   /** Only for a tray that holds a component: opens that component's editor. */
   onEdit?: () => void;
   onClose: () => void;
-}
-
-/** Filament and time to print this part alone, from the same rough model as the status: "about 3.5 h, 58 g". */
-function printEstimate(p: Project, t: TraySpec): string | null {
-  try {
-    const s = summarize([t], {
-      box: p.box,
-      printer: p.printer,
-      settings: p.settings,
-      locks: p.locks,
-    });
-    return formatPrintCost(s.printMinutes, s.filamentAtInfillG);
-  } catch {
-    return null;
-  }
 }
 
 /** The colours of the swatch or the tile: the component's own shade, as custom properties. */
@@ -125,10 +113,16 @@ function useTrayFacts(p: TrayBarProps) {
     () => (full ? canTurn(project, tray.key, foreign) : { ok: false as const, reason: "" }),
     [project, tray.key, full, foreign],
   );
-  const estimate = useMemo(
-    () => (full ? printEstimate(project, tray) : null),
-    [project, tray, full],
+  // The filament of this part alone, from its built mesh, as the Download dialog counts it; the
+  // line has none until the part is built (or when it cannot be, or no meshes were given).
+  const alone = useMemo(() => [tray], [tray]);
+  const filament = useFilament(
+    full ? p.meshes : undefined,
+    alone,
+    project.settings,
+    project.printer,
   );
+  const estimate = filament.status === "ready" ? formatGrams(filament.grams) : null;
   const size = `${mm(tray.w)} × ${mm(tray.d)} × ${mm(printedHeight(tray, project.settings))} mm`;
   const why = full && !turnCheck.ok ? turnCheck.reason : undefined;
   const stack = full ? stackOf(project, tray).length : 1;
@@ -459,7 +453,7 @@ function PhoneSheet(p: Inner) {
               <dd>{facts.size}</dd>
               {facts.estimate !== null ? (
                 <>
-                  <dt>Printing</dt>
+                  <dt>Filament</dt>
                   <dd>{facts.estimate}</dd>
                 </>
               ) : null}

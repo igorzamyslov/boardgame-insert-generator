@@ -288,13 +288,13 @@ const hanging: MeshSource = {
   dispose: () => undefined,
 };
 
-/** A mesh source whose first build fails: the file downloads without that part. */
-const failsOnce = (): MeshSource => {
-  let first = true;
+/** A mesh source where one part never builds (the first one asked for): the file downloads without it. */
+const failsOnePart = (): MeshSource => {
+  let failing: string | null = null;
   return {
-    get: () => {
-      if (first) {
-        first = false;
+    get: (spec) => {
+      failing ??= spec.key;
+      if (spec.key === failing) {
         return Promise.reject(new GeometryBuildError("too slow", "TimeoutError"));
       }
       return Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1 });
@@ -417,7 +417,7 @@ const CASES: readonly Case[] = [
     state: "exporting-partial",
     board: "Exporting",
     region: "dialog",
-    overrides: { meshes: failsOnce() },
+    overrides: { meshes: failsOnePart() },
     steps: async () => {
       startBuild();
       await screen.findByRole("heading", { name: /parts are ready$/ });

@@ -1,6 +1,7 @@
 // src/ui/SelectedTrayBar.tsx
 import { useMemo } from "preact/hooks";
 import { toggleLock, toggleSizeLock, turnTray } from "../app/actions";
+import type { MeshSource } from "../app/meshes";
 import { trayNames } from "../instructions/naming";
 import { numberParts, parentKey } from "../instructions/numbering";
 import type { ForeignData, Project, TraySpec } from "../model/types";
@@ -20,6 +21,8 @@ export interface SelectedTrayBarProps {
   project: Project;
   /** What the file kept of components this app doesn't read (for the Turn dry run). */
   foreign?: ForeignData;
+  /** Where the parts' meshes come from, for the bar's filament line. */
+  meshes?: MeshSource;
   /** The parts as they print (what the plan and the 3D view draw). */
   trays: readonly TraySpec[];
   selectedKey: string | null;
@@ -98,6 +101,7 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
       project={project}
       {...(p.foreign === undefined ? {} : { foreign: p.foreign })}
       tray={tray}
+      {...(p.meshes === undefined ? {} : { meshes: p.meshes })}
       name={names.get(key)?.full ?? "Tray"}
       layer={at >= 0 ? layerLabel(at, levels.length) : `Layer ${tray.level + 1}`}
       look={look}
