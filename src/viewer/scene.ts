@@ -11,6 +11,7 @@ import {
   LineBasicMaterial,
   LineSegments,
   Mesh as ThreeMesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   PerspectiveCamera,
   Raycaster,
@@ -44,6 +45,12 @@ interface TrayObject {
   anchor: TraySpec;
   object: ThreeMesh;
   material: MeshStandardMaterial;
+  /**
+   * The tray drawn into depth only, just before the tray itself while it is drawn through: without
+   * it a see-through tray's far walls and wells blend over its near faces in whatever order the
+   * triangles come, and it reads as turned inside out. With it only the nearest face blends.
+   */
+  depth: ThreeMesh;
   /** The tray's own colour: what it shows at full strength, before any fade toward the page. */
   base: Color;
 }
@@ -155,6 +162,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       t.material.opacity = opacity;
       t.material.transparent = opacity < 1;
       t.material.depthWrite = opacity === 1;
+      t.depth.visible = opacity < 1;
     }
     requestDraw();
   }
@@ -200,6 +208,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       scene.remove(t.object);
       t.object.geometry.dispose();
       t.material.dispose();
+      (t.depth.material as MeshBasicMaterial).dispose();
     }
     trays = [];
   }
@@ -329,9 +338,19 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
           roughness: 0.8,
         });
         const object = new ThreeMesh(geometry, material);
+        // Both are drawn with the see-through trays, after the solid ones: the depth first.
+        const depth = new ThreeMesh(
+          geometry,
+          new MeshBasicMaterial({ colorWrite: false, transparent: true }),
+        );
+        depth.renderOrder = 1;
+        object.renderOrder = 2;
+        depth.visible = false;
+        depth.raycast = () => undefined;
+        object.add(depth);
         scene.add(object);
         const anchor = anchorOf(spec, byKey);
-        trays.push({ spec, anchor, object, material, base });
+        trays.push({ spec, anchor, object, material, depth, base });
       });
       refit();
       apply();
