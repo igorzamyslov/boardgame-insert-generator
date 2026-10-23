@@ -547,6 +547,42 @@ describe("AssemblyPage: taking it out", () => {
     expect(tray?.querySelector(".assembly-flag")).toBeNull();
   });
 
+  it("lifts a tray with no finger cut by the dip in the strip beside it, and does not flag it", () => {
+    // Deck A's finger cut is off; the strip beside it is 10 mm across, so its dip is cut through
+    const bare = makeTray({ key: "a:p0:0" });
+    const thin = makeTray({
+      key: "leftover:0",
+      part: "leftover",
+      solid: true,
+      compartments: [],
+      stack: 9,
+      x: 100.2,
+      y: 0,
+      w: 10,
+      d: 80,
+      features: [{ type: "fingerDip", side: "left", at: 40, width: 25, depth: 15 }],
+    });
+    render(
+      <AssemblyPage
+        project={deckProject()}
+        layout={makeLayout("h", [bare, thin])}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(document.querySelector(".assembly-flag")).toBeNull();
+    expect(liftCells().sort()).toEqual([
+      "Lift it by the finger dip",
+      "Lift it by the finger dip beside it",
+    ]);
+    const rulings = COPY_RULINGS.filter(
+      (r) => r.states === "all" || r.states.includes("packing-guide"),
+    );
+    expect(
+      unruled(liftCells(), { literals: new Set(), rulings, data: new Set(), engine: new Set() }),
+    ).toEqual([]);
+  });
+
   it("flags in words, not in colour alone, and prints the flag as a black outline", () => {
     expect(printBlock).toMatch(/\.assembly-flag\s*\{[^}]*border:\s*1px solid #000/);
     expect(printBlock).toMatch(/\.assembly-takeout\s*\{[^}]*break-inside:\s*avoid/);

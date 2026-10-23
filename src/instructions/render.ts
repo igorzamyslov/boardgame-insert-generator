@@ -30,6 +30,7 @@ import {
 import type { PlanFrame, ViewBox } from "../plan/layers";
 import { placeBadges } from "./labels";
 import type { LabelRequest } from "./labels";
+import { dipsFacingTrays } from "../layout/dips";
 import { carriedBy, contactOf, extentsOf, gripOf, liftLine } from "./lift";
 import type { Extent, Grip, GripKind } from "./lift";
 import { engravesName } from "../geometry/engraves";
@@ -345,7 +346,16 @@ function fullNameOf(
   return part === undefined ? null : (names.get(part.spec.key)?.full ?? part.label);
 }
 
+/**
+ * The keys of the trays with a finger dip beside them. The dips are on the printed parts' features
+ * (`printableParts`), which the guide is given, so a stored layout has none.
+ */
+function traysWithDipBeside(layout: StoredLayout, project: Project): ReadonlySet<string> {
+  return new Set(dipsFacingTrays(layout.trays, { settings: project.settings }).keys());
+}
+
 export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[] {
+  const facing = traysWithDipBeside(layout, project);
   const levels = levelsOf(layout.trays);
   const parts = numberParts(layout.trays);
   const names = trayNames(parts, project.components, project.groups);
@@ -355,7 +365,7 @@ export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[]
     const carries = project.settings.engraveNames && carriesName(p.spec.part) && short !== "";
     // null: a part that cannot be planned is not built, and says nothing of its name
     const fits = carries ? engravesName(p.spec, project.settings, short) : false;
-    const grip = gripOf(p.spec);
+    const grip = gripOf(p.spec, facing);
     return {
       key: p.spec.key,
       name: names.get(p.spec.key)?.full ?? p.label,
@@ -525,6 +535,7 @@ function takeOutOrder(
  */
 export function packingGuide(layout: StoredLayout, project: Project): GuideLayer[] {
   const parts = numberParts(layout.trays);
+  const facing = traysWithDipBeside(layout, project);
   const rowOf = new Map(whatGoesWhere(layout, project).map((r) => [r.key, r]));
   const infos = layerInfo(layout, project.components, project.groups);
   if (infos.length === 0) {
@@ -555,7 +566,7 @@ export function packingGuide(layout: StoredLayout, project: Project): GuideLayer
         : own
             .filter((q) => q === main || q.spec.part === "riser")
             .flatMap((q) => extentsOf(q.spec)),
-    grip: gripOf(main.spec),
+    grip: gripOf(main.spec, facing),
   });
   parts.forEach((p, i) => {
     if (isAddOn(p.spec)) {

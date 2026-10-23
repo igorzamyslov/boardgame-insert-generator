@@ -195,7 +195,11 @@ import type { Semver } from "../model/version";
  * exactly as it did and `planTray` accepts everything it accepted. A layout made again has these
  * deeper cuts and, where an upper tray was raised for its plain cut, a lower tray with its height
  * in the riser under it (the stack adds up the same), so trays printed before and after still
- * mate and stack: a PATCH, as 0.8.3 (wells change, outer fit does not) was.
+ * mate and stack: a PATCH, as 0.8.3 (wells change, outer fit does not) was. A floor notch goes down
+ * through the bottom, so it is only for a well on the tray's own floor: where a well's floor is
+ * raised above the tray's by more than MIN_FEATURE_MM (a 3 mm pawn's pocket beside a 40 mm hero's,
+ * or a 5-card flat deck beside a 60-card one) sizing gives it the full-depth cut down to its own
+ * floor with no notch (`placeCutouts`), not a shaft through the solid under it, open at the bed.
  *
  * 0.9.4 cuts a finger dip in each solid filler where it touches a tray (owner, 2026-10-23, from the
  * investigation "lifting trays"; `FeatureSpec` "fingerDip", `layout/dips.ts`, model/finger-dip.ts).
@@ -208,7 +212,9 @@ import type { Semver } from "../model/version";
  * mesh-only addition to a printed filler (a derived part: nothing is stored): outer size, footprint,
  * fit and every tray are as before, and a filler without a dip builds exactly as before. A PATCH, as
  * 0.9.1 (the slit) was: a new optional feature that planTray only accepts on a solid filler. The
- * engraved name keeps clear of a dip that opens on its face.
+ * engraved name keeps clear of a dip that opens on its face. A dip cut across a strip serves the
+ * tray on each face, so it is no deeper than the shallower of the two allows (never below the foot
+ * of either) and takes a place in the cap of two dips on a side of a tray on both of them.
  */
 export const GEOMETRY_VERSION = "0.9.4";
 

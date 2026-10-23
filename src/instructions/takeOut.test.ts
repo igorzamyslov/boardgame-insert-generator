@@ -264,6 +264,48 @@ describe("the line that says how to lift a part", () => {
   });
 });
 
+describe("a tray with only a finger dip beside it", () => {
+  // Anchors has its finger cut turned off; the strip beside it (10 mm across, so cut through) has
+  // a dip on its face. A thick block on Anchors' other side has a dip on one face only.
+  const dip = (side: "left" | "right", over: Partial<FeatureSpec> = {}): FeatureSpec =>
+    ({ type: "fingerDip", side, at: 40, width: 25, depth: 15, ...over }) as FeatureSpec;
+  const scene = () => [
+    holding("Anchors", {}, false),
+    strip("leftover:0", { x: 100.2, y: 0, w: 10, d: 80, features: [dip("left")] }),
+    strip("leftover:1", { x: -40.2, y: 0, w: 40, d: 80, features: [dip("right")] }),
+  ];
+
+  it("lifts it by the dip and does not flag it", () => {
+    const rows = rowsOf(scene(), ["Anchors"]);
+    const tray = rows[0]?.find((r) => r.key === "Anchors:p0:0");
+    expect(tray?.lift).toBe("Lift it by the finger dip beside it");
+    expect(tray?.grip).toBe("dip-beside");
+    expect(tray?.noGrip).toBe(false);
+  });
+
+  it("lifts the thin strip by its dip, and has the thick block wait for the tray", () => {
+    const rows = rowsOf(scene(), ["Anchors"]);
+    const lift = (key: string) => rows[0]?.find((r) => r.key === key);
+    expect(lift("leftover:0")?.lift).toBe("Lift it by the finger dip");
+    expect(lift("leftover:1")?.noGrip).toBe(true);
+    expect(lift("leftover:1")?.lift).toBe("Take out Anchors first, then tip it out");
+    // the block is packed before the tray it waits for, so the tray comes out first
+    const order = keys(rows[0]) ?? [];
+    expect(order.indexOf("leftover:1")).toBeLessThan(order.indexOf("Anchors:p0:0"));
+  });
+
+  it("still reads 'Empty it first' when no dip is on its face", () => {
+    const rows = rowsOf([holding("Anchors", {}, false)], ["Anchors"]);
+    expect(rows[0]?.[0]?.lift).toBe("Empty it first, then lift it from inside");
+    expect(rows[0]?.[0]?.noGrip).toBe(true);
+  });
+
+  it("keeps its own finger cut ahead of the dip", () => {
+    const rows = rowsOf([holding("Anchors"), ...scene().slice(1)], ["Anchors"]);
+    expect(rows[0]?.find((r) => r.key === "Anchors:p0:0")?.lift).toBe("Lift it by the finger cut");
+  });
+});
+
 describe("on real plans", () => {
   const guideOf = (project: Project) => {
     const trays = printableParts(project.layout?.trays ?? [], {

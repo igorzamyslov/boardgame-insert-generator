@@ -1,6 +1,6 @@
 // @vitest-environment node
 // src/layout/dips.test.ts
-// Finger dips (geometry 0.9.3, DESIGN §7 "lifting trays"): a print-time pass that cuts a U from the
+// Finger dips (geometry 0.9.4, DESIGN §7 "lifting trays"): a print-time pass that cuts a U from the
 // top of each solid filler where it touches a tray, so the tray beside it can be gripped. Derived
 // from the printed parts, never stored.
 import { describe, expect, it } from "vitest";
@@ -15,7 +15,7 @@ import {
 import { DEFAULT_SETTINGS, MIN_FEATURE_MM } from "../model/settings";
 import type { Settings, TraySpec } from "../model/types";
 import { loadSeed } from "../test-support/harbourKings";
-import { addFingerDips, dipsFacingTrays } from "./dips";
+import { addFingerDips, dipsFacingTrays, traysOpenedBy } from "./dips";
 import { mergeParts } from "./merge";
 import { printableParts } from "./printable";
 import { TEST_PRINTER, traySpec } from "./test-utils";
@@ -231,6 +231,76 @@ describe("at most two dips on a tray's side", () => {
     expect(DIPS_PER_TRAY_SIDE).toBe(2);
     expect(count).toBe(2);
     expect(dipsFacingTrays(out, { settings: S }).get("t")).toHaveLength(2);
+  });
+});
+
+describe("a dip cut across a strip counts on every side it serves", () => {
+  // Tray T has two thick fillers beside its right side, each with a dip, and a thin strip beyond
+  // them with a third place for one. The strip's dip is cut across: it would reach T's side a
+  // third time (and the tray U on the strip's far face), so it is left out. Counting it only on
+  // the side that still had room put three dips on T.
+  const scene = (): TraySpec[] => [
+    tray({ key: "t", w: 60, d: 100 }),
+    filler({ key: "leftover:0", y: 0, d: 40 }),
+    filler({ key: "leftover:1", y: 40 + GAP, d: 40 }),
+    // 5 mm past the second filler, so it touches T and U only, and only 15 mm of each (the
+    // fillers' dips face 25 mm of T, so they are placed first)
+    filler({ key: "leftover:2", y: 85, d: 34.6, w: 10 }),
+    tray({ key: "u", x: 60 + GAP + 10 + GAP, y: 85, d: 15, w: 60 }),
+  ];
+
+  it("never puts a third dip on a side of a tray", () => {
+    const out = addFingerDips(scene(), { settings: S });
+    const facing = dipsFacingTrays(out, { settings: S });
+    for (const [, list] of facing) {
+      for (const side of ["front", "back", "left", "right"]) {
+        expect(list.filter((f) => f.side === side).length).toBeLessThanOrEqual(DIPS_PER_TRAY_SIDE);
+      }
+    }
+    expect(facing.get("t")?.filter((f) => f.side === "right")).toHaveLength(2);
+    // the strip is the third place for T's right side, so it keeps its face whole
+    expect(dipsOf(out, "leftover:2")).toEqual([]);
+  });
+});
+
+describe("a dip cut across a strip is no deeper than any tray it serves", () => {
+  // The strip is 30 mm high with a tray 30 mm high on its front face and a short one, 6 mm high on
+  // a riser, on its back face: a dip 15 mm deep would reach 9 mm below the short tray's foot.
+  const scene = (): TraySpec[] => [
+    tray({ key: "front", x: 0, y: 0, w: 80, d: 60 }),
+    filler({ x: 0, y: 60 + GAP, w: 80, d: 9.6 }),
+    tray({ key: "back", x: 40, y: 60 + GAP + 9.6 + GAP, w: 20, d: 60, z: 24, h: 6 }),
+  ];
+
+  it("takes the depth the shortest tray allows", () => {
+    const out = addFingerDips(scene(), { settings: S });
+    const dips = dipsOf(out, "leftover:0");
+    expect(dips).toHaveLength(1);
+    expect(dips[0]?.depth).toBe(6);
+    const facing = dipsFacingTrays(out, { settings: S });
+    expect(facing.get("front")).toHaveLength(1);
+    expect(facing.get("back")).toHaveLength(1);
+  });
+
+  it("keeps every dip's bottom above the foot of every tray it faces, on the seeds", () => {
+    for (const name of ["harbour-kings", "harbour-kings-headroom", "harbour-kings-kit"]) {
+      const { project } = loadSeed(name);
+      const parts = printableParts(project.layout?.trays ?? [], {
+        components: project.components,
+        settings: project.settings,
+        printer: project.printer,
+        locks: project.locks,
+      }).trays;
+      const trays = parts.filter((q) => q.part === "tray");
+      for (const part of parts) {
+        for (const { part: member, dip } of fingerDipsOf(part)) {
+          const bottom = member.z + member.h - dip.depth;
+          for (const { tray } of traysOpenedBy(member, dip, trays, project.settings.trayGap)) {
+            expect(bottom).toBeGreaterThanOrEqual(tray.z - 1e-6);
+          }
+        }
+      }
+    }
   });
 });
 

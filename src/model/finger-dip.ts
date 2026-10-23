@@ -3,7 +3,7 @@ import { bottomEdgeOf } from "./lip";
 import { MIN_FEATURE_MM, POST_MM } from "./settings";
 import type { FeatureSpec, Settings, Side, TraySpec } from "./types";
 
-// Finger dips (FeatureSpec "fingerDip", geometry 0.9.3). Trays tile the box a tray gap apart, and
+// Finger dips (FeatureSpec "fingerDip", geometry 0.9.4). Trays tile the box a tray gap apart, and
 // 0.5 mm from its wall, so nothing on a tray's outside can be gripped: a whole tray comes out only
 // by its contents. A filler wedged beside a tray gets a dip, a U cut from its top where it touches
 // the tray's outer face, so a fingertip reaches down that face; a dip on two opposite sides lifts
@@ -116,10 +116,10 @@ export function dipMargin(s: Settings): number {
 /**
  * How deep a dip can be in a part `h` tall whose bottom edge (chamfer, groove or step: `edgeTop`)
  * stands whole above `edgeTop`, when `room` is how far down the tray it faces reaches below the top
- * of the part: about half the part's height (a floor of its own under the dip), at most
- * DIP_MAX_DEPTH_MM, no deeper than the tray it faces, and its bottom MIN_FEATURE_MM above the edge
- * where it leaves through the face, as a wall cutout's is. Whole hundredths, rounded down; 0 when
- * under DIP_MIN_DEPTH_MM.
+ * of the part (the least of them, for a dip cut across a strip that faces two): about half the
+ * part's height (a floor of its own under the dip), at most DIP_MAX_DEPTH_MM, no deeper than the
+ * tray it faces, and its bottom MIN_FEATURE_MM above the edge where it leaves through the face, as
+ * a wall cutout's is. Whole hundredths, rounded down; 0 when under DIP_MIN_DEPTH_MM.
  */
 export function dipDepth(h: number, edgeTop: number, room: number): number {
   const most = h - (edgeTop + MIN_FEATURE_MM);

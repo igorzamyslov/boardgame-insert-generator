@@ -364,8 +364,9 @@ describe("realizeTray", () => {
     expect(at(r.compartments, 0).floorZ).toBe(1.2);
     // The deck's channel leaves through the end wall but never opens into the custom well.
     expect(at(r.compartments, 0).features).toEqual([cutout("left", 47.85, 34)]);
-    // The dial's well is 11 mm deep, a short piece: cut through the front wall down to its floor,
-    // with a floor notch (a half-deep cut would leave it below the cut).
+    // The dial's well is 11 mm deep, a short piece: cut through the front wall down to its floor.
+    // Its floor stands on 57 mm of solid beside the deck's, so no floor notch: it would be a shaft
+    // through that solid down to the bed.
     expect(at(r.compartments, 1)).toEqual({
       x: 26.3,
       y: 32.35,
@@ -376,7 +377,7 @@ describe("realizeTray", () => {
       contents: "Dial",
       componentId: "x1",
       features: [
-        { type: "wallCutout", side: "front", at: 46.8, width: 25, depth: 11, floorNotch: 12.5 },
+        { type: "wallCutout", side: "front", at: 46.8, width: 25, depth: 11, floorNotch: 0 },
         { type: "cornerRelief", d: 3 },
       ],
     });

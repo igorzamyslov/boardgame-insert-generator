@@ -117,6 +117,10 @@ export const MIN_REACH_OVERLAP = 10;
  * piece through the notch instead. From 20 mm up the half-deep cut shows 10 mm or more of the
  * side, and the piece is lifted by its top as before. Judged on the piece's own height, so the
  * clearance around it (a setting) does not move it across.
+ *
+ * The notch goes down through the bottom, so it is only for a well on the tray's own floor
+ * (`placeCutouts`, `raised`): a short pocket whose floor is raised above the tray's, beside a
+ * taller one, gets the same full-depth cut down to its own floor with no notch.
  */
 export const SHORT_PIECE_H = 2 * MIN_REACH_OVERLAP;
 

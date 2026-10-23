@@ -54,15 +54,73 @@ describe("gripOf: what a part is lifted by", () => {
     expect(liftLine(bin, gripOf(bin), none)).toBe("Tip the pieces out, then lift it by the scoop");
   });
 
-  it("lifts a solid filler with a finger dip by the dip, a grip of its own", () => {
-    const strip = makeTray({
-      part: "leftover",
-      solid: true,
-      compartments: [],
-      features: [{ type: "fingerDip", side: "left", at: 20, width: 25, depth: 6 }],
+  describe("a solid filler with a finger dip", () => {
+    const dip: FeatureSpec = { type: "fingerDip", side: "left", at: 20, width: 25, depth: 6 };
+    const filler = (over: Partial<TraySpec>) =>
+      makeTray({ part: "leftover", solid: true, compartments: [], features: [dip], ...over });
+
+    it("is lifted by the dip when it is cut across a thin strip a finger can pinch", () => {
+      // 10 mm across the dip's face: cut through, open on both faces
+      const strip = filler({ w: 10, d: 80 });
+      expect(gripOf(strip)).toEqual({ kind: "dip", own: true });
+      expect(liftLine(strip, gripOf(strip), none)).toBe("Lift it by the finger dip");
     });
-    expect(gripOf(strip)).toEqual({ kind: "dip", own: true });
-    expect(liftLine(strip, gripOf(strip), none)).toBe("Lift it by the finger dip");
+
+    it("has nothing to hold when the dip is a pocket in one face of a thick filler", () => {
+      // 40 mm across: the dip runs 15 mm in and ends in the filler's own wall. A fingertip rests in
+      // it but nothing in a U with vertical sides can be pulled on, and the filler's other face is
+      // against the next tray or the box wall, so no thumb gets there to pinch it.
+      const block = filler({ w: 40, d: 80 });
+      expect(gripOf(block)).toEqual({ kind: "none", own: false });
+      expect(liftLine(block, gripOf(block), { neighbour: "Events", tray: null })).toBe(
+        "Take out Events first, then tip it out",
+      );
+    });
+
+    it("is lifted by a member's through dip when the filler is merged", () => {
+      const thin = filler({ w: 10, d: 80 });
+      const thick = filler({ x: 50, w: 40, d: 80, features: [] });
+      const merged = (members: TraySpec[]) =>
+        makeTray({
+          part: "leftover",
+          solid: true,
+          compartments: [],
+          merged: { members, bridges: [], flipped: false },
+        });
+      expect(gripOf(merged([thick, thin])).kind).toBe("dip");
+      expect(gripOf(merged([thick, filler({ x: 50, w: 40, d: 80 })])).kind).toBe("none");
+    });
+  });
+
+  describe("a tray with a finger dip beside it", () => {
+    const facing = new Set(["a:p0:0"]);
+    const bare = makeTray({ compartments: [well()] });
+
+    it("is lifted by the dip, a grip of its own, when it has no finger cut", () => {
+      const grip = gripOf(bare, facing);
+      expect(grip).toEqual({ kind: "dip-beside", own: true });
+      expect(liftLine(bare, grip, none)).toBe("Lift it by the finger dip beside it");
+    });
+
+    it("keeps its own finger cut first", () => {
+      const cutTray = makeTray({ compartments: [well([cut])] });
+      expect(gripOf(cutTray, facing)).toEqual({ kind: "finger-cut", own: true });
+    });
+
+    it("is lifted by the dip rather than tipped out by its scoop", () => {
+      const bin = makeTray({ compartments: [well([scoop], { kind: "scoop" })] });
+      expect(gripOf(bin, facing).kind).toBe("dip-beside");
+    });
+
+    it("is still lifted by its contents when the dip faces another tray", () => {
+      expect(gripOf(bare, new Set(["other:p0:0"]))).toEqual({ kind: "contents", own: false });
+      expect(gripOf(bare)).toEqual({ kind: "contents", own: false });
+    });
+
+    it("is for trays only: a divider keeps its edge", () => {
+      const divider = makeTray({ part: "divider", solid: true, compartments: [] });
+      expect(gripOf(divider, new Set([divider.key])).kind).toBe("edge");
+    });
   });
 
   it("prefers the finger cut when a tray has both", () => {

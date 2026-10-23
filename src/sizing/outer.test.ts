@@ -191,7 +191,7 @@ describe("minOuter", () => {
   });
 
   it("leaves a flat custom item or a short figure at the least the groove allows: its cut has the floor notch", () => {
-    // (these asked for a plain half-deep cut, and so for 4.45 mm, until 0.9.2)
+    // (these asked for a plain half-deep cut, and so for 4.45 mm, until 0.9.3)
     const upper = { lipped: false, level: 1 };
     const board = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1");
     expect(minOuter(board, s, upper).h).toBe(3.65);

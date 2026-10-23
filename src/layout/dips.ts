@@ -108,8 +108,8 @@ interface Site {
   lo: number;
   hi: number;
   centre: number;
-  /** How deep a dip here can be (0: none). */
-  depth: number;
+  /** How far down the tray reaches below the top of the filler, mm: all a dip here can be deep. */
+  room: number;
   /** Where the tray's own cuts leave through its side, along the filler's face. */
   cuts: [number, number][];
 }
@@ -142,7 +142,8 @@ function sitesOn(
     if (hi - lo < DIP_MIN_CONTACT_MM - EPS) {
       continue;
     }
-    const depth = dipDepth(height, edgeTop, top - t.z0);
+    const room = top - t.z0;
+    const depth = dipDepth(height, edgeTop, room);
     if (depth === 0 || grip(t, top, depth) < DIP_MIN_DEPTH_MM - EPS) {
       continue;
     }
@@ -152,7 +153,7 @@ function sitesOn(
       lo,
       hi,
       centre: (t0 + t1) / 2,
-      depth,
+      room,
       cuts: cutsOn(tray, OPPOSITE[side]),
     });
   }
@@ -222,6 +223,11 @@ const overlapLength = (a0: number, a1: number, b0: number, b1: number): number =
  * DIP_MIN_CONTACT_MM of the tray's side, stays clear of the bridges and members of a merged part
  * (a bridge would fill it) and keeps its sides `dipMargin` from the part's ends; one clear of the
  * tray's own cuts through that side comes first, then the one nearest the middle.
+ *
+ * A dip cut across a strip serves the tray on each face, so its depth is what every one of them
+ * allows (`dipDepth` for the least `room`): a tray that would not be gripped at that depth is not
+ * served, and the dip is then as deep as the rest allow, until the set stops changing. The dip
+ * never reaches below the foot of a tray it serves.
  */
 function propose(
   c: Candidate,
@@ -229,8 +235,9 @@ function propose(
   all: readonly Site[],
   width: number,
   margin: number,
+  edgeTop: number,
 ): Proposal | null {
-  const { side, depth } = site;
+  const { side } = site;
   const r = width / 2;
   const [p0, p1] = spanOf(c.box, side);
   const [first, last] = [p0 + margin + r, p1 - margin - r];
@@ -248,12 +255,38 @@ function propose(
       if (pos < first - 1e-9 || pos > last + 1e-9) {
         continue;
       }
-      const dip: FingerDip = { type: "fingerDip", side, at: roundMm(pos - origin), width, depth };
-      const at = origin + dip.at;
+      const at = origin + roundMm(pos - origin);
       const contact = overlapLength(at - r, at + r, site.lo, site.hi);
       if (contact < DIP_MIN_CONTACT_MM - EPS) {
         continue;
       }
+      const shape = dipBox({ side, at: at - origin, width }, c.part);
+      const faces = shape.through ? [side, OPPOSITE[side]] : [side];
+      // The sites the dip reaches along its width; the least room among them sets its depth, and a
+      // tray it is too shallow to grip drops out (its removal can only deepen the dip).
+      let reached = all.filter((s) => {
+        const [t0, t1] = spanOf(boxOf(s.tray), s.side);
+        return (
+          faces.includes(s.side) &&
+          overlapLength(at - r, at + r, Math.max(t0, p0), Math.min(t1, p1)) >=
+            DIP_MIN_CONTACT_MM - EPS
+        );
+      });
+      let depth = 0;
+      for (;;) {
+        depth = dipDepth(c.part.h, edgeTop, Math.min(...reached.map((s) => s.room)));
+        const gripped = reached.filter(
+          (s) => grip(boxOf(s.tray), top, depth) >= DIP_MIN_DEPTH_MM - EPS,
+        );
+        if (gripped.length === reached.length) {
+          break;
+        }
+        reached = gripped;
+      }
+      if (depth === 0 || !reached.includes(site)) {
+        continue;
+      }
+      const dip: FingerDip = { type: "fingerDip", side, at: roundMm(at - origin), width, depth };
       const b = dipBox(dip, c.part);
       const foot: Box = {
         x0: c.box.x0 + b.x0,
@@ -267,23 +300,11 @@ function propose(
         continue;
       }
       const clear = !site.cuts.some(([a, z]) => overlapLength(at - r, at + r, a, z) > EPS);
-      const served = all
-        .filter((s) => {
-          const faces = b.through ? [side, OPPOSITE[side]] : [side];
-          const [t0, t1] = spanOf(boxOf(s.tray), s.side);
-          return (
-            faces.includes(s.side) &&
-            overlapLength(at - r, at + r, Math.max(t0, p0), Math.min(t1, p1)) >=
-              DIP_MIN_CONTACT_MM - EPS &&
-            grip(boxOf(s.tray), top, depth) >= DIP_MIN_DEPTH_MM - EPS
-          );
-        })
-        .map((s) => ({ tray: s.tray, side: OPPOSITE[s.side] }));
       const found: Proposal = {
         candidate: c,
         dip,
         box: foot,
-        served,
+        served: reached.map((s) => ({ tray: s.tray, side: OPPOSITE[s.side] })),
         clearOfCuts: clear,
         contact,
       };
@@ -298,7 +319,7 @@ function propose(
 }
 
 /**
- * The finger dips of a printed layout (geometry 0.9.3, DESIGN §7 "lifting trays"), last pass after
+ * The finger dips of a printed layout (geometry 0.9.4, DESIGN §7 "lifting trays"), last pass after
  * the merge. Trays tile the box a tray gap apart, so nothing on a tray's outside can be gripped
  * and a filler wedged beside it has no grip either: each solid filler (plain, or a member of a
  * merged part) gets a U cut from its top where it touches a tray's outer face, `fingerPocket.width`
@@ -309,10 +330,12 @@ function propose(
  *   `dipMargin` from the filler's ends), else the nearest place that has; clear of the tray's own
  *   cuts through that side where there is room (if the filler seals the whole of one, the dip faces
  *   it and opens it); clear of the bridges and members of a merged part. At most DIPS_PER_TRAY_SIDE
- *   dips face one side of a tray, taken in order of how well they are placed.
+ *   dips face one side of a tray, taken in order of how well they are placed; a dip across a strip
+ *   needs room on every side it serves.
  * - **How deep.** About half the filler's height, at most DIP_MAX_DEPTH_MM, no deeper than the tray
- *   it faces, and its bottom MIN_FEATURE_MM above the groove or step at the filler's foot where it
- *   leaves through the face (`dipDepth`); under DIP_MIN_DEPTH_MM there is no dip.
+ *   it faces (a dip across a strip: the shallower of its two trays), and its bottom MIN_FEATURE_MM
+ *   above the groove or step at the filler's foot where it leaves through the face (`dipDepth`);
+ *   under DIP_MIN_DEPTH_MM there is no dip.
  * - **Thin strips.** A filler thinner than a finger is cut across its whole thickness (`dipRun`):
  *   the dip is open on both faces and serves the tray on each. Strips under DIP_MIN_STRIP_MM, where
  *   no finger would go in, are left whole.
@@ -349,7 +372,7 @@ export function addFingerDips(trays: readonly TraySpec[], o: DipInputs): TraySpe
       const mine = sites[i] ?? [];
       const theirs = through ? (sites[sides.indexOf(OPPOSITE[side])] ?? []) : [];
       for (const site of mine) {
-        const p = propose(c, site, [...mine, ...theirs], width, margin);
+        const p = propose(c, site, [...mine, ...theirs], width, margin, edgeTop);
         if (p !== null && p.served.length > 0) {
           proposals.push(p);
         }
@@ -369,7 +392,8 @@ export function addFingerDips(trays: readonly TraySpec[], o: DipInputs): TraySpe
   for (const p of proposals) {
     const mine = placed.get(p.candidate.part) ?? [];
     const clash = mine.some((q) => !keepsApart(flat(q.box), flat(p.box), SPEC_TOLERANCE));
-    const room = p.served.some((s) => (count.get(sideKey(s)) ?? 0) < DIPS_PER_TRAY_SIDE);
+    // A dip is counted on every side it serves, so it needs room on all of them.
+    const room = p.served.every((s) => (count.get(sideKey(s)) ?? 0) < DIPS_PER_TRAY_SIDE);
     if (clash || !room) {
       continue;
     }
@@ -412,6 +436,32 @@ export interface DipFacing {
   side: Side;
 }
 
+/** The trays a dip cut in `part` (a printed part or a merged part's member) opens on. */
+export function traysOpenedBy(
+  part: TraySpec,
+  dip: FingerDip,
+  trays: readonly TraySpec[],
+  gap: number,
+): { tray: TraySpec; side: Side }[] {
+  const b = dipBox(dip, part);
+  const at = (alongX(dip.side) ? part.x : part.y) + dip.at;
+  const faces = b.through ? [dip.side, OPPOSITE[dip.side]] : [dip.side];
+  const box = boxOf(part);
+  return faces.flatMap((side) =>
+    trays.flatMap((tray) => {
+      const t = boxOf(tray);
+      const apart = faceGap(box, t, side);
+      const [t0, t1] = spanOf(t, side);
+      return apart >= -EPS &&
+        apart <= gap + EPS &&
+        overlapLength(at - dip.width / 2, at + dip.width / 2, t0, t1) >= DIP_MIN_CONTACT_MM - EPS &&
+        grip(t, box.z1, dip.depth) >= DIP_MIN_DEPTH_MM - EPS
+        ? [{ tray, side: OPPOSITE[side] }]
+        : [];
+    }),
+  );
+}
+
 /**
  * For each tray (by key) the dips that face it: the printed parts whose dips open on one of its
  * sides over at least DIP_MIN_CONTACT_MM, and which side. For "how to lift this part" lines: a
@@ -427,25 +477,8 @@ export function dipsFacingTrays(
   const out = new Map<string, DipFacing[]>();
   for (const by of parts) {
     for (const { part, dip } of fingerDipsOf(by)) {
-      const b = dipBox(dip, part);
-      const at = (alongX(dip.side) ? part.x : part.y) + dip.at;
-      const faces = b.through ? [dip.side, OPPOSITE[dip.side]] : [dip.side];
-      const box = boxOf(part);
-      for (const side of faces) {
-        for (const tray of trays) {
-          const t = boxOf(tray);
-          const apart = faceGap(box, t, side);
-          const [t0, t1] = spanOf(t, side);
-          if (
-            apart >= -EPS &&
-            apart <= gap + EPS &&
-            overlapLength(at - dip.width / 2, at + dip.width / 2, t0, t1) >=
-              DIP_MIN_CONTACT_MM - EPS &&
-            grip(t, box.z1, dip.depth) >= DIP_MIN_DEPTH_MM - EPS
-          ) {
-            out.set(tray.key, [...(out.get(tray.key) ?? []), { by, side: OPPOSITE[side] }]);
-          }
-        }
+      for (const { tray, side } of traysOpenedBy(part, dip, trays, gap)) {
+        out.set(tray.key, [...(out.get(tray.key) ?? []), { by, side }]);
       }
     }
   }

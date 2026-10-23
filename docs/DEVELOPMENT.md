@@ -666,7 +666,8 @@ The packing guide's Lift column says how each printed part comes back out of the
 (`src/instructions/lift.ts`; DESIGN §7, "The packing guide says how to take each tray out"). A new
 grip feature (a finger dip in a filler, say) is **one entry in `GRIP_RULES`**: its `kind`, whether
 it is a grip of the part's `own`, and an `applies` test on the spec's features (a merged part
-meets a rule when one of its members does). Then:
+meets a rule when one of its members does) and, for what stands beside the part, on `facing`, the
+keys of the trays with a finger dip of a filler beside them (`dipsFacingTrays`, read in `render.ts`). Then:
 
 1. Add its line to `LIFT_LINES` (the rulings in `screens/copy-rulings.ts` list every value), and
    the kind to `GripKind`.

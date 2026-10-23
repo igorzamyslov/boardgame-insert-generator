@@ -2,18 +2,21 @@
 // How a printed part comes back out of the box (the packing guide's "Lift" column), and which
 // parts are next to which. Nothing on a tray's outside can be gripped: neighbours stand 0.2 mm
 // away and the box wall 0.5 mm, so a whole tray comes out by something it has of its own (a finger
-// cut, a scoop, an open pocket) or by its contents, and a solid block with none comes out only
-// after a neighbour has. DESIGN §7 ("The packing guide says how to take each…").
+// cut, a scoop, an open pocket), a finger dip in the filler beside it, or its contents, and a solid
+// block with none comes out only after a neighbour has. DESIGN §7 ("The packing guide says how to
+// take each…").
 //
 // To teach the guide a new way to lift a part (a finger dip in a filler, say), add ONE entry to
 // GRIP_RULES, with its line and the test for the feature, and a case to lift.test.ts. Nothing
 // else reads the features: the order of the rows, the "No grip of its own" flag and the page's
 // summary all go by what `gripOf` says.
+import { dipBox, fingerDipsOf } from "../model/finger-dip";
 import type { FeatureSpec, TraySpec } from "../model/types";
 import { MIN_SPACER } from "../sizing/constants";
 
 /** What a part is lifted by. `contents` and `none` are the two without a grip of their own. */
-export type GripKind = "finger-cut" | "dip" | "scoop" | "pocket" | "edge" | "contents" | "none";
+export type GripKind =
+  "finger-cut" | "dip-beside" | "dip" | "scoop" | "pocket" | "edge" | "contents" | "none";
 
 export interface Grip {
   kind: GripKind;
@@ -24,14 +27,20 @@ export interface Grip {
 interface GripRule {
   kind: Exclude<GripKind, "none">;
   own: boolean;
-  /** Whether the part, or a member of a merged part, has the feature. */
-  applies: (t: TraySpec) => boolean;
+  /**
+   * Whether the part, or a member of a merged part, has the feature. `facing` is the keys of the
+   * trays with a finger dip of another part open on a side (`dipsFacingTrays`), for a rule that
+   * is about what stands beside the part.
+   */
+  applies: (t: TraySpec, facing: ReadonlySet<string>) => boolean;
 }
 
 /** The words of every way out. One source: the page prints them, the rulings list them. */
 export const LIFT_LINES = {
   "finger-cut": "Lift it by the finger cut",
   dip: "Lift it by the finger dip",
+  /** A tray with no grip of its own, and a dip cut in the filler beside it. */
+  "dip-beside": "Lift it by the finger dip beside it",
   scoop: "Tip the pieces out, then lift it by the scoop",
   pocket: "Reach into its open pocket",
   edge: "Empty one side first, then pinch its top edge",
@@ -70,8 +79,20 @@ const features = (t: TraySpec): FeatureSpec[] => [
 const hasFingerCut = (t: TraySpec): boolean =>
   features(t).some((f) => f.type === "wallCutout" || f.type === "spacerNotch");
 
-/** A finger dip cut in a filler where it touches a tray (layout/dips.ts): a grip of its own. */
-const hasFingerDip = (t: TraySpec): boolean => features(t).some((f) => f.type === "fingerDip");
+/**
+ * A finger dip cut across a thin strip (layout/dips.ts, `dipRun`): open on both faces of a filler
+ * under 18 mm, so a finger and thumb pinch the strip at the slot, a grip of its own. A dip that
+ * runs only 15 mm into a thick filler is no grip of the filler: it ends in the filler's own wall,
+ * a U with vertical sides has nothing to pull on, and the filler's other face stands against the
+ * next tray or the box wall, so no thumb reaches it. Such a dip is for the tray it faces
+ * (`dip-beside`), and the block waits for that tray like any block with nothing to hold.
+ */
+const hasThroughDip = (t: TraySpec): boolean =>
+  fingerDipsOf(t).some(({ part, dip }) => dipBox(dip, part).through);
+
+/** A tray with a finger dip of the filler beside it open on one of its sides: gripped without being emptied. */
+const hasDipBeside = (t: TraySpec, facing: ReadonlySet<string>): boolean =>
+  t.part === "tray" && facing.has(t.key);
 
 const hasScoop = (t: TraySpec): boolean =>
   t.compartments.some((c) => c.kind === "scoop") || features(t).some((f) => f.type === "scoop");
@@ -90,18 +111,27 @@ const hasOpenPocket = (t: TraySpec): boolean =>
  */
 const GRIP_RULES: readonly GripRule[] = [
   { kind: "finger-cut", own: true, applies: hasFingerCut },
+  // Behind the tray's own finger cut, ahead of the scoop: a dip lifts the tray full, a scoop only
+  // once its pieces are tipped out.
+  { kind: "dip-beside", own: true, applies: hasDipBeside },
   { kind: "scoop", own: true, applies: hasScoop },
   { kind: "pocket", own: true, applies: hasOpenPocket },
   // After the pocket: a merged part with an open member is easier to reach into than to pinch.
-  { kind: "dip", own: true, applies: hasFingerDip },
+  { kind: "dip", own: true, applies: hasThroughDip },
   { kind: "edge", own: true, applies: (t) => t.part === "divider" },
   // A tray with nothing else to hold: only what is in it gives a hand a way in.
   { kind: "contents", own: false, applies: (t) => t.part === "tray" },
 ];
 
-export function gripOf(spec: TraySpec): Grip {
+const NO_DIPS: ReadonlySet<string> = new Set();
+
+/**
+ * What `spec` is lifted by. `facing` holds the keys of the trays that have a finger dip beside
+ * them (`dipsFacingTrays`, from the printed parts); without it a tray has none.
+ */
+export function gripOf(spec: TraySpec, facing: ReadonlySet<string> = NO_DIPS): Grip {
   const targets = spec.merged === undefined ? [spec] : spec.merged.members;
-  const rule = GRIP_RULES.find((r) => targets.some(r.applies));
+  const rule = GRIP_RULES.find((r) => targets.some((t) => r.applies(t, facing)));
   return rule === undefined ? { kind: "none", own: false } : { kind: rule.kind, own: rule.own };
 }
 

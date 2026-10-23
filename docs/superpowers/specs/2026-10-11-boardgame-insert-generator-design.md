@@ -659,14 +659,22 @@ keeps its upright ones, and one with none left goes in a scoop bin (§7.1).
   the other walls and beside the cut still locates the upper tray, which rests
   on the ledge and dividers around the cut.
 
-| Content                | Finger feature                                                        | Depth                    |
-| ---------------------- | --------------------------------------------------------------------- | ------------------------ |
-| Cards / tiles, upright | One channel per row through both end walls and every divider          | ½ of the shallowest well |
-| Cards / tiles, flat    | Half-round cutouts through both long walls, with a floor notch        | To the floor             |
-| Minis, pockets         | One centred cut through the front and back walls per pocket, no notch | ½ of the pocket          |
-| Custom                 | One centred cut through the front wall, no notch                      | ½ of the well            |
-| Bulk, minis bulk       | Off by default; with `fingerCuts` on, as custom                       | ½ of the compartment     |
-| Spare                  | None                                                                  | —                        |
+| Content                | Finger feature                                                          | Depth                          |
+| ---------------------- | ----------------------------------------------------------------------- | ------------------------------ |
+| Cards / tiles, upright | One channel per row through both end walls and every divider            | ½ of the shallowest well       |
+| Cards / tiles, flat    | Half-round cutouts through both long walls, with a floor notch          | To the floor                   |
+| Minis, pockets         | One centred cut through the front and back walls per pocket (see below) | To the floor / ½ of the pocket |
+| Custom                 | One centred cut through the front wall (see below)                      | To the floor / ½ of the well   |
+| Bulk, minis bulk       | Off by default; with `fingerCuts` on, one cut through the front wall    | ½ of the compartment, no notch |
+| Spare                  | None                                                                    | —                              |
+
+Minis and custom follow a height rule (`pieceCutout`): a piece under 20 mm tall (twice the 10 mm a
+fingertip needs of its side) gets the cut down to its well's floor with a floor notch, as a flat card
+does; a taller one gets the half-deep cut with no notch. The floor notch goes down through the
+bottom, so it is only for a well on the tray's own floor: a well whose floor is raised above the
+tray's (a short pocket beside a tall one) gets the same cut down to its own floor with no notch,
+never a shaft through the solid under it. Bulk keeps the half-deep cut with no notch whatever the
+height of its contents.
 
 **Toggles** (§5; `cornerReliefs` above): `fingerCuts` off leaves out a component's cuts (and their
 floor notches and finger room); `curvedFloor` adds the scoop ramp to each of
@@ -870,7 +878,7 @@ turns the mesh half a turn about X, the 3D view keeps it as it stands. A merged 
 before the trays that rest on or stand against it, and after any tray one of its members rests on.
 See the minimal-trays spec §6.2 for the measurements.
 
-**Finger dips (geometry 0.9.3, no schema change).** Trays tile the box a tray gap apart, so a whole
+**Finger dips (geometry 0.9.4, no schema change).** Trays tile the box a tray gap apart, so a whole
 tray can only be lifted by its contents, and a solid filler wedged between trays has no grip. Each
 solid filler (a plain one, or a member of a merged part) gets a finger dip where it touches a
 tray's outer face: a U cut from its top, `fingerPocket.width` wide, with a round bottom, vertical
@@ -879,10 +887,10 @@ shape). It is about half the filler's height deep, at most 20 mm, no deeper than
 and its bottom stays `MIN_FEATURE_MM` above the groove or step at the filler's foot, where it
 leaves through the face (a filler in an upper stack level has one with either joint); under 3 mm
 there is none. It runs 15 mm into a thick filler and ends in a 3 mm post; a strip under 18 mm is cut
-across its whole thickness, so it serves the tray on each face (a strip under 6 mm stays whole).
-It is centred on the tray's side where the filler has room, clear of the tray's own finger cuts
+across its whole thickness, so it serves the tray on each face and is no deeper than any of them
+allows (a strip under 6 mm stays whole). It is centred on the tray's side where the filler has room, clear of the tray's own finger cuts
 through that side and of every bridge and member of a merged part, with at most two dips on one side
-of a tray; a dip on two opposite sides lets a person pinch a full tray. It is a print-time pass like
+of a tray (a dip across a strip counts on every side it serves); a dip on two opposite sides lets a person pinch a full tray. It is a print-time pass like
 the merge (`addFingerDips`, last in `printableParts`): a `FeatureSpec` `fingerDip` (`side`, `at`,
 `width`, `depth`) on the printed filler's own `features`, or on a merged part's members, never
 stored, with no setting. Risers, open spare trays, trays, spacers and a merged part printed upside

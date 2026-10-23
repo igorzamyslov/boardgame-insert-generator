@@ -588,6 +588,64 @@ describe("flat custom items and short minis: the full-depth cut with a floor not
     });
   });
 
+  describe("beside a taller pocket, where the well's floor is raised", () => {
+    // The 3 mm pawn's pocket stands on 37 mm of solid beside the 40 mm hero's: a floor notch there
+    // would be a shaft through that solid, open at the bed (it took 43% of the tray).
+    const both = partOf(
+      [
+        minis({
+          figures: [
+            { name: "Hero", w: 25, d: 25, h: 40, count: 1 },
+            { name: "Pawn", w: 25, d: 25, h: 3, count: 1 },
+          ],
+        }),
+      ],
+      "standing|strip|split1",
+    );
+
+    it("cuts the raised pocket down to its own floor with no notch", () => {
+      const r = realize(both);
+      const outer = minOuter(both, s, ground);
+      const [hero, pawn] = [at(r.compartments, 0), at(r.compartments, 1)];
+      expect(hero.floorZ).toBeCloseTo(1.2, 9);
+      expect(pawn.floorZ).toBeGreaterThan(30);
+      const cuts = cutsOf(pawn).flatMap((f) => (f.type === "wallCutout" ? [f] : []));
+      expect(cuts.map((f) => f.side)).toEqual(["front", "back"]);
+      for (const f of cuts) {
+        expect(f.floorNotch).toBe(0);
+        expect(f.depth).toBeCloseTo(outer.h - pawn.floorZ, 9);
+      }
+      // the tall pocket is as before: half deep, plain
+      for (const f of cutsOf(hero)) {
+        expect(f).toMatchObject({ depth: 20.5, floorNotch: 0 });
+      }
+    });
+
+    it("builds with no cut anywhere under the raised floor", () => {
+      const outer = minOuter(both, s, ground);
+      const plan = planTray(traySpecFrom(realize(both), outer, ground, s, "t"), s);
+      const raised = plan.compartments[1];
+      expect(raised?.cuts.length).toBe(2);
+      for (const cut of raised?.cuts ?? []) {
+        expect(cut.notch).toBe(0);
+        expect(cut.bottomZ).toBeCloseTo(raised?.floorZ ?? 0, 9);
+      }
+    });
+
+    it("also holds for a flat deck of 5 cards beside one of 60", () => {
+      const mixed = partOf([cards({ storage: "flat", decks: decks(5, 60) })], "flat|strip|split1");
+      const [low, tall] = realize(mixed).compartments;
+      expect(low?.floorZ).toBeGreaterThan(20);
+      for (const f of cutsOf(low)) {
+        expect(f).toMatchObject({ floorNotch: 0 });
+      }
+      // the deck on the tray's own floor keeps its notch
+      for (const f of cutsOf(tall)) {
+        expect(f).toMatchObject({ floorNotch: 12.5 });
+      }
+    });
+  });
+
   it("is still a grip, and keeps a scoop bin only where no cut fits", () => {
     const flat = partOf([custom({ h: 2, count: 1 })], "custom|strip|split1");
     const r = realize(flat);

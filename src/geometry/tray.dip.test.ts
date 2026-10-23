@@ -1,6 +1,6 @@
 // @vitest-environment node
 // src/geometry/tray.dip.test.ts
-// A finger dip (FeatureSpec "fingerDip", geometry 0.9.3): a U cut from the top of a solid filler
+// A finger dip (FeatureSpec "fingerDip", geometry 0.9.4): a U cut from the top of a solid filler
 // where it touches a tray. Built on a plain filler, a thin strip (cut across), an upper-level
 // filler with the groove or the step at its foot, and a merged part: each a closed solid (genus 0)
 // of the part's own size that prints without a single overhang, and a dip leaves a neighbour alone.

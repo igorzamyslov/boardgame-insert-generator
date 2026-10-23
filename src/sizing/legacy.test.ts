@@ -7,7 +7,7 @@
 // the whole part (keys sorted, undefined dropped, a copy's " (P1)" suffix removed), so every
 // minimum size, feature and growth is pinned too.
 //
-// One hash was recaptured on purpose (geometry 0.9.2, 2026-10-23): multi-block's 10 mm "Score pad"
+// One hash was recaptured on purpose (geometry 0.9.3, 2026-10-23): multi-block's 10 mm "Score pad"
 // custom well asks for the full-depth cut with a floor notch now (a piece under 20 mm tall is
 // lifted from beneath, not by the top: pieceCutout in common.ts). Its size and arrangement are
 // as in 0.6; only that part's front-wall cut changed.
