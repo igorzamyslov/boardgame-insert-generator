@@ -126,7 +126,6 @@ describe("tokens.css", () => {
       "--chip": "#E9E5DB",
       "--track": "#E9E7E0",
       "--icon-ground": "#EDEAE2",
-      "--scrim": "#8E8B83",
       "--rule-soft": "#EEEBE4",
       "--field-line": "#DAD6CC",
       "--line-strong": "#BDB7A9",

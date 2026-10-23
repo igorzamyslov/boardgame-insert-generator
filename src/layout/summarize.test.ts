@@ -1,13 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  EXTRUSION_WIDTH_MM,
-  PERIMETERS,
-  PRINT_FLOW_MM3_PER_S,
-  printMinutes,
-  SOLID_LAYERS,
-  shellThickness,
-  summarize,
-} from "./summarize";
+import { summarize } from "./summarize";
 import { makeInput, traySpec } from "./test-utils";
 
 describe("summarize", () => {
@@ -101,121 +93,6 @@ describe("summarize", () => {
     });
   });
 
-  describe("filament at infill", () => {
-    // fillToTop off: nothing is split into a riser, so these test the stored geometry as it is
-    const at = (infill: number) => makeInput([], { settings: { infill, fillToTop: false } });
-    const g = (trays: ReturnType<typeof traySpec>[], infill: number) =>
-      summarize(trays, at(infill)).filamentAtInfillG;
-    const thinTray = traySpec({
-      compartments: [
-        { x: 1.6, y: 1.6, w: 96.8, d: 46.8, floorZ: 1.2, kind: "well", contents: "", features: [] },
-      ],
-    });
-
-    it("derives the shell from perimeters and solid layers", () => {
-      expect(shellThickness(0.2)).toEqual({
-        side: PERIMETERS * EXTRUSION_WIDTH_MM,
-        vertical: SOLID_LAYERS * 0.2,
-      });
-    });
-
-    it("keeps the solid upper bound whatever the infill", () => {
-      const solid = summarize([thinTray], at(100)).filamentG;
-      expect(summarize([thinTray], at(5)).filamentG).toBe(solid);
-      expect(summarize([thinTray], at(100)).filamentAtInfillG).toBe(solid);
-      expect(summarize([thinTray], at(15)).infillPct).toBe(15);
-    });
-
-    it("barely moves for a thin-walled tray between 100 % and 15 %", () => {
-      // 1.2 mm floor is under two shells (2 mm), so the floor slab is solid
-      expect(g([thinTray], 15)).toBe(g([thinTray], 100));
-    });
-
-    it("drops substantially for a thick solid filler block", () => {
-      const block = traySpec({ part: "leftover", solid: true, w: 60, d: 60, h: 40 });
-      const solid = g([block], 100);
-      const light = g([block], 15);
-      expect(light).toBeLessThan(solid * 0.4);
-      // exact: core (60-2.7)^2 (40-2) mm³ at 15 %
-      const core = (60 - 2.7) ** 2 * (40 - 2);
-      const expected = (60 * 60 * 40 - core * 0.85) * 0.00124;
-      expect(light).toBeCloseTo(expected, 1);
-    });
-
-    it("counts a region thinner than two shells fully solid", () => {
-      // thin in X: 2.6 < 2 × 1.35
-      const slab = traySpec({ part: "leftover", solid: true, w: 2.6, d: 80, h: 40 });
-      expect(g([slab], 0)).toBe(g([slab], 100));
-      // thin in Z: 1.9 < 2 × 1.0
-      const plate = traySpec({ part: "leftover", solid: true, w: 80, d: 80, h: 1.9 });
-      expect(g([plate], 0)).toBe(g([plate], 100));
-    });
-
-    it("erodes only the raised-floor slab under a compartment of a hollow tray", () => {
-      const raised = traySpec({
-        compartments: [
-          { x: 1.6, y: 1.6, w: 60, d: 40, floorZ: 11.2, kind: "well", contents: "", features: [] },
-        ],
-      });
-      const drop = g([raised], 100) - g([raised], 15);
-      const core = (60 - 2.7) * (40 - 2.7) * (11.2 - 2);
-      expect(drop).toBeCloseTo(core * 0.85 * 0.00124, 1);
-    });
-
-    it("counts a spacer solid, since it prints as thin plates", () => {
-      const spacer = traySpec({ part: "spacer", solid: true, w: 60, d: 60, h: 40 });
-      expect(g([spacer], 15)).toBe(g([spacer], 100));
-    });
-  });
-
-  describe("print time", () => {
-    const at = (infill: number) => makeInput([], { settings: { infill, fillToTop: false } });
-
-    it("is the plastic volume divided by the nominal flow", () => {
-      const block = traySpec({ part: "leftover", solid: true, w: 60, d: 60, h: 40 });
-      const s = summarize([block], at(100));
-      // 144 000 mm³ at 4 mm³/s = 36 000 s = 600 min
-      expect(PRINT_FLOW_MM3_PER_S).toBe(4);
-      expect(s.printMinutes).toBe(600);
-      expect(s.printMinutes).toBe(printMinutes(60 * 60 * 40));
-    });
-
-    it("follows the estimate at the infill, not the upper bound", () => {
-      const block = traySpec({ part: "leftover", solid: true, w: 60, d: 60, h: 40 });
-      const core = (60 - 2.7) ** 2 * (40 - 2);
-      const mm3 = 60 * 60 * 40 - core * 0.85;
-      expect(summarize([block], at(15)).printMinutes).toBeCloseTo(mm3 / 4 / 60, 1);
-      expect(summarize([block], at(15)).printMinutes).toBeLessThan(
-        summarize([block], at(100)).printMinutes,
-      );
-    });
-
-    it("adds the parts up and reports the longest one", () => {
-      const big = traySpec({ key: "a", part: "leftover", solid: true, w: 60, d: 60, h: 40 });
-      const small = traySpec({
-        key: "b",
-        part: "leftover",
-        solid: true,
-        w: 20,
-        d: 20,
-        h: 10,
-        stack: 1,
-        x: 70,
-      });
-      const both = summarize([big, small], {
-        ...at(100),
-        settings: { ...at(100).settings, mergeFillers: false },
-      });
-      expect(both.printMinutes).toBe(printMinutes(144_000 + 4_000));
-      expect(both.longestPartMinutes).toBe(600);
-    });
-
-    it("is 0 for no parts", () => {
-      const s = summarize([], at(15));
-      expect([s.printMinutes, s.longestPartMinutes]).toEqual([0, 0]);
-    });
-  });
-
   it("records the play limit it was made under", () => {
     const s = summarize([traySpec({})], makeInput([], { settings: { playLimit: 2.25 } }));
     expect(s.playLimit).toBe(2.25);
@@ -244,8 +121,6 @@ describe("summarize", () => {
       const open = summarize([raised], withLeftover("spare"));
       const solid = summarize([raised], withLeftover("solid"));
       expect(open.filamentG).toBeLessThan(solid.filamentG * 0.4);
-      // a solid block is already light at 15 %, so the gap there is smaller than at 100 %
-      expect(open.filamentAtInfillG).toBeLessThan(solid.filamentAtInfillG * 0.8);
     });
 
     it("keeps the raised floor solid when nothing is split (fillToTop off)", () => {

@@ -178,6 +178,18 @@ describe("EditorPanel", () => {
     expect(onBack).toHaveBeenCalledTimes(2);
   });
 
+  it("holds the back link and the item's name in a head of their own, apart from the form and the foot", () => {
+    const { view } = panel({ ...of("cards"), name: "Starter deck" });
+    const head = view.container.querySelector(".ed-head") as HTMLElement;
+    expect(head).not.toBeNull();
+    expect(head.contains(screen.getByRole("button", { name: "What's inside" }))).toBe(true);
+    expect(head.contains(screen.getByRole("textbox", { name: /^Name/ }))).toBe(true);
+    // the form and the foot are the panel's other children, outside the head
+    expect(head.contains(screen.getByRole("button", { name: "Done" }))).toBe(false);
+    expect(head.contains(screen.getByRole("button", { name: "Remove Starter deck…" }))).toBe(false);
+    expect(head.parentElement?.classList.contains("ed")).toBe(true);
+  });
+
   it("takes its kind's shade", () => {
     const { view } = panel(of("tiles"), { kindIndex: 2 });
     const root = view.container.querySelector(".ed") as HTMLElement;

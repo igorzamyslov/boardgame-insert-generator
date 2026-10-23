@@ -78,7 +78,9 @@ export interface Groove {
 /**
  * The groove of a tray at `level` (null when it has none): with the lip on, every tray above
  * level 0 stands on a lipped tray, and has one (spacers and dividers are always built at level 0).
- * No tray at level 0 has one: it stands on the box floor or on a riser, neither of which has a lip.
+ * No tray at level 0 has one: it stands on the box floor or on a plain riser, neither of which has a
+ * lip. A tray on a riser that carries the lip (`TraySpec.onRiser`, set by splitRisers) is built as
+ * one at level 1 is.
  * The foot chamfer is the tray's bottom chamfer (at least UPPER_MIN_CHAMFER), less where the
  * inner wall is lower.
  */
@@ -171,6 +173,20 @@ export function grooveWall(s: Settings, level: number): number {
   const m = MIN_FEATURE_MM + CORNER_MARGIN + pull;
   const round = radius >= m ? (radius + (1 + Math.SQRT2) * m) / (2 + Math.SQRT2) : radius;
   return Math.max(clear, g.reach, round) + 2 * SPEC_TOLERANCE;
+}
+
+/**
+ * The least height of a tray that stands on a lipped part (level ≥ 1, or the bottom tray on a
+ * lipped riser), mm; 0 with the lip off. It is what its groove needs and nothing more:
+ * `zTop + MIN_FEATURE_MM`, the groove's height (lip flat + lip height + play, 2.85 mm at the
+ * defaults) and the thinnest solid wall above it (0.8 mm), 3.65 mm at the defaults. It scales with
+ * the lip height, thickness and play. The floor needs nothing of its own: the groove is in the
+ * outer wall only, and `grooveWall` and the cut rules (`planCut`, `edge`) keep every well and cut
+ * MIN_FEATURE_MM clear of it. Before 2026-10-23 sizing asked lip.height + 3 mm (5 mm) on top of this,
+ * air above shallow contents that a riser could have been.
+ */
+export function upperTrayMinH(s: Settings): number {
+  return s.lip.enabled ? bottomMinimums(s, 1).h : 0;
 }
 
 /**

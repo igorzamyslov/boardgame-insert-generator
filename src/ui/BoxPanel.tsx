@@ -190,13 +190,15 @@ export function BoxPanel({
   }
   return (
     <section class="ed bx" aria-labelledby="box-editor-title">
-      <button type="button" class="ed-back" onClick={onBack}>
-        <Icon name="chevron-left" size={16} />
-        What&apos;s inside
-      </button>
-      <h2 class="bx-title" id="box-editor-title" tabIndex={-1} ref={headingRef}>
-        The box
-      </h2>
+      <div class="ed-head">
+        <button type="button" class="ed-back" onClick={onBack}>
+          <Icon name="chevron-left" size={16} />
+          What&apos;s inside
+        </button>
+        <h2 class="bx-title" id="box-editor-title" tabIndex={-1} ref={headingRef}>
+          The box
+        </h2>
+      </div>
       <Sizes box={box} onChange={onChange} />
       <KeepFree box={box} onChange={onChange} />
       {stored}

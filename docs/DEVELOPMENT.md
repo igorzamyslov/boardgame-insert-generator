@@ -171,9 +171,11 @@ it only with a written reason in the code or the PR.
 - MUST keep `src/layout/` deterministic. eslint bans `Math.random` there; use the seeded PRNG
   (`layout/prng.ts`).
 - MUST keep the geometry kernel off the main thread. eslint enforces it: outside `geometry/` you
-  may import only `geometry/types`, `geometry/version`, `geometry/engraves` and
-  `geometry/client`. If the page needs a new pure geometry helper, add it to that allow-list in
-  `eslint.config.mjs` and say so in the PR (`engraves.ts` is the example).
+  may import only `geometry/types`, `geometry/version`, `geometry/engraves`, `geometry/buildable`
+  and `geometry/client`. If the page needs a new pure geometry helper, add it to that allow-list in
+  `eslint.config.mjs` and say so in the PR (`engraves.ts` and `buildable.ts`, which asks `planTray`
+  whether a part is accepted so `splitRisers` hands out only parts the builder builds, are the
+  examples).
 - MUST keep everything that crosses a worker boundary structured-cloneable: plain objects,
   arrays, numbers and strings. No class instances with behaviour, no functions, no signals. If
   you add a field to `LayoutResult` or `LayoutResponse` (`layout/types.ts`), it rides

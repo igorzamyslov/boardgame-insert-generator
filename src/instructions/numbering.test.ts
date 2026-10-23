@@ -46,6 +46,49 @@ describe("printedHeight", () => {
     expect(printedHeight(makeTray({ h: 12.4, lip: true }), thin)).toBe(13.9);
   });
 
+  it("counts the lip a merged part carries on a riser member: it is built there, above the part's box", () => {
+    const lip = DEFAULT_SETTINGS.lip.height;
+    const member = (o: Partial<TraySpec>) =>
+      makeTray({ part: "riser", path: "", z: 0, h: 28, w: 40, d: 60, ...o });
+    const a = member({ key: "a:p0:0:riser", x: 0, lip: true });
+    const b = member({ key: "b:p0:0:riser", x: 40.2, lip: true });
+    const part = makeTray({
+      key: "merged:0",
+      part: "leftover",
+      path: "",
+      z: 0,
+      h: 28,
+      w: 80.2,
+      d: 60,
+      lip: false,
+      merged: { members: [a, b], bridges: [], flipped: false },
+    });
+    expect(printedHeight(part, DEFAULT_SETTINGS)).toBe(28 + lip);
+    expect(outerSizeText(part, DEFAULT_SETTINGS)).toBe(
+      `80.2 × 60.0 × ${(28 + lip).toFixed(1)} mm with its lip`,
+    );
+    // plain members carry no lip
+    const plain = {
+      ...part,
+      merged: {
+        members: [
+          { ...a, lip: false },
+          { ...b, lip: false },
+        ],
+        bridges: [],
+        flipped: false,
+      },
+    };
+    expect(printedHeight(plain, DEFAULT_SETTINGS)).toBe(28);
+    expect(outerSizeText(plain, DEFAULT_SETTINGS)).toBe("80.2 × 60.0 × 28.0 mm");
+    // a lipped riser lower than a taller member: the member's top is the part's top
+    const low = member({ key: "c:p0:0:riser", x: 0, h: 10, lip: true });
+    const tall = makeTray({ key: "leftover:0", part: "leftover", path: "", z: 0, h: 28, x: 40.2 });
+    const l = { ...part, merged: { members: [low, tall], bridges: [], flipped: false } };
+    expect(printedHeight(l, DEFAULT_SETTINGS)).toBe(28);
+    expect(outerSizeText(l, DEFAULT_SETTINGS)).toBe("80.2 × 60.0 × 28.0 mm");
+  });
+
   it("words the outer size with the printed height", () => {
     const t = makeTray({ w: 120, d: 90, h: 30 });
     expect(outerSizeText(t, DEFAULT_SETTINGS)).toBe("120.0 × 90.0 × 30.0 mm");

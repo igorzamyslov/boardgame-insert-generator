@@ -174,14 +174,13 @@ export function createState(
     }
     const r = lastResult.value;
     // The run's summary stands only for the inputs it ran on (anything that moves the riser split,
-    // such as `leftover` or `fillToTop`, is in the hash) and for the infill, the two merge
-    // switches and the least riser, which are not.
+    // such as `leftover` or `fillToTop`, is in the hash) and for the two merge switches and the
+    // least riser, which are not.
     if (
       r &&
       r.layout === layout &&
       r.summary &&
       layout.inputsHash === currentHash.value &&
-      r.summary.infillPct === p.settings.infill &&
       r.summary.mergeFillers === p.settings.mergeFillers &&
       r.summary.mergeRisers === p.settings.mergeRisers &&
       r.summary.minRiser === p.settings.minRiser

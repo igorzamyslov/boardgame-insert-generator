@@ -34,6 +34,7 @@ import { engravesName } from "../geometry/engraves";
 import { carriesName } from "../model/part-name";
 import { trayNames } from "./naming";
 import type { TrayName } from "./naming";
+import { compareCodeUnits, compareNatural } from "../util/compare";
 import { numberParts, outerSizeText } from "./numbering";
 import type { NumberedPart } from "./numbering";
 
@@ -386,47 +387,113 @@ export function layerInfo(
   }));
 }
 
-export function packingSteps(
-  layout: StoredLayout,
-  components: readonly Component[],
-  groups: readonly Group[] = [],
-): string[] {
+export interface GuideLayer extends LayerInfo {
+  /** The parts of the layer, in the order to put them in the box. */
+  rows: PartRow[];
+}
+
+/** A tray with the parts that go under it or into it, which are placed together with it. */
+interface Unit {
+  /** The parts, in the order to place them: a riser, the tray, then its spacers and dividers. */
+  parts: NumberedPart[];
+  /** The tray's name (the sort key); of a part with no tray, its own. */
+  name: string;
+  key: string;
+  layer: number;
+  kind: "tray" | "merged" | "orphan";
+  /** For a merged part: the tray it rests on, when it rests on one. */
+  carrier: NumberedPart | null;
+}
+
+/**
+ * The guide's body: one block per layer, bottom first, each with its parts in the order a person
+ * puts them in the box. Within a layer the trays go by name, numbers counted by value ("Cards 2"
+ * before "Cards 10"): the name is what the person holds in hand and finds engraved on the part,
+ * and it does not shift when the packer moves a tray a few millimetres. Every tray comes with
+ * what goes with it, in the order of use: its riser first (the tray stands on it), then the
+ * tray, then its spacers and dividers. A spare or spacer block that nothing under it holds up goes
+ * first in its layer, before the trays that stand on or beside it; one that rests on a tray of
+ * the layer follows that tray. A spacer or riser whose tray is not in the layout goes last.
+ */
+export function packingGuide(layout: StoredLayout, project: Project): GuideLayer[] {
   const parts = numberParts(layout.trays);
-  const names = trayNames(parts, components, groups);
-  const nameOf = (p: NumberedPart): string => names.get(p.spec.key)?.full ?? p.label;
-  const levels = levelsOf(layout.trays);
-  const steps: string[] = [];
-  levels.forEach((level, i) => {
-    for (const p of parts) {
-      if (isAddOn(p.spec) || p.spec.level !== level) {
-        continue;
-      }
-      // A riser goes down first and its tray stands on it.
-      const riser = parts.find((r) => r.spec.part === "riser" && r.parentNumber === p.number);
-      if (riser) {
-        steps.push(`Layer ${i + 1}: place ${nameOf(riser)}, then ${nameOf(p)} on it.`);
-      } else {
-        steps.push(`Layer ${i + 1}: place ${nameOf(p)}${i > 0 ? " on top" : ""}.`);
-      }
-      for (const s of parts) {
-        if (s.spec.part === "spacer" && s.parentNumber === p.number) {
-          steps.push(`Slide the spacer into ${nameOf(p)} (${nameOf(s)}).`);
-        }
-        if (s.spec.part === "divider" && s.parentNumber === p.number) {
-          steps.push(`Stand ${nameOf(s)} in its floor slot.`);
-        }
-      }
+  const rowOf = new Map(whatGoesWhere(layout, project).map((r) => [r.key, r]));
+  const infos = layerInfo(layout, project.components, project.groups);
+  if (infos.length === 0) {
+    return [];
+  }
+  const layerOf = (p: NumberedPart): number =>
+    Math.min(infos.length, Math.max(1, rowOf.get(p.spec.key)?.layer ?? 1));
+  const nameOf = (p: NumberedPart): string => rowOf.get(p.spec.key)?.name ?? p.label;
+  const taken = new Set<NumberedPart>();
+  const units: Unit[] = [];
+  parts.forEach((p, i) => {
+    if (isAddOn(p.spec)) {
+      return;
     }
+    if (p.spec.merged !== undefined) {
+      // numberParts puts a merged part right after the tray it rests on, or before every tray.
+      const carrier =
+        parts
+          .slice(0, i)
+          .reverse()
+          .find((q) => !isAddOn(q.spec) && q.spec.merged === undefined) ?? null;
+      taken.add(p);
+      units.push({
+        parts: [p],
+        name: nameOf(p),
+        key: p.spec.key,
+        layer: layerOf(p),
+        kind: "merged",
+        carrier,
+      });
+      return;
+    }
+    const own = parts.filter((q) => q === p || (isAddOn(q.spec) && q.parentNumber === p.number));
+    own.forEach((q) => taken.add(q));
+    units.push({
+      parts: own,
+      name: nameOf(p),
+      key: p.spec.key,
+      layer: layerOf(p),
+      kind: "tray",
+      carrier: null,
+    });
   });
-  // A spacer whose tray isn't in the layout (an edited file) still has to be placed somewhere.
-  for (const s of parts) {
-    if (isAddOn(s.spec) && s.parentNumber === null) {
-      steps.push(
-        s.spec.part === "riser"
-          ? `Place ${nameOf(s)} (the tray that stands on it is not in this layout).`
-          : `Place ${nameOf(s)} (the tray it belongs in is not in this layout).`,
-      );
+  for (const p of parts) {
+    if (!taken.has(p)) {
+      units.push({
+        parts: [p],
+        name: nameOf(p),
+        key: p.spec.key,
+        layer: layerOf(p),
+        kind: "orphan",
+        carrier: null,
+      });
     }
   }
-  return steps;
+  const byName = (a: Unit, b: Unit): number =>
+    compareNatural(a.name, b.name) || compareCodeUnits(a.key, b.key);
+  const unitOfTray = new Map(units.filter((u) => u.kind === "tray").map((u) => [u.key, u]));
+  return infos.map((info) => {
+    const here = units.filter((u) => u.layer === info.layer);
+    // A merged part rests on a tray only when that tray is in this layer: from a lower layer it
+    // is already in the box.
+    const restsHere = (u: Unit): Unit | null => {
+      const carrier =
+        u.kind === "merged" && u.carrier !== null ? unitOfTray.get(u.carrier.spec.key) : undefined;
+      return carrier !== undefined && carrier.layer === info.layer ? carrier : null;
+    };
+    const first = here.filter((u) => u.kind === "merged" && restsHere(u) === null).sort(byName);
+    const ordered: Unit[] = [...first];
+    for (const tray of here.filter((u) => u.kind === "tray").sort(byName)) {
+      ordered.push(tray, ...here.filter((u) => restsHere(u) === tray).sort(byName));
+    }
+    ordered.push(...here.filter((u) => u.kind === "orphan").sort(byName));
+    const rows = ordered.flatMap((u) => u.parts.map((p) => rowOf.get(p.spec.key)));
+    // The layer's trays as the picture's description lists them follow the guide's order (not the
+    // part numbers' that layerInfo keeps): the trays and merged parts, with no spacer or riser.
+    const trays = ordered.filter((u) => u.kind !== "orphan").map((u) => u.name);
+    return { ...info, trays, rows: rows.filter((r): r is PartRow => r !== undefined) };
+  });
 }

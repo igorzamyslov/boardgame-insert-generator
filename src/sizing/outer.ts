@@ -2,7 +2,6 @@ import { MIN_FEATURE_MM, MIN_WALL_MM, effectiveBottomChamfer } from "../model/se
 import { bottomEdgeOf, bottomMinimums, grooveWall } from "../model/lip";
 import type { BottomEdge } from "../model/lip";
 import type { Settings, Side } from "../model/types";
-import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import { cutoutSides } from "./common";
 import type { CompartmentReq, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, maxOf, sum } from "./units";
@@ -131,6 +130,12 @@ export interface MinLayout {
   w: number; // innerW + 2·wall, or more for the bottom chamfer (chamferMinimumsU)
   d: number;
   h: number;
+  /**
+   * The height the contents alone ask for: the floor and the deepest compartment (and the
+   * slots of a divided well's floor). `h` is this, or more where the bottom chamfer or the upper
+   * tray's minimum asks for more; the difference is height the tray has beyond its contents.
+   */
+  content: number;
 }
 
 function cutsOn(c: CompartmentReq | undefined, side: Side): boolean {
@@ -245,13 +250,8 @@ export function minLayoutU(
   const content =
     floor + maxOf(part.compartments.map((c) => ceilU(c.minH) + ceilU(c.floorExtra ?? 0)));
   const chamfer = chamferMinimumsU(settings, opts.level);
-  const h = Math.max(
-    content,
-    chamfer.h,
-    opts.level > 0 && settings.lip.enabled
-      ? ceilU(settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP)
-      : 0,
-  );
+  // chamfer.h is, above level 0 with the lip on, what the groove needs (upperTrayMinH).
+  const h = Math.max(content, chamfer.h);
   return {
     wall,
     divider,
@@ -271,5 +271,6 @@ export function minLayoutU(
     w: Math.max(innerW + 2 * wall, chamfer.side),
     d: Math.max(innerD + 2 * wall, chamfer.side),
     h,
+    content,
   };
 }

@@ -18,11 +18,11 @@ import { shotsHold } from "../app/shotsHold";
 import { buildErrorReason } from "../app/support";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts } from "../instructions/numbering";
-import type { LayoutSummary } from "../layout/types";
 import type { Component, Group, Printer, Settings, TraySpec } from "../model/types";
 import { Button, Card, CloseButton, Dialog, Icon, IconTile, ProgressBar } from "../kit";
-import { formatGrams, formatPrintTime } from "./estimates";
+import { formatGrams } from "./estimates";
 import { componentIndexOfTray, isGroupTray, shadeIndexOf, shadeVars } from "./identity";
+import { useFilament } from "./useFilament";
 import "./export.css";
 
 export type ExportKind = "parts" | "combined" | "stl";
@@ -51,8 +51,6 @@ export interface ExportPanelProps {
   settings: Settings;
   meshes: MeshSource;
   projectName: string;
-  /** The plan's totals, for the filament and the print time; without them the tiles are left out. */
-  summary?: LayoutSummary | null;
   /** Opens the packing guide; without it the panel offers none. */
   onOpenGuide?: () => void;
   /** The layout is still being made: nothing can be built yet. */
@@ -99,6 +97,20 @@ export function ExportPanel(p: ExportPanelProps) {
     () => trayNames(numberParts(p.trays), p.components ?? [], p.groups ?? []),
     [p.trays, p.components, p.groups],
   );
+  // What the file builds: the same specs, so the filament count and the export share the meshes.
+  const buildSpecs = useMemo(
+    () =>
+      plan.parts.map((part) =>
+        buildSpecOf(part, p.settings.engraveNames, names.get(part.spec.key)?.short),
+      ),
+    [plan, names, p.settings.engraveNames],
+  );
+  // Each Try again counts the filament again too: a failure of the count before it is not final.
+  const [retries, setRetries] = useState(0);
+  const filament = useFilament(p.meshes, buildSpecs, p.settings, p.printer, {
+    stale: p.stale === true,
+    retry: retries,
+  });
   const [busy, setBusy] = useState<Busy | null>(null);
   const [error, setError] = useState<{ kind: ExportKind; message: string } | null>(null);
   const [failed, setFailed] = useState<ExportOutput["failed"]>([]);
@@ -285,6 +297,7 @@ export function ExportPanel(p: ExportPanelProps) {
       ),
       p.settings,
     );
+    setRetries((n) => n + 1);
     void run(lastKind);
   };
 
@@ -411,6 +424,7 @@ export function ExportPanel(p: ExportPanelProps) {
         onClick={() => {
           if (!retryOff) {
             p.meshes.reset();
+            setRetries((n) => n + 1);
             void run(error.kind);
           }
         }}
@@ -501,18 +515,17 @@ export function ExportPanel(p: ExportPanelProps) {
     </div>
   );
 
-  const stats = p.summary ? (
-    <dl class="export-stats">
-      <div class="export-stat">
-        <dt>Filament</dt>
-        <dd>{formatGrams(p.summary.filamentAtInfillG)}</dd>
-      </div>
-      <div class="export-stat">
-        <dt>Print time</dt>
-        <dd>{formatPrintTime(p.summary.printMinutes)}</dd>
-      </div>
-    </dl>
-  ) : null;
+  // The tile holds its place, empty, while the parts are counted, so the dialog does not jump; a
+  // part that cannot be built leaves no figure to give, and no tile.
+  const stats =
+    filament.status === "unavailable" ? null : (
+      <dl class="export-stats" aria-busy={filament.status === "counting"}>
+        <div class="export-stat">
+          <dt>Filament</dt>
+          <dd>{filament.status === "ready" ? formatGrams(filament.grams) : " "}</dd>
+        </div>
+      </dl>
+    );
 
   const chips = (
     <ul class="export-chips">

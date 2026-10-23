@@ -131,6 +131,17 @@ describe("createMeshSource", () => {
     expect(f.build).toHaveBeenCalledTimes(2);
   });
 
+  it("builds a tray again when it stands on a riser with the lip: onRiser is in the cache key", async () => {
+    // The tray on a lipped riser has the groove, so its mesh is not the plain tray's (splitRisers)
+    const f = fakeClient();
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    await source.get(makeTray(), DEFAULT_SETTINGS);
+    await source.get({ ...makeTray(), onRiser: true }, DEFAULT_SETTINGS);
+    expect(f.build).toHaveBeenCalledTimes(2);
+    await source.get({ ...makeTray(), onRiser: true }, DEFAULT_SETTINGS);
+    expect(f.build).toHaveBeenCalledTimes(2);
+  });
+
   it("retries a build once when the worker was restarted under it or crashed", async () => {
     for (const reason of ["WorkerRestartedError", "WorkerError"]) {
       const f = fakeClient();

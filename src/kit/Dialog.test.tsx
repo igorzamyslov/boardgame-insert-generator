@@ -205,7 +205,8 @@ describe("the dialog's styles", () => {
     expect(body).toMatch(/padding:\s*var\(--dialog-pad\)/);
     expect(body).toMatch(/box-shadow:\s*var\(--shadow-dialog\)/);
     expect(body).toMatch(/var\(--dialog-max\)/);
-    expect(rule(".k-dialog::backdrop")).toMatch(/background:\s*var\(--scrim\)/);
+    // The page shows, dimmed, behind a dialog (the owner found a hidden page disorienting).
+    expect(rule(".k-dialog::backdrop")).toMatch(/background:\s*var\(--scrim-see\)/);
   });
 
   it("draws the drawer on the right, full height, with the drawer shadow", () => {

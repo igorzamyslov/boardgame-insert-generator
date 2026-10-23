@@ -898,6 +898,7 @@
 /* ---- DisclosureRow: Settings' 48 px row that opens a group ---- */
 .k-drow {
   --k-bg: var(--sheet);
+  --k-chevron: 16px; /* the chevron's width (the icon is drawn 16 px): the title and hint leave it its room */
 
   display: flex;
   gap: var(--s-10);
@@ -918,12 +919,16 @@
   cursor: pointer;
 }
 
-/* The title keeps its width and the value gives way to it (a long group name is cut with an ellipsis). */
+/*
+ * The title keeps its width and the value gives way to it (a long group name is cut with an
+ * ellipsis). A long hint wraps rather than push the value and the chevron out of the row: the text
+ * never takes the room the meta needs for the chevron (and the gap before it).
+ */
 .k-drow__text {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
-  max-width: 100%;
+  max-width: calc(100% - var(--s-10) - var(--s-6) - var(--k-chevron));
   min-width: 0;
 }
 
@@ -967,7 +972,7 @@
 .k-drow__meta {
   display: flex;
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: calc(var(--k-chevron) + var(--s-6));
   gap: var(--s-6);
   align-items: center;
   color: var(--muted);
@@ -993,6 +998,7 @@
 
 .k-drow__chevron {
   display: flex;
+  flex: none;
   transition: transform 200ms;
 }
 
@@ -1118,7 +1124,7 @@
   background: var(--k-bg);
 }
 
-/* ---- Dialog: Export's, in the middle over the scrim ---- */
+/* ---- Dialog: Export's, in the middle over the dimmed page ---- */
 .k-dialog {
   box-sizing: border-box;
   width: min(var(--dialog-max), calc(100% - 2 * var(--s-16)));
@@ -1155,11 +1161,8 @@
   flex-direction: column;
 }
 
-.k-dialog::backdrop {
-  background: var(--scrim);
-}
-
-/* Settings' board dims the plan behind the drawer instead of hiding it: a change there can move the fit. */
+/* The page shows, dimmed, behind a dialog and the drawer alike (Settings' board dims the plan: a change there can move the fit). */
+.k-dialog::backdrop,
 .k-drawer::backdrop {
   background: var(--scrim-see);
 }
@@ -1350,6 +1353,8 @@ html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
 }
 
 .k-sheet[data-editing="true"] > .k-sheet__body {
+  display: flex; /* the editor takes the body's height, so its header stays and only its form scrolls */
+  flex-direction: column;
   padding: 0;
   overflow: hidden;
 }

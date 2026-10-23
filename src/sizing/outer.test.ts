@@ -169,13 +169,23 @@ describe("minOuter", () => {
     });
   });
 
-  it("makes upper trays at least lip.height + 3 tall", () => {
-    const thin = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1");
+  it("makes upper trays as tall as their groove needs: its height plus the thinnest wall above it", () => {
+    const thin = partOf([custom({ h: 1, count: 1, fingerCuts: false })], "custom|strip|split1");
     expect(minOuter(thin, s, ground).h).toBe(3.2);
-    expect(minOuter(thin, s, { lipped: false, level: 1 }).h).toBe(5);
+    // the groove is 2.85 mm high at the outer face (flat 0.6 + lip 2 + play 0.25), and 0.8 mm of
+    // wall stands above it
+    expect(minOuter(thin, s, { lipped: false, level: 1 }).h).toBe(3.65);
     expect(
       minOuter(thin, { ...s, lip: { ...s.lip, enabled: false } }, { lipped: false, level: 1 }).h,
     ).toBe(3.2);
+  });
+
+  it("makes an upper tray with a plain finger cut 0.8 mm taller: the cut needs wall above the groove and depth of its own", () => {
+    // a cut without a floor notch that leaves through the wall stands MIN_FEATURE_MM above the
+    // groove's roof, so at the least height there would be no cut (realize: withCutRoom)
+    const cut = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1");
+    expect(minOuter(cut, s, { lipped: false, level: 1 }).h).toBe(4.45);
+    expect(minOuter(cut, s, ground).h).toBe(3.2);
   });
 
   it("never goes below MIN_WALL_MM walls and 0.8 mm dividers and floors", () => {
@@ -211,9 +221,13 @@ describe("minOuter", () => {
 
     it("rounds the lipped wall and the upper-tray height up", () => {
       const odd = tiny({ lip: { ...s.lip, thickness: 1.234, height: 2.004 } });
-      const thin = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1", odd);
+      const thin = partOf(
+        [custom({ h: 1, count: 1, fingerCuts: false })],
+        "custom|strip|split1",
+        odd,
+      );
       expect(minOuter(single, odd, { lipped: true, level: 0 }).w).toBe(29.38);
-      expect(minOuter(thin, odd, { lipped: false, level: 1 }).h).toBe(5.01);
+      expect(minOuter(thin, odd, { lipped: false, level: 1 }).h).toBe(3.66);
     });
   });
 

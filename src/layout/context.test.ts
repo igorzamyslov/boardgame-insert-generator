@@ -13,7 +13,7 @@ describe("createCtx", () => {
     expect(ctx).not.toHaveProperty("inset"); // a stack is flush: the groove takes the lip's place
     expect(ctx.upperWall).toBe(256); // 2.55 mm, the groove's wall, rounded up
     expect(ctx.layer).toBe(20);
-    expect(ctx.upperMinH).toBe(500);
+    expect(ctx.upperMinH).toBe(365); // 2.85 mm of groove and 0.8 mm of wall above it
     expect(ctx.lipHeight).toBe(200);
     expect(ctx.bed).toEqual({ w: 24600, d: 24600, z: 25600 });
   });

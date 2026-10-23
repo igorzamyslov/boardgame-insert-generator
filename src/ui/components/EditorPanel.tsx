@@ -197,18 +197,20 @@ export function EditorPanel({
       <h2 class="visually-hidden" id={`${c.id}-heading`} tabIndex={-1} ref={headingRef}>
         {name}
       </h2>
-      <button type="button" class="ed-back" onClick={onBack}>
-        <Icon name="chevron-left" size={16} />
-        {backLabel ?? "What's inside"}
-      </button>
-      <div class="ed-id">
-        <IconTile size={44} kind={c.kind} />
-        <div class="ed-id__text">
-          <label class="ed-id__label">
-            <span class="ed-id__kind">{kind}</span>
-            <TitleInput id={`${c.id}-name`} label="Name" value={c.name} onCommit={rename} />
-          </label>
-          {inGroup}
+      <div class="ed-head">
+        <button type="button" class="ed-back" onClick={onBack}>
+          <Icon name="chevron-left" size={16} />
+          {backLabel ?? "What's inside"}
+        </button>
+        <div class="ed-id">
+          <IconTile size={44} kind={c.kind} />
+          <div class="ed-id__text">
+            <label class="ed-id__label">
+              <span class="ed-id__kind">{kind}</span>
+              <TitleInput id={`${c.id}-name`} label="Name" value={c.name} onCommit={rename} />
+            </label>
+            {inGroup}
+          </div>
         </div>
       </div>
       {kindEditor}

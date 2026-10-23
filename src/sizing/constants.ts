@@ -74,8 +74,6 @@ export const MAX_SPLITS = 3;
 export const MIN_MEASURED_CARD_T = 0.1;
 /** Tile column / stack variants: target stack heights in mm (1 column is always offered). */
 export const TILE_STACK_TARGETS: readonly number[] = [50, 25];
-/** Upper trays must be at least lip.height + this tall (spec §6.1). */
-export const UPPER_TRAY_MIN_ABOVE_LIP = 3;
 /** Upright cards and tiles: the finger channel is this fraction of the shallowest well deep. */
 export const CHANNEL_DEPTH = 1 / 2;
 /**

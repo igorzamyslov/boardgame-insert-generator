@@ -40,6 +40,7 @@ const TURNED_STATES = ["workspace-turned", "m-turned"] as const;
 const FLAT_DECKS = ["editor-flat-decks", "editor-flat-decks-upright"] as const;
 const BOXCARD = "The rail's box card says its size on one line";
 const BED = "The rail's footer line shows the insert's printer";
+const NO_TIME = "The app gives no print time";
 const ADDING = ["workspace-add", "m-workspace-add"] as const;
 // 0.7.0 Task 9: a group's card in the rail and Add → Group. The states are the kit cases of copy.board.test.tsx.
 const KIT_RAIL = ["kit-rail", "kit-add", "kit-picker", "kit-drag"] as const;
@@ -351,6 +352,9 @@ const SET_GAPS = "Fill small gaps with is one choice of what the engine does wit
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
+  // The phone's tray sheet says the filament where its board says "Printing: about 3.5 h, 58 g".
+  { text: "Filament", states: SHEET_STATES, ruling: NO_TIME },
+  { text: "about {n} g", states: SHEET_STATES, ruling: NO_TIME },
   // Task 14: Settings. The board's words, except where the Words table or the owner rules otherwise.
   ...SETTING_RANGES.map((r) => ({ text: r.label, states: SETTINGS_STATES, ruling: SET_EXACT })),
   { text: "Room around trays and pieces", states: SETTINGS_STATES, ruling: SET_WORDS },

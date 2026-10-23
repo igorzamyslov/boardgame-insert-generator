@@ -2,7 +2,9 @@
 // The owner's Star Realms file (test/fixtures/star-realms-owner-4.json): "don't see the reason to
 // not make the risers, maybe make min 3 mm + setting" (2026-10-21, 0.10.0). Its Starter stack can
 // give about 9.5 mm of padding and its Trade deck about 6.4 mm, both under the old 10 mm minimum,
-// so both kept a raised floor (the top Starter tray's well floor at about 12 mm).
+// so both kept a raised floor (the top Starter tray's well floor at about 12 mm). Since the upper
+// trays may be as low as their groove needs (3.65 mm, 2026-10-23) the Starter stack gives about
+// 11.5 mm, so the "old minimum" below is 15 mm to stay above it.
 import { describe, expect, it } from "vitest";
 import starRealmsOwner4 from "../../test/fixtures/star-realms-owner-4.json";
 import { inputsHash } from "../model/hash";
@@ -58,11 +60,11 @@ describe(
     const stackOf = (t: TraySpec): number => t.stack;
     const stacks = [...new Set(trays.filter((t) => t.part === "tray").map(stackOf))];
 
-    it("has the padding the owner described: raised floors under the old 10 mm minimum", () => {
+    it("has the padding the owner described: raised floors under a high minimum", () => {
       expect(stacks).toHaveLength(2);
       const before = splitRisers(trays, {
         ...inputsOf(p),
-        settings: { ...p.settings, minRiser: 10 },
+        settings: { ...p.settings, minRiser: 15 },
       });
       expect(before.filter((t) => t.part === "riser")).toEqual([]);
       expect(Math.max(...trays.filter((t) => t.part === "tray").map(raise))).toBeGreaterThan(6);
@@ -116,8 +118,8 @@ describe(
       }
     });
 
-    it("keeps the old output on request: at 10 mm the trays keep their raised floors", () => {
-      const old = { ...p.settings, minRiser: 10 };
+    it("keeps the old output on request: at 15 mm the trays keep their raised floors", () => {
+      const old = { ...p.settings, minRiser: 15 };
       const printed = printableParts(trays, {
         ...inputsOf(p),
         components: p.components,

@@ -6,7 +6,11 @@ import { DEFAULT_SETTINGS } from "../model/settings";
 import { GROUP_SHADE, shadeHex } from "../ui/identity";
 import type { Component, Project } from "../model/types";
 import { pngSize, svgDataUrl } from "./png";
-import { escapeXml, layerInfo, packingSteps, render, truncate, whatGoesWhere } from "./render";
+import { escapeXml, layerInfo, packingGuide, render, truncate, whatGoesWhere } from "./render";
+
+/** The guide's part names, layer by layer, in the order to put them in the box. */
+const guideNames = (l: ReturnType<typeof makeLayout>, p: Project): string[][] =>
+  packingGuide(l, p).map((layer) => layer.rows.map((r) => r.name));
 
 const bottom = makeTray({
   key: "a:p0:0",
@@ -343,10 +347,8 @@ describe("packing order and parts list", () => {
         compartments: [],
       }),
     ]);
-    expect(packingSteps(orphan, named.components)).toEqual([
-      "Layer 1: place Deck A.",
-      "Place Spacer by Deck A (the tray it belongs in is not in this layout).",
-    ]);
+    // the spacer has no tray to follow: it is last in its layer
+    expect(guideNames(orphan, named)).toEqual([["Deck A", "Spacer by Deck A"]]);
   });
 
   it("stands each divider in its tray, after the tray is placed, and keeps it out of the layers", () => {
@@ -364,10 +366,8 @@ describe("packing order and parts list", () => {
         }),
       ),
     ]);
-    expect(packingSteps(withDividers, named.components)).toEqual([
-      "Layer 1: place Deck A.",
-      "Stand Divider 1 in Deck A in its floor slot.",
-      "Stand Divider 2 in Deck A in its floor slot.",
+    expect(guideNames(withDividers, named)).toEqual([
+      ["Deck A", "Divider 1 in Deck A", "Divider 2 in Deck A"],
     ]);
     expect(layerInfo(withDividers, named.components)).toEqual([
       { layer: 1, title: "Layer 1 (bottom)", trays: ["Deck A"] },
@@ -398,9 +398,7 @@ describe("packing order and parts list", () => {
         compartments: [],
       }),
     ]);
-    expect(packingSteps(withRiser, named.components)).toEqual([
-      "Layer 1: place Riser under Deck A, then Deck A on it.",
-    ]);
+    expect(guideNames(withRiser, named)).toEqual([["Riser under Deck A", "Deck A"]]);
     expect(layerInfo(withRiser, named.components)).toEqual([
       { layer: 1, title: "Layer 1 (bottom)", trays: ["Deck A"] },
     ]);
@@ -417,17 +415,13 @@ describe("packing order and parts list", () => {
       makeTray({ key: "a:p0:0", stack: 0, level: 0 }),
       makeTray({ key: "gone:p0:0:riser", part: "riser", path: "", stack: 5, level: 0 }),
     ]);
-    expect(packingSteps(orphan, named.components).at(-1)).toBe(
-      "Place Riser under Deck A (the tray that stands on it is not in this layout).",
-    );
+    expect(guideNames(orphan, named)[0]?.at(-1)).toBe("Riser under Deck A");
   });
 
-  it("packs bottom first, spacers after their tray", () => {
-    expect(packingSteps(layout, named.components)).toEqual([
-      "Layer 1: place Deck A 1.",
-      "Slide the spacer into Deck A 1 (Spacer by Deck A 2).",
-      "Layer 1: place Deck A 2.",
-      "Layer 2: place <Coins> & gems on top.",
+  it("packs bottom layer first, spacers after their tray", () => {
+    expect(guideNames(layout, named)).toEqual([
+      ["Deck A 1", "Spacer by Deck A 2", "Deck A 2"],
+      ["<Coins> & gems"],
     ]);
   });
 
@@ -519,6 +513,202 @@ describe("png helpers", () => {
   });
 });
 
+describe("the order of the packing guide", () => {
+  /** A project whose components are called `names`, and a tray holding each of them. */
+  function trayFor(name: string, over: Parameters<typeof makeTray>[0] = {}) {
+    return makeTray({
+      key: `${name}:p0:0`,
+      compartments: [
+        {
+          x: 1.6,
+          y: 1.6,
+          w: 20,
+          d: 20,
+          floorZ: 1.2,
+          kind: "well",
+          contents: `${name} ×10`,
+          features: [],
+        },
+      ],
+      ...over,
+    });
+  }
+  function projectOf(names: string[]): Project {
+    const base = fixtureProject();
+    const proto = base.components[0] as Component;
+    return {
+      ...base,
+      components: names.map((n, i) => ({ ...structuredClone(proto), id: `comp000${i}`, name: n })),
+    };
+  }
+
+  it("goes layer by layer, bottom first, whatever order the trays come in", () => {
+    const names = ["Tiles", "Miniatures", "Cards", "Dice"];
+    const project = projectOf(names);
+    const shuffled = makeLayout("h", [
+      trayFor("Dice", { level: 2, z: 80, stack: 3 }),
+      trayFor("Tiles", { level: 0, stack: 0 }),
+      trayFor("Cards", { level: 1, z: 40, stack: 1 }),
+      trayFor("Miniatures", { level: 1, z: 40, stack: 2 }),
+    ]);
+    expect(guideNames(shuffled, project)).toEqual([["Tiles"], ["Cards", "Miniatures"], ["Dice"]]);
+    expect(packingGuide(shuffled, project).map((l) => l.title)).toEqual([
+      "Layer 1 (bottom)",
+      "Layer 2",
+      "Layer 3 (top)",
+    ]);
+  });
+
+  it("orders a layer by name, counting numbers by value: Cards 2 before Cards 10", () => {
+    const project = projectOf(["Cards"]);
+    // Ten copies of one component are named Cards 1 … Cards 10; keys put 10 and 2 in odd places
+    const trays = [10, 2, 1, 9, 3, 8, 4, 7, 5, 6].map((n, i) =>
+      trayFor("Cards", { key: `Cards:p${n}:0`, stack: i, x: i * 5 }),
+    );
+    const [layer] = packingGuide(makeLayout("h", trays), project);
+    expect(layer?.rows.map((r) => r.name)).toEqual(
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `Cards ${n}`),
+    );
+  });
+
+  it("is the same whatever the position or the input order of the trays in the layer", () => {
+    const project = projectOf(["Banners", "Anchors", "Coins"]);
+    const trays = [
+      trayFor("Coins", { x: 0, y: 0, stack: 0 }),
+      trayFor("Anchors", { x: 120, y: 0, stack: 1 }),
+      trayFor("Banners", { x: 60, y: 90, stack: 2 }),
+    ];
+    const forward = guideNames(makeLayout("h", trays), project);
+    const moved = guideNames(
+      makeLayout(
+        "h",
+        [...trays].reverse().map((t) => ({ ...t, x: t.y, y: t.x })),
+      ),
+      project,
+    );
+    expect(forward).toEqual([["Anchors", "Banners", "Coins"]]);
+    expect(moved).toEqual(forward);
+  });
+
+  it("lists a layer's trays for the picture's description in the guide's order, not the part numbers'", () => {
+    const project = projectOf(["Banners", "Anchors", "Coins"]);
+    const trays = [
+      trayFor("Coins", { x: 0, y: 0, stack: 0 }),
+      trayFor("Anchors", { x: 120, y: 0, stack: 1 }),
+      trayFor("Banners", { x: 60, y: 90, stack: 2 }),
+    ];
+    const layout = makeLayout("h", trays);
+    const [layer] = packingGuide(layout, project);
+    expect(layer?.trays).toEqual(["Anchors", "Banners", "Coins"]);
+    expect(layer?.trays).toEqual(layer?.rows.map((r) => r.name));
+  });
+
+  it("puts a riser before the tray it carries, and a spacer and dividers right after the tray", () => {
+    const project = projectOf(["Anchors", "Banners"]);
+    const addOn = (key: string, part: "riser" | "spacer" | "divider") =>
+      makeTray({ key, part, path: "", solid: true, compartments: [], stack: 0, level: 0 });
+    const trays = [
+      trayFor("Banners", { stack: 1, x: 120 }),
+      trayFor("Anchors", { stack: 0, z: 12 }),
+      addOn("Anchors:p0:0:divider:2", "divider"),
+      addOn("Anchors:p0:0:divider:1", "divider"),
+      addOn("Anchors:p0:0:spacer", "spacer"),
+      addOn("Anchors:p0:0:riser", "riser"),
+    ];
+    expect(guideNames(makeLayout("h", trays), project)).toEqual([
+      [
+        "Riser under Anchors",
+        "Anchors",
+        "Spacer by Banners", // a spacer is named by the component it spaces
+        "Divider 1 in Anchors",
+        "Divider 2 in Anchors",
+        "Banners",
+      ],
+    ]);
+  });
+
+  it("puts a spare that nothing under it holds up first in its layer, and one resting on a tray after it", () => {
+    const project = projectOf(["Anchors", "Banners"]);
+    const strip = (key: string, o: Parameters<typeof makeTray>[0]) =>
+      makeTray({ key, part: "leftover", solid: true, compartments: [], stack: 5, ...o });
+    const member = (key: string, o: Parameters<typeof makeTray>[0]) => strip(key, o);
+    const mergedOf = (key: string, o: Parameters<typeof makeTray>[0]) =>
+      makeTray({
+        key,
+        part: "leftover",
+        solid: true,
+        compartments: [],
+        stack: 5,
+        merged: { members: [member(`${key}:m`, o)], bridges: [], flipped: false },
+        ...o,
+      });
+    // a spare beside the trays (z 0), and one in the layer above, on top of Anchors (z 40)
+    const beside = mergedOf("merged:0", { x: 200, y: 0, w: 10, d: 40, h: 35 });
+    const above = mergedOf("merged:1", { x: 0, y: 0, w: 20, d: 20, h: 10, z: 40, level: 1 });
+    const trays = [
+      trayFor("Banners", { stack: 1, x: 100 }),
+      trayFor("Anchors", { stack: 0 }),
+      beside,
+      above,
+    ];
+    const rows = guideNames(makeLayout("h", trays), project);
+    // layer 1: the spare beside goes in first, then the trays by name
+    expect(rows[0]?.slice(1)).toEqual(["Anchors", "Banners"]);
+    expect(rows[0]?.[0]).toMatch(/^Spacer|^Spare/);
+    // the layer above holds only the spare resting on Anchors, which is already in the box
+    expect(rows[1]).toHaveLength(1);
+  });
+
+  it("puts a merged part that rests on a tray of its own layer right after that tray", () => {
+    const project = projectOf(["Anchors", "Banners"]);
+    const member = makeTray({
+      key: "merged:0:m",
+      part: "leftover",
+      solid: true,
+      compartments: [],
+      stack: 5,
+      x: 0,
+      y: 0,
+      w: 20,
+      d: 20,
+      h: 10,
+      z: 40,
+    });
+    const resting = makeTray({
+      ...member,
+      key: "merged:0",
+      merged: { members: [member], bridges: [], flipped: false },
+    });
+    const trays = [
+      trayFor("Banners", { stack: 1, x: 100 }),
+      trayFor("Anchors", { stack: 0 }),
+      resting,
+    ];
+    const [layer] = packingGuide(makeLayout("h", trays), project);
+    const names = layer?.rows.map((r) => r.name) ?? [];
+    expect(names[0]).toBe("Anchors");
+    expect(names[1]).toMatch(/^Spacer|^Spare/);
+    expect(names[2]).toBe("Banners");
+  });
+
+  it("lists every part of the layout exactly once", () => {
+    const project = projectOf(["Anchors", "Banners"]);
+    const trays = [
+      trayFor("Banners", { stack: 1, x: 120, level: 1, z: 40 }),
+      trayFor("Anchors", { stack: 0 }),
+      makeTray({ key: "Anchors:p0:0:spacer", part: "spacer", path: "", solid: true }),
+      makeTray({ key: "gone:p0:0:divider:1", part: "divider", path: "", solid: true }),
+    ];
+    const flat = guideNames(makeLayout("h", trays), project).flat();
+    expect(flat).toHaveLength(4);
+    expect(new Set(flat).size).toBe(4);
+  });
+
+  it("is empty for a layout with no trays", () => {
+    expect(packingGuide(makeLayout("h", []), projectOf(["Anchors"]))).toEqual([]);
+  });
+});
+
 describe("a merged filler in the instructions", () => {
   const strip = (key: string, o: Parameters<typeof makeTray>[0]) =>
     makeTray({ key, part: "leftover", solid: true, compartments: [], stack: 5, ...o });
@@ -556,7 +746,7 @@ describe("a merged filler in the instructions", () => {
     const row = rows.find((r) => r.name.startsWith("Spacer by"));
     expect(row).toMatchObject({ layer: 1, goesInto: null, carries: null });
     expect(rows).toHaveLength(2);
-    expect(packingSteps(withMerged, named.components).join("\n")).toContain(row?.name ?? "?");
+    expect(guideNames(withMerged, named).flat()).toContain(row?.name ?? "?");
   });
 });
 
@@ -668,11 +858,8 @@ describe("a group's trays in the packing guide (spec §7.7)", () => {
     expect(rows.map((r) => r.engraved)).toEqual(["PLAYER 1", "PLAYER 2"]);
   });
 
-  it("says Player kit 1 … in the packing steps and the layer lists", () => {
-    expect(packingSteps(kitLayout, grouped.components, grouped.groups)).toEqual([
-      "Layer 1: place Player kit 1.",
-      "Layer 1: place Player kit 2.",
-    ]);
+  it("says Player kit 1 … in the guide and the layer lists", () => {
+    expect(guideNames(kitLayout, grouped)).toEqual([["Player kit 1", "Player kit 2"]]);
     expect(layerInfo(kitLayout, grouped.components, grouped.groups)[0]?.trays).toEqual([
       "Player kit 1",
       "Player kit 2",

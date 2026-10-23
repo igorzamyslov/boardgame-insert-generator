@@ -103,7 +103,7 @@ describe("stack feasibility", () => {
   });
 
   it("gives height slack to the lowest scoop tray in whole layers", () => {
-    const ctx = ctxFor({ innerHeight: 60.05 });
+    const ctx = ctxFor({ innerHeight: 60.1 });
     const h = stackHeights(ctx, stackLevels(ctx, [item(2), item(4)]));
     expect(h.h[1]).toBe(ctx.upperMinH + 5);
     expect((h.h[0] ?? 0) % ctx.layer).toBe(0);

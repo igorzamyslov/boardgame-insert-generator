@@ -1,9 +1,9 @@
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
-import { bottomMinimums } from "../model/lip";
+import { bottomMinimums, upperTrayMinH } from "../model/lip";
 import type { Settings } from "../model/types";
 import { minOuter, outerCutSides, wallFor, type OuterCutSides } from "../sizing";
 import { growthCapU, partGrowthCapOf } from "../sizing/growth";
-import { MIN_GRIP, ONE_WALL_MAX_MM, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
+import { MIN_GRIP, ONE_WALL_MAX_MM } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import { fitsBed, type Bed } from "./bed";
 import type { LayoutInput } from "./types";
@@ -72,7 +72,7 @@ export interface Ctx {
   readonly lipOn: boolean;
   /** The lip's height; a lipped tray prints this much taller than its `h`. */
   readonly lipHeight: U;
-  /** Minimum h of a tray at level ≥ 1 when the lip is on: lip.height + UPPER_TRAY_MIN_ABOVE_LIP (3 mm). */
+  /** Minimum h of a tray at level ≥ 1 when the lip is on: what its groove needs (`upperTrayMinH`, 3.65 mm by default). */
   readonly upperMinH: U;
   /** Base outer wall and floor as sizing writes them: wallFor, floor ≥ MIN_FEATURE_MM, rounded up. */
   readonly wall: U;
@@ -236,7 +236,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     layer: Math.max(1, toU(printer.layerHeight)),
     lipOn: settings.lip.enabled,
     lipHeight: toU(settings.lip.height),
-    upperMinH: toU(settings.lip.height) + toU(UPPER_TRAY_MIN_ABOVE_LIP),
+    upperMinH: toUCeil(upperTrayMinH(settings)),
     wall,
     upperWall,
     floor: toUCeil(Math.max(settings.floor, MIN_FEATURE_MM)),

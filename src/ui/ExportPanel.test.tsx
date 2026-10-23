@@ -9,7 +9,6 @@ import { GeometryBuildError } from "../geometry/client";
 import type { TraySpec } from "../model/types";
 import { DEFAULT_PRINTER } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { LayoutSummary } from "../layout/types";
 import type { Component, FeatureSpec } from "../model/types";
 import { loadSeed } from "../test-support/harbourKings";
 import css from "./export.css?raw";
@@ -60,29 +59,21 @@ const components: Component[] = ["Deck A", "Magnets"].map((name, i) => ({
   name,
 }));
 
-const summary: LayoutSummary = {
-  fillPct: 80,
-  trayCount: 3,
-  stackCount: 2,
-  fillerCount: 0,
-  mergeFillers: false,
-  mergeRisers: false,
-  minRiser: 3,
-  filamentG: 210,
-  filamentAtInfillG: 123.4,
-  infillPct: 15,
-  printMinutes: 14 * 60 + 5,
-  longestPartMinutes: 200,
-  playLimit: 1,
-  playX: 0.4,
-  playY: 0.4,
-  crossX: 2,
-  crossY: 1,
-};
-
 /** The two other file types sit behind "Other formats". */
 function openOtherFormats(): void {
   fireEvent.click(screen.getByRole("button", { name: "Other formats" }));
+}
+
+/**
+ * The panel counts the filament from the same meshes the export builds, asking for each part on
+ * its own as it opens. Waits for the count to end and forgets those asks, so what a test counts
+ * after it is the export's.
+ */
+async function counted(p: ExportPanelProps): Promise<void> {
+  await waitFor(() =>
+    expect(screen.getByText("Filament").nextElementSibling?.textContent).toMatch(/^about/),
+  );
+  vi.mocked(p.meshes.get).mockClear();
 }
 
 const PER_PART = "One 3MF per part (.zip)";
@@ -209,25 +200,47 @@ describe("ExportPanel", () => {
     expect(css).toMatch(/\.export-chip\s*\{[^}]*text-overflow:\s*ellipsis/);
   });
 
-  it("shows filament and print time as tiles", () => {
-    render(<ExportPanel {...props({ summary })} />);
-    const value = (label: string): string | null =>
-      screen.getByText(label).nextElementSibling?.textContent ?? null;
-    expect(value("Filament")).toBe("about 123 g");
-    expect(value("Print time")).toBe("about 14 h");
-    expect(value("Filament")).toMatch(/^about \d+ g$/);
-    expect(value("Print time")).toMatch(/^about [\d.]+ (h|min)$/);
-    expect(document.body.textContent).not.toContain("≈");
-    cleanup();
-    // without the plan's totals there are no tiles at all
+  it("shows the filament of the built parts as one tile, and no print time", async () => {
     render(<ExportPanel {...props()} />);
-    expect(screen.queryByText("Filament")).toBeNull();
+    const tile = (): string | null =>
+      screen.getByText("Filament").nextElementSibling?.textContent ?? null;
+    // it holds its place while the parts are counted
+    expect(tile()).toBe("\u00a0");
+    // two buildable parts, each a cube of 10 mm (1 000 mm³, 440 mm³ of shell at 15 % infill): 2 × 0.65 g
+    await waitFor(() => expect(tile()).toBe("about 1 g"));
+    expect(tile()).toMatch(/^about \d+ g$/);
     expect(screen.queryByText("Print time")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/≈|\bh\b|\bmin\b/);
+  });
+
+  it("asks for the meshes the export asks for, so counting the filament builds nothing twice", async () => {
+    const p = props();
+    render(<ExportPanel {...p} />);
+    await waitFor(() =>
+      expect(screen.getByText("Filament").nextElementSibling?.textContent).toBe("about 1 g"),
+    );
+    const counted = vi.mocked(p.meshes.get).mock.calls.map(([spec]) => JSON.stringify(spec));
+    vi.mocked(p.meshes.get).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    await screen.findByRole("heading", { level: 1, name: "All 2 parts are ready" });
+    const exported = vi.mocked(p.meshes.get).mock.calls.map(([spec]) => JSON.stringify(spec));
+    expect(exported).toEqual(counted);
+  });
+
+  it("leaves the tile out when a part cannot be built", async () => {
+    const m = meshes();
+    m.get.mockImplementation(() =>
+      Promise.reject(new GeometryBuildError("too slow", "TimeoutError")),
+    );
+    render(<ExportPanel {...props({ meshes: m })} />);
+    expect(screen.getByText("Filament")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Filament")).toBeNull());
   });
 
   it("downloads one combined 3MF by default", async () => {
     const p = props();
     render(<ExportPanel {...p} />);
+    await counted(p);
     // One primary button, and the other formats are not on screen yet.
     expect(screen.queryByRole("button", { name: PER_PART })).toBeNull();
     const primary = screen.getByRole("button", { name: COMBINED });
@@ -294,7 +307,7 @@ describe("ExportPanel", () => {
   });
 
   it("says nothing about slicers or what the files open in", () => {
-    const { container } = render(<ExportPanel {...props({ summary })} />);
+    const { container } = render(<ExportPanel {...props()} />);
     openOtherFormats();
     expect(container.textContent).not.toMatch(/slicer|recommended|compatible|works with/i);
   });
@@ -355,6 +368,7 @@ describe("ExportPanel", () => {
   it("exports a zip of 3MF parts and lists the unsupported tray as not exported", async () => {
     const p = props();
     render(<ExportPanel {...p} />);
+    await counted(p);
     expect(screen.getByRole("heading", { level: 2, name: "Not exported" })).toBeTruthy();
     expect(screen.getByText(/^Magnets: Uses feature "magnet"/)).toBeTruthy();
     // nothing to try again: the part is not one the files can hold
@@ -379,6 +393,7 @@ describe("ExportPanel", () => {
   it("engraves each tray's short name and calls its file by its full name, never by a number", async () => {
     const p = props();
     render(<ExportPanel {...p} />);
+    await counted(p);
     openOtherFormats();
     fireEvent.click(screen.getByRole("button", { name: PER_PART }));
     await waitFor(() => expect(p.download).toHaveBeenCalled());
@@ -393,6 +408,7 @@ describe("ExportPanel", () => {
     cleanup();
     const off = props({ settings: { ...DEFAULT_SETTINGS, engraveNames: false }, meshes: meshes() });
     render(<ExportPanel {...off} />);
+    await counted(off);
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await waitFor(() => expect(off.download).toHaveBeenCalled());
     expect(
@@ -456,9 +472,32 @@ describe("ExportPanel", () => {
     await waitFor(() => expect(p.download).toHaveBeenCalled());
   });
 
+  it("counts the filament again on Try again: the count's failure is not final", async () => {
+    const m = meshes();
+    m.get.mockImplementation(() => Promise.reject(new Error("Geometry worker failed")));
+    render(<ExportPanel {...props({ meshes: m })} />);
+    await waitFor(() => expect(screen.queryByText("Filament")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/worker failed/));
+    // the next builds stay open (still being counted), so the tile is back while they run
+    m.get.mockImplementation(waitsForAbort);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
+    expect(await screen.findByText("Filament")).toBeTruthy();
+  });
+
+  it("builds nothing for the filament tile while the plan is out of date", async () => {
+    const p = props({ stale: true });
+    render(<ExportPanel {...p} />);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(p.meshes.get).not.toHaveBeenCalled();
+  });
+
   it("keeps every download off while the layout is not ready, and says why", async () => {
     const p = props({ disabled: true });
     render(<ExportPanel {...p} />);
+    await counted(p);
     openOtherFormats();
     for (const name of [COMBINED, PER_PART, STL]) {
       const b = screen.getByRole("button", { name });
@@ -628,13 +667,14 @@ describe("ExportPanel", () => {
 
   it("forgets the failed trays when the layout changes", async () => {
     const m = meshes();
+    const p = props({ meshes: m });
+    const view = render(<ExportPanel {...p} />);
+    await counted(p);
     m.get.mockImplementation(() =>
       Promise.reject(new GeometryBuildError("Tray x: compartments overlap", "TraySpecError")),
     );
     // Two trays fail, one export succeeds with none: use a mix so the export still downloads.
     m.get.mockImplementationOnce(() => Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }));
-    const p = props({ meshes: m });
-    const view = render(<ExportPanel {...p} />);
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await waitFor(() => expect(p.download).toHaveBeenCalled());
     expect(await screen.findByText(/^Deck A 2: .*compartments overlap/)).toBeTruthy();
@@ -776,6 +816,9 @@ describe("ExportPanel", () => {
   it("shows progress and Stop while building, and the ready controls give way", async () => {
     const m = meshes();
     let release: () => void = () => undefined;
+    const p = props({ meshes: m });
+    render(<ExportPanel {...p} />);
+    await counted(p);
     m.get
       .mockImplementationOnce(() => Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }))
       .mockImplementation(
@@ -787,8 +830,6 @@ describe("ExportPanel", () => {
             );
           }),
       );
-    const p = props({ meshes: m });
-    render(<ExportPanel {...p} />);
     // the live region is on the page before the build starts, and the Stop button is not in it
     const live = document.querySelector<HTMLElement>("[data-live='build']") as HTMLElement;
     expect(live.textContent).toBe("");
@@ -929,7 +970,7 @@ describe("ExportPanel", () => {
   describe("on a phone", () => {
     it("has the bar with Close, the title block, Send file and the foot with Download", () => {
       const onSendFile = vi.fn();
-      const p = props({ phone: true, onSendFile, onOpenGuide: vi.fn(), summary });
+      const p = props({ phone: true, onSendFile, onOpenGuide: vi.fn() });
       render(<ExportPanel {...p} />);
       const dialog = screen.getByRole("dialog", { name: "Ready to print" });
       expect(dialog.classList.contains("export-dialog--phone")).toBe(true);
@@ -1033,6 +1074,7 @@ describe("ExportPanel for a group's trays", () => {
   it("calls each copy's file by the group's name, and engraves its short name", async () => {
     const p = asked();
     render(<ExportPanel {...p} />);
+    await counted(p);
     openOtherFormats();
     fireEvent.click(screen.getByRole("button", { name: PER_PART }));
     await waitFor(() => expect(p.download).toHaveBeenCalled());

@@ -314,6 +314,12 @@ export interface TraySpec {
   wall: number;
   floor: number;
   lip: boolean; // true when another tray is stacked on this one and settings.lip.enabled
+  /**
+   * Set on a tray that stands on a riser carrying the lip (splitRisers), never stored: the tray
+   * has the groove for it under its edge, as any tray above level 0 has with the lip on. Absent:
+   * the tray stands on the box floor or a plain riser, with the plain bottom chamfer.
+   */
+  onRiser?: boolean;
   solid: boolean;
   compartments: CompartmentSpec[];
   features?: FeatureSpec[]; // the part's own: a card spacer's notch (spacerNotch)

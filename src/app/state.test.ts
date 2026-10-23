@@ -63,17 +63,17 @@ describe("createState", () => {
       settings: { ...s.project.value.settings, leftover: "solid" },
     };
     expect(s.summary.value).not.toBe(result.summary);
-    // infill alone is not in the hash but still refreshes the estimate
     s.project.value = {
       ...s.project.value,
       settings: { ...s.project.value.settings, leftover: p.settings.leftover },
     };
     expect(s.summary.value).toBe(result.summary);
+    // the infill is no part of the summary: the run's own still stands
     s.project.value = {
       ...s.project.value,
       settings: { ...s.project.value.settings, infill: 40 },
     };
-    expect(s.summary.value?.infillPct).toBe(40);
+    expect(s.summary.value).toBe(result.summary);
   });
 
   it("does not go stale when a merge switch changes, but recomputes the summary for it", () => {
@@ -169,15 +169,15 @@ describe("createState", () => {
         ...p,
         layout: makeLayout(inputsHash(p), undefined, { geometryVersion }),
       }).layoutNotices.value.map((n) => n.code);
-    // GEOMETRY_VERSION is 0.8.2: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
+    // GEOMETRY_VERSION is 0.9.0: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
     expect(codesFor("0.3.2")).toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.5.2")).toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.6.0")).toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.7.2")).toContain(GEOMETRY_MAJOR_CODE);
-    expect(codesFor("0.8.0")).not.toContain(GEOMETRY_MAJOR_CODE);
-    expect(codesFor("0.8.4")).not.toContain(GEOMETRY_MAJOR_CODE);
-    expect(codesFor("0.8.5")).not.toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.8.0")).toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.8.5")).toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.9.0")).not.toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.9.4")).not.toContain(GEOMETRY_MAJOR_CODE);
   });
 
   it("says the plan was made with an older version, in the banner's words", () => {
