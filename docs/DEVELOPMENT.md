@@ -659,6 +659,20 @@ in `model/hash.test.ts`.
 - Every new button gets 44 px, from the base `button` rule or `.tap`. Pin a new media-query rule
   in `style.test.ts`.
 
+### Add a way to lift a part
+
+The packing guide's Lift column says how each printed part comes back out of the box
+(`src/instructions/lift.ts`; DESIGN §7, "The packing guide says how to take each tray out"). A new
+grip feature (a finger dip in a filler, say) is **one entry in `GRIP_RULES`**: its `kind`, whether
+it is a grip of the part's `own`, and an `applies` test on the spec's features (a merged part
+meets a rule when one of its members does). Then:
+
+1. Add its line to `LIFT_LINES` (the rulings in `screens/copy-rulings.ts` list every value), and
+   the kind to `GripKind`.
+2. Add a case to `lift.test.ts`. The Lift cell, the "No grip of its own" flag, the note above the
+   layers and the order of the rows (`takeOutOrder` in `render.ts`, which reads only the grip)
+   follow from `gripOf`: don't test for the feature anywhere else.
+
 ### Add a notice
 
 - A notice is `{ level, code, message }` (`model/types.ts`), produced by validation, sizing, the

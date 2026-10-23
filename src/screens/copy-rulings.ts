@@ -13,6 +13,14 @@ export interface CopyRuling {
   ruling: string;
 }
 
+import {
+  LIFT_LINES,
+  LIFT_TEMPLATES,
+  NO_GRIP_TAG,
+  NO_GRIP_TEMPLATE,
+  TAKE_OUT_HEADING,
+  TAKE_OUT_NOTE,
+} from "../instructions/lift";
 import { SETTING_RANGES } from "../model/validate";
 import { OPTION_NOTE_TEXTS } from "../ui/components/optionNotes";
 import { COMPARTMENT_WORDS } from "../ui/identity";
@@ -297,6 +305,11 @@ const EDITOR_BACKS: readonly string[] = [
     `Back to ${chip} off`,
   ]),
 ];
+
+// The packing guide's Lift column and its note on taking things out (2026-10-23, "lifting trays").
+/** The guide has no board and no state of the screenshot harness: this name is the test's own. */
+const GUIDE_STATES = ["packing-guide"] as const;
+const GUIDE_LIFT = "The packing guide says how to take each tray out";
 
 // Task 11: the box's editor. The states are the box cases of copy.board.test.tsx.
 const BOX_WORDS = "The box editor has the board's words only";
@@ -831,6 +844,17 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Undo removal", states: ["kit-removed"], ruling: GROUP_REMOVED },
   // the rail's handle (every screen with a rail, beside the stage)
   { text: "Resize the list", states: "all", ruling: RESIZE },
+  // The packing guide (no board draws it, so no copy case reads it: AssemblyPage.test.tsx checks
+  // that every line of its Lift column, its note and its flag is one of these)
+  ...[
+    ...Object.values(LIFT_LINES),
+    ...LIFT_TEMPLATES,
+    "Lift",
+    TAKE_OUT_HEADING,
+    TAKE_OUT_NOTE,
+    NO_GRIP_TAG,
+    NO_GRIP_TEMPLATE,
+  ].map((text) => ({ text, states: GUIDE_STATES, ruling: GUIDE_LIFT })),
 ];
 
 /**

@@ -7,6 +7,7 @@ import { errorText } from "../util/errors";
 import { explodedView } from "./exploded";
 import { svgDataUrl, svgToPng } from "./png";
 import "./assembly.css";
+import { NO_GRIP_TAG, TAKE_OUT_HEADING, TAKE_OUT_NOTE, noGripNote } from "./lift";
 import { packingGuide, render } from "./render";
 
 export interface AssemblyPageProps {
@@ -34,6 +35,8 @@ export function AssemblyPage(p: AssemblyPageProps) {
   const slug = fileSlug(p.project.name);
   const { box } = p.project;
   const engraving = p.project.settings.engraveNames;
+  // Named once above the layers, so the problem is seen before anything is printed.
+  const gripless = layers.flatMap((l) => l.rows.filter((r) => r.noGrip).map((r) => r.name));
 
   async function savePng(svg: string, name: string): Promise<void> {
     if (making.current) {
@@ -75,6 +78,18 @@ export function AssemblyPage(p: AssemblyPageProps) {
       <p class="assembly-meta">
         {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Pack from the bottom layer up. Layers are drawn from above, with the front of the box at the bottom.`}
       </p>
+      {svgs.length > 0 ? (
+        <div class="assembly-takeout">
+          <p>
+            <strong>{TAKE_OUT_HEADING}</strong> {TAKE_OUT_NOTE}
+          </p>
+          {gripless.length > 0 ? (
+            <p class="assembly-takeout__flag" role="note">
+              <strong>{`${NO_GRIP_TAG}:`}</strong> {noGripNote(gripless)}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {/* always mounted, so the reader is told when the plan goes out of date while the guide is open */}
       <div role="status" class="no-print">
         {p.stale ? (
@@ -168,6 +183,9 @@ export function AssemblyPage(p: AssemblyPageProps) {
                         <th role="columnheader" scope="col">
                           Holds
                         </th>
+                        <th role="columnheader" scope="col">
+                          Lift
+                        </th>
                       </tr>
                     </thead>
                     <tbody role="rowgroup">
@@ -195,6 +213,17 @@ export function AssemblyPage(p: AssemblyPageProps) {
                                 : r.contents.length > 0
                                   ? r.contents.join(", ")
                                   : "—"}
+                          </td>
+                          <td role="cell" data-label="Lift" data-grip={r.grip}>
+                            {/* one box, so the phone's card keeps the flag and the line together */}
+                            <span>
+                              {r.noGrip ? (
+                                <>
+                                  <strong class="assembly-flag">{NO_GRIP_TAG}</strong>{" "}
+                                </>
+                              ) : null}
+                              {r.lift}
+                            </span>
                           </td>
                         </tr>
                       ))}
