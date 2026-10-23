@@ -52,6 +52,13 @@ export interface TrayBarProps {
   compartments?: string | null;
   /** Where the part's mesh comes from, for the filament line; without it the bar gives none. */
   meshes?: MeshSource;
+  /**
+   * The spec the part is built from (with its engraved name, as the viewer and the export ask for
+   * it), so the filament line shares their cached mesh. Defaults to `tray`.
+   */
+  buildSpec?: TraySpec;
+  /** The plan is out of date: nothing is built for the filament line until it is current. */
+  stale?: boolean;
   /** The phone's modal sheet, not the bar in the stage's slot. */
   phone?: boolean;
   /** A "Swap with…" is under way from this tray. */
@@ -115,12 +122,14 @@ function useTrayFacts(p: TrayBarProps) {
   );
   // The filament of this part alone, from its built mesh, as the Download dialog counts it; the
   // line has none until the part is built (or when it cannot be, or no meshes were given).
-  const alone = useMemo(() => [tray], [tray]);
+  const built = p.buildSpec ?? tray;
+  const alone = useMemo(() => [built], [built]);
   const filament = useFilament(
     full ? p.meshes : undefined,
     alone,
     project.settings,
     project.printer,
+    { stale: p.stale === true },
   );
   const estimate = filament.status === "ready" ? formatGrams(filament.grams) : null;
   const size = `${mm(tray.w)} × ${mm(tray.d)} × ${mm(printedHeight(tray, project.settings))} mm`;

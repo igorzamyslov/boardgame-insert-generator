@@ -15,6 +15,19 @@ export type Filament =
 
 const isAbort = (e: unknown): boolean => e instanceof Error && e.name === "AbortError";
 
+export interface FilamentOptions {
+  /**
+   * The plan is out of date (the viewer builds nothing then): nothing is built, and the count stays
+   * "counting" until the plan is current again.
+   */
+  stale?: boolean;
+  /**
+   * Changes when the owner asked for another try (the dialog's Retry): the count starts again, and
+   * a failure before it no longer counts.
+   */
+  retry?: number;
+}
+
 /**
  * The grams of `specs` as they print, once every one is built. The meshes are asked for one at a
  * time, so an export started meanwhile still has a free build slot. A new `specs` array with the
@@ -26,6 +39,7 @@ export function useFilament(
   specs: readonly TraySpec[],
   settings: Settings,
   printer: Printer,
+  { stale = false, retry = 0 }: FilamentOptions = {},
 ): Filament {
   // what the meshes depend on: the specs and the settings, as the mesh cache keys them
   const key = useMemo(() => JSON.stringify([specs, settings]), [specs, settings]);
@@ -34,9 +48,10 @@ export function useFilament(
   const [measured, setMeasured] = useState<{ key: string; parts: PartMeasure[] } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
-    if (meshes === undefined) {
+    if (meshes === undefined || stale) {
       return;
     }
+    setFailed(null);
     const { specs: wanted, settings: at } = latest.current;
     const controller = new AbortController();
     void (async () => {
@@ -50,6 +65,7 @@ export function useFilament(
           parts.push(measurePart(built.mesh, built.volumeMm3));
         }
         setMeasured({ key, parts });
+        setFailed(null);
       } catch (e) {
         if (!isAbort(e) && !controller.signal.aborted) {
           setFailed(key);
@@ -57,7 +73,7 @@ export function useFilament(
       }
     })();
     return () => controller.abort();
-  }, [meshes, key]);
+  }, [meshes, key, stale, retry]);
   const grams = useMemo(
     () =>
       measured !== null && measured.key === key
@@ -65,8 +81,15 @@ export function useFilament(
         : null,
     [measured, key, settings, printer.layerHeight],
   );
-  if (meshes === undefined || failed === key || specs.length === 0) {
+  if (meshes === undefined || specs.length === 0) {
     return { status: "unavailable" };
   }
-  return grams === null ? { status: "counting" } : { status: "ready", grams };
+  if (stale) {
+    return { status: "counting" };
+  }
+  // a count that finished wins over a failure before it (a retry succeeded)
+  if (grams !== null) {
+    return { status: "ready", grams };
+  }
+  return failed === key ? { status: "unavailable" } : { status: "counting" };
 }

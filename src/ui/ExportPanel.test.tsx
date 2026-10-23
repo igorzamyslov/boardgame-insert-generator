@@ -472,6 +472,28 @@ describe("ExportPanel", () => {
     await waitFor(() => expect(p.download).toHaveBeenCalled());
   });
 
+  it("counts the filament again on Try again: the count's failure is not final", async () => {
+    const m = meshes();
+    m.get.mockImplementation(() => Promise.reject(new Error("Geometry worker failed")));
+    render(<ExportPanel {...props({ meshes: m })} />);
+    await waitFor(() => expect(screen.queryByText("Filament")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/worker failed/));
+    // the next builds stay open (still being counted), so the tile is back while they run
+    m.get.mockImplementation(waitsForAbort);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
+    expect(await screen.findByText("Filament")).toBeTruthy();
+  });
+
+  it("builds nothing for the filament tile while the plan is out of date", async () => {
+    const p = props({ stale: true });
+    render(<ExportPanel {...p} />);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(p.meshes.get).not.toHaveBeenCalled();
+  });
+
   it("keeps every download off while the layout is not ready, and says why", async () => {
     const p = props({ disabled: true });
     render(<ExportPanel {...p} />);

@@ -590,6 +590,19 @@ describe("the order of the packing guide", () => {
     expect(moved).toEqual(forward);
   });
 
+  it("lists a layer's trays for the picture's description in the guide's order, not the part numbers'", () => {
+    const project = projectOf(["Banners", "Anchors", "Coins"]);
+    const trays = [
+      trayFor("Coins", { x: 0, y: 0, stack: 0 }),
+      trayFor("Anchors", { x: 120, y: 0, stack: 1 }),
+      trayFor("Banners", { x: 60, y: 90, stack: 2 }),
+    ];
+    const layout = makeLayout("h", trays);
+    const [layer] = packingGuide(layout, project);
+    expect(layer?.trays).toEqual(["Anchors", "Banners", "Coins"]);
+    expect(layer?.trays).toEqual(layer?.rows.map((r) => r.name));
+  });
+
   it("puts a riser before the tray it carries, and a spacer and dividers right after the tray", () => {
     const project = projectOf(["Anchors", "Banners"]);
     const addOn = (key: string, part: "riser" | "spacer" | "divider") =>

@@ -5,6 +5,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/pr
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
+import { trayNames } from "../instructions/naming";
+import { buildSpecOf, numberParts } from "../instructions/numbering";
+import type { NumberedPart } from "../instructions/numbering";
 import { inputsHash } from "../model/hash";
 import { newComponent } from "../model/defaults";
 import type { CompartmentSpec, Project, TraySpec } from "../model/types";
@@ -136,6 +139,29 @@ describe("SelectedTrayBar for a group's tray", () => {
         /^190 × 71 × 38 mm · 4 compartments · about \d+ g$/,
       ),
     );
+  });
+
+  it("counts the filament of the spec the export builds (with its engraved name), so the mesh is built once", async () => {
+    const project = kitProject();
+    const settings = { ...project.settings, engraveNames: true };
+    const { p } = bar("market:p0:0", { project: { ...project, settings } });
+    await waitFor(() => expect(p.meshes?.get).toHaveBeenCalled());
+    const asked = vi.mocked(p.meshes?.get ?? vi.fn()).mock.calls.map(([spec]) => spec);
+    const part = numberParts(p.trays).find((n) => n.spec.key === "market:p0:0");
+    const short = trayNames(numberParts(p.trays), project.components, project.groups).get(
+      "market:p0:0",
+    )?.short;
+    expect(part).toBeDefined();
+    expect(asked).toEqual([buildSpecOf(part as NumberedPart, true, short)]);
+    expect(asked[0]?.partName).toBeTruthy();
+  });
+
+  it("builds nothing while the plan is stale", async () => {
+    const { p } = bar("market:p0:0", { stale: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(p.meshes?.get).not.toHaveBeenCalled();
+    expect(region().querySelector(".tray-bar__meta")?.textContent).not.toMatch(/about/);
   });
 
   it("opens the group's editor with Edit, not a member's", () => {

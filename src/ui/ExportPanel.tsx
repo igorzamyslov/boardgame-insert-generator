@@ -105,7 +105,12 @@ export function ExportPanel(p: ExportPanelProps) {
       ),
     [plan, names, p.settings.engraveNames],
   );
-  const filament = useFilament(p.meshes, buildSpecs, p.settings, p.printer);
+  // Each Try again counts the filament again too: a failure of the count before it is not final.
+  const [retries, setRetries] = useState(0);
+  const filament = useFilament(p.meshes, buildSpecs, p.settings, p.printer, {
+    stale: p.stale === true,
+    retry: retries,
+  });
   const [busy, setBusy] = useState<Busy | null>(null);
   const [error, setError] = useState<{ kind: ExportKind; message: string } | null>(null);
   const [failed, setFailed] = useState<ExportOutput["failed"]>([]);
@@ -292,6 +297,7 @@ export function ExportPanel(p: ExportPanelProps) {
       ),
       p.settings,
     );
+    setRetries((n) => n + 1);
     void run(lastKind);
   };
 
@@ -418,6 +424,7 @@ export function ExportPanel(p: ExportPanelProps) {
         onClick={() => {
           if (!retryOff) {
             p.meshes.reset();
+            setRetries((n) => n + 1);
             void run(error.kind);
           }
         }}

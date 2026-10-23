@@ -135,4 +135,40 @@ describe("the packing guide in the browser's history", () => {
     expect(window.history.state).toBeNull();
     expect(onGuide()).toBe(false);
   });
+
+  it("forgets a guide entry it finds after a reload, so Back and Forward start from the plan", () => {
+    window.history.replaceState({ packingGuide: "gone", other: 1 }, "");
+    renderApp({ project: withLayoutProject() });
+    expect(onGuide()).toBe(false);
+    // only the guide's key goes; whatever else the entry carries stays
+    expect(window.history.state).toEqual({ other: 1 });
+    cleanup();
+    window.history.replaceState({ packingGuide: "gone" }, "");
+    renderApp({ project: withLayoutProject() });
+    expect(window.history.state).toBeNull();
+  });
+
+  it("does not leave the Download dialog open behind the guide when Forward opens it", async () => {
+    renderApp({ project: withLayoutProject() });
+    openGuide();
+    await traverse(() => window.history.back());
+    // the dialog was reopened from the header, then Forward comes
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+    await traverse(() => window.history.forward());
+    expect(onGuide()).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Back to your insert" }));
+    expect(onGuide()).toBe(false);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("lets go of a guide entry that cannot open (another project's), instead of keeping it as current", async () => {
+    const { store } = renderApp({ project: withLayoutProject() });
+    openGuide();
+    await traverse(() => window.history.back());
+    store.newProject();
+    await traverse(() => window.history.forward());
+    expect(onGuide()).toBe(false);
+    expect(window.history.state).toBeNull();
+  });
 });

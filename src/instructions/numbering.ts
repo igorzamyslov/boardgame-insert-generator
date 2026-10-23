@@ -183,11 +183,30 @@ export function partsByKey(parts: readonly NumberedPart[]): Map<string, Numbered
  * over-bed and `layout.bed` notices report this height), on the 0.01 mm grid.
  */
 export function printedHeight(spec: TraySpec, settings: Settings): number {
-  return Math.round((spec.h + (spec.lip ? settings.lip.height : 0)) * 100) / 100;
+  return Math.round(printedTop(spec, settings) * 100) / 100;
+}
+
+/**
+ * The height from the part's floor to its highest point, mm. A merged part has no lip of its own
+ * (`lip` is false): it is built from its members, so a riser member carries its lip on top of the
+ * part's box, and the part stands as tall as the highest member with its lip.
+ */
+function printedTop(spec: TraySpec, settings: Settings): number {
+  const own = spec.h + (spec.lip ? settings.lip.height : 0);
+  if (spec.merged === undefined) {
+    return own;
+  }
+  return spec.merged.members.reduce(
+    (top, m) => Math.max(top, m.z + m.h + (m.lip ? settings.lip.height : 0) - spec.z),
+    own,
+  );
 }
 
 /** "W × D × H mm" with the printed height; a lipped tray says so (its H includes the lip). */
 export function outerSizeText(spec: TraySpec, settings: Settings): string {
-  const size = `${spec.w.toFixed(1)} × ${spec.d.toFixed(1)} × ${printedHeight(spec, settings).toFixed(1)} mm`;
-  return spec.lip ? `${size} with its lip` : size;
+  const height = printedHeight(spec, settings);
+  const size = `${spec.w.toFixed(1)} × ${spec.d.toFixed(1)} × ${height.toFixed(1)} mm`;
+  // a merged part says so when its height includes a member's lip (it stands above the part's box)
+  const lipped = spec.merged === undefined ? spec.lip : height > spec.h;
+  return lipped ? `${size} with its lip` : size;
 }

@@ -14,11 +14,21 @@ function guideStateOf(state: unknown): string | null {
   return typeof id === "string" ? id : null;
 }
 
+/** Takes the guide's key off the current entry; whatever else its state carries stays. */
+function forgetGuide(): void {
+  const rest = { ...((window.history.state ?? {}) as Record<string, unknown>) };
+  delete rest.packingGuide;
+  window.history.replaceState(Object.keys(rest).length > 0 ? rest : null, "");
+}
+
 export interface GuideHistoryHandlers {
   /** The browser's Back left the guide: show the plan again. */
   onBackOut: () => void;
-  /** The browser's Forward came back to a guide's entry. */
-  onForwardTo: (projectId: string) => void;
+  /**
+   * The browser's Forward came back to a guide's entry. Opens the guide and returns true, or
+   * returns false when it cannot be opened (another project's, or no plan): the entry is then let go.
+   */
+  onForwardTo: (projectId: string) => boolean;
 }
 
 export interface GuideHistory {
@@ -70,9 +80,12 @@ export function useGuideHistory(open: string | null, handlers: GuideHistoryHandl
       }
       const id = guideStateOf(e.state);
       if (id !== null) {
-        entry.current = true;
-        if (openRef.current === null) {
-          handlersRef.current.onForwardTo(id);
+        if (openRef.current === null && !handlersRef.current.onForwardTo(id)) {
+          // The guide stays shut, so this entry is not the guide's: take the guide off it.
+          entry.current = false;
+          forgetGuide();
+        } else {
+          entry.current = true;
         }
       } else if (openRef.current !== null) {
         entry.current = false;
@@ -83,6 +96,14 @@ export function useGuideHistory(open: string | null, handlers: GuideHistoryHandl
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // A reload keeps the entry the guide was opened on, but the page shows the plan: the entry is
+  // not the guide's any more, so Back and Forward from it start from the plan.
+  useEffect(() => {
+    if (openRef.current === null && guideStateOf(window.history.state) !== null) {
+      forgetGuide();
+    }
   }, []);
 
   // Closed without the entry being left (the layout went away, another project opened).

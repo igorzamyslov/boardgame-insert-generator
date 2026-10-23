@@ -289,7 +289,16 @@ export function App(props: AppProps) {
       restoreFocus.current = true;
       setAssemblyFor(null);
     },
-    onForwardTo: (id) => setAssemblyFor(id),
+    onForwardTo: (id) => {
+      // The Download dialog the guide was opened from stays shut behind it: closing the guide
+      // must not bring the dialog back (the header's Download is the one way to open it).
+      if (id !== project.id || layout === undefined) {
+        return false;
+      }
+      setExportOpen(false);
+      setAssemblyFor(id);
+      return true;
+    },
   });
 
   // A page swap replaces everything on screen: put the reader at the top of the new page, and
@@ -543,6 +552,7 @@ export function App(props: AppProps) {
     foreign: s.foreign.value,
     trays: printable,
     meshes,
+    stale: s.stale.value,
     selectedKey: layout ? s.selection.value : null,
     edit: store.edit,
     onSelect: (key: string | null) => {

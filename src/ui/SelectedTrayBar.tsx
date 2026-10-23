@@ -3,7 +3,7 @@ import { useMemo } from "preact/hooks";
 import { toggleLock, toggleSizeLock, turnTray } from "../app/actions";
 import type { MeshSource } from "../app/meshes";
 import { trayNames } from "../instructions/naming";
-import { numberParts, parentKey } from "../instructions/numbering";
+import { buildSpecOf, numberParts, parentKey, partsByKey } from "../instructions/numbering";
 import type { ForeignData, Project, TraySpec } from "../model/types";
 import { isAddOn, levelsOf } from "../plan/layers";
 import { layerLabel } from "../plan/PlanView";
@@ -30,6 +30,8 @@ export interface SelectedTrayBarProps {
   inPlan: boolean;
   /** A phone: the bar is a modal sheet (MobileTray), which gives way to the plan while a swap is chosen. */
   phone: boolean;
+  /** The plan is out of date: the bar builds nothing for its filament line. */
+  stale?: boolean;
   /** The tray a swap is under way from, or null. */
   swapFrom: string | null;
   edit: (fn: (p: Project) => Project) => void;
@@ -64,15 +66,22 @@ function focusTray(key: string, inPlan: boolean): void {
  */
 export function SelectedTrayBar(p: SelectedTrayBarProps) {
   const { project, trays } = p;
+  const parts = useMemo(() => numberParts(trays), [trays]);
   const names = useMemo(
-    () => trayNames(numberParts(trays), project.components, project.groups),
-    [trays, project.components, project.groups],
+    () => trayNames(parts, project.components, project.groups),
+    [parts, project.components, project.groups],
   );
   const tray = p.selectedKey === null ? undefined : trays.find((t) => t.key === p.selectedKey);
   if (tray === undefined || (p.phone && p.swapFrom !== null)) {
     return null;
   }
   const key = tray.key;
+  // The spec the viewer and the export build, so the filament line finds its mesh in the cache.
+  const part = partsByKey(parts).get(key);
+  const buildSpec =
+    part === undefined
+      ? tray
+      : buildSpecOf(part, project.settings.engraveNames, names.get(key)?.short);
   const levels = levelsOf(trays);
   const at = levels.indexOf(tray.level);
   const owner = isAddOn(tray) ? names.get(parentKey(tray)) : undefined;
@@ -102,6 +111,8 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
       {...(p.foreign === undefined ? {} : { foreign: p.foreign })}
       tray={tray}
       {...(p.meshes === undefined ? {} : { meshes: p.meshes })}
+      buildSpec={buildSpec}
+      stale={p.stale === true}
       name={names.get(key)?.full ?? "Tray"}
       layer={at >= 0 ? layerLabel(at, levels.length) : `Layer ${tray.level + 1}`}
       look={look}

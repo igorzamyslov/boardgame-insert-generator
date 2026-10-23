@@ -491,6 +491,9 @@ export function packingGuide(layout: StoredLayout, project: Project): GuideLayer
     }
     ordered.push(...here.filter((u) => u.kind === "orphan").sort(byName));
     const rows = ordered.flatMap((u) => u.parts.map((p) => rowOf.get(p.spec.key)));
-    return { ...info, rows: rows.filter((r): r is PartRow => r !== undefined) };
+    // The layer's trays as the picture's description lists them follow the guide's order (not the
+    // part numbers' that layerInfo keeps): the trays and merged parts, with no spacer or riser.
+    const trays = ordered.filter((u) => u.kind !== "orphan").map((u) => u.name);
+    return { ...info, trays, rows: rows.filter((r): r is PartRow => r !== undefined) };
   });
 }
