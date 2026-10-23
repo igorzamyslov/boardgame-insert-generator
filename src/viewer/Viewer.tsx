@@ -42,6 +42,8 @@ export interface ViewerProps {
    * trays; the editor's stage gives them. They join the trays a rail row lights.
    */
   litKeys?: readonly string[];
+  /** The caption says what a click does ("tap a tray for details"): the normal stage, not the editor's. */
+  tapHint?: boolean;
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -386,29 +388,25 @@ export function Viewer(p: ViewerProps) {
                 </button>
               </p>
             ) : null}
-            <div class="viewer-controls">
-              <label class="range-field">
-                Spread apart
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  aria-valuetext={
-                    explode === 0 ? "Together" : `${Math.round(explode * 100)}% apart`
-                  }
-                  value={explode}
-                  onInput={(e) => setExplode(Number(e.currentTarget.value))}
-                />
-              </label>
-            </div>
           </div>
         </div>
       </div>
-      {/* The plan's caption has a line under its frame; this holds the same room, so Top and 3D leave the frame the same height. */}
-      <p class="plan-caption plan-caption--spacer" aria-hidden="true">
-        {"\u00a0"}
-      </p>
+      {/* The caption row under the frame, as the plan's: what the view does at its left, Spread apart (the one control only 3D has) at its right. */}
+      <div class="plan-caption plan-caption--3d">
+        <span>{p.tapHint === true ? "Drag to turn · tap a tray for details" : "Drag to turn"}</span>
+        <label class="range-field">
+          Spread apart
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            aria-valuetext={explode === 0 ? "Together" : `${Math.round(explode * 100)}% apart`}
+            value={explode}
+            onInput={(e) => setExplode(Number(e.currentTarget.value))}
+          />
+        </label>
+      </div>
     </div>
   );
 }

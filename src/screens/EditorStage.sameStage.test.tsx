@@ -1,7 +1,7 @@
 // src/screens/EditorStage.sameStage.test.tsx
 // @vitest-environment jsdom
 // The editor draws on the normal stage (WideStage2): the same switches in the same place, the
-// editing sentence where the status heading was, no Keep searching, an empty band where the tray
+// editing sentence where the status heading was, no Try another arrangement, an empty band where the tray
 // bar stands, and the same frame for the top view and the 3D view.
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -81,7 +81,7 @@ describe("the editor on the normal stage", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
-  it("keeps the Layer and Top / 3D switches in the switches row, the View switch last", () => {
+  it("keeps the Layer switch in its row and the Top / 3D switch in the toolbar", () => {
     renderApp({ project: loadSeed("harbour-kings").project });
     const switchesBefore = stage().querySelector('[data-region="switches"]') as HTMLElement;
     const kidsBefore = [...switchesBefore.children].map((c) => c.className);
@@ -89,9 +89,9 @@ describe("the editor on the normal stage", () => {
     const row = stage().querySelector(':scope > [data-region="switches"]') as HTMLElement;
     expect(row.classList.contains("stage-segs")).toBe(true);
     expect([...row.children].map((c) => c.className)).toEqual(kidsBefore);
-    const last = row.lastElementChild as HTMLElement;
-    expect(last.dataset.region).toBe("view-switch");
-    expect(within(last).getByRole("group", { name: "View" })).toBeTruthy();
+    const toolbar = stage().querySelector(':scope > [data-region="status"]') as HTMLElement;
+    const view = toolbar.querySelector('[data-region="view-switch"]') as HTMLElement;
+    expect(within(view).getByRole("group", { name: "View" })).toBeTruthy();
     expect(within(row).getByRole("group", { name: "Layer" })).toBeTruthy();
     expect(
       within(viewGroup())
@@ -100,13 +100,13 @@ describe("the editor on the normal stage", () => {
     ).toEqual(["Top"]);
   });
 
-  it("has no Keep searching while an item is edited, and has it again after Done", () => {
+  it("has no plan menu (Try another arrangement) while an item is edited, and has it again after Done", () => {
     renderApp({ project: loadSeed("harbour-kings").project });
-    expect(within(stage()).queryByRole("button", { name: "Keep searching" })).not.toBeNull();
+    expect(within(stage()).queryByRole("button", { name: "Plan options" })).not.toBeNull();
     editMarket();
-    expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
-    expect(within(stage()).queryByRole("button", { name: "Keep searching" })).not.toBeNull();
+    expect(within(stage()).queryByRole("button", { name: "Plan options" })).not.toBeNull();
   });
 
   it("leaves the tray bar's slot as an empty band, in the top view and in 3D", async () => {

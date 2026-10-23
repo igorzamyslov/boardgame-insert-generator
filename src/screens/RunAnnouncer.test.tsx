@@ -38,7 +38,7 @@ describe("RunAnnouncer", () => {
     expect(liveRegion()).toBe(live);
   });
 
-  it("announces Keep searching at the start and at the end, never the percent", () => {
+  it("announces Try another arrangement at the start and at the end, never the percent", () => {
     const view = render(<RunAnnouncer run={{ status: "idle" }} />);
     const live = liveRegion();
     view.rerender(<RunAnnouncer run={running("improve")} />);

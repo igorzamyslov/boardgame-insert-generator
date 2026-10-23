@@ -337,7 +337,7 @@ export function Gallery() {
         >
           <Row label="Variants">
             <Button variant="primary">Done</Button>
-            <Button variant="secondary">Keep searching</Button>
+            <Button variant="secondary">Try another arrangement</Button>
             <Button variant="quiet">Reset all</Button>
             <Button variant="soft" icon={<Icon name="pin" size={15} />}>
               Pin
@@ -348,7 +348,7 @@ export function Gallery() {
               Download
             </Button>
             <Button icon={<Icon name="plus" size={14} />}>Add</Button>
-            <Button icon={<Icon name="search" size={16} />}>Keep searching</Button>
+            <Button icon={<Icon name="search" size={16} />}>Try another arrangement</Button>
           </Row>
           <Row label="Blocked">
             <Button variant="primary" blockedReason="Fix the fit to download">
@@ -537,7 +537,7 @@ export function Gallery() {
             extra={
               <>
                 <Pick label="Layer" options={LAYERS} start="bottom" tone="track" />
-                <Button icon={<Icon name="search" size={16} />}>Keep searching</Button>
+                <Button icon={<Icon name="search" size={16} />}>Try another arrangement</Button>
               </>
             }
           />

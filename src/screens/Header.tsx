@@ -154,6 +154,10 @@ export interface HeaderMenuProps {
   phone: boolean;
   /** `outlined` beside Download; `plain` beside the first visit's Open file. */
   variant?: "outlined" | "plain";
+  /** The button's name, when it is not the project menu's (the stage's "More"). */
+  label?: string;
+  /** The panel's id (the page has one of each menu). */
+  panelId?: string;
 }
 
 /**
@@ -239,11 +243,13 @@ export function HeaderMenu(p: HeaderMenuProps) {
       <IconButton
         ref={button}
         variant={p.variant ?? "outlined"}
-        label={`Project menu${menuNoticeCount(p.menuNoticeCount ?? (p.menuDot ? 1 : 0))}`}
+        label={
+          p.label ?? `Project menu${menuNoticeCount(p.menuNoticeCount ?? (p.menuDot ? 1 : 0))}`
+        }
         icon={<Icon name="more" size={p.phone ? 20 : 18} />}
         dot={p.menuDot}
         aria-expanded={open}
-        aria-controls={open ? "project-menu" : undefined}
+        aria-controls={open ? (p.panelId ?? "project-menu") : undefined}
         onClick={() => {
           if (Date.now() < dropUntil.current) {
             dropUntil.current = 0;
@@ -253,7 +259,7 @@ export function HeaderMenu(p: HeaderMenuProps) {
         }}
       />
       {open ? (
-        <div class="hd-menu__panel" id="project-menu" ref={panel}>
+        <div class="hd-menu__panel" id={p.panelId ?? "project-menu"} ref={panel}>
           {p.menu(close)}
         </div>
       ) : null}

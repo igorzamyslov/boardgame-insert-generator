@@ -208,7 +208,7 @@
 }
 
 /*
- * The working column (WideStage2): the notices, the heading with Keep searching beside it, the
+ * The working column (WideStage2): the notices, the heading with Try another arrangement beside it, the
  * Layer and Top / 3D switches, and the plan column (the tray bar, the frame) are one width,
  * --stage-col (the frame's longest side), centred in the stage. A stage narrower than that holds
  * them edge to edge, as before.

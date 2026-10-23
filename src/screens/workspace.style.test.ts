@@ -84,10 +84,10 @@ describe("the working column (workspace.css)", () => {
 describe("the switches row (stage.css)", () => {
   const rules = strip(stage);
 
-  it("sits under the heading, at the column's right edge, with the View switch last", () => {
+  it("sits under the toolbar, at the column's left edge (the View switch is in the toolbar)", () => {
     const row = ruleFor(".stage-segs", rules);
     expect(row).toMatch(/display:\s*flex/);
-    expect(row).toMatch(/justify-content:\s*flex-end/);
+    expect(row).toMatch(/justify-content:\s*flex-start/);
   });
 
   it("lets a Layer switch longer than the row scroll in its own slot", () => {
@@ -102,11 +102,11 @@ describe("the switches row (stage.css)", () => {
     const block = rules.slice(at);
     const inBlock = (selector: string): string =>
       ruleFor(selector, block.slice(block.indexOf("{") + 1));
-    // a lone action (Keep searching, Stop) fits beside the heading's 260 px; many (an "Edit <item>" each) wrap under it (0.9.0 review)
+    // a lone action (Try another arrangement, Stop) fits beside the heading's 260 px; many (an "Edit <item>" each) wrap under it (0.9.0 review)
     expect(inBlock(".ws-stage .k-status")).toMatch(/flex-wrap:\s*wrap/);
     expect(inBlock(".ws-stage .k-status__lead")).toMatch(/flex:\s*1 1 260px/);
     expect(inBlock(".ws-stage .k-status__extra")).toMatch(/flex:\s*0 1 auto/);
-    // the muted line is one line, so Stop and Keep searching leave the heading as tall as it was
+    // the muted line is one line, so Stop and Try another arrangement leave the heading as tall as it was
     expect(inBlock(".ws-stage .k-status__line:not(:has(.stage-list))")).toMatch(
       /white-space:\s*nowrap/,
     );

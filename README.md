@@ -55,9 +55,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
 4. **The plan.** The optimizer runs on its own 400 ms after you stop editing. The status heading
    above the box says the result ("Everything fits. 6 trays in 2 layers, 40 of 52 mm high.") or
    what is wrong. When nothing fits the screen shows the closest attempt, dimmed, with the tray
-   that doesn't fit marked, and "Ways to make it fit": "Edit <name>" and "Keep searching". When
+   that doesn't fit marked, and "Ways to make it fit": "Edit <name>" and "Try another arrangement". When
    your pins block the fit it shows the plan that was kept and "Unpin one": "Unpin <name>" (or
-   "Unlock size of <name>") for each pin in the way. "Keep searching" runs a longer
+   "Unlock size of <name>") for each pin in the way. "Try another arrangement" runs a longer
    search (about three times the budget) from the current plan and never throws it away;
    it becomes "Stop" while the search runs. Trays are named by what they hold, never
    shown with numbers ("Market", "Spare by Market"). Spare trays and spacers fill gaps so the other
@@ -118,11 +118,11 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
     and asks you to save a file; the page warns before closing while there are changes no file
     holds. When another tab changes the insert you are editing, autosave pauses and the menu
     offers "Keep this version" or "Use the other tab version".
-11. **Undo and redo.** Every edit is a step (header buttons); "Keep searching" results are
+11. **Undo and redo.** Every edit is a step (header buttons); "Try another arrangement" results are
     steps of their own.
 
 The status heading above the box (the page's h1) says where the plan stands: it fits, a new plan
-is being made, or what is wrong, with the way out beside it ("Keep searching", "Stop", "Edit
+is being made, or what is wrong, with the way out beside it ("Try another arrangement", "Stop", "Edit
 <name>", "Settings"). If you change the inputs after a plan was made, the plan stays as it was
 and a banner says "This plan is from before your last changes." with "Make a new plan". Download
 and the packing guide are off until you do. A plan made under an older line of tray geometry gets
@@ -181,7 +181,7 @@ cancels any running optimization, runs `size()` and the layout worker (same
 seed, warm start from the current layout) and auto-accepts the result into
 `project.layout`. Every edit is an Undo/Redo step of the whole project (`app/history.ts`, up to
 100, cleared when another project opens); the plan joins the history entry of the edit that
-caused it, and a "Keep searching" result is a step of its own. A result whose
+caused it, and a "Try another arrangement" result is a step of its own. A result whose
 inputs no longer match the project is discarded. Pins are never dropped silently:
 when the worker had to ignore pins (`LayoutResult.lockConflicts`), the runner does
 not accept that plan. The previous plan and every pin stay, the conflicts are in

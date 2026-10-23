@@ -6,7 +6,7 @@ import type { RunState } from "../app/state";
 /** A new plan after an edit shorter than this is not announced: it is routine, like saving. */
 export const SLOW_RUN_MS = 1000;
 
-/** The run worth announcing: a "Keep searching" (the person asked), or a new plan that is slow. */
+/** The run worth announcing: a "Try another arrangement" (the person asked), or a new plan that is slow. */
 type Spoken = "search" | "plan" | null;
 
 /**

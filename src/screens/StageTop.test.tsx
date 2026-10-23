@@ -63,6 +63,12 @@ function props(over: Partial<StageTopProps> = {}): StageTopProps {
   };
 }
 
+const more = (): HTMLElement => screen.getByRole("button", { name: "Plan options" });
+/** Opens the ⋯ menu and presses "Try another arrangement" in it. */
+const tryAnother = (): void => {
+  fireEvent.click(more());
+  fireEvent.click(screen.getByRole("button", { name: /^Try another arrangement/ }));
+};
 const h1 = (): HTMLElement => screen.getByRole("heading", { level: 1 });
 const line = (): string => document.querySelector(".k-status__line")?.textContent ?? "";
 
@@ -71,29 +77,33 @@ describe("StageTop", () => {
     render(<StageTop {...props()} />);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(h1().textContent).toBe("Everything fits");
-    expect(line()).toBe("7 trays in 2 layers, 81 of 90 mm high");
+    expect(line()).toBe("7 trays · 2 layers · 81 of 90 mm");
     expect(document.querySelector('[data-region="status"]')).not.toBeNull();
   });
 
   it("says one tray in one layer in the singular", () => {
     render(<StageTop {...props({ fits: { trays: 1, layers: 1, height: 40, boxHeight: 40 } })} />);
-    expect(line()).toBe("1 tray in 1 layer, 40 of 40 mm high");
+    expect(line()).toBe("1 tray · 1 layer · 40 of 40 mm");
   });
 
-  it("calls Keep searching, and leaves it out for a plan from older geometry", () => {
+  it("calls Try another arrangement from the ⋯ menu, and blocks it for a plan from older geometry", () => {
     const p = props();
     const view = render(<StageTop {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
+    // not on the toolbar: one tap deep
+    expect(screen.queryByRole("button", { name: /^Try another arrangement/ })).toBeNull();
+    tryAnother();
     expect(p.onKeepSearching).toHaveBeenCalledTimes(1);
     view.rerender(<StageTop {...props({ canSearchMore: false })} />);
-    expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+    fireEvent.click(more());
+    const item = screen.getByRole("button", { name: /^Try another arrangement/ });
+    expect(item.getAttribute("aria-disabled")).toBe("true");
     expect(h1().textContent).toBe("Everything fits");
   });
 
-  it("Keep searching becomes Stop while running", () => {
+  it("Try another arrangement becomes Stop while running", () => {
     const p = props();
     const view = render(<StageTop {...p} />);
-    expect(screen.getByRole("button", { name: "Keep searching" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
     view.rerender(
       <StageTop
         {...props({
@@ -103,8 +113,17 @@ describe("StageTop", () => {
         })}
       />,
     );
-    expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
-    expect(h1().textContent).toBe("Searching for a better plan…");
+    expect(h1().textContent).toBe("Searching…");
+    // "Searching… Stop": Stop is on the title's line
+    expect(h1().parentElement?.contains(screen.getByRole("button", { name: "Stop" }))).toBe(true);
+    // the menu item is blocked while it runs
+    fireEvent.click(more());
+    expect(
+      screen
+        .getByRole("button", { name: /^Try another arrangement/ })
+        .getAttribute("aria-disabled"),
+    ).toBe("true");
+    fireEvent.click(more());
     expect(line()).toBe("This plan stays unless a better one turns up.");
     // no progress bar: Main shows none
     expect(screen.queryByRole("progressbar")).toBeNull();
@@ -117,7 +136,7 @@ describe("StageTop", () => {
     render(<StageTop {...props({ pending: true, fits: null })} />);
     expect(h1().textContent).toBe("Making a new plan…");
     expect(document.querySelector(".k-status__line")).toBeNull();
-    for (const name of ["Keep searching", "Stop", "Retry", "Make a plan"]) {
+    for (const name of ["Stop", "Retry", "Make a plan"]) {
       expect(screen.queryByRole("button", { name }), name).toBeNull();
     }
   });
@@ -133,12 +152,11 @@ describe("StageTop", () => {
     expect(document.body.textContent).not.toContain("Updating");
   });
 
-  it("hands the focus from Keep searching to Stop and back", () => {
+  it("hands the focus from Try another arrangement to Stop and back", () => {
     const p = props();
     const view = render(<StageTop {...p} />);
-    const keep = screen.getByRole("button", { name: "Keep searching" });
-    keep.focus();
-    fireEvent.click(keep);
+    more().focus();
+    tryAnother();
     view.rerender(
       <StageTop
         {...props({ ...p, pending: true, run: { status: "running", done: 1, total: 10 } })}
@@ -148,7 +166,7 @@ describe("StageTop", () => {
     expect(document.activeElement).toBe(stop);
     fireEvent.click(stop);
     view.rerender(<StageTop {...props(p)} />);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep searching" }));
+    expect(document.activeElement).toBe(more());
   });
 
   it("does not take the focus when the person moved it elsewhere", () => {
@@ -159,7 +177,7 @@ describe("StageTop", () => {
         <StageTop {...p} />
       </>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
+    tryAnother();
     screen.getByLabelText("elsewhere").focus();
     view.rerender(
       <>
@@ -258,7 +276,7 @@ describe("StageTop", () => {
 
   describe("when a fit problem is on (the stage is FitProblem's, not the plan's)", () => {
     // FitProblem.test.tsx draws them; here only that the heading never offers the fixes itself
-    it("leaves a conflict's Unpin to the panel, and has no Keep searching beside a no-fit", () => {
+    it("leaves a conflict's Unpin to the panel, and has no Try another arrangement beside a no-fit", () => {
       const conflicts: LockConflict[] = [
         { trayKey: "a", kind: "position", name: "Boards", reason: "it is too big for its spot" },
       ];
@@ -347,7 +365,7 @@ describe("StageTop", () => {
             {...props({ phone, fits: { trays: 3, layers: 2, height: 66, boxHeight: 70 } })}
           />,
         );
-        expect(line()).toBe("3 trays in 2 layers, 66 of 70 mm high");
+        expect(line()).toBe("3 trays · 2 layers · 66 of 70 mm");
         expect(screen.getByRole("group", { name: "Layer" }).textContent).not.toMatch(/mm/);
         cleanup();
       }
@@ -403,15 +421,16 @@ describe("StageTop", () => {
       row: document.querySelector(".stage-segs"),
     });
 
-    it("puts Keep searching in the heading's row, on the same line as the heading", () => {
+    it("puts the View switch and the ⋯ menu in the toolbar row, on the same line as the heading", () => {
       render(<StageTop {...props()} />);
       const { status } = rows();
-      const keep = screen.getByRole("button", { name: "Keep searching" });
-      expect(status.querySelector(".k-status__extra")?.contains(keep)).toBe(true);
-      expect(status.querySelector(".k-status__lead")?.contains(keep)).toBe(false);
+      const extra = status.querySelector(".k-status__extra");
+      expect(extra?.contains(screen.getByRole("group", { name: "View" }))).toBe(true);
+      expect(extra?.contains(more())).toBe(true);
+      expect(status.querySelector(".k-status__lead")?.contains(more())).toBe(false);
     });
 
-    it("puts the Layer and View switches in a row of their own under the heading, not in it", () => {
+    it("puts the Layer switch in a row of its own under the toolbar, not in it", () => {
       render(<StageTop {...props()} />);
       const { status, row } = rows();
       expect(row).not.toBeNull();
@@ -421,30 +440,31 @@ describe("StageTop", () => {
       );
       expect(row?.classList.contains("stage-segs--phone")).toBe(false);
       expect(row?.querySelector('.stage-segs__layer [role="group"]')).not.toBeNull();
-      expect(row?.querySelector('[data-region="view-switch"] [role="group"]')).not.toBeNull();
-      expect(status.querySelector('[role="group"]')).toBeNull();
+      expect(row?.querySelector('[data-region="view-switch"]')).toBeNull();
+      expect(status.querySelector('[data-region="view-switch"] [role="group"]')).not.toBeNull();
     });
 
-    it("keeps the View switch last in the row, with or without a Layer switch", () => {
+    it("keeps the View switch and ⋯ in the toolbar, with or without a Layer switch", () => {
       const { rerender } = render(<StageTop {...props()} />);
-      const last = (): Element | null => (rows().row as HTMLElement).lastElementChild;
-      expect(last()?.getAttribute("data-region")).toBe("view-switch");
-      // one layer: no Layer switch, and the View switch is still the row's last
+      const extra = (): Element | null => rows().status.querySelector(".k-status__extra");
+      expect(extra()?.lastElementChild?.contains(more())).toBe(true);
+      expect(extra()?.querySelector('[data-region="view-switch"]')).not.toBeNull();
+      // one layer: no Layer switch and no row for it; the toolbar is the same
       rerender(<StageTop {...props({ trays: ONE_LAYER })} />);
-      expect(rows().row?.querySelector('.stage-segs__layer [role="group"]')).toBeNull();
-      expect(last()?.getAttribute("data-region")).toBe("view-switch");
+      expect(rows().row).toBeNull();
+      expect(extra()?.querySelector('[data-region="view-switch"]')).not.toBeNull();
     });
 
-    it("turns Keep searching into Stop in the heading's row, and leaves the switches alone", () => {
+    it("shows Stop on the heading's line while it runs, and leaves the switches alone", () => {
       const { rerender } = render(<StageTop {...props()} />);
-      const view = rows().row?.querySelector('[data-region="view-switch"]');
+      const view = rows().status.querySelector('[data-region="view-switch"]');
       rerender(
         <StageTop {...props({ run: { status: "running", kind: "improve", done: 1, total: 4 } })} />,
       );
       const stop = screen.getByRole("button", { name: "Stop" });
-      expect(rows().status.querySelector(".k-status__extra")?.contains(stop)).toBe(true);
+      expect(rows().status.querySelector(".k-status__head")?.contains(stop)).toBe(true);
       expect(rows().row?.contains(stop)).toBe(false);
-      expect(rows().row?.querySelector('[data-region="view-switch"]')).toBe(view);
+      expect(rows().status.querySelector('[data-region="view-switch"]')).toBe(view);
     });
 
     it("has no switches row without a plan", () => {
@@ -504,14 +524,12 @@ describe("StageTop", () => {
       expect(p.onViewChange).toHaveBeenCalledWith("plan");
     });
 
-    it("keeps Keep searching as an icon beside the heading, named but without words", () => {
+    it("keeps the ⋯ menu beside the heading, with Try another arrangement in it", () => {
       const p = props({ phone: true });
       const { container } = render(<StageTop {...p} />);
-      const keep = screen.getByRole("button", { name: "Keep searching" });
-      expect(keep.textContent).toBe("");
-      expect(keep.closest(".k-status")).not.toBeNull();
-      expect(container.querySelector(".stage-segs")?.contains(keep)).toBe(false);
-      fireEvent.click(keep);
+      expect(more().closest(".k-status")).not.toBeNull();
+      expect(container.querySelector(".stage-segs")?.contains(more())).toBe(false);
+      tryAnother();
       expect(p.onKeepSearching).toHaveBeenCalledTimes(1);
     });
 
@@ -556,7 +574,7 @@ describe("statusOf, the fit problems", () => {
   const noFit = (over: Partial<StatusInput> = {}) =>
     statusOf(input({ fits: null, noFit: { misfit }, ...over }));
 
-  it("names the tray that does not fit, in a warn heading, with Edit and Keep searching to offer", () => {
+  it("names the tray that does not fit, in a warn heading, with Edit and Try another arrangement to offer", () => {
     expect(noFit()).toEqual({
       tone: "warn",
       fit: "noFit",
@@ -564,7 +582,7 @@ describe("statusOf, the fit problems", () => {
       line: "There's no room left for it in the box.",
       actions: [
         { kind: "show", id: "c1", label: "Edit Boards" },
-        { kind: "keep", label: "Keep searching" },
+        { kind: "keep", label: "Try another arrangement" },
       ],
     });
   });
@@ -592,10 +610,10 @@ describe("statusOf, the fit problems", () => {
     const s = noFit({ noFit: { misfit: null } });
     expect(s.title).toBe("Not everything fits yet");
     expect(s.line).toBeUndefined();
-    expect(s.actions).toEqual([{ kind: "keep", label: "Keep searching" }]);
+    expect(s.actions).toEqual([{ kind: "keep", label: "Try another arrangement" }]);
   });
 
-  it("offers no Keep searching when the plan is from older geometry", () => {
+  it("offers no Try another arrangement when the plan is from older geometry", () => {
     expect(noFit({ canSearchMore: false }).actions).toEqual([
       { kind: "show", id: "c1", label: "Edit Boards" },
     ]);
@@ -685,7 +703,7 @@ describe("statusOf, the fit problems", () => {
     expect(s.actions).toEqual([{ kind: "unpin", conflict: turn, label: "Let Market deck turn" }]);
   });
 
-  it("speaks before a no-fit, and has no Keep searching of its own", () => {
+  it("speaks before a no-fit, and has no Try another arrangement of its own", () => {
     const s = statusOf(input({ fits: null, conflicts, noFit: { misfit: null } }));
     expect(s.fit).toBe("pins");
     expect(s.actions.some((a) => a.kind === "keep")).toBe(false);
@@ -711,7 +729,7 @@ describe("statusOf", () => {
         conflicts: [{ trayKey: "a", name: "A", reason: "x" }],
       }),
     );
-    expect(s.title).toBe("Searching for a better plan…");
+    expect(s.title).toBe("Searching…");
   });
 });
 

@@ -5,17 +5,16 @@
  */
 
 /*
- * The switches' row: Layer, then Top / 3D, right-aligned under the heading in the working column
- * (WideStage2); the View switch is last, so it stays where it is whether the Layer switch is there
- * or not. A Layer switch longer than the row (three layers and "All" in a narrow stage) scrolls in
- * its own slot, never the page. The heading is 8 px above it, the tray bar's slot 12 px under it,
- * so the stage's 16 px gap gets 8 px less above and 4 px less below.
+ * The Layer switch's row, under the toolbar and left-aligned in the working column (board 1: the
+ * Top / 3D switch is in the toolbar now). A Layer switch longer than the row (three layers and "All"
+ * in a narrow stage) scrolls in its own slot, never the page. The toolbar is 8 px above it, the tray
+ * bar's slot 12 px under it, so the stage's 16 px gap gets 8 px less above and 4 px less below.
  */
 .stage-segs {
   display: flex;
   gap: var(--s-8);
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   margin: calc(-1 * var(--s-8)) 0 calc(-1 * var(--s-4));
 }
 
@@ -38,15 +37,33 @@
   flex: 1;
 }
 
-/* Main's Stop: the same pill with a 1 px ink border and a little more room. */
+/*
+ * Stop, after "Searching…": a 44 px target on a title line that is shorter, so it takes no height
+ * of its own (the row is as tall searching as it is not: nothing below moves).
+ */
 .stage-stop {
-  --k-edge: var(--ink);
+  --k-fg: var(--ink);
 
-  padding: 0 var(--s-18);
+  font-weight: 600;
+  margin-block: calc((var(--h1) * 1.2 - var(--control-h)) / 2);
+}
+
+/* The ⋯ menu's "Try another arrangement": its name, and under it what it does. */
+.stage-menu__item {
+  flex-direction: column;
+  gap: 0;
+  align-items: flex-start;
+  justify-content: center;
+  padding-block: var(--s-6);
+}
+
+.stage-menu__line {
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 
 /*
- * Keep searching (or Stop) stands beside the heading on the same line at every width from a
+ * Try another arrangement (or Stop) stands beside the heading on the same line at every width from a
  * tablet's: the heading's text gives way (its muted line and its title are cut with an ellipsis), the
  * action never drops under it. When the actions are many (an "Edit <item>" for each error) they do not
  * fit beside a heading that holds its 260 px: the row wraps and they stand under it, wrapping among
@@ -69,7 +86,7 @@
     max-width: 100%;
   }
 
-  /* One line, as tall with Stop as with Keep searching: the muted line is cut, not wrapped (a list of errors wraps). */
+  /* One line, as tall with Stop as with Try another arrangement: the muted line is cut, not wrapped (a list of errors wraps). */
   .ws-stage .k-status__line:not(:has(.stage-list)) {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -112,8 +129,8 @@
 }
 
 /*
- * The slot above the plan's box (Main): "Tap a tray for details." while nothing is selected, the
- * tray bar while one is, a toast. 52 px tall, taller when what it holds is.
+ * The slot above the plan's box (Main): the tray bar while a tray is selected, a toast; empty (and
+ * held) while nothing is. 52 px tall, taller when what it holds is.
  */
 .stage-slot {
   position: relative;
@@ -166,10 +183,6 @@
   white-space: nowrap;
   transform: translateX(-50%);
   pointer-events: none;
-}
-
-.stage-slot__hint {
-  color: var(--muted);
 }
 
 .stage-slot p {

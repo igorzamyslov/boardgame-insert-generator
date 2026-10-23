@@ -148,7 +148,7 @@ describe("when it doesn't fit (NoFit)", () => {
       "The closest plan is 5.0 mm too tall.",
     );
     // nothing to edit: only the search is offered
-    expect(names(options())).toEqual(["Keep searching"]);
+    expect(names(options())).toEqual(["Try another arrangement"]);
   });
 
   it("offers only actions the engine can do", () => {
@@ -157,11 +157,11 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(
       within(panel).getByRole("heading", { level: 2, name: "Ways to make it fit" }),
     ).toBeTruthy();
-    expect(names(panel)).toEqual(["Edit Heroes", "Keep searching"]);
+    expect(names(panel)).toEqual(["Edit Heroes", "Try another arrangement"]);
     expect(document.querySelector('[data-region="stage"]')?.textContent).not.toMatch(DENIED);
   });
 
-  it("leaves out Keep searching when the plan is from an older geometry", () => {
+  it("leaves out Try another arrangement when the plan is from an older geometry", () => {
     const { project } = loadSeed("harbour-kings-nofit");
     const app = renderApp({
       project: {
@@ -183,18 +183,18 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(await screen.findByRole("button", { name: "Done" })).toBeTruthy();
   });
 
-  it("starts a longer search from Keep searching and hands the focus to Stop", async () => {
+  it("starts a longer search from Try another arrangement and hands the focus to Stop", async () => {
     const app = fitProblem("harbour-kings-nofit");
     const refit = vi.spyOn(app.store, "refit").mockImplementation(() => {
       act(() => {
         app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "improve" };
       });
     });
-    const keep = within(options()).getByRole("button", { name: "Keep searching" });
+    const keep = within(options()).getByRole("button", { name: "Try another arrangement" });
     keep.focus();
     fireEvent.click(keep);
     expect(refit).toHaveBeenCalledTimes(1);
-    expect(h1().textContent).toBe("Searching for a better plan…");
+    expect(h1().textContent).toBe("Searching…");
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Stop" }));
   });
 
@@ -206,7 +206,7 @@ describe("when it doesn't fit (NoFit)", () => {
 
   it("hands the focus to the first card when a search ends on the same problem", () => {
     const app = fitProblem("harbour-kings-nofit");
-    const keep = within(options()).getByRole("button", { name: "Keep searching" });
+    const keep = within(options()).getByRole("button", { name: "Try another arrangement" });
     vi.spyOn(app.store, "refit").mockImplementation(() => {
       act(() => {
         app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "improve" };
@@ -458,10 +458,10 @@ describe("when pins block a fit (PinConflict)", () => {
     expect(document.activeElement).toBe(document.body);
   });
 
-  it("does not hand the focus to Stop when Keep searching starts no search", () => {
+  it("does not hand the focus to Stop when Try another arrangement starts no search", () => {
     const app = fitProblem("harbour-kings-nofit");
     vi.spyOn(app.store, "refit").mockImplementation(() => undefined);
-    fireEvent.click(within(options()).getByRole("button", { name: "Keep searching" }));
+    fireEvent.click(within(options()).getByRole("button", { name: "Try another arrangement" }));
     // a later run that the person did not ask for must not pull the focus to its Stop
     act(() => {
       app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "edit" };
@@ -493,7 +493,7 @@ describe("on a phone (MobileFix)", () => {
     const cards = within(sheet().querySelector(".fp-cards") as HTMLElement);
     expect(cards.getAllByRole("button").map((b) => b.textContent)).toEqual([
       "Edit Heroes",
-      "Keep searching",
+      "Try another arrangement",
     ]);
     expect(sheet().getAttribute("data-peek")).toBe("true");
     // the attempt, with the misfit marked

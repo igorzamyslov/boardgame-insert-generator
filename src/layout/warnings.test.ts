@@ -212,7 +212,7 @@ describe("layout warnings", () => {
     expect(n.message).toContain("300,000 iterations");
     expect(n.message).toContain("not proof");
     expect(n.message).toContain("closest attempt so far is short by 12.4 mm in width (X)");
-    expect(n.message).toContain("Press “Keep searching” to search about 3 times longer");
+    expect(n.message).toContain("Press “Try another arrangement” to search about 3 times longer");
     for (const verdict of ["too small by", "don't fit in this box"]) {
       expect(n.message).not.toContain(verdict);
     }

@@ -780,6 +780,14 @@
   color: var(--muted);
 }
 
+/* The title with a quiet button after it ("Searching… Stop"): one line, the title gives way. */
+.k-status__head {
+  display: flex;
+  gap: var(--s-8);
+  align-items: center;
+  min-width: 0;
+}
+
 .k-status__extra {
   display: flex;
   flex-wrap: wrap;

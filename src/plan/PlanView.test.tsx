@@ -859,11 +859,12 @@ describe("PlanView", () => {
     expect(screen.queryByText("Tap a tray for details.")).toBeNull();
   });
 
-  it("asks for a tap in the slot while no tray is selected", () => {
+  it("says what a tap does in the caption, where the app asks for it, and not in the slot", () => {
     const { p, view } = setup();
-    expect(screen.getByText("Tap a tray for details.").closest(".stage-slot")).not.toBeNull();
-    view.rerender(<Host {...p} selectedKey="a:p0:0" bar={<p>The tray bar</p>} />);
-    expect(screen.queryByText("Tap a tray for details.")).toBeNull();
+    expect(screen.queryByText(/tap a tray for details/)).toBeNull();
+    view.rerender(<Host {...p} tapHint />);
+    expect(screen.getByText(/tap a tray for details/).closest(".plan-caption")).not.toBeNull();
+    expect(document.querySelector(".stage-slot")?.textContent).toBe("");
   });
 
   it("rings the selected tray on the tile, with the ring over its neighbours", () => {

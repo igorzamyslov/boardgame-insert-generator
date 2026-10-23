@@ -234,9 +234,9 @@ export function App(props: AppProps) {
   // The older plan the person chose to keep (project and geometry line), so its banner stays away.
   const [geometryKept, setGeometryKept] = useState<string | null>(null);
   const run = s.run.value;
-  // A fit problem's cards and the heading's Stop trade places as Keep searching and Stop do in the
+  // A fit problem's cards and the heading's Stop trade places as Try another arrangement and Stop do in the
   // heading (StageTop): the button pressed goes with its screen, so the focus is handed on, and only
-  // when it fell to the page. Keep searching on the cards hands it to Stop; a run that ends on a fit
+  // when it fell to the page. Try another arrangement on the cards hands it to Stop; a run that ends on a fit
   // problem hands it to the first card, and one that ends with the problem gone (an Unpin that
   // resolved it) to Download, the next step.
   const working = run.status === "running" || s.runPending.value;
@@ -1147,6 +1147,7 @@ export function App(props: AppProps) {
               planProps !== null ? (
                 <PlanView
                   {...planProps}
+                  tapHint
                   selectedKey={s.selection.value}
                   level={s.viewLevel.value}
                   onLevelChange={(l) => {
@@ -1170,7 +1171,7 @@ export function App(props: AppProps) {
                 />
               ) : (
                 <>
-                  <StageSlot quiet idle={phone}>
+                  <StageSlot idle={phone}>
                     {phone ? undefined : (removedToast ?? undefined)}
                   </StageSlot>
                   {workingOnIt}
@@ -1204,6 +1205,7 @@ export function App(props: AppProps) {
                       selectedKey: s.selection.value,
                       topLayer: s.viewCut.value,
                       levels: planLevels,
+                      tapHint: true,
                       onSelect: (key) => {
                         s.selection.value = key;
                       },

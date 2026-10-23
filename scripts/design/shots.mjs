@@ -1224,7 +1224,7 @@ const regionSource = (name) => REGIONS[name].board.toString();
 
 // ---------------------------------------------------------------- nothing jumps (Review Focus 4)
 
-// Pairs that must not differ: Keep searching turning into Stop, and the View segment turning to 3D.
+// Pairs that must not differ: Try another arrangement turning into Stop, and the View segment turning to 3D.
 // `sizeOnly`: a region that may slide but not change size (none now: the slot over the plan is as tall as the tray bar).
 // `widens`: a region that may change width about its middle (the 3D frame fills the working column, the
 // top view's box keeps the box's shape: 0.9.0); its top and height stay.
@@ -1406,7 +1406,7 @@ function measureTray() {
 /**
  * The status row's parts, in page coordinates, found by structure so a board and the app answer
  * alike: the icon is the sibling before the h1's column, the line the sibling after the h1, the
- * switches the groups named Layer and View, the action the button that says Keep searching, Stop,
+ * switches the groups named Layer and View, the action the button that says Try another arrangement, Stop,
  * Retry or Make a plan. Runs in the page, so it is self-contained. Null for a part the page lacks.
  */
 function measureStatusRow() {
@@ -1430,7 +1430,7 @@ function measureStatusRow() {
   const line = h1 ? h1.nextElementSibling : null;
   const group = (name) => document.querySelector(`[role="group"][aria-label="${name}"]`);
   const action = Array.from(document.querySelectorAll("button")).find((b) =>
-    /^(Keep searching|Stop|Retry|Make a plan)$/.test(
+    /^(Try another arrangement|Stop|Retry|Make a plan)$/.test(
       (b.getAttribute("aria-label") || b.textContent || "").trim(),
     ),
   );

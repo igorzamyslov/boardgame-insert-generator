@@ -47,6 +47,8 @@ export interface PlanViewProps {
   stale?: boolean;
   /** A search is running: the trays that are not pinned are dimmed, as Main draws it. */
   searching?: boolean;
+  /** The caption says what a tap does ("tap a tray for details"): the normal stage, not the editor's. */
+  tapHint?: boolean;
   /** The tray bar, shown in the slot above the box while a tray is selected (the app owns it). */
   bar?: ComponentChildren;
   /**
@@ -501,7 +503,6 @@ export function PlanView(props: PlanViewProps) {
       {readOnly ? null : (
         <StageSlot
           idle={phone && !hasBar && message === null}
-          quiet={message !== null}
           live={
             // always mounted, so a reader hears a note arrive
             <div role="status">
@@ -693,6 +694,7 @@ export function PlanView(props: PlanViewProps) {
             <Icon name="arrow-down" size={12} />
           </>
         )}
+        {props.tapHint === true && !phone ? " · tap a tray for details" : null}
       </p>
       {lockedKeys.size > 0 && !readOnly ? (
         <p class="plan-pins">Spacers fill the gaps again when the plan updates.</p>

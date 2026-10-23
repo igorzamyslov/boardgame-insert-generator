@@ -317,9 +317,12 @@ function Slot({
   onNoteDone,
   problem,
   onRetry,
+  trailing,
 }: {
   /** The sentence, drawn or not (`hidden`: the note is in its place). */
   sentence: (hidden: boolean) => ComponentChildren;
+  /** At the row's right end: the Top / 3D switch, where the normal stage's toolbar has it. */
+  trailing?: ComponentChildren;
   note: EditNote | null;
   onNoteDone: () => void;
   problem?: EditorProblem | null;
@@ -330,6 +333,7 @@ function Slot({
       <div class="ed-slot__row">
         <Toast message={note?.text ?? null} nonce={note?.id} onDone={onNoteDone} />
         {sentence(note !== null)}
+        {trailing}
       </div>
       {problem ? <ProblemLine problem={problem} onRetry={onRetry} /> : null}
     </div>
@@ -477,16 +481,20 @@ export function EditorStage({
       onNoteDone={onNoteDone}
       problem={problem}
       onRetry={onRetry}
+      trailing={
+        showView ? (
+          <span data-region="view-switch">
+            <ViewSwitch view={view} onViewChange={onViewChange} webgl={webgl} />
+          </span>
+        ) : undefined
+      }
     />
   );
-  // The same row as the workspace's (StageTop): Layer, then View last.
+  // The same rows as the workspace's (StageTop): the toolbar holds the View switch, the Layer switch has the row under it.
   const switches =
-    phone || (layers === undefined && !showView) ? null : (
+    phone || layers === undefined ? null : (
       <div class="stage-segs" data-region="switches">
         <div class="stage-segs__layer">{layers}</div>
-        <div class="stage-segs__view" data-region="view-switch">
-          {showView ? <ViewSwitch view={view} onViewChange={onViewChange} webgl={webgl} /> : null}
-        </div>
       </div>
     );
   // The tray bar's place stays, empty, so the frame is where the normal stage's is.
@@ -507,7 +515,7 @@ export function EditorStage({
   const threeD =
     plan !== null && in3d && viewer !== null
       ? {
-          slot: { quiet: true },
+          slot: {},
           viewer: {
             ...viewer,
             trays: sTrays ?? trays,
@@ -527,7 +535,7 @@ export function EditorStage({
   const body =
     plan === null ? (
       <>
-        {phone ? null : <StageSlot quiet />}
+        {phone ? null : <StageSlot />}
         {placeholder}
       </>
     ) : (

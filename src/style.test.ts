@@ -446,7 +446,7 @@ describe("style.css", () => {
     expect(ruleFor(".viewer-stage", plan)).toMatch(/position:\s*relative/);
   });
 
-  it("keeps the 3D controls out of the flow, over the foot of the frame, so the frame never shrinks", () => {
+  it("keeps the 3D view's messages out of the flow, over the foot of the frame, so the frame never shrinks", () => {
     const under = ruleFor(".viewer-under");
     expect(under).toMatch(/position:\s*absolute/);
     expect(under).toMatch(/bottom:\s*var\(--s-8\)/);
@@ -454,9 +454,10 @@ describe("style.css", () => {
     expect(under).toMatch(/pointer-events:\s*none/);
     expect(under).not.toMatch(/background/);
     expect(ruleFor(".viewer-under > *")).toMatch(/pointer-events:\s*auto/);
-    const row = ruleFor(".viewer-controls");
-    expect(row).toMatch(/background:\s*var\(--pill-fill\)/);
+    // Spread apart is in the caption row under the frame, not over it
+    const row = ruleFor(".range-field");
     expect(row).toMatch(/align-items:\s*center/);
+    expect(css).not.toMatch(/\.viewer-controls/);
     expect(css).not.toMatch(/\.tray-picker|\.tray-chip/);
   });
 

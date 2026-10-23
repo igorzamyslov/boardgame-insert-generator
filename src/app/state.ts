@@ -17,7 +17,7 @@ import type { History } from "./history";
 export type RunKind = "edit" | "improve";
 export type RunState =
   | { status: "idle" }
-  /** `kind` is why it runs: an edit's new plan, or "Keep searching" ("improve"); absent reads as an edit. */
+  /** `kind` is why it runs: an edit's new plan, or "Try another arrangement" ("improve"); absent reads as an edit. */
   | { status: "running"; done: number; total: number; kind?: RunKind }
   | { status: "done" }
   | { status: "error"; message: string };
@@ -29,7 +29,7 @@ export const STALE_CODE = "layout.stale";
 export const CAPPED_CODE = NOTICE_CODES.capped;
 export const GEOMETRY_MAJOR_CODE = "geometry.olderMajor";
 /** The banner copy of the two plan notices (the UI shows these words). */
-/** What a run says while it works: a new plan for an edit, a search for "Keep searching". */
+/** What a run says while it works: a new plan for an edit, a search for "Try another arrangement". */
 export const MAKING_PLAN_MESSAGE = "Making a new plan…";
 export const SEARCHING_MESSAGE = "Searching…";
 export const STALE_MESSAGE = "This plan is from before your last changes.";
@@ -212,7 +212,7 @@ export function createState(
       out.push({
         level: "info",
         code: CAPPED_CODE,
-        message: "The search stopped at its limit. Try “Keep searching”.",
+        message: "The search stopped at its limit. Try “Try another arrangement”.",
       });
     }
     if (stale.value) {

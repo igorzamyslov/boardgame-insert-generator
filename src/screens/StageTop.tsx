@@ -1,6 +1,7 @@
 // src/screens/StageTop.tsx
-// The top of the stage (UI rebuild Task 6): the plan banner, then Main's status row: the status
-// heading (the page's one h1), the Layer and View switches and the one thing to press.
+// The top of the stage (UI rebuild Task 6, then board 1 of the 2026-10-23 review): the plan banner,
+// then the one toolbar row: the status (the page's one h1, with its sub-line) on the left, the Top / 3D
+// switch and the ⋯ menu on the right; the Layer switch has a row of its own under it.
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import {
@@ -9,13 +10,14 @@ import {
   STALE_MESSAGE,
   type RunState,
 } from "../app/state";
-import { Button, Icon, IconButton, Notice, Segmented, StatusHeading } from "../kit";
+import { Button, MenuItem, MenuPanel, Notice, Segmented, StatusHeading } from "../kit";
 import type { StatusTone } from "../kit";
 import type { LockConflict } from "../layout/types";
 import { mmUp } from "../layout/warnings";
 import type { Component, Notice as NoticeData, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { layerLabel, mm } from "../ui/identity";
+import { HeaderMenu } from "./Header";
 import type { Misfit } from "../ui/noFit";
 
 // ---------------------------------------------------------------- what the status says
@@ -29,7 +31,7 @@ export interface Fits {
   boxHeight: number;
 }
 
-/** Keep searching; "Make a plan" when there is no plan yet. */
+/** Searching on for another plan (a menu item); "Make a plan" when there is no plan yet (a button). */
 interface KeepAction {
   kind: "keep";
   label: string;
@@ -105,7 +107,7 @@ function sentence(message: string): string {
   return /[.!?…]$/.test(message) ? message : `${message}.`;
 }
 
-export const SEARCHING_TITLE = "Searching for a better plan…";
+export const SEARCHING_TITLE = "Searching…";
 const FIX_ERRORS = "Fix the errors marked in the inputs";
 const FAILED = "The plan couldn't be updated";
 const LAST_GOOD = "The plan shown is the last good one, from before your latest change.";
@@ -195,10 +197,12 @@ export function editorProblem(status: Status): EditorProblem | null {
  * What the status heading says: its tone, the h1, the muted line and what to press. A fit problem
  * (no fit, pins in the way) is the heading of its own stage: `fit` says which, and the actions are
  * the cards of its panel, each one something the engine can do (DESIGN §6): Edit the tray that
- * does not fit and Keep searching; Unpin or Unlock size per conflict.
+ * does not fit and Try another arrangement; Unpin or Unlock size per conflict.
  */
 export function statusOf(s: StatusInput): Status {
-  const keep: KeepAction[] = s.canSearchMore ? [{ kind: "keep", label: "Keep searching" }] : [];
+  const keep: KeepAction[] = s.canSearchMore
+    ? [{ kind: "keep", label: "Try another arrangement" }]
+    : [];
   if (s.run.status === "running") {
     return s.run.kind === "improve"
       ? {
@@ -280,7 +284,7 @@ export function statusOf(s: StatusInput): Status {
     return {
       tone: "fit",
       title: "Everything fits",
-      line: `${plural(s.fits.trays, "tray", "trays")} in ${plural(s.fits.layers, "layer", "layers")}, ${mm(s.fits.height)} of ${mm(s.fits.boxHeight)} mm high`,
+      line: `${plural(s.fits.trays, "tray", "trays")} · ${plural(s.fits.layers, "layer", "layers")} · ${mm(s.fits.height)} of ${mm(s.fits.boxHeight)} mm`,
       actions: keep,
     };
   }
@@ -405,14 +409,20 @@ export interface StageTopProps extends StatusInput {
   onShow: (id: string) => void;
 }
 
+/** The menu item that searches on for another plan (the status's "keep" action). */
+export const TRY_ANOTHER = "Try another arrangement";
+const TRY_ANOTHER_LINE = "Searches for longer";
+
 /**
- * The status row: the heading (the page's one h1, with its tone's icon and a muted line) with the
- * action beside it, and under it the Layer and View switches. The Summary's jobs that belong here: the optimizer
- * error and Retry, the errors with no field, the jump links.
+ * The toolbar row: the status (the page's one h1, with its muted sub-line) on the left; on the right
+ * what the status asks for (Retry, "Edit <tray>"), the Top / 3D switch and the ⋯ menu. While a search
+ * runs, the title reads "Searching… Stop". The Layer switch has the row under it. The Summary's jobs
+ * that belong here: the optimizer error and Retry, the errors with no field, the jump links.
  */
 export function StageTop(p: StageTopProps) {
   const status = statusOf(p);
-  // Keep searching and Stop swap places: the one pressed hands the focus to the other.
+  // The menu item and Stop trade places: the one pressed hands the focus to the other (Stop after
+  // the menu item, the ⋯ button after Stop).
   const row = useRef<HTMLDivElement>(null);
   const clicked = useRef<"keep" | "stop" | null>(null);
   useEffect(() => {
@@ -420,45 +430,35 @@ export function StageTop(p: StageTopProps) {
     if (want === null) {
       return;
     }
-    const toggle = row.current?.querySelector<HTMLElement>("[data-toggle]") ?? null;
+    const stop = row.current?.querySelector<HTMLElement>("[data-toggle='stop']") ?? null;
+    const more = row.current?.querySelector<HTMLElement>(".hd-menu > button") ?? null;
     const active = document.activeElement;
-    if (toggle !== null && active === toggle) {
-      return; // still the button that was pressed
+    const fell = active === null || active === document.body || active === more;
+    if (want === "keep" && stop !== null && fell) {
+      stop.focus();
+    } else if (want === "stop" && fell) {
+      more?.focus();
     }
-    if (active !== null && active !== document.body) {
-      clicked.current = null; // the focus went elsewhere on purpose
-    } else if (toggle !== null && toggle.dataset.toggle !== want) {
-      toggle.focus();
+    // else the focus went elsewhere on purpose
+    if (want === "stop" || stop !== null || !fell) {
       clicked.current = null;
     }
   });
 
+  const keep = status.actions.find((a) => a.kind === "keep");
+  // "Make a plan" (no plan yet) is the one thing the row asks for; searching on is a menu item.
+  const searchOn = keep !== undefined && keep.label !== "Make a plan";
+  const stopping = status.actions.some((a) => a.kind === "stop");
   // A fit problem's actions are the cards of its own panel (FitProblem), not pills in the heading.
   const actions = status.actions
     .filter((a) => a.kind !== "unpin")
     .map((a) => {
       switch (a.kind) {
         case "keep":
-          // On a phone the heading has no room for the words beside it: a search icon, named.
-          return p.phone && a.label === "Keep searching" ? (
-            <IconButton
-              key="keep"
-              data-toggle="keep"
-              label={a.label}
-              variant="outlined"
-              icon={<Icon name="search" size={18} />}
-              onClick={() => {
-                clicked.current = "keep";
-                p.onKeepSearching();
-              }}
-            />
-          ) : (
+          return searchOn ? null : (
             <Button
               key="keep"
-              data-toggle="keep"
-              icon={a.label === "Keep searching" ? <Icon name="search" size={16} /> : undefined}
               onClick={() => {
-                clicked.current = "keep";
                 p.onKeepSearching();
               }}
             >
@@ -466,19 +466,7 @@ export function StageTop(p: StageTopProps) {
             </Button>
           );
         case "stop":
-          return (
-            <Button
-              key="stop"
-              class="stage-stop"
-              data-toggle="stop"
-              onClick={() => {
-                clicked.current = "stop";
-                p.onStop();
-              }}
-            >
-              Stop
-            </Button>
-          );
+          return null;
         case "retry":
           return (
             <Button key="retry" onClick={p.onRetry}>
@@ -517,7 +505,8 @@ export function StageTop(p: StageTopProps) {
     ) : null;
   const showView = p.trays !== undefined;
   const blocked = p.webgl ? undefined : WEBGL_REASON;
-  const view = !showView ? null : p.phone ? (
+  // On a phone the View switch is the one "3D" toggle beside the Layer switch (board 9 draws it).
+  const phoneView = !showView ? null : (
     <Button
       aria-pressed={p.view === "3d"}
       blockedReason={blocked}
@@ -525,16 +514,64 @@ export function StageTop(p: StageTopProps) {
     >
       3D
     </Button>
-  ) : (
+  );
+  const desktopView = !showView ? null : (
     <ViewSwitch view={p.view} onViewChange={p.onViewChange} webgl={p.webgl} />
   );
 
-  // The action (Keep searching, Stop) stands beside the heading on the same line, at every width
-  // above a phone's; the switches take the row under it, right-aligned in the column, with the View
-  // switch last, so it stays where it is whether the Layer switch is there (one layer has none, the
-  // 3D view adds "All") and whichever action stands in the heading (WideStage2; DESIGN, Flow). On a
-  // phone the switches' row is the board's own (MobileWorkspace).
-  const extra = actions;
+  const more = (
+    <span key="more">
+      <HeaderMenu
+        label="Plan options"
+        panelId="stage-menu"
+        menuDot={false}
+        phone={p.phone}
+        menu={(close) => (
+          <MenuPanel label="Plan options">
+            <MenuItem
+              class="stage-menu__item"
+              blockedReason={
+                searchOn ? undefined : stopping ? "Already searching" : "Nothing to try yet"
+              }
+              onClick={() => {
+                clicked.current = "keep";
+                close();
+                p.onKeepSearching();
+              }}
+            >
+              <span>{TRY_ANOTHER}</span>
+              <span class="stage-menu__line">{TRY_ANOTHER_LINE}</span>
+            </MenuItem>
+          </MenuPanel>
+        )}
+      />
+    </span>
+  );
+
+  const stop = stopping ? (
+    <Button
+      key="stop"
+      class="stage-stop"
+      variant="quiet"
+      data-toggle="stop"
+      onClick={() => {
+        clicked.current = "stop";
+        p.onStop();
+      }}
+    >
+      Stop
+    </Button>
+  ) : undefined;
+
+  const extra = [
+    ...actions,
+    !p.phone && desktopView !== null ? (
+      <span key="view" data-region="view-switch">
+        {desktopView}
+      </span>
+    ) : null,
+    more,
+  ];
 
   const line: ComponentChildren =
     status.list !== undefined ? (
@@ -557,20 +594,18 @@ export function StageTop(p: StageTopProps) {
           tone={status.tone}
           title={status.title}
           line={line}
-          extra={extra.length > 0 ? extra : undefined}
+          titleExtra={stop}
+          extra={extra}
         />
       </div>
-      {p.phone && (layer !== null || view !== null) ? (
+      {p.phone && (layer !== null || phoneView !== null) ? (
         <div class="stage-segs stage-segs--phone" data-region="switches">
           {layer}
-          {view}
+          {phoneView}
         </div>
-      ) : !p.phone && showView ? (
+      ) : !p.phone && layer !== null ? (
         <div class="stage-segs" data-region="switches">
           <div class="stage-segs__layer">{layer}</div>
-          <div class="stage-segs__view" data-region="view-switch">
-            {view}
-          </div>
         </div>
       ) : null}
       {showView && !p.webgl ? <WebGlNote /> : null}

@@ -18,14 +18,23 @@ export interface StatusHeadingProps {
   title: string;
   /** Muted, under the title: a sentence, or a list of them (the errors that have no field). */
   line?: ComponentChildren;
-  /** To the right, wrapping under on a narrow stage: segments, Keep searching, Stop. */
+  /** To the right, wrapping under on a narrow stage: the View switch, the menu, a button the status asks for. */
   extra?: ComponentChildren;
+  /** On the title's line, after it ("Searching… Stop"): a quiet button that belongs to the words. */
+  titleExtra?: ComponentChildren;
   /** The heading level: 1 on a page (there is one h1 per screen); the gallery shows several. */
   level?: 1 | 2 | 3;
 }
 
 /** The status of the plan: a tone's round icon, the h1 and a line (Main's "Everything fits"). */
-export function StatusHeading({ tone, title, line, extra, level = 1 }: StatusHeadingProps) {
+export function StatusHeading({
+  tone,
+  title,
+  line,
+  extra,
+  titleExtra,
+  level = 1,
+}: StatusHeadingProps) {
   const Heading = `h${level}` as const;
   return (
     <div class="k-status" data-tone={tone}>
@@ -34,9 +43,18 @@ export function StatusHeading({ tone, title, line, extra, level = 1 }: StatusHea
           <Icon name={ICONS[tone]} size={20} />
         </span>
         <div class="k-status__text">
-          <Heading class="k-status__title ellipsis" title={title}>
-            {title}
-          </Heading>
+          {titleExtra !== undefined ? (
+            <div class="k-status__head">
+              <Heading class="k-status__title ellipsis" title={title}>
+                {title}
+              </Heading>
+              {titleExtra}
+            </div>
+          ) : (
+            <Heading class="k-status__title ellipsis" title={title}>
+              {title}
+            </Heading>
+          )}
           {line !== undefined ? <div class="k-status__line">{line}</div> : null}
         </div>
       </div>
