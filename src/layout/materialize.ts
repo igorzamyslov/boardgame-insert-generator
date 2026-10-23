@@ -3,7 +3,7 @@ import { realizeTray, rotateRealized } from "../sizing";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "../sizing/types";
 import type { Ctx } from "./context";
 import type { Plan } from "./fill";
-import { roundMm, toMm } from "./units";
+import { roundDownTo, roundMm, roundUpTo, toMm } from "./units";
 
 /** Same signature as sizing's realizeTray; injectable for unit tests. */
 export type Realize = (
@@ -42,7 +42,15 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
       w: toMm(t.item.rotated ? t.needD : t.needW),
       d: toMm(t.item.rotated ? t.needW : t.needD),
     };
-    const opts = { lipped: t.lipped, level: t.level, stackMin: need };
+    // Of the height this tray has beyond its minimum only whole layers are padding (what the stack
+    // needs to reach the top plane, a raised floor that splitRisers takes out). The rest (the least
+    // height an upper tray may have, the rounding up to a layer, a sub-layer remainder) is air
+    // above the cards, so every tray stands on the Floor setting however tall it had to be.
+    const padding = roundDownTo(
+      Math.max(0, Math.max(t.h, m.h) - roundUpTo(m.h, ctx.layer)),
+      ctx.layer,
+    );
+    const opts = { lipped: t.lipped, level: t.level, stackMin: need, padding: toMm(padding) };
     // realizeTray works in the part's own frame; a rotated placement is realized at the
     // swapped size and turned 90° counter-clockwise by sizing's rotateRealized.
     const own = t.item.rotated ? { w: d, d: w, h } : { w, d, h };

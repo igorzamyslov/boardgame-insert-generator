@@ -237,8 +237,14 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
       fail(spec, `${name} ${value} mm is not a number`);
     }
   }
-  // Spacers and dividers are always built with the level 0 chamfer.
-  const level = spec.part === "spacer" || spec.part === "divider" ? 0 : spec.level;
+  // Spacers and dividers are always built with the level 0 chamfer. A tray on a riser that carries
+  // the lip is built as one above level 0 is: with the groove (`onRiser`, set by splitRisers).
+  const level =
+    spec.part === "spacer" || spec.part === "divider"
+      ? 0
+      : spec.onRiser === true
+        ? Math.max(1, spec.level)
+        : spec.level;
   const chamfer = effectiveBottomChamfer(settings, level);
   // With the lip on, a tray above level 0 has a groove along its outer bottom edge instead of the
   // plain chamfer (its foot edge keeps the chamfer, at most as high as the groove's inner wall).

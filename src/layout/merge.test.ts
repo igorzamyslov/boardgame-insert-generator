@@ -208,6 +208,20 @@ describe("mergeParts: the print bed", () => {
     expect(merged(mergeParts([a, b], inputs({}, { ...TEST_PRINTER, bedZ: 20 })))).toHaveLength(0);
   });
 
+  it("counts the lip a riser carries: a part is as tall as its lip stands (the riser's rim between layers)", () => {
+    const lip = { ...DEFAULT_SETTINGS.lip, enabled: true };
+    const a = riser({ key: "a:p0:0:riser", lip: true, x: 0, y: 0, w: 40, d: 60, h: 28 });
+    const b = riser({ key: "b:p0:0:riser", lip: true, x: 40 + GAP, y: 0, w: 40, d: 60, h: 28 });
+    const low = { ...TEST_PRINTER, bedZ: 29 };
+    // 28 mm tall, 30 with the 2 mm lip: the part does not fit a 29 mm bed, nor does either riser alone
+    expect(merged(mergeParts([a, b], inputs({ mergeRisers: true, lip }, low)))).toHaveLength(0);
+    const fits = { ...TEST_PRINTER, bedZ: 30 };
+    expect(merged(mergeParts([a, b], inputs({ mergeRisers: true, lip }, fits)))).toHaveLength(1);
+    // a plain riser has no lip to count
+    const plain = [a, b].map((r) => ({ ...r, lip: false }));
+    expect(merged(mergeParts(plain, inputs({ mergeRisers: true, lip }, low)))).toHaveLength(1);
+  });
+
   it("splits a comb (a spine with two teeth) into two parts, a half each, never one over the bed", () => {
     // The spine is 120.2 mm long, the bed 70: each half takes a tooth.
     const bed = { ...TEST_PRINTER, bedX: 80, bedY: 80 }; // 70 usable

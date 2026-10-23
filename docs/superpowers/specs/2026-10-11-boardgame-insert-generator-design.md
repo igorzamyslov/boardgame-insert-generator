@@ -724,8 +724,12 @@ Cross-section, `u` in from the outer face, `z` up:
   part number sits above the groove (1 mm above `zTop`). A tray's smallest outer size is
   `2 × (reach + 0.8)` across and `zTop + 0.8` high.
 - **Which trays.** Every part above level 0 when the lip is on: trays, and the fillers standing
-  beside them in a stack level (which stand on a lipped tray too). Not trays on the box floor or a
-  riser, not spacers or dividers (always built at level 0). `TraySpec.lip` records the lip; the
+  beside them in a stack level (which stand on a lipped tray too). Not trays on the box floor, not
+  spacers or dividers (always built at level 0). A riser (§6.2) is a lower part like a tray: with
+  the lip on it carries the lip, and the bottom tray on it has the groove (`TraySpec.onRiser`,
+  geometry 0.9.0), where that tray can take one: a tray alone in its stack has the plain 1.6 mm wall,
+  no room for a groove (2.56), so its riser stays plain, as does one under a tray that is too low or
+  whose cuts leave too little (planTray is asked, `splitRisers`). `TraySpec.lip` records the lip; the
   groove needs no field, it is `level > 0` with the lip on, as the tray below is lipped exactly
   then. A stored layout from before has trays inset inside the lip ring: it is an older line (§9).
   A tray can have both, the lip on top and the groove under it; its wall is the thicker.
@@ -816,7 +820,24 @@ When every compartment of a stack's trays has one, the part of it that is a whol
 number of layers (and keeps the tray at its minimum height) moves out into the stack's
 riser instead, if the stack's trays together give up at least `MIN_RISER`; below that
 the trays keep their raised floors. A size-locked tray keeps its height, a riser is
-never taller than the print bed.
+never taller than the print bed (its lip, with the lip on, included).
+
+**One floor under every tray (geometry 0.9.0).** The raised floor is the stack's padding and
+nothing else. A tray is often taller than its contents ask: an upper tray is at least
+`lip.height + 3` mm, and every tray below the top is rounded up to a layer. That height is air
+above the contents, never a thicker floor (a 5-card deck in a 5 mm upper tray stood on a 2.35 mm
+floor, the tray under it on 1.25): `materialize` hands `realizeTray` the whole layers of padding
+(`RealizeOptions.padding`), and a compartment whose contents may not grow in height is as deep
+as the tray is without it. The floor under the deepest well is `settings.floor` wherever the
+padding is a riser, and a shallower well (a pocket for a short figure) keeps its own raise.
+Padding under `minRiser` stays a raised floor, as before.
+
+**The riser and the rim between layers (geometry 0.9.0).** With the lip on a riser carries it, as
+a lower tray does, and the bottom tray on it has the groove (`TraySpec.onRiser`), so the first layer
+locks as every other. The riser's wall is a lipped tray's (2.9 mm at the defaults) and its pocket
+starts inside it; its lip stands above its height, which keeps the stack's sum. Only where
+`planTray` accepts the tray with a groove (walls, height of at least `lip.height + 3`, cuts): a
+tray alone in its stack has the plain wall, so its riser stays plain.
 
 **No spare compartments (geometry 0.5.1).** `realizeTray` used to turn row slack of at least
 `MIN_SPARE` plus a divider into an empty "spare" compartment, at the end of a row or as a row at

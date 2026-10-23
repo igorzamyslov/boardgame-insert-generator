@@ -1,7 +1,7 @@
 {
   "layout": {
     "createdWith": "0.10.0",
-    "geometryVersion": "0.8.5",
+    "geometryVersion": "0.9.0",
     "inputsHash": "1b894917413e7c",
     "seed": 1,
     "iterations": 100000,
@@ -334,7 +334,7 @@
             "y": 1.6,
             "w": 74,
             "d": 98.5,
-            "floorZ": 56.02,
+            "floorZ": 56,
             "kind": "well",
             "contents": "Event cards ×30",
             "componentId": "events01",
@@ -344,7 +344,7 @@
                 "side": "left",
                 "at": 50.85,
                 "width": 25,
-                "depth": 13.98,
+                "depth": 14,
                 "floorNotch": 12.5
               },
               {
@@ -352,7 +352,7 @@
                 "side": "right",
                 "at": 50.85,
                 "width": 25,
-                "depth": 13.98,
+                "depth": 14,
                 "floorNotch": 12.5
               }
             ]
@@ -495,7 +495,7 @@
             "y": 1.6,
             "w": 66.24,
             "d": 58.5,
-            "floorZ": 13.1,
+            "floorZ": 13,
             "kind": "well",
             "contents": "Hex tiles ×22",
             "componentId": "hextiles",
@@ -505,7 +505,7 @@
                 "side": "front",
                 "at": 34.72,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -513,7 +513,7 @@
                 "side": "back",
                 "at": 34.72,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -527,7 +527,7 @@
             "y": 1.6,
             "w": 66.24,
             "d": 58.5,
-            "floorZ": 13.1,
+            "floorZ": 13,
             "kind": "well",
             "contents": "Hex tiles ×22",
             "componentId": "hextiles",
@@ -537,7 +537,7 @@
                 "side": "front",
                 "at": 102.16,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -545,7 +545,7 @@
                 "side": "back",
                 "at": 102.16,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -579,7 +579,7 @@
             "y": 1.6,
             "w": 98,
             "d": 73.5,
-            "floorZ": 34.39,
+            "floorZ": 34.2,
             "kind": "well",
             "contents": "Market deck ×80",
             "componentId": "market01",
@@ -589,7 +589,7 @@
                 "side": "front",
                 "at": 50.6,
                 "width": 25,
-                "depth": 35.61,
+                "depth": 35.8,
                 "floorNotch": 12.5
               },
               {
@@ -597,7 +597,7 @@
                 "side": "back",
                 "at": 50.6,
                 "width": 25,
-                "depth": 35.61,
+                "depth": 35.8,
                 "floorNotch": 12.5
               }
             ]
@@ -669,7 +669,7 @@
             "y": 2.02,
             "w": 66.24,
             "d": 58.5,
-            "floorZ": 13.1,
+            "floorZ": 13,
             "kind": "well",
             "contents": "Hex tiles ×22",
             "componentId": "hextiles",
@@ -679,7 +679,7 @@
                 "side": "front",
                 "at": 34.72,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -687,7 +687,7 @@
                 "side": "back",
                 "at": 34.72,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -701,7 +701,7 @@
             "y": 2.02,
             "w": 66.24,
             "d": 58.5,
-            "floorZ": 13.1,
+            "floorZ": 13,
             "kind": "well",
             "contents": "Hex tiles ×22",
             "componentId": "hextiles",
@@ -711,7 +711,7 @@
                 "side": "front",
                 "at": 102.16,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -719,7 +719,7 @@
                 "side": "back",
                 "at": 102.16,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -733,7 +733,7 @@
             "y": 2.02,
             "w": 66.24,
             "d": 58.5,
-            "floorZ": 13.1,
+            "floorZ": 13,
             "kind": "well",
             "contents": "Hex tiles ×22",
             "componentId": "hextiles",
@@ -743,7 +743,7 @@
                 "side": "front",
                 "at": 169.6,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -751,7 +751,7 @@
                 "side": "back",
                 "at": 169.6,
                 "width": 25,
-                "depth": 56.9,
+                "depth": 57,
                 "floorNotch": 12.5
               },
               {
@@ -1059,10 +1059,10 @@
     "mergeFillers": true,
     "mergeRisers": true,
     "minRiser": 3,
-    "filamentG": 1130.2,
-    "filamentAtInfillG": 994,
+    "filamentG": 1141.8,
+    "filamentAtInfillG": 1005.6,
     "infillPct": 15,
-    "printMinutes": 3340.2,
+    "printMinutes": 3379.2,
     "longestPartMinutes": 518.2,
     "playLimit": 1.5,
     "playX": 1.4,

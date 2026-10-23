@@ -147,8 +147,24 @@ import type { Semver } from "../model/version";
  * so parts printed before and after still mate and stack: a PATCH, as 0.5.2 (the open riser) was.
  * The stored layout is the same, so no plan goes stale; a project saved before reads the setting
  * as 3 mm and prints the riser from its next export.
+ *
+ * 0.9.0 gives a riser the rim between layers (owner, 2026-10-23; `splitRisers`, `TraySpec.onRiser`).
+ * With the lip on, a riser now carries the locating lip on its rim, as a lower tray does, and the
+ * bottom tray on it has the groove under its edge, as any tray above a lipped one has: the first
+ * layer locks as every other layer does, where the tray used to stand loose on a flat top. A riser
+ * printed before has no lip and its tray no groove, so a riser printed now would hold an old tray
+ * 2 mm high on its lip (and a new tray on an old riser is loose): trays printed before and after do
+ * not mate, a new line, reprint everything. A tray that cannot take a groove (alone in its stack
+ * its wall is 1.6 mm, a groove needs 2.56; or too low, or with cuts that leave too little of it)
+ * keeps a plain riser, and with the lip off nothing differs. The heights are the same (a lip is
+ * not part of a part's height). Also in 0.9.0 (the wells only; the layout makes them, so a stored plan
+ * is as it was until it is made again): a well is as deep as its tray is without the stack's
+ * padding, so the height a tray has beyond its cards, the 5 mm an upper tray must be and the
+ * rounding up to a layer, is air above them and the floor is the Floor setting under every tray
+ * (it was 1.26, 1.25 and 2.35 mm under three trays of one stack, a thicker floor wherever the tray
+ * was taller than its cards), `RealizeOptions.padding`.
  */
-export const GEOMETRY_VERSION = "0.8.5";
+export const GEOMETRY_VERSION = "0.9.0";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

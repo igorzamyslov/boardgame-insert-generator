@@ -56,14 +56,21 @@ function lastIndex<T>(items: readonly T[], test: (item: T) => boolean): number {
 }
 
 /**
- * Content depth: fixed for contents that may not grow in height (the rest is a raised floor, which
- * a riser takes at print time); otherwise as much deeper as its growth setting allows (spec
- * §5), and for bulk up to maxHRatio.
+ * Content depth: fixed for contents that may not grow in height, plus the `lift` the tray has
+ * beyond its contents and its padding (headroom above them; the rest of the height is a raised
+ * floor, which a riser takes at print time); otherwise as much deeper as its growth setting
+ * allows (spec §5), and for bulk up to maxHRatio.
  */
-function contentDepth(req: CompartmentReq, well: Rect, H: number, floor: number): number {
+function contentDepth(
+  req: CompartmentReq,
+  well: Rect,
+  H: number,
+  floor: number,
+  lift: number,
+): number {
   const need = ceilU(req.minH);
   if (!req.elastic.h) {
-    return need;
+    return need + lift;
   }
   const grown = need + growthCapU(req, "h");
   const cap =
@@ -802,13 +809,18 @@ function layoutAt(
   forced: { w: number; d: number } = { w: 0, d: 0 },
   // `oneWall` only: the walls a finger cut passes through (or may), which must not take the slack.
   cut: CutWalls | null = null,
+  // RealizeOptions.padding in units, or null (all the height beyond the contents is raised floor).
+  padding: number | null = null,
 ): { tray: RealizedTray; walls: CutWalls } {
   const { floor } = min;
   const columns = part.arrangement === "columns";
   const frame: Frame = { W, D, forced, cut };
   const placed = columns ? placeColumns(min, frame, settings) : placeRows(min, frame, settings);
 
-  const sized = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor) }));
+  // The height beyond the contents that is not padding goes above the wells whose contents may
+  // not grow, so the floor under the deepest is the floor setting, not a thicker one.
+  const lift = padding === null ? 0 : Math.max(0, H - padding - min.content);
+  const sized = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor, lift) }));
   // A well filling in height (group Max, spec §2) goes down to the tray's deepest floor: the least
   // floorZ of the wells that do not fill. Never shallower than its own content depth. The tray's
   // height was decided without it, so this is depth the tray already has.
@@ -1003,21 +1015,22 @@ export function realizeTray(
     w: Math.max(0, ceilU(opts.stackMin?.w ?? 0) - min.w),
     d: Math.max(0, ceilU(opts.stackMin?.d ?? 0) - min.d),
   };
-  const first = layoutAt(part, min, [W, D, H], settings, forced);
+  const padding = opts.padding === undefined ? null : Math.max(0, ceilU(opts.padding));
+  const first = layoutAt(part, min, [W, D, H], settings, forced, null, padding);
   if (!settings.oneWall) {
     return first.tray;
   }
   // The walls the cuts go through are only known once they are placed: where the first layout put
   // the slack against one of them, lay it out again with those walls kept clear.
   let avoid = unionOf(requestedWalls(part), first.walls);
-  let result = layoutAt(part, min, [W, D, H], settings, forced, avoid);
+  let result = layoutAt(part, min, [W, D, H], settings, forced, avoid, padding);
   for (let round = 0; round < ROOM_ROUNDS; round += 1) {
     const next = unionOf(avoid, result.walls);
     if (JSON.stringify(next) === JSON.stringify(avoid)) {
       break;
     }
     avoid = next;
-    result = layoutAt(part, min, [W, D, H], settings, forced, avoid);
+    result = layoutAt(part, min, [W, D, H], settings, forced, avoid, padding);
   }
   return result.tray;
 }

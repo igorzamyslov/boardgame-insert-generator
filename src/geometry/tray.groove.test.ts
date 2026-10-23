@@ -46,7 +46,8 @@ describe("which trays get a groove", () => {
       zTop: 2.85,
       reach: 1.95,
     });
-    // on the box floor, or on a riser: nothing under it has a lip
+    // on the box floor, or on a plain riser: nothing under it has a lip (a riser that carries one
+    // gives its tray `onRiser`, riser.lip.test.ts)
     expect(planTray(plainBox, GEO).groove).toBeNull();
     // the lower tray carries the lip, not the groove
     expect(planTray(lippedLower, GEO).groove).toBeNull();
