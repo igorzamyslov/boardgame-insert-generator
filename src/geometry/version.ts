@@ -215,8 +215,17 @@ import type { Semver } from "../model/version";
  * engraved name keeps clear of a dip that opens on its face. A dip cut across a strip serves the
  * tray on each face, so it is no deeper than the shallower of the two allows (never below the foot
  * of either) and takes a place in the cap of two dips on a side of a tray on both of them.
+ *
+ * 0.9.5 builds a folded part with a lipped riser as one shape (owner, 2026-10-23: notches at every
+ * seam seen in a slicer). Since 0.9.0 a riser carries the rim's lip, and a lipped member kept
+ * `buildMergedOnce` from building the folded part's joined outline, so nearly every riser-and-filler
+ * part was built from its members alone (each with its own rounded corners and bottom chamfer) and
+ * box bridges, which leave a step and a notch where two members meet. The riser's lip ring is now
+ * added to its member after the one outline (its corners rounded once, its bottom chamfered once)
+ * is built. A mesh-only change on a derived part: outer size, footprint, lip, fit and every tray
+ * are as before (the lip ring is the same solid), the seams are only filled. A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.4";
+export const GEOMETRY_VERSION = "0.9.5";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {
