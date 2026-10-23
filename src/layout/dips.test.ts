@@ -419,7 +419,7 @@ describe("derived, never stored", () => {
 });
 
 describe("the Harbour Kings seed", () => {
-  const { project } = loadSeed("harbour-kings");
+  const { project } = loadSeed("harbour-kings", true);
   const stored = project.layout?.trays ?? [];
   const printed = printableParts(stored, {
     components: project.components,

@@ -551,6 +551,9 @@ variants of a board the run made (keep only the ones you meant to add).
 **`npm run seeds` changes every seed.**
 → It rewrites `createdWith` in each seed under `docs/design/seeds/` to the current app version.
 → Run it to add a seed, then `git restore` the other seeds, or commit them all on purpose.
+→ Tests that check a stored plan against what the plan holds (dips, the take-out order, the
+filament estimate against a slicer) read `test/fixtures/frozen-seeds/` (`loadSeed(name, true)`), the
+seeds as 0.15.0 made them: a rerun does not move them.
 
 ---
 

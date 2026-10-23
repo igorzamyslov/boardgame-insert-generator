@@ -398,10 +398,23 @@ const SEEDS = import.meta.glob<unknown>("../../docs/design/seeds/*.json", {
   import: "default",
 });
 
+/**
+ * Seeds as `npm run seeds` made them in 0.15.0, kept as they were: the plans tests check dips, the
+ * take-out order and the filament estimate against (a slicer's grams for the flat one) were found
+ * by an optimizer that has moved since, and a stored plan reads and prints the same.
+ */
+const FROZEN = import.meta.glob<unknown>("../../test/fixtures/frozen-seeds/*.json", {
+  eager: true,
+  import: "default",
+});
+
 /** A committed seed (`npm run seeds` writes them); throws when it is missing or unreadable. */
-export function loadSeed(name: string): Seed {
-  const raw = SEEDS[`../../docs/design/seeds/${name}.json`] as
-    { storage: Record<string, string>; projectId: string } | undefined;
+export function loadSeed(name: string, frozen = false): Seed {
+  const raw = (frozen ? FROZEN : SEEDS)[
+    frozen
+      ? `../../test/fixtures/frozen-seeds/${name}.json`
+      : `../../docs/design/seeds/${name}.json`
+  ] as { storage: Record<string, string>; projectId: string } | undefined;
   if (raw === undefined) {
     throw new Error(`no seed "${name}": run npm run seeds`);
   }
@@ -413,6 +426,8 @@ export function loadSeed(name: string): Seed {
   if (loaded === null || !loaded.ok) {
     throw new Error(`seed "${name}" does not hold a project`);
   }
-  const result = SEEDS[`../../docs/design/seeds/${name}.result.json`] as LayoutResult | undefined;
+  const result = frozen
+    ? undefined
+    : (SEEDS[`../../docs/design/seeds/${name}.result.json`] as LayoutResult | undefined);
   return { storage: raw.storage, project: loaded.project, ...(result ? { result } : {}) };
 }

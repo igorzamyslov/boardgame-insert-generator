@@ -318,7 +318,7 @@ describe("on real plans", () => {
   };
 
   it("lifts the strip beside the Event cards by its finger dip, and flags only the spacer with no room for one", () => {
-    const layers = guideOf(loadSeed("harbour-kings").project);
+    const layers = guideOf(loadSeed("harbour-kings", true).project);
     // the spacer by Starter decks 1 is 7.4 mm of filler where no side can take a dip: it is the
     // one part told to wait for its neighbour
     expect(layers.flatMap((l) => l.rows.filter((r) => r.noGrip)).map((r) => r.name)).toEqual([
