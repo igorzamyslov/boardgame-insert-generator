@@ -9,7 +9,7 @@ import owner5 from "../../test/fixtures/star-realms-owner-5.json";
 import { planTray } from "../geometry/plan";
 import { outerSizeText } from "../instructions/numbering";
 import { inputsHash } from "../model/hash";
-import { grooveWall } from "../model/lip";
+import { grooveWall, upperTrayMinH } from "../model/lip";
 import { parseProject } from "../model/schema";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Printer, Project, Settings, TraySpec } from "../model/types";
@@ -142,12 +142,22 @@ describe("splitRisers: the riser follows the lip setting", () => {
     }
   });
 
-  it("stays plain under a bottom tray too low for a groove (lip height + 3 mm, as any upper tray)", () => {
-    // a lower tray 4 mm high cannot give height, and cannot be a grooved upper tray either
-    const parts = splitRisers(stack({ lower: { h: 4 }, upper: { z: 4 } }), base());
+  it("stays plain under a bottom tray too low for a groove (what the groove needs, as any upper tray)", () => {
+    // a lower tray 3.6 mm high cannot give height, and cannot be a grooved upper tray either: the
+    // groove is 2.85 mm high and 0.8 mm of wall must stand above it (3.65)
+    const parts = splitRisers(stack({ lower: { h: 3.6 }, upper: { z: 3.6 } }), base());
     const riser = parts.find((t) => t.part === "riser");
     expect(riser?.lip).toBe(false);
     expect(parts.find((t) => t.key === "a:p0:0")?.onRiser).toBeUndefined();
+  });
+
+  it("takes a groove under a bottom tray of exactly what the groove needs", () => {
+    const parts = splitRisers(stack({ lower: { h: 3.65 }, upper: { z: 3.65 } }), base());
+    expect(parts.find((t) => t.part === "riser")?.lip).toBe(true);
+    const bottom = parts.find((t) => t.key === "a:p0:0") as TraySpec;
+    expect(bottom.onRiser).toBe(true);
+    expect(bottom.h).toBeCloseTo(upperTrayMinH(DEFAULT_SETTINGS), 9);
+    expect(() => planTray(bottom, DEFAULT_SETTINGS)).not.toThrow();
   });
 
   it("never prints a riser, with its lip, taller than the bed", () => {
@@ -239,9 +249,10 @@ describe("the owner's Star Realms file: risers follow the rim setting", { timeou
   it("gives the Starter stack's riser the lip and its Counter the groove", () => {
     const parts = splitRisers(plan, inputs);
     const riser = risersOf(parts).find((r) => r.stack === 0);
-    expect(riser).toMatchObject({ lip: true, z: 0, h: 9.6 });
+    // 11.6 mm: the stack's padding, now that its two 5-card trays may be as low as their groove needs
+    expect(riser).toMatchObject({ lip: true, z: 0, h: 11.6 });
     const counter = parts.find((t) => t.key === "epeanzhc:p0:0");
-    expect(counter).toMatchObject({ onRiser: true, z: 9.6, level: 0 });
+    expect(counter).toMatchObject({ onRiser: true, z: 11.6, level: 0 });
     // the trays above it are as before
     expect(parts.filter((t) => t.onRiser).map((t) => t.key)).toEqual(["epeanzhc:p0:0"]);
   });
@@ -250,8 +261,8 @@ describe("the owner's Star Realms file: risers follow the rim setting", { timeou
     const parts = risersOf(splitRisers(plan, inputs));
     const lipped = parts.find((r) => r.stack === 0) as TraySpec;
     const plain = parts.find((r) => r.stack === 1) as TraySpec;
-    // 9.6 mm and the 2 mm lip it prints
-    expect(outerSizeText(lipped, p.settings)).toMatch(/× 11\.6 mm with its lip$/);
+    // 11.6 mm and the 2 mm lip it prints
+    expect(outerSizeText(lipped, p.settings)).toMatch(/× 13\.6 mm with its lip$/);
     expect(outerSizeText(plain, p.settings)).toBe("92.7 × 88.2 × 6.4 mm");
   });
 

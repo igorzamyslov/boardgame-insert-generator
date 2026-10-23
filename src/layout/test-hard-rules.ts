@@ -206,7 +206,7 @@ export function checkHardRules(
           v.push(`${t.key}: level ${k} not flush in the tray below`);
         }
         if (settings.lip.enabled && toU(t.h) < ctx.upperMinH) {
-          v.push(`${t.key}: upper tray lower than lip.height + 3`);
+          v.push(`${t.key}: upper tray lower than its groove needs`);
         }
         const lower = stack[k - 1];
         if (lower && settings.lip.enabled) {

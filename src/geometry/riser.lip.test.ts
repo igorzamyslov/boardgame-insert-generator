@@ -73,8 +73,8 @@ describe(
     const counter = parts.find((t) => t.key === "epeanzhc:p0:0") as TraySpec;
 
     it("has a lipped riser and a grooved bottom tray to test", () => {
-      expect(riser).toMatchObject({ lip: true, h: 9.6, solid: false });
-      expect(counter).toMatchObject({ onRiser: true, level: 0, z: 9.6 });
+      expect(riser).toMatchObject({ lip: true, h: 11.6, solid: false });
+      expect(counter).toMatchObject({ onRiser: true, level: 0, z: 11.6 });
       expect(planTray(riser, settings).lip).not.toBeNull();
       expect(planTray(counter, settings).groove).toEqual(grooveOf(settings, 1));
     });

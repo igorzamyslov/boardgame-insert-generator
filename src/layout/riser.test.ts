@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { upperTrayMinH } from "../model/lip";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { StoredLayout, TraySpec } from "../model/types";
 import { realizeTray } from "../sizing/realize";
@@ -213,7 +214,7 @@ describe("splitRisers: a riser under a stack (spec §3 rule 2)", () => {
     expect(u?.z).toBeCloseTo((l?.z ?? 0) + (l?.h ?? 0), 9);
     expect(toU((u?.z ?? 0) + (u?.h ?? 0))).toBe(toU(37.6 + 30 - 8.8 + 50 - 28.8));
     expect(toU(37.6 + (30 - 8.8) + (50 - 28.8))).toBe(toU(80));
-    expect(u?.h).toBeGreaterThanOrEqual(DEFAULT_SETTINGS.lip.height + 3);
+    expect(u?.h).toBeGreaterThanOrEqual(upperTrayMinH(DEFAULT_SETTINGS));
   });
 
   describe("a filler standing in a stack level (spec: minimal trays)", () => {

@@ -176,6 +176,20 @@ export function grooveWall(s: Settings, level: number): number {
 }
 
 /**
+ * The least height of a tray that stands on a lipped part (level ≥ 1, or the bottom tray on a
+ * lipped riser), mm; 0 with the lip off. It is what its groove needs and nothing more:
+ * `zTop + MIN_FEATURE_MM`, the groove's height (lip flat + lip height + play, 2.85 mm at the
+ * defaults) and the thinnest solid wall above it (0.8 mm), 3.65 mm at the defaults. It scales with
+ * the lip height, thickness and play. The floor needs nothing of its own: the groove is in the
+ * outer wall only, and `grooveWall` and the cut rules (`planCut`, `edge`) keep every well and cut
+ * MIN_FEATURE_MM clear of it. Before 2026-10-23 sizing asked lip.height + 3 mm (5 mm) on top of this,
+ * air above shallow contents that a riser could have been.
+ */
+export function upperTrayMinH(s: Settings): number {
+  return s.lip.enabled ? bottomMinimums(s, 1).h : 0;
+}
+
+/**
  * The smallest outer footprint side and height in mm a tray at `level` can have: chamferMinimums
  * (2·(c + MIN_FEATURE_MM) and c + MIN_FEATURE_MM) for a plain bottom chamfer, and for a groove
  * 2·(reach + MIN_FEATURE_MM) across, so the flat of the bottom face keeps MIN_FEATURE_MM each

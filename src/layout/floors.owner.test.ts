@@ -3,13 +3,20 @@
 // floor thickness different on trays of the same deck?" Its Starter deck stands in one stack with
 // the Counter under it, four lipped or grooved trays. The stored plan gave them floors of 1.26,
 // 1.25, 2.35 and 11.95 mm for a Floor setting of 1.2: the Counter and Deck 1 only because their
-// heights are rounded up to the 0.2 mm layer, Deck 2 because an upper tray is at least 5 mm high
+// heights are rounded up to the 0.2 mm layer, Deck 2 because an upper tray was at least 5 mm high
 // (lip 2 + 3) for 2.65 mm of cards, and Deck 3 because it carries the stack's padding. Printed, the
 // Trade deck stood on 1.23 mm (6.43 mm of padding less the 6.4 mm riser). Now the height a tray has
 // beyond its cards is air above them, and only the padding is a raised floor.
+//
+// Then "trays higher than they need to be; the height should all go into the riser" (same day): an
+// upper tray is now only as high as its groove needs (3.65 mm), so the 5-card decks stand 4 mm
+// high (3.85 mm of floor and cards, to a layer) and the riser under the stack grows from 9.6 to
+// 11.6 mm.
 import { describe, expect, it } from "vitest";
 import owner5 from "../../test/fixtures/star-realms-owner-5.json";
+import { planTray } from "../geometry/plan";
 import { isOlderGeometryLine } from "../geometry/version";
+import { upperTrayMinH } from "../model/lip";
 import { inputsHash } from "../model/hash";
 import { parseProject } from "../model/schema";
 import type { Project, TraySpec } from "../model/types";
@@ -67,11 +74,14 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const starter = trays(plan)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
+    // Counter, the 5-card deck (4 mm: 1.2 mm of floor, 2.65 mm of well, to a 0.2 mm layer), Deck 1,
+    // Deck 3 with the stack's padding. The optimizer stacks them in this order since the 5-card
+    // deck may be low: it was Deck 1, 5-card deck, Deck 3 when that deck had to be 5 mm.
     expect(starter.map((t) => [t.h, t.lip])).toEqual([
       [8.2, true],
+      [4, true],
       [7.2, true],
-      [5, true],
-      [14.6, false],
+      [15.6, false],
     ]);
   });
 
@@ -79,9 +89,9 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const starter = trays(plan)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
-    // Counter (8.2 = 8.14 rounded up to a layer), Deck 1 (7.2 = 7.15), Deck 2 (5 for 2.65 mm of
-    // cards): all on the normal floor. Deck 3 carries the stack's 9.6 mm of padding.
-    expect(starter.map(floors)).toEqual([[1.2], [1.2], [1.2], [10.8]]);
+    // Counter (8.2 = 8.14 rounded up to a layer), Deck 2 (4 = 3.85 rounded up), Deck 1 (7.2 =
+    // 7.15): all on the normal floor. Deck 3 carries the stack's 11.6 mm of padding.
+    expect(starter.map(floors)).toEqual([[1.2], [1.2], [1.2], [12.8]]);
     const trade = trays(plan).filter((t) => t.stack === 1);
     // 35 mm for 28.57 mm of contents: 6.4 mm of padding, the 0.03 mm over a layer is headroom
     expect(trade.map(floors)).toEqual([[7.6]]);
@@ -100,18 +110,46 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const printed = trays(printableParts(plan, inputsOf(p)).trays)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
-    // riser 9.6, then 8.2, 7.2, 5 and 5 = 35
+    // riser 11.6, then 8.2, 4, 7.2 and 4 = 35 (it was 9.6, 8.2, 7.2, 5 and 5)
     expect(printed.map((t) => [t.z, t.h])).toEqual([
-      [9.6, 8.2],
-      [17.8, 7.2],
-      [25, 5],
-      [30, 5],
+      [11.6, 8.2],
+      [19.8, 4],
+      [23.8, 7.2],
+      [31, 4],
     ]);
   });
 
+  it("makes the 5-card decks only as high as they need, and the riser takes the rest", () => {
+    const printed = printableParts(plan, inputsOf(p));
+    const least = upperTrayMinH(p.settings);
+    expect(least).toBeCloseTo(3.65, 9);
+    const stack0 = trays(printed.trays)
+      .filter((t) => t.stack === 0)
+      .sort((a, b) => a.z - b.z);
+    const riser = printed.trays.find((t) => t.part === "riser" || t.merged);
+    expect(riser).toBeDefined();
+    // the two 5-card decks (Deck 2 and Deck 3) are 4 mm: 1.2 mm of floor and 2.65 mm of cards,
+    // up to the 0.2 mm layer, and no lower than their groove allows; they were 5 mm
+    const decks = stack0.filter((t) => t.h < 5);
+    expect(decks.map((t) => t.h)).toEqual([4, 4]);
+    for (const t of decks) {
+      expect(t.h).toBeGreaterThanOrEqual(least);
+      expect(() => planTray(t, p.settings), t.key).not.toThrow();
+    }
+    // 2 mm of height that was air in two trays is 2 mm more riser: 9.6 → 11.6
+    expect(stack0[0]?.z).toBe(11.6);
+    // every printed part is one the builder accepts, and the stack still reaches the box's top
+    for (const t of printed.trays) {
+      expect(() => planTray(t, p.settings), t.key).not.toThrow();
+    }
+    const top = Math.max(...stack0.map((t) => t.z + t.h));
+    expect(top).toBeCloseTo(35, 9);
+  });
+
   it("gives a tray with headroom a finger cut as deep as its well", () => {
-    // Deck 2 stands 5 mm high on a 1.2 mm floor: 3.8 mm of well for 1.6 mm of cards
-    const deck2 = trays(plan).find((t) => t.stack === 0 && t.level === 2);
+    // Deck 2 stands 4 mm high on a 1.2 mm floor: 2.8 mm of well for 1.6 mm of cards
+    const deck2 = trays(plan).find((t) => t.key === "70kgton0:p0:1");
+    expect(deck2).toMatchObject({ stack: 0, h: 4 });
     expect(deck2?.compartments[0]?.features.filter((f) => f.type === "wallCutout")).not.toEqual([]);
     for (const f of deck2?.compartments[0]?.features ?? []) {
       if (f.type === "wallCutout") {
@@ -130,6 +168,7 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const deck2 = trays(oldPlan).find((t) => t.stack === 0 && t.level === 2);
     expect(floors(deck2 as TraySpec)).toEqual([2.35]);
     const printed = trays(printableParts(oldPlan, inputsOf(p)).trays).filter((t) => t.stack === 0);
-    expect(printed.map((t) => t.z).sort((a, b) => a - b)).toEqual([9.6, 17.8, 25, 30]);
+    // the riser is derived at print time, so the old plan gets the lower upper-tray minimum too
+    expect(printed.map((t) => t.z).sort((a, b) => a - b)).toEqual([11.6, 19.8, 27, 31]);
   });
 });

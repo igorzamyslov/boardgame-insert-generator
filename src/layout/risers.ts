@@ -1,12 +1,7 @@
 import { buildable } from "../geometry/buildable";
-import { bottomMinimums } from "../model/lip";
+import { bottomMinimums, upperTrayMinH } from "../model/lip";
 import type { Lock, Printer, Settings, TraySpec } from "../model/types";
-import {
-  MIN_RISER_POCKET,
-  MIN_SPARE,
-  RISER_SUFFIX,
-  UPPER_TRAY_MIN_ABOVE_LIP,
-} from "../sizing/constants";
+import { MIN_RISER_POCKET, MIN_SPARE, RISER_SUFFIX } from "../sizing/constants";
 import { roundDownTo, roundMm, roundUpTo, toMm, toU, toUCeil, toUFloor, type U } from "./units";
 
 /** What splitRisers reads from a project. */
@@ -80,7 +75,7 @@ interface Split {
  *
  * `lipped`: the riser carries the lip and the bottom tray stands on it with a groove, as a tray
  * above level 0 does. The bottom tray is then an upper tray in what it must keep (height at least
- * lip.height + UPPER_TRAY_MIN_ABOVE_LIP and what its groove needs), the riser's lip stands above
+ * what its groove needs, `upperTrayMinH`), the riser's lip stands above
  * it within the bed, and every part is one planTray builds: a tray with too thin a wall for a
  * groove (one alone in its stack has the plain 1.6 mm), too low, or with cuts that would leave too
  * little of it, is not offered one (null).
@@ -99,12 +94,12 @@ function splitStack(
   }
   const limit = roundDownTo(toU(printer.bedZ) - (lipped ? toU(settings.lip.height) : 0), c.layer);
   // The least height a tray keeps: what its bottom edge asks, and for one standing on a lipped part
-  // (above level 0, or the bottom one on a lipped riser) lip.height + UPPER_TRAY_MIN_ABOVE_LIP.
+  // (above level 0, or the bottom one on a lipped riser) what its groove needs (upperTrayMinH).
   const leastOf = (t: TraySpec): number => {
     const upper = t.level > 0 || (lipped && t === bottom);
     return Math.max(
       bottomMinimums(settings, upper ? Math.max(1, t.level) : t.level).h,
-      upper && settings.lip.enabled ? settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP : 0,
+      upper ? upperTrayMinH(settings) : 0,
     );
   };
   const raise = new Map<TraySpec, U>(

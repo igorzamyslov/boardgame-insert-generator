@@ -1,6 +1,6 @@
 // src/sizing/headroom.test.ts
 // "Why is the floor thicker on one tray of a deck?" A tray is often taller than its contents need:
-// an upper tray is at least lip.height + 3 mm high, and every tray below the top is rounded up to
+// an upper tray is at least as high as its groove needs (3.65 mm), and every tray below the top is rounded up to
 // the layer height. realizeTray used to put all of that height under the contents as a raised
 // floor (a flat 5-card deck in a 5 mm upper tray stood on a 2.35 mm floor, its neighbour on 1.25
 // mm). With `padding` it puts that height above them instead, and only the padding (what the
@@ -28,14 +28,16 @@ const flat = (count: number, growth?: { stack: "max" }) =>
   );
 
 describe("realizeTray with padding: the height a tray must have beyond its contents is headroom", () => {
-  const part = flat(5);
+  // a single card: its well is shallower than the tray's minimum, which is what is being tested
+  const part = flat(1);
   const min = minOuter(part, s, upper);
   const need = at(part.compartments, 0).minH;
 
   it("has the contents less than the tray's minimum (so the minimum is what is being tested)", () => {
-    // 5 cards in an upper tray: the lip rule (2 + 3 mm) sets the height, not the cards
-    expect(min.h).toBe(5);
-    expect(s.floor + need).toBeLessThan(min.h - 1);
+    // a card in an upper tray: the groove (2.85 mm high, 0.8 mm of wall above it) sets the
+    // height, not the card
+    expect(min.h).toBe(3.65);
+    expect(s.floor + need).toBeLessThan(min.h - 0.5);
   });
 
   it("keeps the floor at the Floor setting at the tray's minimum height", () => {

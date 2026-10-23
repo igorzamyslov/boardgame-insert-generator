@@ -695,7 +695,7 @@ Cross-section, `u` in from the outer face, `z` up:
 | Ledge      | The next `lip.ledge` (1.7) stays at rim height. A lipped outer wall is `max(wall, thickness + ledge)` (2.9).                                                                                                                                                                                                                                                                                                               |
 | Upper tray | The same outer footprint as the tray below. Its outer wall is at least `grooveWall` (2.56 at the defaults), see below, so the groove stays under the wall and not under a well.                                                                                                                                                                                                                                            |
 | Bearing    | ≥ `ledge − 2·play − foot chamfer` (0.7) in any shifted position, as before; the upper tray also rests on the lower tray's dividers.                                                                                                                                                                                                                                                                                        |
-| Height     | The lip is not part of `tray.h`; it overlaps the upper tray. Upper trays need `h ≥ lip.height + 3`, which also leaves the outer face standing 2 mm above the groove.                                                                                                                                                                                                                                                       |
+| Height     | The lip is not part of `tray.h`; it overlaps the upper tray. Upper trays need `h ≥ zTop + 0.8` (the groove's height and the thinnest wall above it: 3.65 mm at the defaults; `lip.height + 3` until 2026-10-23), which leaves 0.8 mm of outer face standing above the groove.                                                                                                                                              |
 
 - **It replaces the inset, it is not a second setting.** The four `lip` settings keep their
   meaning (height at the outer face, thickness at the foot, ledge, play) and their defaults; there is
@@ -824,8 +824,8 @@ never taller than the print bed (its lip, with the lip on, included).
 
 **One floor under every tray (geometry 0.9.0).** The raised floor is the stack's padding and
 nothing else. A tray is often taller than its contents ask: an upper tray is at least
-`lip.height + 3` mm, and every tray below the top is rounded up to a layer. That height is air
-above the contents, never a thicker floor (a 5-card deck in a 5 mm upper tray stood on a 2.35 mm
+what its groove needs (3.65 mm; `lip.height + 3` mm until 2026-10-23), and every tray below the top is rounded up to a layer. That height is air
+above the contents, never a thicker floor (a 5-card deck in what was a 5 mm upper tray stood on a 2.35 mm
 floor, the tray under it on 1.25): `materialize` hands `realizeTray` the whole layers of padding
 (`RealizeOptions.padding`), and a compartment whose contents may not grow in height is as deep
 as the tray is without it. The floor under the deepest well is `settings.floor` wherever the
@@ -836,7 +836,7 @@ Padding under `minRiser` stays a raised floor, as before.
 a lower tray does, and the bottom tray on it has the groove (`TraySpec.onRiser`), so the first layer
 locks as every other. The riser's wall is a lipped tray's (2.9 mm at the defaults) and its pocket
 starts inside it; its lip stands above its height, which keeps the stack's sum. Only where
-`planTray` accepts the tray with a groove (walls, height of at least `lip.height + 3`, cuts): a
+`planTray` accepts the tray with a groove (walls, height of at least what the groove needs, cuts): a
 tray alone in its stack has the plain wall, so its riser stays plain.
 
 **No spare compartments (geometry 0.5.1).** `realizeTray` used to turn row slack of at least

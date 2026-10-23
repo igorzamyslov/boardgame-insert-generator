@@ -162,7 +162,9 @@ import type { Semver } from "../model/version";
  * padding, so the height a tray has beyond its cards, the 5 mm an upper tray must be and the
  * rounding up to a layer, is air above them and the floor is the Floor setting under every tray
  * (it was 1.26, 1.25 and 2.35 mm under three trays of one stack, a thicker floor wherever the tray
- * was taller than its cards), `RealizeOptions.padding`.
+ * was taller than its cards), `RealizeOptions.padding`. And in 0.9.0 too (the layout only; planTray
+ * accepted these heights before): an upper tray is only as high as its groove needs, `upperTrayMinH`
+ * (3.65 mm at the defaults), where it was lip.height + 3 mm (5 mm); the height goes into the riser.
  */
 export const GEOMETRY_VERSION = "0.9.0";
 

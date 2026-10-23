@@ -2,7 +2,6 @@ import { MIN_FEATURE_MM, MIN_WALL_MM, effectiveBottomChamfer } from "../model/se
 import { bottomEdgeOf, bottomMinimums, grooveWall } from "../model/lip";
 import type { BottomEdge } from "../model/lip";
 import type { Settings, Side } from "../model/types";
-import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import { cutoutSides } from "./common";
 import type { CompartmentReq, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, maxOf, sum } from "./units";
@@ -251,13 +250,8 @@ export function minLayoutU(
   const content =
     floor + maxOf(part.compartments.map((c) => ceilU(c.minH) + ceilU(c.floorExtra ?? 0)));
   const chamfer = chamferMinimumsU(settings, opts.level);
-  const h = Math.max(
-    content,
-    chamfer.h,
-    opts.level > 0 && settings.lip.enabled
-      ? ceilU(settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP)
-      : 0,
-  );
+  // chamfer.h is, above level 0 with the lip on, what the groove needs (upperTrayMinH).
+  const h = Math.max(content, chamfer.h);
   return {
     wall,
     divider,
