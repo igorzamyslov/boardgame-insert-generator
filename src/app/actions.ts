@@ -267,6 +267,90 @@ export function toggleSizeLock(p: Project, tray: TraySpec): Project {
   return setLock(p, { kind: "size", trayKey: tray.key, w: tray.w, d: tray.d, h: tray.h });
 }
 
+/**
+ * What a tray stands on by a stack lock that no pin comes with (a put-on, or a swap within a
+ * stack): each tray above the first of such a lock, mapped to the tray right under it.
+ */
+export function standingOn(locks: readonly Lock[]): Map<string, string> {
+  const pinned = new Set(locks.flatMap((l) => (l.kind === "position" ? [l.trayKey] : [])));
+  const on = new Map<string, string>();
+  for (const l of locks) {
+    if (l.kind !== "stack" || l.trayKeys.some((k) => pinned.has(k))) {
+      continue;
+    }
+    l.trayKeys.forEach((k, i) => {
+      const below = l.trayKeys[i - 1];
+      if (below !== undefined) {
+        on.set(k, below);
+      }
+    });
+  }
+  return on;
+}
+
+/**
+ * The stack lock "Put on…" writes: the trays under the base, the base, then the tray, in that
+ * order. The base's stack is its stack lock's order while it has one, else the stored plan's
+ * (the trays at its path). Null without a plan, when either tray is not in it, or for one tray.
+ */
+export function putOnKeys(p: Project, trayKey: string, baseKey: string): string[] | null {
+  const trays = (p.layout?.trays ?? []).filter((t) => t.part === "tray");
+  const base = trays.find((t) => t.key === baseKey);
+  if (!base || trayKey === baseKey || !trays.some((t) => t.key === trayKey)) {
+    return null;
+  }
+  const lock = p.locks.find((l) => l.kind === "stack" && l.trayKeys.includes(baseKey));
+  const stack =
+    lock?.kind === "stack"
+      ? lock.trayKeys
+      : trays
+          .filter((t) => t.path === base.path)
+          .sort((a, b) => a.level - b.level)
+          .map((t) => t.key);
+  const under = stack.slice(0, stack.indexOf(baseKey) + 1).filter((k) => k !== trayKey);
+  return [...under, trayKey];
+}
+
+/**
+ * The locks after standing a tray on another: the stack lock of `putOnKeys` with no position
+ * lock, so the pair moves anywhere together. Stack locks that share a tray with it are replaced.
+ * Whether that works is `canPutOn`'s question (src/app/dryRun.ts).
+ */
+export function putOnLocks(p: Project, trayKey: string, baseKey: string): Lock[] | null {
+  const keys = putOnKeys(p, trayKey, baseKey);
+  if (!keys) {
+    return null;
+  }
+  const rest = p.locks.filter(
+    (l) => !(l.kind === "stack" && l.trayKeys.some((k) => keys.includes(k))),
+  );
+  return [...rest, { kind: "stack", trayKeys: keys }];
+}
+
+/** Stands the tray on the base (`putOnLocks`); the next run reports any lock it cannot keep. */
+export function putTrayOn(p: Project, trayKey: string, baseKey: string): Project {
+  const locks = putOnLocks(p, trayKey, baseKey);
+  return locks ? { ...p, locks } : p;
+}
+
+/**
+ * Takes a tray off what it stands on: out of its stack lock, which stays for the trays that are
+ * left (one tray alone is no stack). The rail's "On …" chip. Pins are not touched.
+ */
+export function takeOff(p: Project, trayKey: string): Project {
+  if (!standingOn(p.locks).has(trayKey)) {
+    return p;
+  }
+  const locks = p.locks.flatMap((l): Lock[] => {
+    if (l.kind !== "stack" || !l.trayKeys.includes(trayKey)) {
+      return [l];
+    }
+    const left = l.trayKeys.filter((k) => k !== trayKey);
+    return left.length > 1 ? [{ kind: "stack", trayKeys: left }] : [];
+  });
+  return { ...p, locks };
+}
+
 export function swapTrays(p: Project, keyA: string, keyB: string): Project {
   if (!p.layout) {
     return p;

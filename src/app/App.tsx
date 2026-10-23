@@ -76,6 +76,8 @@ import {
   setGroupAccess,
   setGroupCopies,
   setSettings,
+  putTrayOn,
+  takeOff,
   swapTrays,
   sizeLockedKeys,
   takeOutOfGroup,
@@ -85,6 +87,9 @@ import {
   updateComponent,
 } from "./actions";
 import type { EditResult } from "./actions";
+import { trayNames } from "../instructions/naming";
+import { numberParts } from "../instructions/numbering";
+import { canPutOn } from "./dryRun";
 import { downloadBlob } from "./download";
 import { useGuideHistory } from "./guideHistory";
 import type { MeshSource } from "./meshes";
@@ -561,7 +566,8 @@ export function App(props: AppProps) {
     onSelect: (key: string | null) => {
       s.selection.value = key;
     },
-    onSwapFromChange: (key: string | null) => {
+    onSwapFromChange: (key: string | null, mode: "swap" | "putOn" = "swap") => {
+      s.pickMode.value = mode;
       s.swapFrom.value = key;
     },
     onEditComponent: editComponent,
@@ -782,6 +788,7 @@ export function App(props: AppProps) {
       onUnlockSize={(keys) =>
         store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
       }
+      onTakeOff={(keys) => store.edit((q) => keys.reduce(takeOff, q))}
       onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
       onNote={(text) => {
         noteSeq.current += 1;
@@ -952,6 +959,7 @@ export function App(props: AppProps) {
         phone
         inPlan={view === "plan"}
         swapFrom={view === "plan" ? s.swapFrom.value : null}
+        pickMode={s.pickMode.value}
       />
     ) : null;
   // What every stage has: the app's notices and live regions (always mounted, so a region is there
@@ -1020,8 +1028,20 @@ export function App(props: AppProps) {
         stale: s.stale.value,
         searching: run.status === "running",
         swapFrom: s.swapFrom.value,
-        onSwapFromChange: (key: string | null) => {
+        onSwapFromChange: (key: string | null, mode: "swap" | "putOn" = "swap") => {
+          s.pickMode.value = mode;
           s.swapFrom.value = key;
+        },
+        pick: s.pickMode.value,
+        onPutOn: (trayKey: string, baseKey: string): string | null => {
+          const names = trayNames(numberParts(printable), project.components, project.groups);
+          const name = (key: string): string => names.get(key)?.full ?? "This tray";
+          const check = canPutOn(project, trayKey, baseKey, name, s.foreign.value);
+          if (!check.ok) {
+            return check.reason ?? "That doesn't work.";
+          }
+          store.edit((q) => putTrayOn(q, trayKey, baseKey));
+          return null;
         },
         onSwap: (a: string, b: string) => store.edit((q) => swapTrays(q, a, b)),
         sizeLockedKeys: sizeLocked,
@@ -1172,6 +1192,7 @@ export function App(props: AppProps) {
                         phone={false}
                         inPlan
                         swapFrom={s.swapFrom.value}
+                        pickMode={s.pickMode.value}
                       />
                     ) : phone ? undefined : (
                       (removedToast ?? undefined)

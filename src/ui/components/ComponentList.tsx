@@ -1,6 +1,9 @@
 // src/ui/components/ComponentList.tsx
 import type { ComponentChildren } from "preact";
-import { useContext, useEffect, useRef } from "preact/hooks";
+import { useContext, useEffect, useMemo, useRef } from "preact/hooks";
+import { standingOn } from "../../app/actions";
+import { trayNames } from "../../instructions/naming";
+import { numberParts } from "../../instructions/numbering";
 import { GripIcon, ListRow, RuleChip } from "../../kit";
 import { groupById, railEntries } from "../../model/groups";
 import type { Component, Group, Lock, TraySpec } from "../../model/types";
@@ -48,6 +51,8 @@ export interface ComponentListProps {
   onFreeTurn?: (trayKeys: string[]) => void;
   /** The size locks of these trays come off. */
   onUnlockSize?: (trayKeys: string[]) => void;
+  /** The trays come off what they stand on (an "On …" chip's ×). */
+  onTakeOff?: (trayKeys: string[]) => void;
   /**
    * An item was dragged by its grip (desktop and tablet, never the phone's sheet) into a group, out
    * of one, or to another place in its group's order; a drop that changes nothing is not reported.
@@ -57,17 +62,23 @@ export interface ComponentListProps {
 
 interface Chip {
   label: string;
-  kind: "pin" | "turn" | "size";
+  kind: "pin" | "turn" | "size" | "on";
+  /** An "On …" chip: the tray it stands on. */
+  base?: string;
   trayKeys: string[];
 }
 
 /**
  * One chip per rule the trays of an owner (an ungrouped item, or a group) are under: pins (turned
- * or not), turns and size locks. A turn under a pin of the same tray is the pin's (it says "Pinned,
- * turned" when the pin holds the turn), so it has no chip of its own. The owner's id is the stem of
- * its trays' keys.
+ * or not), turns, size locks and put-ons. A turn under a pin of the same tray is the pin's (it says "Pinned,
+ * turned" when the pin holds the turn), so it has no chip of its own; and "On <tray>" for a tray put
+ * on another. The owner's id is the stem of its trays' keys.
  */
-function chipsOf(ownerId: string, locks: readonly Lock[]): Chip[] {
+function chipsOf(
+  ownerId: string,
+  locks: readonly Lock[],
+  baseName: (trayKey: string) => string,
+): Chip[] {
   const prefix = `${ownerId}:`;
   const mine = locks.filter((l) => l.kind !== "stack" && l.trayKey.startsWith(prefix));
   const chips: Chip[] = [];
@@ -93,6 +104,17 @@ function chipsOf(ownerId: string, locks: readonly Lock[]): Chip[] {
   for (const l of mine) {
     if (l.kind === "size") {
       add("Size locked", "size", l.trayKey);
+    }
+  }
+  // A tray that stands on another by a stack lock without a pin: "On <that tray>" (not a pin).
+  for (const [trayKey, below] of standingOn(locks)) {
+    if (trayKey.startsWith(prefix)) {
+      const base = baseName(below);
+      add(`On ${base}`, "on", trayKey);
+      const chip = chips.find((x) => x.label === `On ${base}`);
+      if (chip) {
+        chip.base = base;
+      }
     }
   }
   return chips;
@@ -175,6 +197,7 @@ export function ComponentList({
   onUnpin,
   onFreeTurn,
   onUnlockSize,
+  onTakeOff,
   onDrop,
 }: ComponentListProps) {
   const notices = useContext(ValidationContext);
@@ -239,6 +262,15 @@ export function ComponentList({
     },
     [],
   );
+  // What a chip calls the tray under a tray: its name in the plan, or its item's while there is none.
+  const names = useMemo(
+    () => (trays === undefined ? undefined : trayNames(numberParts(trays), components, groups)),
+    [trays, components, groups],
+  );
+  const baseName = (trayKey: string): string =>
+    names?.get(trayKey)?.full ??
+    components.find((c) => trayKey.startsWith(`${c.id}:`))?.name ??
+    "another tray";
   const entries = railEntries({ components, groups });
   if (entries.length === 0 && first === undefined) {
     return null;
@@ -261,7 +293,9 @@ export function ComponentList({
                   ? `Unpin ${who}${inStack(chip.trayKeys, locks) ? " and its stack" : ""}`
                   : chip.kind === "turn"
                     ? `Let ${who} turn`
-                    : `Unlock size of ${who}`
+                    : chip.kind === "on"
+                      ? `Take ${who} off ${chip.base ?? "the tray under it"}`
+                      : `Unlock size of ${who}`
               }
               onClick={(e) => {
                 pressed.current = {
@@ -274,12 +308,20 @@ export function ComponentList({
                   onUnpin?.(chip.trayKeys);
                 } else if (chip.kind === "turn") {
                   onFreeTurn?.(chip.trayKeys);
+                } else if (chip.kind === "on") {
+                  onTakeOff?.(chip.trayKeys);
                 } else {
                   onUnlockSize?.(chip.trayKeys);
                 }
               }}
             >
-              {chip.label}
+              {chip.kind === "on" ? (
+                <span class="rail-chip__text" title={chip.label}>
+                  {chip.label}
+                </span>
+              ) : (
+                chip.label
+              )}
             </RuleChip>
           </li>
         ))}
@@ -345,7 +387,12 @@ export function ComponentList({
                 pressed={members.some(({ c }) => selectedIds.includes(c.id))}
                 lit={members.some(({ c }) => lit?.has(c.id) === true)}
                 compact={compact}
-                chips={chipsFor(group.id, name, "data-group-head", chipsOf(group.id, locks))}
+                chips={chipsFor(
+                  group.id,
+                  name,
+                  "data-group-head",
+                  chipsOf(group.id, locks, baseName),
+                )}
                 onEdit={() => onEditGroup?.(group.id)}
                 onEditItem={onOpen}
                 onLight={onLight}
@@ -361,7 +408,7 @@ export function ComponentList({
         }
         const { name, who, problem, summary } = viewOf(c, i);
         const layer = layerOfComponent(i, components, trays);
-        const chips = chipsOf(c.id, locks);
+        const chips = chipsOf(c.id, locks, baseName);
         // an error in the editor is the nearer problem: it is told first
         const culprit = !problem && culprits?.has(c.id) === true;
         // The sheet's row has no room for the layer: the box shows it.

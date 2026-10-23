@@ -95,11 +95,13 @@ const RAIL = [
   "no-fit-bed",
   "pin-conflict",
   "workspace-turned",
+  "workspace-put-on",
   ...FLAT_DECKS,
 ] as const;
 const SHEET = [
   "m-workspace",
   "m-turned",
+  "m-put-on",
   "m-workspace-add",
   "m-workspace-rules",
   "m-fix",
@@ -159,6 +161,11 @@ const VOLUME_RULINGS: readonly CopyRuling[] = [
 const PIN_CONFLICT = ["pin-conflict", "m-pin-conflict"] as const;
 // Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
 const MORE = "More holds Swap with… and Lock size";
+// 0.15.0: Put on… (a stack lock without a position: the pair moves anywhere together)
+const PUT_ON = "Put on… stands one tray on another";
+/** The states that draw a put-on: the plan's prompt while the base is chosen, and the rail after it. */
+const PUT_ON_PICK = ["workspace-put-on-pick", "m-put-on-pick"] as const;
+const PUT_ON_CHIP = ["workspace-put-on", "m-put-on"] as const;
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
 const PIN_WORDS = "Pin and Turn say what they hold";
 const TRAY_SHEET = "A phone's tray bar is a modal sheet";
@@ -167,6 +174,7 @@ const BAR_STATES = [
   "workspace-tray",
   "workspace-tray-more",
   "workspace-tray-spacer",
+  "workspace-put-on-pick",
   "kit-rail",
 ] as const;
 const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
@@ -567,7 +575,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Bed {n} × {n} mm", states: RAIL, ruling: BED },
   {
     text: "Clear all my choices",
-    states: ["m-workspace-rules", "m-pin-conflict", "m-turned"],
+    states: ["m-workspace-rules", "m-pin-conflict", "m-turned", "m-put-on"],
     ruling: CLEAR,
   },
   { text: "bottom layer", states: RAIL, ruling: SUMMARY },
@@ -690,10 +698,43 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: MORE,
   },
   {
+    text: "Put on…",
+    states: ["workspace-tray-more", "m-tray-more", "m-tray-market", ...PUT_ON_PICK],
+    ruling: PUT_ON,
+  },
+  {
     text: "Lock size",
     states: ["workspace-tray-more", "m-tray-more", "m-tray-market"],
     ruling: MORE,
   },
+  { text: "Pick the tray to put {name} on.", states: PUT_ON_PICK, ruling: PUT_ON },
+  {
+    text: "Spare trays and spacers can't be stood on. Pick another tray.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  { text: "On {name}", states: PUT_ON_CHIP, ruling: PUT_ON },
+  {
+    text: "Trays put on another stay on it when the plan updates.",
+    states: PUT_ON_CHIP,
+    ruling: PUT_ON,
+  },
+  {
+    text: "{name} is pinned. Unpin it before you put trays on it.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  {
+    text: "{name} already has {n} trays on it. A stack holds at most {n}.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  {
+    text: "{name} doesn't go on {name}: the stack is taller than the space in the box.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  { text: "Pick another tray to put it on.", states: PUT_ON_PICK, ruling: PUT_ON },
   { text: "Unlock size", states: ["workspace-tray-more", "m-tray-more"], ruling: MORE },
   {
     text: "Fills the gap so the trays can't slide. Print it too. {size}",
