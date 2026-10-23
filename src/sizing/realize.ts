@@ -912,10 +912,15 @@ function cutHeightU(min: MinLayout): number {
 
 /**
  * A tray above level 0 with the lip on is as low as its groove allows (`upperTrayMinH`), and there
- * a cut with no floor notch (custom pieces, minis, bulk) has no wall left to leave through, so the
- * tray would be refused for want of a finger cut. Such a part is as tall as `cutHeightU` instead:
- * only the part that needs it, not every upper tray. A part that still cannot be cut keeps its
- * minimum, so realizeTray refuses it (CutFitError) as before.
+ * a cut with no floor notch has no wall left to leave through, so the tray would be refused for
+ * want of a finger cut. Such a part is as tall as `cutHeightU` instead: only the part that needs
+ * it, not every upper tray. A part that still cannot be cut keeps its minimum, so realizeTray
+ * refuses it (CutFitError) as before.
+ *
+ * Sizing asks for a plain cut only of a custom piece or figure 20 mm tall or more (a shorter one is
+ * notched, `pieceCutout`) and of bulk bins, whose trays are far taller than `cutHeightU` anyway, so
+ * this raises nothing sizing makes today; it stays for a request that does (and for specs and
+ * tests that build one by hand).
  */
 function withCutRoom(
   part: TrayPartReq,

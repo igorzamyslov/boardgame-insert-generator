@@ -123,6 +123,23 @@ export function partOfGroup(
 }
 
 /**
+ * `part` with every wall cutout asking for the plain half-deep cut with no floor notch, as taller
+ * custom items, minis and bins do. Sizing no longer makes such a cut on a low tray (a short piece
+ * is notched), so a test of the room a plain cut needs on one builds the request by hand.
+ */
+export function withPlainCuts(part: TrayPartReq): TrayPartReq {
+  return {
+    ...part,
+    compartments: part.compartments.map((c) => ({
+      ...c,
+      features: c.features.map((f) =>
+        f.type === "wallCutout" ? { ...f, depthFraction: 0.5, floorNotch: false } : f,
+      ),
+    })),
+  };
+}
+
+/**
  * The part `partIndex` of variant `variantId` of the first requirement size() would make from
  * `components` (the first component's group, when `groups` names it), before size() drops the variants where a
  * compartment gets no finger cut, so tests can realize those too. Built from size()'s own pieces.
