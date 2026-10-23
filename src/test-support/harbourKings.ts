@@ -59,23 +59,23 @@ export interface Tuning {
 export const NO_TUNING: Tuning = { settings: {}, components: {} };
 
 /**
- * What `npm run seeds` found (see Tuning): a clearance of its own on each component (2 to 10 mm),
- * the first one its last pass reached that puts the Heroes in a short bottom layer and leaves no
- * sliver of a spacer in the plan or the no-fit plan. Every simpler
- * tuning (Settings values, deck sleeves, one clearance on all) came first in its order and did not,
- * since 0.5.3 keeps one item's trays in one stack. Counts and names the rail shows are never in it.
+ * What `npm run seeds` found (see Tuning): one clearance of 3 mm on every component, the first of
+ * its tries that puts the Heroes in a short bottom layer and leaves no sliver of a spacer in the
+ * plan or the no-fit plan (the Settings values and deck sleeves came first and did not). Before
+ * 0.15.0 it took a clearance of its own on each component (2 to 10 mm). Counts and names the rail
+ * shows are never in it.
  */
 export const LAYER_TUNING: Tuning = {
   settings: {},
   components: {
-    market01: { clearance: 7 },
-    starter1: { clearance: 6.5 },
-    events01: { clearance: 7.5 },
-    coins001: { clearance: 3.5 },
-    resourc1: { clearance: 2 },
-    dice0001: { clearance: 8 },
-    hextiles: { clearance: 8.5 },
-    heroes01: { clearance: 5 },
+    market01: { clearance: 3 },
+    starter1: { clearance: 3 },
+    events01: { clearance: 3 },
+    coins001: { clearance: 3 },
+    resourc1: { clearance: 3 },
+    dice0001: { clearance: 3 },
+    hextiles: { clearance: 3 },
+    heroes01: { clearance: 3 },
   },
 };
 
@@ -152,7 +152,7 @@ function untuned(): Project {
         name: "Heroes",
         access: "setup",
         kind: "minis",
-        figures: [{ name: "Hero", w: 30, d: 30, h: 38, count: 6 }],
+        figures: [{ name: "Hero", w: 30, d: 30, h: 38, count: 6, keepUpright: true }],
         storage: "pockets",
       },
     ],
@@ -260,7 +260,8 @@ export function harbourKingsKit(): Project {
 /**
  * The kit with a Hero that is too long for one copy to fit the print bed beside its other
  * compartments, so the Player kit splits ("Player kit 1a" and "1b"). `length` is the Hero's
- * footprint (mm); `npm run seeds` checks the outcome.
+ * footprint (mm); `npm run seeds` checks the outcome. The Hero stands (`keepUpright`): left free it
+ * may lie on any side or turn in plan, and at 140 mm the Player kit no longer split.
  */
 export function harbourKingsKitSplit(length = 140): Project {
   const kit = harbourKingsKit();
@@ -269,7 +270,10 @@ export function harbourKingsKitSplit(length = 140): Project {
     id: "harbkit2",
     components: kit.components.map((c) =>
       c.id === "kithero1" && c.kind === "minis"
-        ? { ...c, figures: [{ name: "Hero", w: length, d: 30, h: 38, count: 1 }] }
+        ? {
+            ...c,
+            figures: [{ name: "Hero", w: length, d: 30, h: 38, count: 1, keepUpright: true }],
+          }
         : c,
     ),
   };
