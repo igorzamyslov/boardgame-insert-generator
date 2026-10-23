@@ -93,12 +93,12 @@ describe("InsertSettings: how the trays sit", () => {
     expect(onChange).toHaveBeenLastCalledWith(applyFitChoice(DEFAULT_SETTINGS, "tight"));
   });
 
-  it("offers Walls as Light, Standard, Sturdy and Custom, and writes the resolved value", () => {
+  it("offers Walls as Thin, Standard, Sturdy and Custom, and writes the resolved value", () => {
     const onChange = vi.fn();
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const walls = within(screen.getByRole("group", { name: "Walls" }));
     expect(walls.getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "Light",
+      "Thin",
       "Standard",
       "Sturdy",
       "Custom",
@@ -108,8 +108,14 @@ describe("InsertSettings: how the trays sit", () => {
     );
     fireEvent.click(walls.getByRole("button", { name: "Sturdy" }));
     expect(onChange).toHaveBeenLastCalledWith(applyWallChoice(DEFAULT_SETTINGS, "sturdy"));
-    fireEvent.click(walls.getByRole("button", { name: "Light" }));
+    fireEvent.click(walls.getByRole("button", { name: "Thin" }));
     expect(onChange).toHaveBeenLastCalledWith(applyWallChoice(DEFAULT_SETTINGS, "thin"));
+    // Thin is the floors and the dividers as well, not the wall alone
+    expect(applyWallChoice(DEFAULT_SETTINGS, "thin")).toMatchObject({
+      wall: 1,
+      floor: 1,
+      divider: 1,
+    });
     // no dot and no line while the wall is a choice
     expect(screen.queryByRole("img", { name: "Changed" })).toBeNull();
     expect(screen.queryByText(/You set the wall/)).toBeNull();
@@ -128,6 +134,14 @@ describe("InsertSettings: how the trays sit", () => {
     fireEvent.click(walls.getByRole("button", { name: "Custom" }));
     expect(onChange).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(field(WALL));
+  });
+
+  it("shows Custom when only the floor or the dividers differ from the choice, and says which", () => {
+    render(<InsertSettings settings={changedFrom({ floor: 1 })} onChange={vi.fn()} />);
+    const walls = within(screen.getByRole("group", { name: "Walls" }));
+    expect(walls.getByRole("button", { name: "Custom" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("You set the floor or the dividers below.")).toBeTruthy();
+    expect(screen.queryByText(/You set the wall to/)).toBeNull();
   });
 
   it("takes Custom to the Wall number even from another group or a search", () => {

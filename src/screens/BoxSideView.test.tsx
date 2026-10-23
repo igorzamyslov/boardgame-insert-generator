@@ -37,8 +37,8 @@ describe("BoxSideView", () => {
     const p = harbour();
     const { container } = draw(p);
     const trays = p.layout?.trays ?? [];
-    // the cut is through the middle of the deepest stack (the one that stands in two levels): y = 114.6
-    const y0 = 38.4 + 152.3 / 2;
+    // the cut is through the middle of the deepest stack (the one that stands in two levels): y = 49.9
+    const y0 = 99.8 / 2;
     const crossed = trays.filter((t) => t.part !== "spacer" && t.y <= y0 && y0 < t.y + t.d);
     expect(crossed.length).toBe(4);
     const blocks = [...container.querySelectorAll<HTMLElement>(".bx-tray")];

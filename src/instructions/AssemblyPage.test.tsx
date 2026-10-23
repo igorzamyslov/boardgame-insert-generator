@@ -621,7 +621,7 @@ describe("AssemblyPage: taking it out", () => {
     ).toEqual([]);
   });
 
-  it("lifts the two strips of Harbour Kings by their finger dips, so nothing is left without a grip", () => {
+  it("lifts the strip beside the Event cards by its finger dip, and flags the one spacer left without a grip", () => {
     const { project } = loadSeed("harbour-kings");
     const trays = printableParts(project.layout?.trays ?? [], {
       components: project.components,
@@ -636,7 +636,10 @@ describe("AssemblyPage: taking it out", () => {
         onBack={vi.fn()}
       />,
     );
-    expect(screen.queryByRole("note")).toBeNull();
+    // the spacer by Starter decks 1 is 7.4 mm of filler with no side a dip can use: the page says so
+    const flag = document.querySelector(".assembly-takeout__flag");
+    expect(flag?.textContent).toContain("Spacer by Starter decks 1");
+    expect(flag?.textContent).not.toContain("Spacer by Event cards");
     const top = screen.getByRole("region", { name: "Layer 2 (top)" });
     const lines = [...top.querySelectorAll("tbody tr")].map((tr) => [
       tr.querySelector("th")?.textContent,

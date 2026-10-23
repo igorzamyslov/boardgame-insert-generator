@@ -1,4 +1,5 @@
 import { growthOf, togglesOf, type Toggles } from "../model/defaults";
+import { packingOf } from "../model/settings";
 import type { BulkComponent, BulkItem, Component, GrowthMode, Settings } from "../model/types";
 import {
   compartment,
@@ -101,6 +102,11 @@ export function bulkCompartment(
   });
 }
 
+/** The packing an item sets for its own pile; the other kinds, which fall back to a bin, have none. */
+function ownPacking(c: Component): number | undefined {
+  return c.kind === "bulk" || c.kind === "minis" ? c.packing : undefined;
+}
+
 /** Pieces of one kind and size, piled loose. */
 export interface Pieces {
   name: string;
@@ -130,7 +136,7 @@ export function binOptions(
         on,
         modes,
         `${itemLabel(c, p.name)} ×${p.count}`,
-        bulkLine(p, clearance, s.packingFactor),
+        bulkLine(p, clearance, packingOf({ packing: ownPacking(c) }, s)),
         shape,
       ),
     ]),
@@ -156,7 +162,7 @@ export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
           on,
           modes,
           itemContents(c, item),
-          bulkLine(item, clearance, s.packingFactor),
+          bulkLine(item, clearance, packingOf(c, s)),
           shape,
         ),
       ]),

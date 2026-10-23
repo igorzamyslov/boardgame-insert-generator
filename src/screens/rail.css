@@ -192,6 +192,14 @@
   list-style: none;
 }
 
+/* "On <tray>" carries a tray's name: cut to keep the row beside it wide enough (the whole is in its title). */
+.rail-chip__text {
+  display: block;
+  max-width: 84px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .rail-chips > li {
   margin: 0;
   padding: 0;

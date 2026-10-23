@@ -89,6 +89,23 @@ describe("bulkOptions", () => {
     ).toBeCloseTo(41.4, 9);
   });
 
+  it("an item's own packing replaces the insert's, for that item only", () => {
+    const own = bulk({
+      packing: 0.8,
+      items: [
+        { name: "Cubes", count: 30, w: 10, d: 10, h: 10 },
+        { name: "Coins", volumeMl: 50 },
+      ],
+    });
+    // 30 · 10³ / 0.8, not / 0.5
+    expect(line(own).minVolume).toBe(37500);
+    // a pile given as a volume has no packing to scale
+    expect(line(own, s, 0, 1).minVolume).toBe(50000);
+    // the insert's number still decides for an item with none
+    expect(line(bulk(), { ...s, packingFactor: 0.8 }).minVolume).toBe(37500);
+    expect(line(own, { ...s, packingFactor: 0.25 }).minVolume).toBe(37500);
+  });
+
   it("a smaller packing factor needs more volume", () => {
     expect(line(bulk(), { ...s, packingFactor: 0.25 }).minVolume).toBe(120000);
   });

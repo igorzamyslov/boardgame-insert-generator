@@ -72,6 +72,9 @@ const TRAY_BAR = '[data-region="tray-bar"]';
 const SELECT_HEROES = {
   click: { role: "button", name: /^Heroes/, in: '[data-region="stage"]' },
 };
+const SELECT_COINS = {
+  click: { role: "button", name: /^Coins and cubes/, in: '[data-region="stage"]' },
+};
 const SELECT_MARKET = {
   click: { role: "button", name: /^Market deck/, in: '[data-region="stage"]' },
 };
@@ -503,6 +506,35 @@ export const STATES = {
       { click: { role: "button", name: "More", in: TRAY_BAR } },
       { click: { role: "button", name: "Swap with…", in: TRAY_BAR } },
       { waitFor: { text: /Choose the tray to swap with/ } },
+    ],
+  },
+  // Put on… under way: More stays open on the pressed item, and the slot says what to do.
+  "workspace-put-on-pick": {
+    board: "Main",
+    boardOpts: { state: { sel: "market" } },
+    nearest: "no board of its own: Main's tray bar and the swap's pill",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      SELECT_MARKET,
+      { click: { role: "button", name: "More", in: TRAY_BAR } },
+      { click: { role: "button", name: "Put on…", in: TRAY_BAR } },
+      { waitFor: { text: /Pick the tray to put Market deck on/ } },
+    ],
+  },
+  // Market deck put on Coins and cubes: the "On Coins and cubes" chip beside its row, and the rules note.
+  "workspace-put-on": {
+    board: "Main",
+    boardOpts: { state: { pins: { market: { x: 0, y: 0, layer: "bottom" } } } },
+    nearest: "Main `workspace-rules`: no board draws the On chip",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      SELECT_MARKET,
+      { click: { role: "button", name: "More", in: TRAY_BAR } },
+      { click: { role: "button", name: "Put on…", in: TRAY_BAR } },
+      SELECT_COINS,
+      { waitFor: { role: "button", name: "Take Market deck off Coins and cubes" } },
     ],
   },
   // A spacer: a swatch, its name, one line and Close. The seed's spacers are on its top layer.
@@ -1252,6 +1284,34 @@ export const STATES = {
       { click: { role: "button", name: /^More options/, in: '[data-region="sheet"]' } },
       { click: { role: "button", name: /^Group/, in: '[data-region="sheet"]' } },
       { waitFor: { role: "button", name: "Take out of group" } },
+    ],
+  },
+  "m-put-on-pick": {
+    board: "MobileTray",
+    nearest: "no board of its own: MobileTray's tiles, the sheet folded away for the plan",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: [
+      SELECT_MARKET,
+      { click: { role: "button", name: "More", in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: "Put on…", in: '[data-region="sheet"]' } },
+      { waitFor: { text: /Pick the tray to put Market deck on/ } },
+    ],
+  },
+  "m-put-on": {
+    board: "MobileWorkspace",
+    nearest: "MobileWorkspace: no board draws the On chip",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: [
+      SELECT_MARKET,
+      { click: { role: "button", name: "More", in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: "Put on…", in: '[data-region="sheet"]' } },
+      SELECT_COINS,
+      // the chip is in the rail's sheet: close the tray's sheet, open What's inside
+      { click: { role: "button", name: "Close", in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /What's inside/ } },
+      { waitFor: { role: "button", name: "Take Market deck off Coins and cubes" } },
     ],
   },
   "m-turned": {

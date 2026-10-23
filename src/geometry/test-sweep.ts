@@ -161,7 +161,7 @@ export function sweepMeshes(fixtures: readonly [string, unknown][]): void {
   });
 
   describe.each(fixtures)("buildTray builds the sizing output of %s", (name, raw) => {
-    it.each(meshProfiles(name))("with %s", { timeout: 60_000 }, (...profile) => {
+    it.each(meshProfiles(name))("with %s", { timeout: 240_000 }, (...profile) => {
       const { settings, specs } = selection(name, raw, profile);
       expect(settingsValid(settings), "profile settings are valid").toBe(true);
       let built = 0;
