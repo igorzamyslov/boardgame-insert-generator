@@ -7,7 +7,7 @@ import { errorText } from "../util/errors";
 import { explodedView } from "./exploded";
 import { svgDataUrl, svgToPng } from "./png";
 import "./assembly.css";
-import { layerInfo, packingSteps, render, whatGoesWhere } from "./render";
+import { packingGuide, render } from "./render";
 
 export interface AssemblyPageProps {
   project: Project;
@@ -25,15 +25,8 @@ const PNG_WIDTH_PX = 1600;
 export function AssemblyPage(p: AssemblyPageProps) {
   const svgs = useMemo(() => render(p.layout, p.project), [p.layout, p.project]);
   const exploded = useMemo(() => explodedView(p.layout, p.project), [p.layout, p.project]);
-  const steps = useMemo(
-    () => packingSteps(p.layout, p.project.components, p.project.groups),
-    [p.layout, p.project.components, p.project.groups],
-  );
-  const layers = useMemo(
-    () => layerInfo(p.layout, p.project.components, p.project.groups),
-    [p.layout, p.project.components, p.project.groups],
-  );
-  const rows = useMemo(() => whatGoesWhere(p.layout, p.project), [p.layout, p.project]);
+  // One block per layer, bottom first: its parts in the order to put them in the box.
+  const layers = useMemo(() => packingGuide(p.layout, p.project), [p.layout, p.project]);
   const [pngError, setPngError] = useState<string | null>(null);
   // One PNG at a time: the ref stops a double click before the state has re-rendered.
   const making = useRef(false);
@@ -80,7 +73,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
       </div>
       <h1 id="assembly-title" tabIndex={-1}>{`${p.project.name} — packing guide`}</h1>
       <p class="assembly-meta">
-        {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above, with the front of the box at the bottom.`}
+        {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Pack from the bottom layer up. Layers are drawn from above, with the front of the box at the bottom.`}
       </p>
       {/* always mounted, so the reader is told when the plan goes out of date while the guide is open */}
       <div role="status" class="no-print">
@@ -101,14 +94,6 @@ export function AssemblyPage(p: AssemblyPageProps) {
         </p>
       ) : (
         <>
-          <section aria-labelledby="packing-title">
-            <h2 id="packing-title">Packing order (bottom first)</h2>
-            <ol>
-              {steps.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ol>
-          </section>
           {exploded !== null ? (
             <section class="assembly-exploded" aria-labelledby="exploded-title">
               <h2 id="exploded-title">How it goes together</h2>
@@ -133,103 +118,97 @@ export function AssemblyPage(p: AssemblyPageProps) {
               </Button>
             </section>
           ) : null}
-          <div class="assembly-layers">
-            {svgs.map((svg, i) => {
-              const layer = i + 1;
-              const info = layers[i];
-              const title = info?.title ?? `Layer ${layer}`;
-              const trays = info?.trays ?? [];
-              const alt =
-                trays.length > 0
-                  ? `${title}: ${trays.length === 1 ? "tray" : "trays"} ${trays.join(", ")}`
-                  : `${title}: named trays seen from above`;
-              return (
-                <section class="assembly-layer" key={i} aria-labelledby={`layer-title-${layer}`}>
-                  <h2 id={`layer-title-${layer}`}>{title}</h2>
-                  <img class="assembly-svg" src={svgDataUrl(svg)} alt={alt} />
-                  <Button
-                    variant="secondary"
-                    class="no-print"
-                    aria-disabled={busy || p.stale ? "true" : undefined}
-                    onClick={() => {
-                      if (!busy && !p.stale) {
-                        void savePng(svg, `layer-${layer}`);
-                      }
-                    }}
-                  >
-                    {`Download PNG of layer ${layer}`}
-                  </Button>
-                </section>
-              );
-            })}
-          </div>
-          <section aria-labelledby="parts-title">
-            <h2 id="parts-title">What goes where</h2>
-            <table class="parts-table" role="table">
-              <caption class="visually-hidden">Which tray goes where</caption>
-              <thead role="rowgroup">
-                <tr role="row">
-                  <th role="columnheader" scope="col">
-                    Name
-                  </th>
-                  {engraving ? (
-                    <th role="columnheader" scope="col">
-                      Engraved as
-                    </th>
-                  ) : null}
-                  <th role="columnheader" scope="col">
-                    Size
-                  </th>
-                  <th role="columnheader" scope="col">
-                    Position
-                  </th>
-                  <th role="columnheader" scope="col">
-                    Layer
-                  </th>
-                  <th role="columnheader" scope="col">
-                    Holds
-                  </th>
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                {rows.map((r) => (
-                  <tr key={r.key} role="row">
-                    <th role="rowheader" scope="row">
-                      {r.name}
-                    </th>
-                    {engraving ? (
-                      <td role="cell" data-label="Engraved as">
-                        {r.engraved ?? (r.tooSmall ? "Too small for its name" : "—")}
-                      </td>
-                    ) : null}
-                    <td role="cell" data-label="Size">
-                      {r.size}
-                    </td>
-                    <td role="cell" data-label="Position">
-                      {r.position}
-                    </td>
-                    <td role="cell" data-label="Layer">
-                      {layers[r.layer - 1]?.title ?? `Layer ${r.layer}`}
-                    </td>
-                    <td role="cell" data-label="Holds">
-                      {r.goesInto !== null
-                        ? `Goes into ${r.goesInto}`
-                        : r.carries !== null
-                          ? `Carries ${r.carries}`
-                          : r.contents.length > 0
-                            ? r.contents.join(", ")
-                            : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {rows.some((r) => r.size.includes("lip")) ? (
-              <p class="hint">
-                A lip is the raised edge on top of a tray that locates the tray stacked on it.
-              </p>
-            ) : null}
-          </section>
+          {layers.map((info, i) => {
+            const layer = info.layer;
+            const { title, trays } = info;
+            const alt =
+              trays.length > 0
+                ? `${title}: ${trays.length === 1 ? "tray" : "trays"} ${trays.join(", ")}`
+                : `${title}: named trays seen from above`;
+            const svg = svgs[i] ?? "";
+            return (
+              <section class="assembly-layer" key={layer} aria-labelledby={`layer-title-${layer}`}>
+                <h2 id={`layer-title-${layer}`}>{title}</h2>
+                <div class="assembly-layer__body">
+                  <div class="assembly-layer__picture">
+                    <img class="assembly-svg" src={svgDataUrl(svg)} alt={alt} />
+                    <Button
+                      variant="secondary"
+                      class="no-print"
+                      aria-disabled={busy || p.stale ? "true" : undefined}
+                      onClick={() => {
+                        if (!busy && !p.stale) {
+                          void savePng(svg, `layer-${layer}`);
+                        }
+                      }}
+                    >
+                      {`Download PNG of layer ${layer}`}
+                    </Button>
+                  </div>
+                  <table class="parts-table" role="table">
+                    <caption class="visually-hidden">
+                      {`${title}, in the order to put them in`}
+                    </caption>
+                    <thead role="rowgroup">
+                      <tr role="row">
+                        <th role="columnheader" scope="col">
+                          Name
+                        </th>
+                        {engraving ? (
+                          <th role="columnheader" scope="col">
+                            Engraved as
+                          </th>
+                        ) : null}
+                        <th role="columnheader" scope="col">
+                          Size
+                        </th>
+                        <th role="columnheader" scope="col">
+                          Position
+                        </th>
+                        <th role="columnheader" scope="col">
+                          Holds
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody role="rowgroup">
+                      {info.rows.map((r) => (
+                        <tr key={r.key} role="row">
+                          <th role="rowheader" scope="row">
+                            {r.name}
+                          </th>
+                          {engraving ? (
+                            <td role="cell" data-label="Engraved as">
+                              {r.engraved ?? (r.tooSmall ? "Too small for its name" : "—")}
+                            </td>
+                          ) : null}
+                          <td role="cell" data-label="Size">
+                            {r.size}
+                          </td>
+                          <td role="cell" data-label="Position">
+                            {r.position}
+                          </td>
+                          <td role="cell" data-label="Holds">
+                            {r.goesInto !== null
+                              ? `Goes into ${r.goesInto}`
+                              : r.carries !== null
+                                ? `Carries ${r.carries}`
+                                : r.contents.length > 0
+                                  ? r.contents.join(", ")
+                                  : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            );
+          })}
+          {layers.some((l) => l.rows.some((r) => r.size.includes("lip"))) ? (
+            <p class="hint">
+              A lip is the raised edge on top of a tray that locates the tray stacked on it.
+            </p>
+          ) : null}
         </>
       )}
     </article>
