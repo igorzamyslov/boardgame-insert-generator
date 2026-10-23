@@ -54,6 +54,17 @@ describe("gripOf: what a part is lifted by", () => {
     expect(liftLine(bin, gripOf(bin), none)).toBe("Tip the pieces out, then lift it by the scoop");
   });
 
+  it("lifts a solid filler with a finger dip by the dip, a grip of its own", () => {
+    const strip = makeTray({
+      part: "leftover",
+      solid: true,
+      compartments: [],
+      features: [{ type: "fingerDip", side: "left", at: 20, width: 25, depth: 6 }],
+    });
+    expect(gripOf(strip)).toEqual({ kind: "dip", own: true });
+    expect(liftLine(strip, gripOf(strip), none)).toBe("Lift it by the finger dip");
+  });
+
   it("prefers the finger cut when a tray has both", () => {
     const both = makeTray({ compartments: [well([scoop, cut], { kind: "scoop" })] });
     expect(gripOf(both).kind).toBe("finger-cut");

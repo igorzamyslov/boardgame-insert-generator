@@ -585,7 +585,7 @@ describe("AssemblyPage: taking it out", () => {
     ).toEqual([]);
   });
 
-  it("names the two gripless strips of Harbour Kings before printing, with the tray each waits for", () => {
+  it("lifts the two strips of Harbour Kings by their finger dips, so nothing is left without a grip", () => {
     const { project } = loadSeed("harbour-kings");
     const trays = printableParts(project.layout?.trays ?? [], {
       components: project.components,
@@ -600,18 +600,13 @@ describe("AssemblyPage: taking it out", () => {
         onBack={vi.fn()}
       />,
     );
-    expect(screen.getByRole("note").textContent).toBe(
-      "No grip of its own: Spacer by Event cards, Spacer by Starter decks 1. Each needs something else out first.",
-    );
+    expect(screen.queryByRole("note")).toBeNull();
     const top = screen.getByRole("region", { name: "Layer 2 (top)" });
     const lines = [...top.querySelectorAll("tbody tr")].map((tr) => [
       tr.querySelector("th")?.textContent,
       tr.querySelector('td[data-label="Lift"]')?.textContent,
     ]);
-    expect(lines).toContainEqual([
-      "Spacer by Event cards",
-      "No grip of its own Take out Event cards first, then tip it out",
-    ]);
+    expect(lines).toContainEqual(["Spacer by Event cards", "Lift it by the finger dip"]);
     expect(lines).toContainEqual(["Event cards", "Lift it by the finger cut"]);
   });
 });

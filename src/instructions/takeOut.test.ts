@@ -275,17 +275,16 @@ describe("on real plans", () => {
     return packingGuide({ ...(project.layout as StoredLayout), trays }, project);
   };
 
-  it("flags the two strips of Harbour Kings, each to be taken out after the tray beside it", () => {
+  it("lifts the two strips of Harbour Kings by their finger dips, so none is flagged", () => {
     const layers = guideOf(loadSeed("harbour-kings").project);
-    const flagged = layers.flatMap((l) => l.rows.filter((r) => r.noGrip));
-    expect(flagged.map((r) => [r.name, r.lift])).toEqual([
-      ["Spacer by Event cards", "Take out Event cards first, then tip it out"],
-      ["Spacer by Starter decks 1", "Take out Starter decks 1 first, then tip it out"],
+    expect(layers.flatMap((l) => l.rows.filter((r) => r.noGrip))).toEqual([]);
+    const strips = layers
+      .flatMap((l) => l.rows)
+      .filter((r) => r.name === "Spacer by Event cards" || r.name === "Spacer by Starter decks 1");
+    expect(strips.map((r) => [r.name, r.lift])).toEqual([
+      ["Spacer by Event cards", "Lift it by the finger dip"],
+      ["Spacer by Starter decks 1", "Lift it by the finger dip"],
     ]);
-    // the top layer, read from the last row up: the trays before the strips beside them
-    const top = layers[1]?.rows.map((r) => r.name) ?? [];
-    expect(top.indexOf("Spacer by Event cards")).toBeLessThan(top.indexOf("Event cards"));
-    expect(top.indexOf("Spacer by Starter decks 1")).toBeLessThan(top.indexOf("Starter decks 1"));
   });
 
   it("lifts every tray of the owner's Star Realms plan by its finger cut, the top layer first", () => {

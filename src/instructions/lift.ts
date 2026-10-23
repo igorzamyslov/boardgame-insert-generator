@@ -13,7 +13,7 @@ import type { FeatureSpec, TraySpec } from "../model/types";
 import { MIN_SPACER } from "../sizing/constants";
 
 /** What a part is lifted by. `contents` and `none` are the two without a grip of their own. */
-export type GripKind = "finger-cut" | "scoop" | "pocket" | "edge" | "contents" | "none";
+export type GripKind = "finger-cut" | "dip" | "scoop" | "pocket" | "edge" | "contents" | "none";
 
 export interface Grip {
   kind: GripKind;
@@ -31,6 +31,7 @@ interface GripRule {
 /** The words of every way out. One source: the page prints them, the rulings list them. */
 export const LIFT_LINES = {
   "finger-cut": "Lift it by the finger cut",
+  dip: "Lift it by the finger dip",
   scoop: "Tip the pieces out, then lift it by the scoop",
   pocket: "Reach into its open pocket",
   edge: "Empty one side first, then pinch its top edge",
@@ -69,6 +70,9 @@ const features = (t: TraySpec): FeatureSpec[] => [
 const hasFingerCut = (t: TraySpec): boolean =>
   features(t).some((f) => f.type === "wallCutout" || f.type === "spacerNotch");
 
+/** A finger dip cut in a filler where it touches a tray (layout/dips.ts): a grip of its own. */
+const hasFingerDip = (t: TraySpec): boolean => features(t).some((f) => f.type === "fingerDip");
+
 const hasScoop = (t: TraySpec): boolean =>
   t.compartments.some((c) => c.kind === "scoop") || features(t).some((f) => f.type === "scoop");
 
@@ -88,6 +92,8 @@ const GRIP_RULES: readonly GripRule[] = [
   { kind: "finger-cut", own: true, applies: hasFingerCut },
   { kind: "scoop", own: true, applies: hasScoop },
   { kind: "pocket", own: true, applies: hasOpenPocket },
+  // After the pocket: a merged part with an open member is easier to reach into than to pinch.
+  { kind: "dip", own: true, applies: hasFingerDip },
   { kind: "edge", own: true, applies: (t) => t.part === "divider" },
   // A tray with nothing else to hold: only what is in it gives a hand a way in.
   { kind: "contents", own: false, applies: (t) => t.part === "tray" },
