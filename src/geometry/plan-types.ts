@@ -50,6 +50,17 @@ export interface SlotPlan extends Rect {
   bottomZ: number;
 }
 
+// A finger dip (FeatureSpec "fingerDip", model/finger-dip.ts): the U cut from the top of a solid
+// filler, running in from its face `side` (the footprint x0..y1 is within the part), or across the
+// whole part when `through`, open on the opposite face too. The round bottom (`radius`) is a
+// half-cylinder along the cut, lowest at `bottomZ`. Open at the top, so it prints without support.
+export interface DipPlan extends Rect {
+  side: Side;
+  through: boolean;
+  bottomZ: number;
+  radius: number;
+}
+
 export interface ScoopPlan {
   side: Side;
   r: number;
@@ -109,4 +120,5 @@ export interface TrayPlan {
   socket: SocketPlan | null;
   compartments: CompartmentPlan[];
   notch: CutPlan | null; // a card spacer's notch: its channel running on through it (plan-cuts.ts)
+  dips: DipPlan[]; // a filler's finger dips (plan-dips.ts)
 }

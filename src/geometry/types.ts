@@ -22,6 +22,7 @@ export const KNOWN_FEATURE_TYPES: readonly FeatureSpec["type"][] = Object.freeze
   "dividerSlot",
   "scoop",
   "cornerRelief",
+  "fingerDip",
 ]);
 
 export interface Mesh {

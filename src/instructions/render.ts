@@ -30,6 +30,9 @@ import {
 import type { PlanFrame, ViewBox } from "../plan/layers";
 import { placeBadges } from "./labels";
 import type { LabelRequest } from "./labels";
+import { dipsFacingTrays } from "../layout/dips";
+import { carriedBy, contactOf, extentsOf, gripOf, liftLine } from "./lift";
+import type { Extent, Grip, GripKind } from "./lift";
 import { engravesName } from "../geometry/engraves";
 import { carriesName } from "../model/part-name";
 import { trayNames } from "./naming";
@@ -315,6 +318,12 @@ export interface PartRow {
   goesInto: string | null;
   /** For a riser: the name of the tray it carries (it is placed first, and the tray goes on it). */
   carries: string | null;
+  /** What the part is lifted by (lift.ts). */
+  grip: GripKind;
+  /** How to lift it out of the box, one short line. */
+  lift: string;
+  /** The part has nothing of its own to hold: the page flags it. */
+  noGrip: boolean;
 }
 
 const mm1 = (v: number): string => String(Math.round(v * 10) / 10);
@@ -337,7 +346,16 @@ function fullNameOf(
   return part === undefined ? null : (names.get(part.spec.key)?.full ?? part.label);
 }
 
+/**
+ * The keys of the trays with a finger dip beside them. The dips are on the printed parts' features
+ * (`printableParts`), which the guide is given, so a stored layout has none.
+ */
+function traysWithDipBeside(layout: StoredLayout, project: Project): ReadonlySet<string> {
+  return new Set(dipsFacingTrays(layout.trays, { settings: project.settings }).keys());
+}
+
 export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[] {
+  const facing = traysWithDipBeside(layout, project);
   const levels = levelsOf(layout.trays);
   const parts = numberParts(layout.trays);
   const names = trayNames(parts, project.components, project.groups);
@@ -347,6 +365,7 @@ export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[]
     const carries = project.settings.engraveNames && carriesName(p.spec.part) && short !== "";
     // null: a part that cannot be planned is not built, and says nothing of its name
     const fits = carries ? engravesName(p.spec, project.settings, short) : false;
+    const grip = gripOf(p.spec, facing);
     return {
       key: p.spec.key,
       name: names.get(p.spec.key)?.full ?? p.label,
@@ -358,6 +377,10 @@ export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[]
       contents: p.spec.compartments.filter((c) => c.contents !== "").map((c) => c.contents),
       goesInto: p.spec.part === "riser" ? null : parent,
       carries: p.spec.part === "riser" ? parent : null,
+      grip: grip.kind,
+      // The neighbour a block waits for is settled with the order (packingGuide)
+      lift: liftLine(p.spec, grip, { neighbour: null, tray: parent }),
+      noGrip: !grip.own,
     };
   });
 }
@@ -396,6 +419,8 @@ export interface GuideLayer extends LayerInfo {
 interface Unit {
   /** The parts, in the order to place them: a riser, the tray, then its spacers and dividers. */
   parts: NumberedPart[];
+  /** The part that stands for the unit: the tray, the merged part, or the part with no tray. */
+  main: NumberedPart;
   /** The tray's name (the sort key); of a part with no tray, its own. */
   name: string;
   key: string;
@@ -403,6 +428,95 @@ interface Unit {
   kind: "tray" | "merged" | "orphan";
   /** For a merged part: the tray it rests on, when it rests on one. */
   carrier: NumberedPart | null;
+  /** The boxes the unit fills in the box (its riser's too); none for a spacer with no tray. */
+  extents: Extent[];
+  grip: Grip;
+}
+
+/** How well a part is to wait for: one with a grip of its own, then one a hand gets into, then none. */
+const gripRank = (g: Grip): number => (g.own ? 0 : g.kind === "contents" ? 1 : 2);
+
+/**
+ * The order to put a layer's units in, given the order that reads best (`base`): the same, except
+ * where taking things out needs more. The guide is read from the last row up to take parts out
+ * (top layer first, then each table upward), so a row must be packed BEFORE anything it has to
+ * wait for:
+ * - what stands on a unit (a spacer block on a tray, a tray on a riser) is packed after it, so it
+ *   comes out first; and
+ * - a block with nothing to hold (grip "none") is packed before the neighbour it waits for, so
+ *   that neighbour comes out first. The neighbour is the one beside it with the best grip of its
+ *   own, one in a layer above (already out) before one in the layer, then the longest contact.
+ *   Where waiting on it would make a loop, the next one is taken.
+ * Returned with each such block's neighbour; a unit moves only forward, to just before what it
+ * waits for, and nothing else is reordered.
+ */
+function takeOutOrder(
+  base: readonly Unit[],
+  above: readonly Unit[],
+): { order: Unit[]; neighbour: Map<Unit, Unit | null> } {
+  const after = new Map<Unit, Set<Unit>>(base.map((u) => [u, new Set()]));
+  // Whether `from` already has to come before `to`, directly or through others.
+  const reaches = (from: Unit, to: Unit): boolean => {
+    const seen = new Set<Unit>();
+    const walk = (u: Unit): boolean => {
+      if (u === to) {
+        return true;
+      }
+      if (seen.has(u)) {
+        return false;
+      }
+      seen.add(u);
+      return [...(after.get(u) ?? [])].some(walk);
+    };
+    return walk(from);
+  };
+  const link = (first: Unit, then: Unit): boolean => {
+    if (first === then || reaches(then, first)) {
+      return false;
+    }
+    after.get(first)?.add(then);
+    return true;
+  };
+  for (const lower of base) {
+    for (const upper of base) {
+      if (lower !== upper && carriedBy(upper.extents, lower.extents)) {
+        link(lower, upper);
+      }
+    }
+  }
+  const neighbour = new Map<Unit, Unit | null>();
+  const byName = (a: Unit, b: Unit): number =>
+    compareNatural(a.name, b.name) || compareCodeUnits(a.key, b.key);
+  for (const block of base) {
+    if (block.grip.kind !== "none" || block.kind === "orphan") {
+      continue;
+    }
+    const near = [...base, ...above]
+      .filter((u) => u !== block && u.kind !== "orphan" && contactOf(block.extents, u.extents) > 0)
+      .sort(
+        (a, b) =>
+          gripRank(a.grip) - gripRank(b.grip) ||
+          Number(b.layer > block.layer) - Number(a.layer > block.layer) ||
+          contactOf(block.extents, b.extents) - contactOf(block.extents, a.extents) ||
+          byName(a, b),
+      );
+    // One in a layer above is out before this layer starts; one of this layer must be packed after.
+    const chosen = near.find((u) => u.layer > block.layer || link(block, u));
+    neighbour.set(block, chosen ?? null);
+  }
+  const order: Unit[] = [];
+  const placed = new Set<Unit>();
+  const place = (u: Unit): void => {
+    if (placed.has(u)) {
+      return;
+    }
+    placed.add(u);
+    // What has to be packed before `u`, in the base order.
+    base.filter((p) => after.get(p)?.has(u)).forEach(place);
+    order.push(u);
+  };
+  base.forEach(place);
+  return { order, neighbour };
 }
 
 /**
@@ -414,9 +528,14 @@ interface Unit {
  * tray, then its spacers and dividers. A spare or spacer block that nothing under it holds up goes
  * first in its layer, before the trays that stand on or beside it; one that rests on a tray of
  * the layer follows that tray. A spacer or riser whose tray is not in the layout goes last.
+ *
+ * The same rows, read from the last up, are the order to take the parts out (top layer first):
+ * a part comes out before the one it stands on, and a block with nothing to hold only after a
+ * neighbour (`takeOutOrder`, which moves such a block to just before that neighbour).
  */
 export function packingGuide(layout: StoredLayout, project: Project): GuideLayer[] {
   const parts = numberParts(layout.trays);
+  const facing = traysWithDipBeside(layout, project);
   const rowOf = new Map(whatGoesWhere(layout, project).map((r) => [r.key, r]));
   const infos = layerInfo(layout, project.components, project.groups);
   if (infos.length === 0) {
@@ -427,6 +546,28 @@ export function packingGuide(layout: StoredLayout, project: Project): GuideLayer
   const nameOf = (p: NumberedPart): string => rowOf.get(p.spec.key)?.name ?? p.label;
   const taken = new Set<NumberedPart>();
   const units: Unit[] = [];
+  const unitOf = (
+    own: NumberedPart[],
+    main: NumberedPart,
+    kind: Unit["kind"],
+    carrier: NumberedPart | null,
+  ): Unit => ({
+    parts: own,
+    main,
+    name: nameOf(main),
+    key: main.spec.key,
+    layer: layerOf(main),
+    kind,
+    carrier,
+    // a spacer or divider stands in a tray: it has no place beside others
+    extents:
+      kind === "orphan"
+        ? []
+        : own
+            .filter((q) => q === main || q.spec.part === "riser")
+            .flatMap((q) => extentsOf(q.spec)),
+    grip: gripOf(main.spec, facing),
+  });
   parts.forEach((p, i) => {
     if (isAddOn(p.spec)) {
       return;
@@ -439,37 +580,16 @@ export function packingGuide(layout: StoredLayout, project: Project): GuideLayer
           .reverse()
           .find((q) => !isAddOn(q.spec) && q.spec.merged === undefined) ?? null;
       taken.add(p);
-      units.push({
-        parts: [p],
-        name: nameOf(p),
-        key: p.spec.key,
-        layer: layerOf(p),
-        kind: "merged",
-        carrier,
-      });
+      units.push(unitOf([p], p, "merged", carrier));
       return;
     }
     const own = parts.filter((q) => q === p || (isAddOn(q.spec) && q.parentNumber === p.number));
     own.forEach((q) => taken.add(q));
-    units.push({
-      parts: own,
-      name: nameOf(p),
-      key: p.spec.key,
-      layer: layerOf(p),
-      kind: "tray",
-      carrier: null,
-    });
+    units.push(unitOf(own, p, "tray", null));
   });
   for (const p of parts) {
     if (!taken.has(p)) {
-      units.push({
-        parts: [p],
-        name: nameOf(p),
-        key: p.spec.key,
-        layer: layerOf(p),
-        kind: "orphan",
-        carrier: null,
-      });
+      units.push(unitOf([p], p, "orphan", null));
     }
   }
   const byName = (a: Unit, b: Unit): number =>
@@ -485,12 +605,28 @@ export function packingGuide(layout: StoredLayout, project: Project): GuideLayer
       return carrier !== undefined && carrier.layer === info.layer ? carrier : null;
     };
     const first = here.filter((u) => u.kind === "merged" && restsHere(u) === null).sort(byName);
-    const ordered: Unit[] = [...first];
+    const base: Unit[] = [...first];
     for (const tray of here.filter((u) => u.kind === "tray").sort(byName)) {
-      ordered.push(tray, ...here.filter((u) => restsHere(u) === tray).sort(byName));
+      base.push(tray, ...here.filter((u) => restsHere(u) === tray).sort(byName));
     }
-    ordered.push(...here.filter((u) => u.kind === "orphan").sort(byName));
-    const rows = ordered.flatMap((u) => u.parts.map((p) => rowOf.get(p.spec.key)));
+    base.push(...here.filter((u) => u.kind === "orphan").sort(byName));
+    const { order: ordered, neighbour } = takeOutOrder(
+      base,
+      units.filter((u) => u.layer > info.layer),
+    );
+    const rows = ordered.flatMap((u) =>
+      u.parts.map((p) => {
+        const row = rowOf.get(p.spec.key);
+        const waits = p === u.main ? neighbour.get(u) : undefined;
+        // a block with nothing to hold names the neighbour that comes out before it
+        return row !== undefined && p === u.main && u.grip.kind === "none"
+          ? {
+              ...row,
+              lift: liftLine(p.spec, u.grip, { neighbour: waits?.name ?? null, tray: null }),
+            }
+          : row;
+      }),
+    );
     // The layer's trays as the picture's description lists them follow the guide's order (not the
     // part numbers' that layerInfo keeps): the trays and merged parts, with no spacer or riser.
     const trays = ordered.filter((u) => u.kind !== "orphan").map((u) => u.name);

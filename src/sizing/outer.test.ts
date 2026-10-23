@@ -3,7 +3,7 @@ import { DEFAULT_SETTINGS, MIN_WALL_MM } from "../model/settings";
 import type { Settings } from "../model/types";
 import { rowsOf, wallFor } from "./outer";
 import { minOuter } from "./realize";
-import { cards, custom, partOf, tiles } from "./test-helpers";
+import { cards, custom, minis, partOf, tiles, withPlainCuts } from "./test-helpers";
 import type { RealizeOptions, TrayPartReq } from "./types";
 
 // These cover sizing with a locating lip available (the lipped wall, upper-tray
@@ -183,9 +183,27 @@ describe("minOuter", () => {
   it("makes an upper tray with a plain finger cut 0.8 mm taller: the cut needs wall above the groove and depth of its own", () => {
     // a cut without a floor notch that leaves through the wall stands MIN_FEATURE_MM above the
     // groove's roof, so at the least height there would be no cut (realize: withCutRoom)
-    const cut = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1");
+    // sizing asks for such a cut only from pieces 20 mm tall and more, which are far taller than
+    // this, so the request is built by hand
+    const cut = withPlainCuts(partOf([custom({ h: 1, count: 1 })], "custom|strip|split1"));
     expect(minOuter(cut, s, { lipped: false, level: 1 }).h).toBe(4.45);
     expect(minOuter(cut, s, ground).h).toBe(3.2);
+  });
+
+  it("leaves a flat custom item or a short figure at the least the groove allows: its cut has the floor notch", () => {
+    // (these asked for a plain half-deep cut, and so for 4.45 mm, until 0.9.3)
+    const upper = { lipped: false, level: 1 };
+    const board = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1");
+    expect(minOuter(board, s, upper).h).toBe(3.65);
+    expect(minOuter(board, s, ground).h).toBe(3.2);
+    const pawn = partOf(
+      [minis({ figures: [{ name: "Pawn", w: 20, d: 20, h: 1, count: 1 }] })],
+      "standing|strip|split1",
+    );
+    expect(minOuter(pawn, s, upper).h).toBe(3.65);
+    // a tall piece still has its half-deep cut, and is far taller than the groove needs anyway
+    const tall = partOf([custom({ h: 30, count: 1 })], "custom|strip|split1");
+    expect(minOuter(tall, s, upper).h).toBeGreaterThan(4.45);
   });
 
   it("never goes below MIN_WALL_MM walls and 0.8 mm dividers and floors", () => {

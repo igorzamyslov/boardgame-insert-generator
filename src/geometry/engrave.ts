@@ -106,11 +106,21 @@ function thicknessBehind(plan: TrayPlan, face: Side, top: number): number {
 }
 
 // The free stretches of the face (as the plan sees it, before any flip) that the text may take:
-// between the corners' arcs, less every cut through the face and its fillets.
-function freeSpans(plan: TrayPlan, face: Side): Span[] {
+// between the corners' arcs, less every cut through the face and its fillets, and every finger dip
+// open on it (a dip is cut from the top, so one whose bottom stands above the text, `textTop`, is
+// no obstacle).
+function freeSpans(plan: TrayPlan, face: Side, textTop: number): Span[] {
   const length = face === "front" || face === "back" ? plan.w : plan.d;
   const edge = plan.cornerRadius + EDGE_MM;
   let spans: Span[] = [{ lo: edge, hi: length - edge }];
+  const without = (lo: number, hi: number): void => {
+    spans = spans.flatMap((s) =>
+      [
+        { lo: s.lo, hi: Math.min(s.hi, lo) },
+        { lo: Math.max(s.lo, hi), hi: s.hi },
+      ].filter((p) => p.hi > p.lo),
+    );
+  };
   for (const c of plan.compartments) {
     for (const cut of c.cuts) {
       if (cut.side !== face || cut.into !== null) {
@@ -118,15 +128,20 @@ function freeSpans(plan: TrayPlan, face: Side): Span[] {
       }
       const a = alongOf(face, plan, cut.x0, cut.y0);
       const b = alongOf(face, plan, cut.x1, cut.y1);
-      const lo = Math.min(a, b) - FINGER_FILLET_MM - EDGE_MM;
-      const hi = Math.max(a, b) + FINGER_FILLET_MM + EDGE_MM;
-      spans = spans.flatMap((s) =>
-        [
-          { lo: s.lo, hi: Math.min(s.hi, lo) },
-          { lo: Math.max(s.lo, hi), hi: s.hi },
-        ].filter((p) => p.hi > p.lo),
+      without(
+        Math.min(a, b) - FINGER_FILLET_MM - EDGE_MM,
+        Math.max(a, b) + FINGER_FILLET_MM + EDGE_MM,
       );
     }
+  }
+  for (const dip of plan.dips) {
+    const opensOn = dip.side === face || (dip.through && dip.side === OPPOSITE[face]);
+    if (!opensOn || textTop + EDGE_MM <= dip.bottomZ) {
+      continue;
+    }
+    const a = alongOf(face, plan, dip.x0, dip.y0);
+    const b = alongOf(face, plan, dip.x1, dip.y1);
+    without(Math.min(a, b) - EDGE_MM, Math.max(a, b) + EDGE_MM);
   }
   return spans;
 }
@@ -215,6 +230,9 @@ function engraveIn(
   const hi = plan.h - belowRim;
   const band = flipped ? { lo: plan.h - hi, hi: plan.h - lo } : { lo, hi };
   const byHeight = (band.hi - band.lo) / GLYPH_ROWS;
+  // The most the text can reach up: centred in the band, at its tallest.
+  const textTop =
+    (band.lo + band.hi) / 2 + (Math.min(byHeight, ENGRAVE_STROKE_MAX_MM) * GLYPH_ROWS) / 2;
   let best: EngravePlan | null = null;
   for (const face of ENGRAVE_FACES.filter((f) => faces.includes(f))) {
     // `reserved` is the depth already cut into the opposite wall: the part keeps the thinnest
@@ -228,7 +246,7 @@ function engraveIn(
     if (depth < ENGRAVE_MIN_DEPTH_MM) {
       continue;
     }
-    const span = freeSpans(plan, face).reduce<Span | null>(
+    const span = freeSpans(plan, face, textTop).reduce<Span | null>(
       (a, s) => (a === null || s.hi - s.lo > a.hi - a.lo ? s : a),
       null,
     );

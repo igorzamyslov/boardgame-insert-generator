@@ -7,7 +7,8 @@ const s = DEFAULT_SETTINGS;
 
 describe("customOptions", () => {
   it("makes one well per item with a half-deep cut through its front wall and corner reliefs", () => {
-    const { options, notices } = customOptions(custom(), s);
+    // a tall item (30 mm): half its depth is 15 mm of its side to take hold of
+    const { options, notices } = customOptions(custom({ h: 30 }), s);
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["custom"]);
     const blocks = at(options, 0).blocks;
@@ -18,12 +19,50 @@ describe("customOptions", () => {
       kind: "well",
       minW: 41,
       minD: 31,
-      minH: 11,
+      minH: 31,
       elastic: { w: false, d: false, h: false },
       features: [
         { type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false },
         { type: "cornerRelief" },
       ],
+    });
+  });
+
+  describe("a flat item: a full-depth cut with a floor notch, as flat cards and tiles get", () => {
+    const features = (h: number, over: Parameters<typeof custom>[0] = {}) =>
+      at(at(at(customOptions(custom({ h, count: 1, ...over }), s).options, 0).blocks, 0), 0)
+        .features;
+    const cut = (h: number, over: Parameters<typeof custom>[0] = {}) =>
+      features(h, over).find((f) => f.type === "wallCutout");
+
+    it("asks for the cut to the floor and the notch under a 2 mm board", () => {
+      expect(features(2)).toEqual([
+        { type: "wallCutout", side: "front", depthFraction: 1, floorNotch: true },
+        { type: "cornerRelief" },
+      ]);
+    });
+
+    it("includes the default 10 mm item: half its depth is 5 mm, less than a fingertip", () => {
+      expect(cut(10)).toEqual({
+        type: "wallCutout",
+        side: "front",
+        depthFraction: 1,
+        floorNotch: true,
+      });
+    });
+
+    it("stops at 20 mm of item height: a half-deep cut leaves a fingertip's 10 mm of its side from there", () => {
+      expect(cut(19.99)).toMatchObject({ depthFraction: 1, floorNotch: true });
+      expect(cut(20)).toMatchObject({ depthFraction: 0.5, floorNotch: false });
+      expect(cut(60)).toMatchObject({ depthFraction: 0.5, floorNotch: false });
+    });
+
+    it("goes by the item's own height, not by the well's clearance", () => {
+      expect(cut(19.5, { clearance: 2 })).toMatchObject({ depthFraction: 1, floorNotch: true });
+    });
+
+    it("asks for nothing with finger cuts off", () => {
+      expect(cut(2, { fingerCuts: false })).toBeUndefined();
     });
   });
 

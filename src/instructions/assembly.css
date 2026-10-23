@@ -40,6 +40,41 @@
   color: var(--muted);
 }
 
+/* Taking it out: said once above the layers, and the trays with no grip named where it is seen first. */
+.assembly-takeout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  margin: 0 0 var(--s-24);
+}
+
+.assembly-takeout p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.assembly-takeout__flag {
+  padding: var(--s-10) var(--s-12);
+  border-radius: var(--r-field);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  font-size: var(--text-sm);
+}
+
+/* A part with no grip of its own, in the Lift column: a word, in the same colours as the note. */
+.assembly-flag {
+  display: block;
+  width: fit-content;
+  margin-bottom: var(--s-4);
+  padding: 0 var(--s-8);
+  border-radius: var(--r-cell);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 20px;
+}
+
 /* The plan changed since the picture was drawn: said once, plainly, in the failure box's colours. */
 .assembly-stale,
 .assembly-error {
@@ -134,6 +169,11 @@
   text-align: left;
   vertical-align: top;
   overflow-wrap: break-word;
+}
+
+/* The Lift line is the longest sentence in a row: give it room before the numbers take it all. */
+.parts-table td[data-label="Lift"] {
+  min-width: 10rem;
 }
 
 .parts-table thead th {
@@ -245,6 +285,24 @@
   }
 
   .assembly-meta {
+    color: #000;
+  }
+
+  /* Taking it out stays on the first page with the exploded view; the flags are black on white. */
+  .assembly-takeout {
+    break-inside: avoid;
+  }
+
+  .assembly-takeout__flag {
+    padding: 0;
+    background: none;
+    color: #000;
+    font-size: inherit;
+  }
+
+  .assembly-flag {
+    border: 1px solid #000;
+    background: none;
     color: #000;
   }
 

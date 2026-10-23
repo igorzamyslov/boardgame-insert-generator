@@ -10,7 +10,15 @@ import { cutFace, filletStrip } from "./plan-cuts";
 import { mergedBody, mergedOutline } from "./merged-outline";
 import type { Band } from "./merged-outline";
 import { INNER_CORNER_RADIUS_MM } from "./plan-types";
-import type { CompartmentPlan, CutPlan, LipPlan, Rect, ScoopPlan, TrayPlan } from "./plan-types";
+import type {
+  CompartmentPlan,
+  CutPlan,
+  DipPlan,
+  LipPlan,
+  Rect,
+  ScoopPlan,
+  TrayPlan,
+} from "./plan-types";
 import { withScope } from "./scope";
 import type { Scope } from "./scope";
 import {
@@ -349,6 +357,26 @@ function buildCutter(
   return cutter;
 }
 
+// A finger dip: the U of a cut, run in from its face and, across the whole part when `through`, out
+// through the opposite one too; past each face it leaves through by OVERSHOOT. Vertical sides, a
+// round bottom, open at the top: nothing overhangs.
+function buildDip(m: ManifoldToplevel, scope: Scope, dip: DipPlan, top: number): Manifold {
+  const { side, through } = dip;
+  const alongX = side === "front" || side === "back";
+  const first = side === "front" || side === "left";
+  const out = (near: boolean): number => (near ? OVERSHOOT : 0);
+  const reach = alongX
+    ? {
+        y0: dip.y0 - out(first || through),
+        y1: dip.y1 + out(!first || through),
+      }
+    : {
+        x0: dip.x0 - out(first || through),
+        x1: dip.x1 + out(!first || through),
+      };
+  return buildU(m, scope, { ...dip, ...reach }, top);
+}
+
 function toMesh(solid: Manifold): Mesh {
   // Copy out of the kernel's buffers: the arrays are transferred to the main
   // thread later, which must never detach WASM memory.
@@ -364,7 +392,7 @@ function toMesh(solid: Manifold): Mesh {
   return { positions, indices: new Uint32Array(raw.triVerts) };
 }
 
-// What a part's solid loses: the compartments' cutters, a spacer's notch and the engraving, in the
+// What a part's solid loses: the compartments' cutters, a spacer's notch, a filler's dips and the engraving, in the
 // part's own frame (origin at its outer min corner).
 function buildCutters(
   m: ManifoldToplevel,
@@ -389,6 +417,10 @@ function buildCutters(
       ? { v0: -OVERSHOOT, v1: plan.w + OVERSHOOT }
       : { v0: -OVERSHOOT, v1: plan.d + OVERSHOOT };
     cutters.push(...buildTopFillets(m, scope, n, { top: plan.h, ...strip }));
+  }
+  // A filler's finger dips leave through the faces that touch a tray.
+  for (const dip of plan.dips) {
+    cutters.push(buildDip(m, scope, dip, plan.topZ + OVERSHOOT));
   }
   // An underside name is cut into the bed face: the slab's, below the seam, on a stepped part.
   const engraved = engravings

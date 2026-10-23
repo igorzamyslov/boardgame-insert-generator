@@ -12,7 +12,7 @@ import { MIN_FEATURE_MM } from "../model/settings";
 import { grooveOf, upperTrayMinH } from "../model/lip";
 import type { Component, Settings, TraySpec } from "../model/types";
 import { minOuter, realizeTray } from "../sizing";
-import { bulk, cards, custom, partOf, tiles } from "../sizing/test-helpers";
+import { bulk, cards, custom, partOf, tiles, withPlainCuts } from "../sizing/test-helpers";
 import { loadManifold } from "./load";
 import { planTray } from "./plan";
 import { buildTray } from "./tray";
@@ -202,10 +202,18 @@ describe("what sizing makes at the minimum, built", () => {
     expect(minOuter(part, GEO, { lipped: false, level: 1 }).h).toBeCloseTo(MIN_H, 9);
   });
 
-  it("makes a thin piece with a plain finger cut as tall as that cut needs: 0.8 mm above the groove, 0.8 mm deep", () => {
-    // a cut with no floor notch that leaves through the wall must keep MIN_FEATURE_MM of wall
-    // above the groove's roof; at the minimum height there would be no cut, and no tray
+  it("makes a flat custom piece exactly the minimum high too: its cut has a floor notch, as a card's", () => {
     const part = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1", GEO);
+    expect(minOuter(part, GEO, { lipped: false, level: 1 }).h).toBeCloseTo(MIN_H, 9);
+  });
+
+  it("makes a piece with a plain finger cut as tall as that cut needs: 0.8 mm above the groove, 0.8 mm deep", () => {
+    // a cut with no floor notch that leaves through the wall must keep MIN_FEATURE_MM of wall
+    // above the groove's roof; at the minimum height there would be no cut, and no tray. Sizing
+    // asks for one only of pieces 20 mm tall and more, so the request is built by hand.
+    const plainPiece = (settings: Settings) =>
+      withPlainCuts(partOf([custom({ h: 1, count: 1 })], "custom|strip|split1", settings));
+    const part = plainPiece(GEO);
     const opts = { lipped: false, level: 1 };
     const outer = minOuter(part, GEO, opts);
     expect(outer.h).toBeCloseTo(MIN_H + MIN_FEATURE_MM, 9);
@@ -219,9 +227,7 @@ describe("what sizing makes at the minimum, built", () => {
     // on the ground (or with the lip off) it is the content that sets the height, as before
     expect(minOuter(part, GEO, { lipped: false, level: 0 }).h).toBeCloseTo(3.2, 9);
     const off: Settings = { ...GEO, lip: { ...GEO.lip, enabled: false } };
-    expect(
-      minOuter(partOf([custom({ h: 1, count: 1 })], "custom|strip|split1", off), off, opts).h,
-    ).toBeCloseTo(3.2, 9);
+    expect(minOuter(plainPiece(off), off, opts).h).toBeCloseTo(3.2, 9);
   });
 });
 

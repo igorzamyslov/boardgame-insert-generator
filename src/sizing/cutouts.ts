@@ -53,6 +53,22 @@ const MIN_CUT = ceilU(MIN_CUT_MM);
 const MIN_NOTCH = 100;
 
 /**
+ * Whether a well's floor stands above the tray's own floor (the lowest well's) by more than
+ * MIN_FEATURE_MM: a short pocket beside a tall one, a flat deck beside a taller one. Its floor is
+ * then on solid, and a floor notch, which goes down through the bottom at its full width, would be
+ * a shaft through that solid, open at the bed (a 3 mm pawn's pocket beside a 40 mm hero's lost 43%
+ * of the tray). A notch is for a floor that is the tray's floor, a thin one the fingertip gets
+ * under. Such a well gets the full-depth cut down to its own floor with no notch instead: a notch
+ * stopped short of the bed would be a pocket with a flat roof, which does not print without
+ * support, and the cut already shows the piece's whole side. A difference under MIN_FEATURE_MM is
+ * the rounding of heights, not a raise.
+ */
+function raised(ctx: CutContext, owner: number): boolean {
+  const own = ctx.depths[owner] ?? 0;
+  return Math.max(0, ...ctx.depths) - own > MIN;
+}
+
+/**
  * The narrowest cut a run gets (units): narrowestCutMm, which says why it is an even count, one
  * unit under an odd setting.
  */
@@ -110,7 +126,8 @@ type Across = { kind: "exit" } | { kind: "twin"; request: number };
  * - A floor notch takes the cut on down through the bottom at its full width and reaches the
  *   setting into the floor; it leaves
  *   MIN_FEATURE_MM of floor to an opposite notch and MIN_FEATURE_MM plus the chamfer to the outer
- *   face behind; below MIN_NOTCH it is left out.
+ *   face behind; below MIN_NOTCH it is left out. A well whose floor is raised above the tray's
+ *   (`raised`) gets none: its cut still runs down to its own floor, plain.
  * Returns every cut placed, by owner and side; an owner missing from it got none on either axis.
  */
 export function placeCutouts(requests: readonly CutAsk[], ctx: CutContext): PlacedCut[] {
@@ -316,7 +333,7 @@ function placeRuns(requests: readonly CutAsk[], ctx: CutContext, placed: PlacedC
       const behind =
         q.side === "back" || q.side === "right" ? face : spanAcross(ctx, q.side) - face;
       let notch = 0;
-      if (q.notch && ctx.notch > 0) {
+      if (q.notch && ctx.notch > 0 && !raised(ctx, q.owner)) {
         notch = Math.min(
           ctx.notch,
           Math.floor((own.v1 - own.v0 - MIN) / 2),

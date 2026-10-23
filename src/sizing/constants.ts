@@ -108,6 +108,23 @@ export const PLATED_RETENTION = 6;
 export const MIN_REACH_OVERLAP = 10;
 
 /**
+ * Short pieces (custom items and minis, `pieceCutout`): a piece lower than this gets the
+ * full-depth finger cut with the floor notch that flat cards and tiles get, instead of the
+ * half-deep plain cut. A half-deep cut shows half the piece's side; a fingertip needs
+ * MIN_REACH_OVERLAP (10 mm, the narrowest cut a finger fits) of it to take hold, so below twice
+ * that the half-deep cut leaves the piece mostly under the wall (a 2 mm board gets 1 mm of it, a
+ * 12 mm figure 6 mm) and it can only be lifted by tipping the tray. A fingertip gets under such a
+ * piece through the notch instead. From 20 mm up the half-deep cut shows 10 mm or more of the
+ * side, and the piece is lifted by its top as before. Judged on the piece's own height, so the
+ * clearance around it (a setting) does not move it across.
+ *
+ * The notch goes down through the bottom, so it is only for a well on the tray's own floor
+ * (`placeCutouts`, `raised`): a short pocket whose floor is raised above the tray's, beside a
+ * taller one, gets the same full-depth cut down to its own floor with no notch.
+ */
+export const SHORT_PIECE_H = 2 * MIN_REACH_OVERLAP;
+
+/**
  * Dividers (a component's `dividers`, minimal-trays spec §5): thin loose plates that split a grown
  * deck well into sections, each standing in a slot cut into the tray's floor. The plate is at
  * least DIVIDER_THICKNESS thick (3 mm, as thin as a separator plate and for the same reason: it

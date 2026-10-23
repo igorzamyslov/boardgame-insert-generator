@@ -183,8 +183,40 @@ import type { Semver } from "../model/version";
  * default, and every file that says nothing) every part builds exactly as before: a new optional
  * feature, a PATCH. planTray also caps a socketed part's corner radius and refuses one too low for
  * its socket, which no part made before can be.
+ * 0.9.3 gives flat custom items and short minis the full-depth finger cut with a floor notch that
+ * flat cards and tiles have (investigation "getting contents out", 2026-10-23; `pieceCutout`): a
+ * piece under 20 mm tall (twice the 10 mm a fingertip needs of its side to take hold, the half a
+ * half-deep cut shows) asks for the cut down to its well's floor and the notch, and a taller one
+ * keeps the half-deep plain cut. A 2 mm board used to get a 1.5 mm cut and a 12 mm figure a 6.5
+ * mm one, with the piece below the cut and no way under it; on a low upper tray a plain cut was
+ * capped at 0.8 mm above the groove, so such a tray stood 4.45 mm high for a 0.8 mm cut and is now
+ * as low as the groove allows (3.65 mm at the defaults), as a flat card's is. Sizing asks for
+ * different cuts; `planTray` and the builder are unchanged, so every spec stored before builds
+ * exactly as it did and `planTray` accepts everything it accepted. A layout made again has these
+ * deeper cuts and, where an upper tray was raised for its plain cut, a lower tray with its height
+ * in the riser under it (the stack adds up the same), so trays printed before and after still
+ * mate and stack: a PATCH, as 0.8.3 (wells change, outer fit does not) was. A floor notch goes down
+ * through the bottom, so it is only for a well on the tray's own floor: where a well's floor is
+ * raised above the tray's by more than MIN_FEATURE_MM (a 3 mm pawn's pocket beside a 40 mm hero's,
+ * or a 5-card flat deck beside a 60-card one) sizing gives it the full-depth cut down to its own
+ * floor with no notch (`placeCutouts`), not a shaft through the solid under it, open at the bed.
+ *
+ * 0.9.4 cuts a finger dip in each solid filler where it touches a tray (owner, 2026-10-23, from the
+ * investigation "lifting trays"; `FeatureSpec` "fingerDip", `layout/dips.ts`, model/finger-dip.ts).
+ * Trays tile the box a tray gap apart, so nothing on a tray's outside could be gripped, and a
+ * filler wedged beside one had no grip either: a whole tray came out only by its contents. A dip is
+ * a U cut from the top of the filler (the spacer notch's and the wall cutout's, `fingerPocket.width`
+ * wide, a round bottom, open at the top: no overhang), run 15 mm into the filler where it is thick
+ * and across the whole strip where it is thinner than a finger, about half the filler's height deep
+ * and at most 20 mm, and stopping MIN_FEATURE_MM above the groove or step at the filler's foot. A
+ * mesh-only addition to a printed filler (a derived part: nothing is stored): outer size, footprint,
+ * fit and every tray are as before, and a filler without a dip builds exactly as before. A PATCH, as
+ * 0.9.1 (the slit) was: a new optional feature that planTray only accepts on a solid filler. The
+ * engraved name keeps clear of a dip that opens on its face. A dip cut across a strip serves the
+ * tray on each face, so it is no deeper than the shallower of the two allows (never below the foot
+ * of either) and takes a place in the cap of two dips on a side of a tray on both of them.
  */
-export const GEOMETRY_VERSION = "0.9.2";
+export const GEOMETRY_VERSION = "0.9.4";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

@@ -23,6 +23,7 @@ import {
 } from "../model/lip";
 import type { BottomEdge } from "../model/lip";
 import { keepsApart } from "../model/cut-rules";
+import { ownFeatures } from "../model/finger-dip";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
 import {
@@ -35,6 +36,7 @@ import {
   planSpacerNotch,
 } from "./plan-cuts";
 import type { CutRequest } from "./plan-cuts";
+import { dipEdges, planFingerDips } from "./plan-dips";
 import { checkSlots, planSlot } from "./plan-slots";
 import type { SlotRequest } from "./plan-slots";
 import { MIN_SCOOP_RADIUS } from "./plan-types";
@@ -194,7 +196,10 @@ function planCompartment(
     } else if (feature.type === "cornerRelief") {
       reliefDiameter = Math.max(reliefDiameter, feature.d);
     } else {
-      fail(spec, `a spacer notch in compartment ${index}: only a spacer has a notch`);
+      fail(
+        spec,
+        `a ${feature.type === "fingerDip" ? "finger dip" : "spacer notch"} in compartment ${index}: it is no compartment feature`,
+      );
     }
   }
 
@@ -307,8 +312,9 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     reliefs: planReliefs(spec, plans, plan, planned[i]?.reliefDiameter ?? 0, edge),
   }));
 
-  const notch = planSpacerNotch(spec, spec.features ?? [], chamfer, failWith);
-  const edges = notchEdges(spec, notch);
+  const notch = planSpacerNotch(spec, ownFeatures(spec.features), chamfer, failWith);
+  const dips = planFingerDips(spec, spec.features ?? [], frame, failWith);
+  const edges = [...notchEdges(spec, notch), ...dipEdges(dips)];
   // A socketed part's corners stay no rounder than its wall beside the socket allows.
   const asked = socket
     ? Math.min(settings.cornerRadius, socketCornerCap(socket))
@@ -352,5 +358,6 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     socket: socketPlan,
     compartments: planTopFillets(compartments, spec, cornerRadius, lip, socketPlan),
     notch: planNotchFillets(notch, spec, cornerRadius),
+    dips,
   };
 }

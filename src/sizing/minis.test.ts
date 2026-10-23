@@ -54,6 +54,48 @@ describe("minisOptions", () => {
     expect(at(at(at(options, 1).blocks, 0), 0)).toMatchObject({ minW: 41, minD: 26, minH: 26 });
   });
 
+  describe("a short figure: a full-depth cut with a floor notch, front and back", () => {
+    const pocketOf = (figure: { w: number; d: number; h: number }, variant = 0) =>
+      at(
+        at(
+          at(
+            minisOptions(minis({ figures: [{ name: "Pawn", count: 2, ...figure }] }), s).options,
+            variant,
+          ).blocks,
+          0,
+        ),
+        0,
+      );
+    const cuts = (c: ReturnType<typeof pocketOf>) =>
+      c.features.flatMap((f) => (f.type === "wallCutout" ? [f] : []));
+    const notched = [
+      { type: "wallCutout", side: "front", depthFraction: 1, floorNotch: true },
+      { type: "wallCutout", side: "back", depthFraction: 1, floorNotch: true },
+    ];
+    const half = [
+      { type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false },
+      { type: "wallCutout", side: "back", depthFraction: 0.5, floorNotch: false },
+    ];
+
+    it("asks for the cut to the floor and the notch for a 12 mm figure", () => {
+      expect(cuts(pocketOf({ w: 12, d: 12, h: 12 }))).toEqual(notched);
+    });
+
+    it("stops at 20 mm: a half-deep cut leaves a fingertip's 10 mm of its side from there", () => {
+      expect(cuts(pocketOf({ w: 25, d: 25, h: 19.99 }))).toEqual(notched);
+      expect(cuts(pocketOf({ w: 25, d: 25, h: 20 }))).toEqual(half);
+      expect(cuts(pocketOf({ w: 25, d: 25, h: 32 }))).toEqual(half);
+    });
+
+    it("judges the figure's height in each variant: a tall figure that lies down 15 mm high is short", () => {
+      // standing it is 30 mm tall; lying it is as high as its larger footprint side
+      expect(cuts(pocketOf({ w: 15, d: 15, h: 30 }, 0))).toEqual(half);
+      expect(cuts(pocketOf({ w: 15, d: 15, h: 30 }, 1))).toEqual(notched);
+      // lying it is 30 mm high, taller than a fingertip's half-depth needs
+      expect(cuts(pocketOf({ w: 10, d: 30, h: 50 }, 1))).toEqual(half);
+    });
+  });
+
   it("offers no lying variant when nothing is taller than wide", () => {
     const { options } = minisOptions(
       minis({ figures: [{ name: "Cart", w: 30, d: 20, h: 15, count: 1 }] }),
