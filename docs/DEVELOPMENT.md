@@ -168,6 +168,13 @@ it only with a written reason in the code or the PR.
     name "Tokens and dice" is display and engraving only.
   - Adding a hashed field must not change the hash of existing projects (that would mark every
     saved plan stale). Leave its default out, as `oneWall` and `playLimit` do.
+- MUST keep the trays of a set of alike trays (the copies of an item or group, `Ctx.alikeOf`) alike
+  (owner, 2026-10-23, DESIGN.md decision log). Anything `evaluate`, `materialize` or `realizeTray`
+  does to a tray by where it stands (its level, whether something is on it, the padding its stack
+  gives it, the room beside it) must give every tray of a set the same size, height, rim, groove
+  and wells: go through `Level.plug` and `RealizeOptions.fixedDepth`, not around them. Run
+  `checkHardRules` (`layout/test-hard-rules.ts`) on a layout with copies when you add such a
+  thing; it compares the printed trays of every set.
 - MUST keep `src/layout/` deterministic. eslint bans `Math.random` there; use the seeded PRNG
   (`layout/prng.ts`).
 - MUST keep the geometry kernel off the main thread. eslint enforces it: outside `geometry/` you

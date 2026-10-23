@@ -198,6 +198,19 @@ export function grooveWall(s: Settings, level: number): number {
 }
 
 /**
+ * The least height a riser under a stack can have, mm: what splitRisers asks of the height the
+ * stack's trays give up (the setting `minRiser`, the height a level 0 part with the bottom chamfer
+ * can be, and with the stepped base the floor under the socket). A stack whose bottom tray stands
+ * on a lipped riser (every stack of alike trays) is padded by at least this much.
+ */
+export function leastRiser(s: Settings): number {
+  const bottom = bottomMinimums(s, 0).h;
+  const base = Math.max(s.minRiser, bottom);
+  const socket = socketOf(s, true);
+  return socket === null ? base : Math.max(base, socket.depth + bottom);
+}
+
+/**
  * The least height of a tray that stands on a lipped part (level ≥ 1, or the bottom tray on a
  * lipped riser), mm; 0 with the lip off. It is what its groove needs and nothing more:
  * `zTop + MIN_FEATURE_MM`, the groove's height (lip flat + lip height + play, 2.85 mm at the

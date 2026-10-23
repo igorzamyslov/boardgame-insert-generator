@@ -2,7 +2,17 @@ import { describe, expect, it } from "vitest";
 import { createCtx } from "./context";
 import { evaluate } from "./fill";
 import { materialize } from "./materialize";
-import { boxReq, fakeMeasure, fakeRealize, makeInput } from "./test-utils";
+import {
+  boxReq,
+  comp,
+  fakeMeasure,
+  fakeRealize,
+  makeInput,
+  part,
+  req,
+  variant,
+} from "./test-utils";
+import type { Realize } from "./materialize";
 import { cut, leaf, type Tree } from "./tree";
 import { toU } from "./units";
 
@@ -87,5 +97,84 @@ describe("materialize", () => {
     // the upper tray is at its own size, not stretched over the lower tray
     expect(upper?.w).toBe(54);
     expect(upper?.w).toBeLessThan((lower?.w ?? 0) - 2 * (lower?.wall ?? 0));
+  });
+});
+
+describe("materialize: alike trays (owner, 2026-10-23)", () => {
+  const cell = comp({ minW: 50, minD: 40, minH: 10, contents: "c" });
+  const set = req("c", [
+    variant("v", [part("c:p0:0", [cell]), part("c:p1:0", [cell]), part("c:p2:0", [cell])]),
+  ]);
+  const ctx = createCtx(makeInput([set]), fakeMeasure);
+  const copy = (i: number) => ({ req: 0, variant: 0, part: i, rotated: false });
+
+  it("realizes every tray of a set the same way, as a tray in the middle of a stack, wherever it stands", () => {
+    const calls: { key: string; w: number; opts: Parameters<Realize>[3] }[] = [];
+    const record: Realize = (part, outer, settings, opts) => {
+      calls.push({ key: part.trayKey, w: outer.w, opts });
+      return fakeRealize(part, outer, settings, opts);
+    };
+    const plan = evaluate(ctx, {
+      root: cut("x", leaf([copy(0), copy(1)]), leaf([copy(2)])),
+      variants: [0],
+    });
+    const specs = materialize(ctx, plan, record).filter((t) => t.part === "tray");
+    // they are lipped, the top one too, and stored at the stack level they stand at
+    expect(specs.map((t) => [t.key, t.level, t.lip])).toEqual([
+      ["c:p0:0", 0, true],
+      ["c:p1:0", 1, true],
+      ["c:p2:0", 0, true],
+    ]);
+    expect(new Set(specs.map((t) => `${t.w}x${t.d}`)).size).toBe(1);
+    // realized as lipped trays above level 0, with the same room and the same padding
+    expect(calls.map((c) => [c.opts.lipped, c.opts.level])).toEqual([
+      [true, 1],
+      [true, 1],
+      [true, 1],
+    ]);
+    // each stack pads its own copies alike (a lone copy has the whole stack's surplus to itself), and
+    // the riser splitRisers makes takes the padding off every one of them
+    expect(calls[0]?.opts.padding).toBe(calls[1]?.opts.padding);
+    expect(calls[0]?.opts.padding).toBeGreaterThan(0);
+    expect(new Set(calls.map((c) => c.w)).size).toBe(1);
+  });
+
+  it("gives the top copy no lip when its stack cannot afford the rim, and realizes it as the others", () => {
+    const tight = createCtx(makeInput([set], { box: { innerHeight: 26 } }), fakeMeasure);
+    const calls: Parameters<Realize>[3][] = [];
+    const record: Realize = (part, outer, settings, opts) => {
+      calls.push(opts);
+      return fakeRealize(part, outer, settings, opts);
+    };
+    const plan = evaluate(tight, { root: leaf([copy(0), copy(1)]), variants: [0] });
+    const specs = materialize(tight, plan, record).filter((t) => t.part === "tray");
+    expect(specs.map((t) => [t.level, t.lip])).toEqual([
+      [0, true],
+      [1, false],
+    ]);
+    // the same walls and wells: the rim is a ring on the wall, not a thicker one
+    expect(calls.map((o) => [o.lipped, o.level])).toEqual([
+      [true, 1],
+      [true, 1],
+    ]);
+    expect(new Set(specs.map((t) => JSON.stringify([t.w, t.d, t.h, t.compartments]))).size).toBe(1);
+  });
+
+  it("realizes a lone copy of a set that is nowhere in a stack as any plain tray", () => {
+    const calls: Parameters<Realize>[3][] = [];
+    const record: Realize = (part, outer, settings, opts) => {
+      calls.push(opts);
+      return fakeRealize(part, outer, settings, opts);
+    };
+    const plan = evaluate(ctx, {
+      root: cut("x", leaf([copy(0)]), leaf([copy(1)])),
+      variants: [0],
+    });
+    const specs = materialize(ctx, plan, record).filter((t) => t.part === "tray");
+    expect(specs.map((t) => t.lip)).toEqual([false, false]);
+    expect(calls.map((o) => [o.lipped, o.level])).toEqual([
+      [false, 0],
+      [false, 0],
+    ]);
   });
 });

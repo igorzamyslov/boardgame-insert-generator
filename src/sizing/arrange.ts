@@ -1,5 +1,5 @@
 import { cutoutSides } from "./common";
-import { MAX_SPLITS } from "./constants";
+import { MAX_SPLITS, MAX_WEIGHTED_SPLITS } from "./constants";
 import type { CompartmentReq } from "./types";
 import { ceilU, maxOf, sum } from "./units";
 
@@ -134,7 +134,7 @@ export function splitBlocks(
   parts: number,
 ): CompartmentReq[][][] | null {
   const n = blocks.length;
-  if (parts < 1 || parts > MAX_SPLITS || n < parts) {
+  if (parts < 1 || parts > MAX_WEIGHTED_SPLITS || n < parts) {
     return null;
   }
   const prefix: number[] = [0];
@@ -207,4 +207,36 @@ export function splitBlocks(
     }
   }
   return best === null ? null : cut([best.i, best.j]);
+}
+
+/**
+ * The split of `blocks` into `parts` trays that is offered, or null when none is (owner,
+ * 2026-10-23: "when an item is split it feels awkward when the split is 2:1:1 from 4 trays"). A
+ * split is even: the same number of entries in every tray, so four entries go 2 + 2 or 1 + 1 + 1 + 1
+ * and never 2 + 1 + 1. A part count that does not divide the entries is not offered when another
+ * one up to MAX_SPLITS does; an item with no even split at all (five or seven entries) keeps the
+ * weighted split `splitBlocks` finds, since an uneven split is all it can have. Contiguous, in
+ * order, and never between the compartments of one block.
+ */
+export function offeredSplit(
+  blocks: readonly CompartmentReq[][],
+  parts: number,
+): CompartmentReq[][][] | null {
+  const n = blocks.length;
+  if (parts < 1 || parts > MAX_SPLITS || n < parts) {
+    return null;
+  }
+  if (parts === 1) {
+    return [[...blocks]];
+  }
+  if (n % parts === 0) {
+    const each = n / parts;
+    return Array.from({ length: parts }, (_, i) => blocks.slice(i * each, (i + 1) * each));
+  }
+  for (let other = 2; other <= Math.min(MAX_SPLITS, n); other++) {
+    if (n % other === 0) {
+      return null;
+    }
+  }
+  return splitBlocks(blocks, parts);
 }

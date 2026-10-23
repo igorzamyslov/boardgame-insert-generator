@@ -1,9 +1,11 @@
+import { rimOn } from "../model/lip";
 import { FIT_CHOICES } from "../model/settings";
 import type { Notice, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
 import { printedHeight, type Ctx, type PartRef } from "./context";
 import { partLabel, requirementLabel } from "./labels";
 import { coverageApplies } from "./score";
+import { splitRisers } from "./risers";
 import type { LayoutSummary } from "./types";
 import { toMm, toU, type U } from "./units";
 import { inferVariant } from "./warmstart";
@@ -18,6 +20,7 @@ export const NOTICE_CODES = {
   bed: "layout.bed",
   doesNotFit: "layout.doesNotFit",
   lockDropped: "lock.dropped",
+  copiesJoint: "layout.copiesJoint",
 } as const;
 
 /** How much longer a repeated search runs than the one that found nothing (the runner uses it too). */
@@ -45,6 +48,7 @@ function playMessage(
   limit: number,
   crossed: number,
   canTighten: boolean,
+  empty: number,
 ): string {
   const where = axis === "x" ? "left–right" : "front–back";
   const row =
@@ -65,7 +69,9 @@ function playMessage(
   }
   const last = tips.length - 1;
   const steps = tips.map((t, i) => (i > 0 && i === last ? `or ${t}` : t));
-  return `Trays can shift ${play.toFixed(2)} mm ${where} (Play limit: ${limit} mm): ${row}. To reduce it: ${steps.join("; ")}. Or raise Play limit there.`;
+  const rest =
+    empty > 0 ? ` ${empty.toFixed(2)} mm of it is room beside copies, too thin for a spacer.` : "";
+  return `Trays can shift ${play.toFixed(2)} mm ${where} (Play limit: ${limit} mm): ${row}.${rest} To reduce it: ${steps.join("; ")}. Or raise Play limit there.`;
 }
 
 /** Warnings about a feasible layout: coverage, play, lip off; and a note when stacks stop short of the top. */
@@ -118,6 +124,14 @@ export function layoutWarnings(
           settings.playLimit,
           crossed,
           settings.fit > FIT_CHOICES.tight,
+          // what the row leaves empty beyond the clearance and the gaps, mm on the 0.01 grid
+          Math.max(
+            0,
+            Math.round(
+              (play - (2 * toMm(ctx.boxClearance) + Math.max(0, crossed - 1) * toMm(ctx.gap))) *
+                100,
+            ) / 100,
+          ),
         ),
       });
     }
@@ -146,6 +160,85 @@ export function layoutWarnings(
         message: `"Fill the box to the top" is off, so ${short.length === 1 ? "1 stack stops" : `${short.length} stacks stop`} short of the lid (by up to ${mmUp(toMm(most))} mm). Boards and the lid won't rest on ${short.length === 1 ? "it" : "them"}, so trays can shift a little when the box is carried.`,
       });
     }
+  }
+  out.push(...copiesJointNotices(ctx, trays));
+  return out;
+}
+
+/**
+ * The copies of a set that stand in a stack are interchangeable only with the top copy's rim and
+ * the groove under the bottom one, which a stack keeps only while it can afford them (owner,
+ * 2026-10-23: best-effort). Says so, per item, when a stack has gone without: the copies are still
+ * one size, one height and one set of wells, but only stack in the order they were made for.
+ */
+function copiesJointNotices(ctx: Ctx, trays: readonly TraySpec[]): Notice[] {
+  const { settings } = ctx.input;
+  if (!settings.lip.enabled) {
+    return [];
+  }
+  const real = trays.filter((t) => t.part === "tray");
+  const setOf = (t: TraySpec): string | null => {
+    const m = /^(.*):p\d+:(\d+)$/.exec(t.key);
+    return m ? `${m[1]}:${m[2]}` : null;
+  };
+  const members = new Map<string, TraySpec[]>();
+  for (const t of real) {
+    const set = setOf(t);
+    if (set !== null) {
+      members.set(set, [...(members.get(set) ?? []), t]);
+    }
+  }
+  // the sets with a copy in a stack of two or more, the only ones built to stack with each other
+  const stacked = [...members].filter(
+    ([, list]) =>
+      list.length > 1 && list.some((t) => real.some((o) => o !== t && o.path === t.path)),
+  );
+  if (stacked.length === 0) {
+    return [];
+  }
+  const printed = settings.fillToTop
+    ? splitRisers(trays, { settings, printer: ctx.input.printer, locks: ctx.input.locks })
+    : [];
+  const rim = new Map<number, { top: boolean; bottom: boolean }>();
+  for (const [, list] of stacked) {
+    const ref = ctx.refsOfKey(list[0]?.key ?? "")[0];
+    if (ref === undefined) {
+      continue;
+    }
+    const noRim = list.some(
+      (t) =>
+        rimOn(settings) &&
+        !t.lip &&
+        !real.some((o) => o !== t && o.path === t.path && o.level > t.level),
+    );
+    const noGroove = list.some(
+      (t) =>
+        t.level === 0 &&
+        settings.fillToTop &&
+        !printed.some((p) => p.key === t.key && p.onRiser === true),
+    );
+    const seen = rim.get(ref.req) ?? { top: false, bottom: false };
+    rim.set(ref.req, { top: seen.top || noRim, bottom: seen.bottom || noGroove });
+  }
+  const out: Notice[] = [];
+  for (const [req, lack] of rim) {
+    const r = ctx.input.requirements[req];
+    if (r === undefined || (!lack.top && !lack.bottom)) {
+      continue;
+    }
+    const name = requirementLabel(r);
+    const joint = rimOn(settings) ? "groove" : "slab";
+    const what =
+      lack.top && lack.bottom
+        ? `The top ${name} tray has no rim and the bottom one no ${joint}`
+        : lack.top
+          ? `The top ${name} tray has no rim`
+          : `The bottom ${name} tray has no ${joint}`;
+    out.push({
+      level: "info",
+      code: NOTICE_CODES.copiesJoint,
+      message: `${what}, so the ${name} trays only stack in this order.`,
+    });
   }
   return out;
 }

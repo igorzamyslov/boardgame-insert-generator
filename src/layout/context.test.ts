@@ -191,4 +191,49 @@ describe("whole trays (groups spec §6.3)", () => {
     expect(ctx.extraParts(0, 0)).toBe(4);
     expect(ctx.extraParts(0, 1)).toBe(2);
   });
+
+  describe("alike trays (owner, 2026-10-23: all trays of one set are the same size)", () => {
+    const c = comp({ minW: 40, minD: 30, minH: 10, contents: "c" });
+    const alike = (r: ReturnType<typeof req>, variant: number, partNo: number): number =>
+      createCtx(makeInput([r]), fakeMeasure).alikeOf({ req: 0, variant, part: partNo });
+
+    it("gives the same tray of every copy one class, and each tray of a copy its own", () => {
+      const kits = req("k", [
+        variant("two each", [
+          part("k:p0:0", [c]),
+          part("k:p0:1", [c]),
+          part("k:p1:0", [c]),
+          part("k:p1:1", [c]),
+          part("k:p2:0", [c]),
+          part("k:p2:1", [c]),
+        ]),
+      ]);
+      const ctx = createCtx(makeInput([kits]), fakeMeasure);
+      const cls = [0, 1, 2, 3, 4, 5].map((i) => ctx.alikeOf({ req: 0, variant: 0, part: i }));
+      expect(cls[0]).toBeGreaterThanOrEqual(0);
+      expect(new Set([cls[0], cls[2], cls[4]]).size).toBe(1);
+      expect(new Set([cls[1], cls[3], cls[5]]).size).toBe(1);
+      expect(cls[0]).not.toBe(cls[1]);
+    });
+
+    it("has no class for a tray with no copy, and none across requirements or variants", () => {
+      const one = req("k", [variant("one", [part("k:p0:0", [c]), part("k:p0:1", [c])])]);
+      expect(alike(one, 0, 0)).toBe(-1);
+      expect(alike(one, 0, 1)).toBe(-1);
+      const two = [
+        req("a", [variant("v", [part("a:p0:0", [c]), part("a:p1:0", [c])])]),
+        req("b", [variant("v", [part("b:p0:0", [c]), part("b:p1:0", [c])])]),
+      ];
+      const ctx = createCtx(makeInput(two), fakeMeasure);
+      const [a0, a1, b0, b1] = [
+        ctx.alikeOf({ req: 0, variant: 0, part: 0 }),
+        ctx.alikeOf({ req: 0, variant: 0, part: 1 }),
+        ctx.alikeOf({ req: 1, variant: 0, part: 0 }),
+        ctx.alikeOf({ req: 1, variant: 0, part: 1 }),
+      ];
+      expect(a0).toBe(a1);
+      expect(b0).toBe(b1);
+      expect(a0).not.toBe(b0);
+    });
+  });
 });

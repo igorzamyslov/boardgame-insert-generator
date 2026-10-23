@@ -42,7 +42,7 @@ describe("projectVolume", () => {
   it("says Scythe with every expansion is very tight, and names the factions first", () => {
     const n = volumeNote(budgetOf(scytheComplete), true);
     expect(n.line).toBe(
-      "Your items need at least 5.9 L as trays. The box has 6.8 L under the headroom.",
+      "Your items need at least 5.8 L as trays. The box has 6.8 L under the headroom.",
     );
     expect(n.verdict).toBe("tight");
     expect(n.biggest[0]).toMatch(/^Faction ×7 takes 2\.\d L$/);

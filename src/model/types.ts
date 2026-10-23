@@ -356,7 +356,8 @@ export interface TraySpec {
   wall: number;
   floor: number;
   // true when another tray is stacked on this one and settings.lip.enabled: it carries the lower
-  // half of the joint, the lip (rim) or the socket the slab above drops into (step)
+  // half of the joint, the lip (rim) or the socket the slab above drops into (step). Also true of
+  // the top tray of a stack of alike trays (copies), which any of them may be: it carries them too
   lip: boolean;
   /**
    * Set on a tray that stands on a riser carrying the joint (splitRisers), never stored: the tray
