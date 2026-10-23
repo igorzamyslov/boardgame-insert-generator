@@ -20,6 +20,8 @@ function verbatim<T>(raw: Json): T {
 }
 
 function readFeature(r: Reader): FeatureSpec {
+  // The stored features only. "fingerDip" is not among them on purpose: a finger dip is derived at
+  // print time (layout/dips.ts), so a stored layout never holds one.
   const type = r.tag("type", ["wallCutout", "spacerNotch", "dividerSlot", "scoop", "cornerRelief"]);
   if (type === null) {
     // Newer file, unknown feature type: keep it verbatim (its fields are unknown too).

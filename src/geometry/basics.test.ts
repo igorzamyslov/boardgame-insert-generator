@@ -48,8 +48,8 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
     expect(err.message).toMatch(/"magnet".*newer app version/);
   });
 
-  it("is at 0.9.3: 0.8.0 stacks flush (a new line); 0.8.1 engraves names, 0.8.2 rounds a merged part once, 0.8.3 lets a group member's Max fill its tray, 0.8.4 adds columns and 0.8.5 prints risers from 3 mm, all PATCHes; 0.9.0 gives a riser the lip (a new line); 0.9.1 closes the slit in a merged part, 0.9.2 adds the stepped base and 0.9.3 gives flat custom items and short minis the notched cut (PATCHes)", () => {
-    expect(GEOMETRY_VERSION).toBe("0.9.3");
+  it("is at 0.9.4: 0.8.0 stacks flush (a new line); 0.8.1 engraves names, 0.8.2 rounds a merged part once, 0.8.3 lets a group member's Max fill its tray, 0.8.4 adds columns and 0.8.5 prints risers from 3 mm, all PATCHes; 0.9.0 gives a riser the lip (a new line); 0.9.1 closes the slit in a merged part, 0.9.2 adds the stepped base 0.9.3 gives flat custom items and short minis the notched cut and 0.9.4 cuts finger dips in fillers (PATCHes)", () => {
+    expect(GEOMETRY_VERSION).toBe("0.9.4");
   });
 });
 

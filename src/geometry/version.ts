@@ -196,8 +196,21 @@ import type { Semver } from "../model/version";
  * deeper cuts and, where an upper tray was raised for its plain cut, a lower tray with its height
  * in the riser under it (the stack adds up the same), so trays printed before and after still
  * mate and stack: a PATCH, as 0.8.3 (wells change, outer fit does not) was.
+ *
+ * 0.9.4 cuts a finger dip in each solid filler where it touches a tray (owner, 2026-10-23, from the
+ * investigation "lifting trays"; `FeatureSpec` "fingerDip", `layout/dips.ts`, model/finger-dip.ts).
+ * Trays tile the box a tray gap apart, so nothing on a tray's outside could be gripped, and a
+ * filler wedged beside one had no grip either: a whole tray came out only by its contents. A dip is
+ * a U cut from the top of the filler (the spacer notch's and the wall cutout's, `fingerPocket.width`
+ * wide, a round bottom, open at the top: no overhang), run 15 mm into the filler where it is thick
+ * and across the whole strip where it is thinner than a finger, about half the filler's height deep
+ * and at most 20 mm, and stopping MIN_FEATURE_MM above the groove or step at the filler's foot. A
+ * mesh-only addition to a printed filler (a derived part: nothing is stored): outer size, footprint,
+ * fit and every tray are as before, and a filler without a dip builds exactly as before. A PATCH, as
+ * 0.9.1 (the slit) was: a new optional feature that planTray only accepts on a solid filler. The
+ * engraved name keeps clear of a dip that opens on its face.
  */
-export const GEOMETRY_VERSION = "0.9.3";
+export const GEOMETRY_VERSION = "0.9.4";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {
