@@ -17,6 +17,7 @@ import {
   partOf,
   partOfGroup,
   tiles,
+  withPlainCuts,
 } from "./test-helpers";
 import { MIN_REACH_OVERLAP } from "./constants";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
@@ -485,8 +486,116 @@ describe("minis pockets and custom wells: a centred cut through the front and ba
   });
 
   it("cuts a custom well through the front wall, half its depth", () => {
-    const r = realize(partOf([custom({ count: 1 })], "custom|strip|split1"));
-    expect(cutsOf(at(r.compartments, 0))).toEqual([cutout("front", 22.1, 5.5, 0, 25)]);
+    const r = realize(partOf([custom({ h: 30, count: 1 })], "custom|strip|split1"));
+    expect(cutsOf(at(r.compartments, 0))).toEqual([cutout("front", 22.1, 15.5, 0, 25)]);
+  });
+});
+
+describe("flat custom items and short minis: the full-depth cut with a floor notch", () => {
+  // The two cases of the investigation "getting contents out" (2026-10-23): a half-deep cut on a
+  // flat item leaves it below the cut, and a short figure's half is under a fingertip.
+  const wellOf = (part: TrayPartReq, settings: Settings = s, opts: RealizeOptions = ground) =>
+    at(realize(part, settings, opts).compartments, 0);
+  const frontCut = (c: CompartmentSpec) =>
+    cutsOf(c).find((f) => f.type === "wallCutout" && f.side === "front");
+
+  it("cuts a 2 mm board down to its floor and notches the floor, not 1.5 mm of its side", () => {
+    // two 2 mm boards stacked in a 3 mm well (h: 2 each; the well is its clearance over one)
+    const part = partOf(
+      [custom({ w: 60, d: 40, h: 2, count: 1, clearance: 1 })],
+      "custom|strip|split1",
+    );
+    const well = wellOf(part);
+    const outer = minOuter(part, s, ground);
+    const cut = frontCut(well);
+    expect(cut).toMatchObject({ type: "wallCutout", width: 25, floorNotch: 12.5 });
+    // down to the well's own floor: the tray's height less the floor
+    expect(cut && "depth" in cut ? cut.depth : 0).toBeCloseTo(outer.h - well.floorZ, 9);
+    // and the geometry accepts it, with the notch running into the floor under the board
+    const plan = planTray(traySpecFrom(realize(part), outer, ground, s, "t"), s);
+    expect(plan.compartments[0]?.cuts.map((c) => c.notch)).toEqual([12.5]);
+  });
+
+  it("cuts a 12 mm figure's pocket down to its floor at the front and the back, notched", () => {
+    const part = partOf(
+      [minis({ figures: [{ name: "Pawn", w: 20, d: 20, h: 12, count: 1 }] })],
+      "standing|strip|split1",
+    );
+    const well = wellOf(part);
+    const outer = minOuter(part, s, ground);
+    const cuts = cutsOf(well).flatMap((f) => (f.type === "wallCutout" ? [f] : []));
+    expect(cuts.map((f) => f.side)).toEqual(["front", "back"]);
+    for (const f of cuts) {
+      expect(f.depth).toBeCloseTo(outer.h - well.floorZ, 9);
+      expect(f.floorNotch).toBeGreaterThan(0);
+      expect(f.floorNotch).toBeLessThanOrEqual(s.fingerPocket.floorNotch);
+    }
+  });
+
+  it("leaves a tall custom item and a tall figure on the half-deep cut with no notch", () => {
+    const tall = wellOf(partOf([custom({ h: 40, count: 1 })], "custom|strip|split1"));
+    expect(frontCut(tall)).toMatchObject({ depth: 20.5, floorNotch: 0 });
+    const hero = wellOf(partOf([minis()], "standing|strip|split1"));
+    for (const f of cutsOf(hero)) {
+      expect(f).toMatchObject({ depth: 20.5, floorNotch: 0 });
+    }
+  });
+
+  describe("on a low upper tray (the rim between layers on, level 1)", () => {
+    const upper: RealizeOptions = { lipped: false, level: 1 };
+    // 3.65 mm at the defaults: the groove's 2.85 mm and the 0.8 mm of wall above it
+    const least = 3.65;
+
+    it("is no taller than the groove needs: it was 4.45 mm for a plain cut", () => {
+      const part = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1");
+      expect(minOuter(part, s, upper).h).toBe(least);
+    });
+
+    it("keeps the wall above the groove for a plain cut, which sizing now asks of tall pieces only", () => {
+      // a hand-built request: a plain cut on this low tray still gets the 0.8 mm of wall above the
+      // groove's roof and 0.8 mm of depth of its own (withCutRoom)
+      const plain = withPlainCuts(partOf([custom({ h: 1, count: 1 })], "custom|strip|split1"));
+      expect(minOuter(plain, s, upper).h).toBe(4.45);
+      expect(frontCut(wellOf(plain, s, upper))).toMatchObject({ depth: 0.8, floorNotch: 0 });
+    });
+
+    it("gets a notched cut as deep as the well, where a plain one was capped at 0.8 mm", () => {
+      const part = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1");
+      const well = wellOf(part, s, upper);
+      const outer = minOuter(part, s, upper);
+      const cut = frontCut(well);
+      expect(cut).toMatchObject({ floorNotch: 12.5 });
+      expect(cut && "depth" in cut ? cut.depth : 0).toBeCloseTo(least - well.floorZ, 9);
+      expect(cut && "depth" in cut ? cut.depth : 0).toBeGreaterThan(0.8);
+      // planTray (with the groove) builds it, and the cut leaves through the wall with its notch
+      const spec = traySpecFrom(realize(part, s, upper), outer, upper, s, "t");
+      const plan = planTray(spec, s);
+      expect(plan.groove).not.toBeNull();
+      expect(plan.compartments[0]?.cuts.map((c) => c.notch)).toEqual([12.5]);
+    });
+
+    it("gets a short figure's pocket a notched cut at the front and the back too", () => {
+      const part = partOf(
+        [minis({ figures: [{ name: "Pawn", w: 20, d: 20, h: 1, count: 1 }] })],
+        "standing|strip|split1",
+      );
+      expect(minOuter(part, s, upper).h).toBe(least);
+      const cuts = cutsOf(wellOf(part, s, upper)).flatMap((f) =>
+        f.type === "wallCutout" ? [f] : [],
+      );
+      expect(cuts.map((f) => f.side)).toEqual(["front", "back"]);
+      expect(cuts.every((f) => f.floorNotch > 0)).toBe(true);
+    });
+  });
+
+  it("is still a grip, and keeps a scoop bin only where no cut fits", () => {
+    const flat = partOf([custom({ h: 2, count: 1 })], "custom|strip|split1");
+    const r = realize(flat);
+    expect(hasGrip(r.compartments, minOuter(flat, s, ground).h)).toBe(true);
+    // a 9 mm wide item has no room for a 10 mm cut between its posts: still the scoop bin
+    const narrow = size([custom({ w: 9, d: 9, h: 2, count: 1 })], s);
+    const ids = narrow.requirements.flatMap((req) => req.variants.map((v) => v.id));
+    expect(ids).toEqual(["bulk-shallow|strip|split1"]);
   });
 });
 

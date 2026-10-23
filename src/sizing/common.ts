@@ -2,6 +2,7 @@ import { effective } from "../model/settings";
 import type { Component, Notice, Settings, Side } from "../model/types";
 import type { Toggles } from "../model/defaults";
 import { validateComponent } from "../model/validate";
+import { SHORT_PIECE_H } from "./constants";
 import type { CompartmentReq, FeatureReq } from "./types";
 import { ceilU, fromU } from "./units";
 
@@ -60,12 +61,21 @@ export function mainClearance(c: Component, s: Settings): number {
 
 /**
  * A finger cutout through the wall or divider on `side` (roadmap §4.6): `depthFraction` 1 runs down
- * to the compartment's floor (flat cards and tiles, with a floor notch), less is that fraction of
- * the shallowest well its channel crosses (upright cards and tiles, minis pockets and custom wells:
- * half).
+ * to the compartment's floor (flat cards and tiles, with a floor notch; short custom items and
+ * minis, `pieceCutout`), less is that fraction of the shallowest well its channel crosses (upright
+ * cards and tiles, taller minis pockets and custom wells: half).
  */
 export function wallCutout(side: Side, depthFraction: number, floorNotch: boolean): FeatureReq {
   return { type: "wallCutout", side, depthFraction, floorNotch };
+}
+
+/**
+ * The finger cutout through `side` for a piece `h` mm tall (custom items, minis): a short piece
+ * (under SHORT_PIECE_H) asks for the full-depth cut with a floor notch, as flat cards and tiles do,
+ * so a fingertip gets under it; a taller one the half-deep plain cut, lifted by its top.
+ */
+export function pieceCutout(side: Side, h: number): FeatureReq {
+  return h < SHORT_PIECE_H ? wallCutout(side, 1, true) : wallCutout(side, 0.5, false);
 }
 
 /**

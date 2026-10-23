@@ -173,8 +173,22 @@ import type { Semver } from "../model/version";
  * has a solid fill there, over the height it exists. A mesh-only fix in a printed filler or riser
  * part: outer size, fit and every tray are as before, and a single, unmerged part does not change.
  * A PATCH, as 0.8.2 (one rounding of a merged part) was.
+ *
+ * 0.9.2 gives flat custom items and short minis the full-depth finger cut with a floor notch that
+ * flat cards and tiles have (investigation "getting contents out", 2026-10-23; `pieceCutout`): a
+ * piece under 20 mm tall (twice the 10 mm a fingertip needs of its side to take hold, the half a
+ * half-deep cut shows) asks for the cut down to its well's floor and the notch, and a taller one
+ * keeps the half-deep plain cut. A 2 mm board used to get a 1.5 mm cut and a 12 mm figure a 6.5
+ * mm one, with the piece below the cut and no way under it; on a low upper tray a plain cut was
+ * capped at 0.8 mm above the groove, so such a tray stood 4.45 mm high for a 0.8 mm cut and is now
+ * as low as the groove allows (3.65 mm at the defaults), as a flat card's is. Sizing asks for
+ * different cuts; `planTray` and the builder are unchanged, so every spec stored before builds
+ * exactly as it did and `planTray` accepts everything it accepted. A layout made again has these
+ * deeper cuts and, where an upper tray was raised for its plain cut, a lower tray with its height
+ * in the riser under it (the stack adds up the same), so trays printed before and after still
+ * mate and stack: a PATCH, as 0.8.3 (wells change, outer fit does not) was.
  */
-export const GEOMETRY_VERSION = "0.9.1";
+export const GEOMETRY_VERSION = "0.9.2";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

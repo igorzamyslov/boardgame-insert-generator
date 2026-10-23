@@ -8,7 +8,7 @@ import {
   mainClearance,
   type OptionsResult,
   type StorageOption,
-  wallCutout,
+  pieceCutout,
 } from "./common";
 import { growthMm } from "./growth";
 import type { CompartmentReq } from "./types";
@@ -49,10 +49,11 @@ function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): C
         w: growthMm(growthOf(c, "w"), dims.w),
         d: growthMm(growthOf(c, "d"), dims.d),
       },
-      // A centred cut through the front and back walls, half the pocket deep (spec §6.1).
+      // A centred cut through the front and back walls (spec §6.1): half the pocket deep, but down
+      // to the floor with a floor notch for a short figure (in this variant's orientation).
       features: featuresOf(togglesOf(c), [
-        wallCutout("front", 0.5, false),
-        wallCutout("back", 0.5, false),
+        pieceCutout("front", dims.h),
+        pieceCutout("back", dims.h),
       ]),
     }),
   );

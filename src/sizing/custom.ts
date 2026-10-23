@@ -7,7 +7,7 @@ import {
   featuresOf,
   mainClearance,
   type OptionsResult,
-  wallCutout,
+  pieceCutout,
 } from "./common";
 
 /** Storage options for a custom component. Precondition: it passes validateComponent. */
@@ -28,8 +28,9 @@ export function customOptions(c: CustomComponent, s: Settings): OptionsResult {
         d: growthMm(growthOf(c, "d"), c.d),
         h: growthMm(growthOf(c, "h"), c.h),
       },
-      // A centred cut through the front wall, half the well deep (spec §6.1).
-      features: featuresOf(togglesOf(c), [wallCutout("front", 0.5, false)]),
+      // A centred cut through the front wall (spec §6.1): half the well deep, but down to the floor
+      // with a floor notch for a short item, which a half-deep cut would leave below it.
+      features: featuresOf(togglesOf(c), [pieceCutout("front", c.h)]),
     }),
   ]);
   return { options: [{ id: "custom", blocks }], notices: [] };
