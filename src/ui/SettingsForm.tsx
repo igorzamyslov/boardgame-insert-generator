@@ -5,6 +5,8 @@
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import {
   DEFAULT_SETTINGS,
+  FLOAT_EPSILON,
+  WALL_CHOICES,
   applyFingerRoom,
   applyFitChoice,
   applyWallChoice,
@@ -605,6 +607,17 @@ function MinRiserRow({ settings, onChange }: SettingsFormProps) {
   );
 }
 
+/**
+ * What Walls says under a Custom choice: the wall number when the wall is no choice's, else the
+ * floor or the dividers, which a choice writes with it.
+ */
+function customWallsLine(s: Settings): string {
+  const wall = Object.values(WALL_CHOICES).some((w) => Math.abs(w - s.wall) < FLOAT_EPSILON);
+  return wall
+    ? "You set the floor or the dividers below."
+    : `You set the wall to ${formatNumber(s.wall)} mm below.`;
+}
+
 function HowTheTraysSit({
   settings,
   onChange,
@@ -643,18 +656,14 @@ function HowTheTraysSit({
       </Labelled>
       <Labelled
         label="Walls"
-        changed={settings.wall !== DEFAULT_SETTINGS.wall}
-        line={
-          wall === "custom"
-            ? `You set the wall to ${formatNumber(settings.wall)} mm below.`
-            : undefined
-        }
+        changed={wall !== wallChoiceOf(DEFAULT_SETTINGS)}
+        line={wall === "custom" ? customWallsLine(settings) : undefined}
       >
         <Segmented<WallChoice | "custom">
           label="Walls"
           stretch
           options={[
-            { value: "thin", label: "Light" },
+            { value: "thin", label: "Thin" },
             { value: "normal", label: "Standard" },
             { value: "sturdy", label: "Sturdy" },
             { value: "custom", label: "Custom", changed: true },

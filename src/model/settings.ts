@@ -108,13 +108,35 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
 });
 
 export type WallChoice = "thin" | "normal" | "sturdy";
+export type PackingChoice = "loose" | "snug" | "tight";
 export type FitChoice = "tight" | "normal" | "loose";
 
-/** Frozen. */
+/**
+ * What each Walls choice writes, mm. Thin is 1.0 mm all through (the walls, the floors and the
+ * dividers of the hand-made inserts it follows): two lines of a 0.4 mm nozzle and a little over,
+ * above MIN_WALL_MM and MIN_FEATURE_MM. Standard and Sturdy write the default floor and divider, so
+ * going back from Thin leaves no thin floor behind. Frozen.
+ */
+export const WALL_PRESETS: Record<WallChoice, { wall: number; floor: number; divider: number }> =
+  deepFreeze({
+    thin: { wall: 1, floor: 1, divider: 1 },
+    normal: { wall: 1.6, floor: 1.2, divider: 1.2 },
+    sturdy: { wall: 2, floor: 1.2, divider: 1.2 },
+  });
+/** The wall of each choice. Frozen. */
 export const WALL_CHOICES: Record<WallChoice, number> = deepFreeze({
-  thin: 1.2,
-  normal: 1.6,
-  sturdy: 2,
+  thin: WALL_PRESETS.thin.wall,
+  normal: WALL_PRESETS.normal.wall,
+  sturdy: WALL_PRESETS.sturdy.wall,
+});
+/**
+ * How tightly a pile of loose pieces packs: the share of its bin they fill. Loose is the insert's
+ * default (DEFAULT_SETTINGS.packingFactor). Frozen.
+ */
+export const PACKING_CHOICES: Record<PackingChoice, number> = deepFreeze({
+  loose: 0.5,
+  snug: 0.65,
+  tight: 0.8,
 });
 /** Frozen. */
 export const FIT_CHOICES: Record<FitChoice, number> = deepFreeze({
@@ -123,9 +145,9 @@ export const FIT_CHOICES: Record<FitChoice, number> = deepFreeze({
   loose: 1.4,
 });
 
-/** The "Walls" choice: writes the resolved wall thickness. */
+/** The "Walls" choice: writes the resolved wall, floor and divider thickness (WALL_PRESETS). */
 export function applyWallChoice(s: Settings, c: WallChoice): Settings {
-  return { ...s, wall: WALL_CHOICES[c] };
+  return { ...s, ...WALL_PRESETS[c] };
 }
 
 /** The "Fit" choice: writes the resolved fit factor. */
@@ -181,9 +203,28 @@ export function fingerRoomOf(s: Settings): boolean | "custom" {
   return wall === "custom" || wall !== divider ? "custom" : wall === "on";
 }
 
-/** Which Walls choice the current wall matches, or "custom" (set under Exact numbers). */
+/**
+ * Which Walls choice the current wall, floor and divider all match, or "custom" (set under Exact
+ * numbers).
+ */
 export function wallChoiceOf(s: Settings): WallChoice | "custom" {
-  return choiceOf(WALL_CHOICES, s.wall);
+  const c = choiceOf(WALL_CHOICES, s.wall);
+  if (c === "custom") {
+    return c;
+  }
+  const p = WALL_PRESETS[c];
+  const same = (a: number, b: number): boolean => Math.abs(a - b) < FLOAT_EPSILON;
+  return same(p.floor, s.floor) && same(p.divider, s.divider) ? c : "custom";
+}
+
+/** Which packing choice a number is, or "custom" (a file's, or the insert's set under Exact numbers). */
+export function packingChoiceOf(value: number): PackingChoice | "custom" {
+  return choiceOf(PACKING_CHOICES, value);
+}
+
+/** How much of its bin a loose pile fills: the item's own number, else the insert's. */
+export function packingOf(c: { packing?: number }, s: Settings): number {
+  return c.packing ?? s.packingFactor;
 }
 
 /** Which Fit choice the current fit matches, or "custom" (set under Exact numbers). */

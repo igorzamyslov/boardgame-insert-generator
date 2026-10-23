@@ -112,6 +112,26 @@ const SCENARIOS: { name: string; component: Component; changed: OptionId[] }[] =
     changed: ["growth-w", "curvedFloor"],
   },
   {
+    name: "tokens packed tighter than the insert packs them",
+    component: of("bulk", { packing: 0.8 }),
+    changed: ["packing"],
+  },
+  {
+    name: "tokens whose packing is the insert's own number, however the file wrote it",
+    component: of("bulk", { packing: 0.5 }),
+    changed: [],
+  },
+  {
+    name: "miniatures loose in a tray, packed snug",
+    component: of("minis", { storage: "bulk", packing: 0.65 }),
+    changed: ["packing"],
+  },
+  {
+    name: "miniatures in pockets keep a stored packing but show no dot: its row is blocked",
+    component: of("minis", { storage: "pockets", packing: 0.65 }),
+    changed: [],
+  },
+  {
     name: "something else with a curved floor on a kind that has none by default",
     component: of("custom", { curvedFloor: true, cornerReliefs: false }),
     changed: ["curvedFloor", "cornerReliefs"],
@@ -170,7 +190,7 @@ describe("changedOptions", () => {
     for (const { component, changed } of SCENARIOS) {
       expect(optionsChanged(component, DEFAULT_SETTINGS)).toBe(changed.length);
       expect(moreSummary(component, DEFAULT_SETTINGS)).toMatch(
-        new RegExp(`· ${changed.length} changed$`),
+        changed.length === 0 ? /^[^·]*$/ : new RegExp(`· ${changed.length} changed$`),
       );
     }
   });
