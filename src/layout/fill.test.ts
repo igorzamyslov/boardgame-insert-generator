@@ -509,3 +509,144 @@ describe("fill", () => {
     expect(plan.leftovers[0]?.solid).toBe(true);
   });
 });
+
+describe("fill: alike trays (owner, 2026-10-23: all trays of one set are the same size)", () => {
+  // Three copies of an elastic 50 × 40 tray, which any other tray of its kind would grow to fill
+  // its room, and a 100 × 60 tray of another kind. fakeMeasure: a copy is 54 × 44 mm, 56 × 46 with a
+  // lip; the thinnest filler (a spare) is 2.4 mm.
+  const cell = comp({ minW: 50, minD: 40, minH: 10, elastic: { w: true, d: true }, contents: "c" });
+  const copies = req("c", [
+    variant("v", [part("c:p0:0", [cell]), part("c:p1:0", [cell]), part("c:p2:0", [cell])]),
+  ]);
+  const grower = boxReq("g", 50, 40, 10, { elastic: { w: true, d: true } });
+  const wide = boxReq("o", 100, 60, 20);
+  const ctx = ctxOf([copies, wide, grower]);
+  const copy = (i: number) => ({ req: 0, variant: 0, part: i, rotated: false });
+  const room = { x: 0, y: 0, w: 9000, d: 7000 };
+
+  it("leaves the room around a copy to fillers, where a tray of another kind grows into it", () => {
+    const own = placeStack(ctx, stackLevels(ctx, [item(2)]), room);
+    expect(own.trays[0]?.w).toBe(9000);
+    const alike = placeStack(ctx, stackLevels(ctx, [copy(0)]), room);
+    expect(alike.trays[0]).toMatchObject({ w: 5400, d: 4400 });
+    expect(alike.leftovers.length).toBeGreaterThan(0);
+  });
+
+  it("does not take a sliver of room too thin for a filler, nor make a filler of it", () => {
+    // 1 mm beyond the copy on both axes: under the 2.4 mm a filler needs, so the room stays empty
+    const sliver = { x: 0, y: 0, w: 5500, d: 4500 };
+    const alike = placeStack(ctx, stackLevels(ctx, [copy(0)]), sliver);
+    expect(alike.trays[0]).toMatchObject({ w: 5400, d: 4400 });
+    expect(alike.leftovers).toEqual([]);
+    expect(alike.air.map((a) => [a.w, a.d])).toEqual([
+      [80, 4500],
+      [5400, 80],
+    ]);
+  });
+
+  it("builds every copy of a set at the size the most demanding place asks of any: under a wider tray, so all", () => {
+    const tree = (a: ReturnType<typeof leaf>, b: ReturnType<typeof leaf>) => ({
+      root: cut("x", a, b),
+      variants: [0, 0, 0],
+    });
+    // one copy under a 104 × 64 tray of another kind, another beside: both are 104 × 64, as wide as
+    // the tray the first stands under, and there is nothing to be infeasible about
+    const unlike = evaluate(ctx, tree(leaf([copy(0), item(1)]), leaf([copy(1)])));
+    const copies = unlike.trays.filter((t) => t.item.req === 0);
+    expect(copies.map((t) => [t.w, t.d])).toEqual([
+      [10400, 6400],
+      [10400, 6400],
+    ]);
+    expect(unlike.overflow).toMatchObject({ x: 0, y: 0, z: 0, bed: 0, lock: 0 });
+    // the room is not the copies': it is as big as the wider tray makes it, and their own minimum
+    // is what is wasted (the score counts it)
+    expect(copies.map((t) => [t.minW, t.minD, t.needW, t.needD])).toEqual([
+      [5600, 4600, 10400, 6400],
+      [5600, 4600, 10400, 6400],
+    ]);
+    // every copy under the same: the same size, and the same as when only one is
+    const same = evaluate(
+      ctx,
+      tree(leaf([copy(0), item(1)]), leaf([copy(1), { ...item(1), part: 0 }])),
+    );
+    expect(same.trays.filter((t) => t.item.req === 0).map((t) => t.w)).toEqual([10400, 10400]);
+  });
+
+  it("builds copies one size when one stands under another set that is itself wider elsewhere", () => {
+    // the 104 × 64 tray of another kind is in two sets of alike trays here: its size is its set's
+    const two = req("t", [
+      variant("v", [
+        part("t:p0:0", [comp({ minW: 100, minD: 60, minH: 20, contents: "t" })]),
+        part("t:p1:0", [comp({ minW: 80, minD: 60, minH: 20, contents: "t" })]),
+      ]),
+    ]);
+    const c2 = ctxOf([copies, two]);
+    const top = (part: number) => ({ req: 1, variant: 0, part, rotated: false });
+    const plan = evaluate(c2, {
+      root: cut("x", leaf([copy(0), top(0)]), leaf([top(1)])),
+      variants: [0, 0],
+    });
+    const wides = plan.trays.filter((t) => t.item.req === 1);
+    expect(new Set(wides.map((t) => `${t.w}x${t.d}`)).size).toBe(1);
+  });
+
+  it("builds a lone copy as one in a stack when its set stands in a stack elsewhere", () => {
+    const plan = evaluate(ctx, {
+      root: cut("x", leaf([copy(0), copy(1)]), leaf([copy(2)])),
+      variants: [0, 0, 0],
+    });
+    expect(plan.trays.map((t) => [t.w, t.d, t.lipped, t.plug])).toEqual([
+      [5600, 4600, true, true],
+      [5600, 4600, true, true],
+      [5600, 4600, true, true],
+    ]);
+    const alone = evaluate(ctx, {
+      root: cut("x", leaf([copy(0)]), leaf([copy(1)])),
+      variants: [0, 0, 0],
+    });
+    expect(alone.trays.map((t) => [t.w, t.d, t.lipped, t.plug])).toEqual([
+      [5400, 4400, false, false],
+      [5400, 4400, false, false],
+    ]);
+  });
+
+  it("totals the alike overflow with the others, and counts empty room as air", () => {
+    const plan = evaluate(ctx, {
+      root: cut("x", leaf([copy(0), item(1)]), leaf([copy(1)])),
+      variants: [0, 0, 0],
+    });
+    expect(overflowTotal(plan.overflow)).toBe(
+      plan.overflow.x + plan.overflow.y + plan.overflow.z + plan.overflow.bed + plan.overflow.lock,
+    );
+    const slack = evaluate(ctx, { root: leaf([copy(0)]), variants: [0, 0, 0] });
+    expect(slack.air).toEqual([]);
+  });
+
+  it("drops the top copy's rim when the stack cannot afford it, and keeps every copy the same size", () => {
+    // two copies stacked in a box 26 mm high: the rim's 2 mm would leave 1.6 of the riser's 3
+    const tight = ctxOf([copies, wide, grower], { box: { innerHeight: 26 } });
+    const stack = evaluate(tight, { root: leaf([copy(0), copy(1)]), variants: [0, 0, 0] });
+    expect(stack.overflow.z).toBe(0);
+    expect(stack.trays.map((t) => [t.level, t.lipped, t.rim])).toEqual([
+      [0, true, true],
+      [1, true, false],
+    ]);
+    expect(new Set(stack.trays.map((t) => `${t.w}x${t.d}x${t.h}`)).size).toBe(1);
+    const roomy = evaluate(ctx, { root: leaf([copy(0), copy(1)]), variants: [0, 0, 0] });
+    expect(roomy.trays.map((t) => t.rim)).toEqual([true, true]);
+  });
+
+  it("measures the play along a row from the room the parts leave, not from how many there are", () => {
+    // a row of three trays: 2 × 0.5 mm of clearance and two 0.2 mm gaps, when nothing is empty
+    const row = ctxOf([boxReq("a", 50, 40, 10), boxReq("b", 50, 40, 10), boxReq("c", 50, 40, 10)], {
+      box: { innerWidth: 163.4 },
+    });
+    const tight = evaluate(row, {
+      root: cut("x", leaf([item(0)]), cut("x", leaf([item(1)]), leaf([item(2)]))),
+      variants: [0, 0, 0],
+    });
+    expect(tight.playX).toBe(2 * row.boxClearance + 2 * row.gap);
+    // front to back the tray has a filler behind it: one gap more
+    expect(tight.playY).toBe(2 * row.boxClearance + row.gap);
+  });
+});

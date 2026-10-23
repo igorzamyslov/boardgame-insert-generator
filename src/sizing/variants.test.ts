@@ -46,13 +46,15 @@ describe("buildVariants", () => {
       "B|rows2|split1",
       "C|strip|split2",
       "C|rows2|split1",
-      "A|strip|split3",
       "A|rows2|split2",
-      "B|strip|split3",
       "B|rows2|split2",
-      "C|strip|split3",
       "C|rows2|split2",
+      "A|strip|split4",
+      "B|strip|split4",
+      "C|strip|split4",
     ]);
+    // four entries are cut 2 + 2 or 1 + 1 + 1 + 1, never into three (2 + 1 + 1)
+    expect(variants.some((v) => v.id.endsWith("split3"))).toBe(false);
     const split2 = at(variants, 3);
     expect(split2.parts.map((p) => p.trayKey)).toEqual(["k:p0:0", "k:p0:1"]);
     expect(split2.parts.map((p) => p.compartments.map((c) => c.contents))).toEqual([
@@ -202,10 +204,10 @@ describe("buildVariants", () => {
       copies: 2,
       divider: 1.2,
     });
-    // rows2 and columns split in three, and rows2 in two, leave a tray of one well: none.
+    // Three entries split only in three (one each), and rows2 and columns in three leave a tray of
+    // one well: none.
     expect(variants.map((v) => v.id)).toEqual([
       "A|strip|split1",
-      "A|strip|split2",
       "A|rows2|split1",
       "A|strip|split3",
       "A|columns|split1",
@@ -307,10 +309,10 @@ describe("buildVariants", () => {
     expect(part.rowBreak).toBeUndefined();
   });
 
-  it("returns at most 9 variants per storage option, best first", () => {
+  it("returns at most 12 variants per storage option, best first", () => {
     const options = ["A", "B", "C", "D", "E", "F", "G", "H", "I"].map((id) => opt(id, 3));
     const ids = buildVariants({ key: "k", options, copies: 4 }).map((v) => v.id);
-    expect(ids.length).toBeLessThanOrEqual(9 * options.length);
+    expect(ids.length).toBeLessThanOrEqual(12 * options.length);
     expect(ids.slice(0, 9)).toEqual([
       "A|strip|split1",
       "B|strip|split1",
@@ -335,15 +337,10 @@ describe("buildVariants", () => {
       "C|strip|split1",
       "D|strip|split1",
       "E|strip|split1",
-      "A|strip|split2",
       "A|rows2|split1",
-      "B|strip|split2",
       "B|rows2|split1",
-      "C|strip|split2",
       "C|rows2|split1",
-      "D|strip|split2",
       "D|rows2|split1",
-      "E|strip|split2",
       "E|rows2|split1",
       "A|strip|split3",
       "B|strip|split3",
@@ -378,9 +375,32 @@ describe("buildVariants", () => {
     }
   });
 
-  it("offers splits into three trays and skips rows2 parts with one compartment", () => {
+  it("offers a split into three trays but not two for three entries, and skips rows2 parts with one compartment", () => {
     expect(buildVariants({ key: "k", options: [opt("A", 3)], copies: 1 }).map((v) => v.id)).toEqual(
-      ["A|strip|split1", "A|strip|split2", "A|rows2|split1", "A|strip|split3"],
+      ["A|strip|split1", "A|rows2|split1", "A|strip|split3"],
+    );
+  });
+
+  it("offers only even splits (owner, 2026-10-23): four entries go 2 + 2 or one each, never 2 + 1 + 1", () => {
+    const four = buildVariants({ key: "k", options: [opt("A", 4)], copies: 1 });
+    const strips = four.filter((v) => v.id.startsWith("A|strip|")).map((v) => v.id);
+    expect(strips).toEqual(["A|strip|split1", "A|strip|split2", "A|strip|split4"]);
+    const sizes = (id: string): number[] =>
+      (four.find((v) => v.id === id)?.parts ?? []).map((p) => p.compartments.length);
+    expect(sizes("A|strip|split2")).toEqual([2, 2]);
+    expect(sizes("A|strip|split4")).toEqual([1, 1, 1, 1]);
+    // five has no even split, so it keeps the weighted two- and three-way ones, as before
+    const five = buildVariants({ key: "k", options: [opt("A", 5)], copies: 1 })
+      .filter((v) => v.id.startsWith("A|strip|"))
+      .map((v) => v.id);
+    expect(five).toEqual(["A|strip|split1", "A|strip|split2", "A|strip|split3"]);
+  });
+
+  it("splits every copy of a four-entry item the same even way", () => {
+    const variants = buildVariants({ key: "k", options: [opt("A", 4)], copies: 3 });
+    const four = variants.find((v) => v.id === "A|strip|split4");
+    expect(four?.parts.map((p) => p.trayKey)).toEqual(
+      [0, 1, 2].flatMap((c) => [0, 1, 2, 3].map((part) => `k:p${c}:${part}`)),
     );
   });
 
@@ -395,10 +415,8 @@ describe("buildVariants", () => {
       (variants.find((v) => v.id === id)?.parts ?? []).map((p) =>
         p.compartments.map((c) => c.contents),
       );
-    expect(contents("A|strip|split2")).toEqual([
-      ["a0", "a1", "b0"],
-      ["c0", "c1", "c2"],
-    ]);
+    // three entries do not divide in two, so there is no two-way split to cut
+    expect(contents("A|strip|split2")).toEqual([]);
     expect(contents("A|strip|split3")).toEqual([["a0", "a1"], ["b0"], ["c0", "c1", "c2"]]);
   });
 

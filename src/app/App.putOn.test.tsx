@@ -54,18 +54,18 @@ describe("Put on…", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     expect(store.canUndo.peek()).toBe(false);
-    press(/^Coins and cubes/);
+    press(/^Dice/);
     const locks = store.state.project.value.locks;
     expect(locks.filter((l) => l.kind === "position")).toEqual([]);
     const stack = locks.find((l) => l.kind === "stack");
     expect(stack?.kind === "stack" ? stack.trayKeys.slice(-2) : []).toEqual([
-      key("Coins and cubes"),
+      key("Dice"),
       key("Market deck"),
     ]);
     // done: the prompt is gone and the tray stays selected
     expect(screen.queryByText(/Pick the tray to put/)).toBeNull();
     expect(store.state.swapFrom.value).toBeNull();
-    expect(within(rail()).getByText("On Coins and cubes")).toBeTruthy();
+    expect(within(rail()).getByText("On Dice")).toBeTruthy();
     expect(
       within(rail()).getByText("Trays put on another stay on it when the plan updates."),
     ).toBeTruthy();
@@ -75,15 +75,13 @@ describe("Put on…", () => {
   it("takes the tray off with the chip's ×, and Undo puts it back", () => {
     const { store } = seeded();
     putOn(/^Market deck/);
-    press(/^Coins and cubes/);
+    press(/^Dice/);
     const locks = store.state.project.value.locks;
     // edits within a moment of each other are one step: the person's click comes later than that
     vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
-    fireEvent.click(
-      within(rail()).getByRole("button", { name: "Take Market deck off Coins and cubes" }),
-    );
+    fireEvent.click(within(rail()).getByRole("button", { name: "Take Market deck off Dice" }));
     expect(store.state.project.value.locks).toEqual([]);
-    expect(within(rail()).queryByText("On Coins and cubes")).toBeNull();
+    expect(within(rail()).queryByText("On Dice")).toBeNull();
     act(() => store.undo());
     expect(store.state.project.value.locks).toEqual(locks);
   });

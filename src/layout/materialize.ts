@@ -32,7 +32,10 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
     if (!part) {
       continue;
     }
-    const m = ctx.metrics(t.item, t.lipped, t.level);
+    // An alike tray of a set in a stack is built, and its wells laid out, as a tray in the middle of
+    // a stack is whatever level it stands at, so every one of the set is the same.
+    const built = t.plug ? Math.max(t.level, 1) : t.level;
+    const m = ctx.metrics(t.item, t.lipped, built);
     const minW = t.item.rotated ? m.d : m.w;
     const minD = t.item.rotated ? m.w : m.d;
     const w = toMm(Math.max(t.w, minW));
@@ -50,7 +53,14 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
       Math.max(0, Math.max(t.h, m.h) - roundUpTo(m.h, ctx.layer)),
       ctx.layer,
     );
-    const opts = { lipped: t.lipped, level: t.level, stackMin: need, padding: toMm(padding) };
+    const opts = {
+      lipped: t.lipped,
+      level: built,
+      stackMin: need,
+      padding: toMm(padding),
+      // the wells of alike trays are the same whatever room their stack gives them
+      fixedDepth: t.plug,
+    };
     // realizeTray works in the part's own frame; a rotated placement is realized at the
     // swapped size and turned 90° counter-clockwise by sizing's rotateRealized.
     const own = t.item.rotated ? { w: d, d: w, h } : { w, d, h };
@@ -75,7 +85,7 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
       rotated: t.item.rotated,
       wall: toMm(ctx.wall),
       floor,
-      lip: t.lipped,
+      lip: t.rim,
       solid: false,
       compartments: realized.compartments,
     });

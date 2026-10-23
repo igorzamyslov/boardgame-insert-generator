@@ -68,9 +68,10 @@ function contentDepth(
   H: number,
   floor: number,
   lift: number,
+  fixed: boolean,
 ): number {
   const need = ceilU(req.minH);
-  if (!req.elastic.h) {
+  if (!req.elastic.h || fixed) {
     return need + lift;
   }
   const grown = need + growthCapU(req, "h");
@@ -814,6 +815,8 @@ function layoutAt(
   cut: CutWalls | null = null,
   // RealizeOptions.padding in units, or null (all the height beyond the contents is raised floor).
   padding: number | null = null,
+  // RealizeOptions.fixedDepth: wells that may grow in height keep the depth their contents ask for.
+  fixedDepth = false,
 ): { tray: RealizedTray; walls: CutWalls } {
   const { floor } = min;
   const columns = part.arrangement === "columns";
@@ -828,7 +831,7 @@ function layoutAt(
   const lift = padding === null ? 0 : Math.max(0, top - padding - min.content);
   const sized = placed.map((p) => ({
     ...p,
-    depth: contentDepth(p.req, p.alloc, top, floor, lift),
+    depth: contentDepth(p.req, p.alloc, top, floor, lift, fixedDepth),
   }));
   // A well filling in height (group Max, spec §2) goes down to the tray's deepest floor: the least
   // floorZ of the wells that do not fill. Never shallower than its own content depth. The tray's
@@ -1082,21 +1085,22 @@ export function realizeTray(
     d: Math.max(0, ceilU(opts.stackMin?.d ?? 0) - min.d),
   };
   const padding = opts.padding === undefined ? null : Math.max(0, ceilU(opts.padding));
-  const first = layoutAt(part, min, [W, D, H], settings, forced, null, padding);
+  const fixed = opts.fixedDepth === true;
+  const first = layoutAt(part, min, [W, D, H], settings, forced, null, padding, fixed);
   if (!settings.oneWall) {
     return first.tray;
   }
   // The walls the cuts go through are only known once they are placed: where the first layout put
   // the slack against one of them, lay it out again with those walls kept clear.
   let avoid = unionOf(requestedWalls(part), first.walls);
-  let result = layoutAt(part, min, [W, D, H], settings, forced, avoid, padding);
+  let result = layoutAt(part, min, [W, D, H], settings, forced, avoid, padding, fixed);
   for (let round = 0; round < ROOM_ROUNDS; round += 1) {
     const next = unionOf(avoid, result.walls);
     if (JSON.stringify(next) === JSON.stringify(avoid)) {
       break;
     }
     avoid = next;
-    result = layoutAt(part, min, [W, D, H], settings, forced, avoid, padding);
+    result = layoutAt(part, min, [W, D, H], settings, forced, avoid, padding, fixed);
   }
   return result.tray;
 }

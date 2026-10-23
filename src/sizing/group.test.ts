@@ -641,7 +641,6 @@ describe("size", () => {
       const req = at(requirements, 0);
       expect(req.variants.map((v) => v.id)).toEqual([
         "upright-long+bulk-shallow|strip|split1",
-        "upright-long+bulk-shallow|strip|split2",
         "upright-long+bulk-shallow|rows2|split1",
         "upright-long+bulk-shallow|strip|split3",
         // The fallback bins stack in a column beside the deck (group-tray-fill spec §3 (b)).

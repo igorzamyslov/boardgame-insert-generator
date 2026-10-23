@@ -4,7 +4,7 @@ import {
   isOneMember,
   rows2Break,
   rows2Order,
-  splitBlocks,
+  offeredSplit,
 } from "./arrange";
 import { rowsOf } from "./outer";
 import { DEFAULT_SETTINGS, MIN_FEATURE_MM } from "../model/settings";
@@ -112,7 +112,7 @@ function dedupeKey(variant: TrayVariant): string {
 }
 
 /**
- * Strip/rows2/columns × 1–3 trays for one option's blocks (one copy), the same in each of `copies`
+ * Strip/rows2/columns × 1–4 trays (even splits only: `offeredSplit`) for one option's blocks (one copy), the same in each of `copies`
  * copies: copy c's part p is keyed `<key>:p<c>:<p>`. Parts are numbered from 0 in every copy. A
  * columns variant none of whose parts stacks a column is the strip variant, and is left out.
  */
@@ -127,7 +127,7 @@ function splitCandidates(
   const out: Candidate[] = [];
   ARRANGEMENTS.forEach((arrangement, a) => {
     for (let k = 0; k < MAX_SPLITS; k++) {
-      const groups = splitBlocks(blocks, k + 1);
+      const groups = offeredSplit(blocks, k + 1);
       const parts =
         groups === null
           ? null
@@ -150,7 +150,7 @@ function splitCandidates(
 }
 
 /**
- * Enumerates the tray variants for one requirement, best first: up to MAX_VARIANTS (9) per
+ * Enumerates the tray variants for one requirement, best first: up to MAX_VARIANTS (12) per
  * storage option, so a requirement with several options ("auto") offers every variant each of
  * them offers alone and never fits worse than one of them. None when no option has a
  * compartment. `copies` is the number of identical trays (1..10); each variant holds that many
@@ -168,7 +168,7 @@ export function buildVariants(input: VariantInput): TrayVariant[] {
   candidates.sort((x, y) => compareRank(x.rank, y.rank));
   const seen = new Set<string>();
   const variants: TrayVariant[] = [];
-  // One option yields at most 9 (3 arrangements × 3 splits), so this cap never drops a variant one
+  // One option yields at most 12 (3 arrangements × 4 splits), so this cap never drops a variant one
   // option offers alone; it only bounds the list. A cap over all options together used to keep the
   // best 8 of auto's ~16 and drop its 3-tray splits, the only ones that fit some boxes.
   const cap = MAX_VARIANTS * Math.max(1, options.length);

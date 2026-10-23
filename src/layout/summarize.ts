@@ -2,7 +2,7 @@ import { builtLevel, rimOn, stepOf } from "../model/lip";
 import { effective, topPlane } from "../model/settings";
 import type { BoxMm, TraySpec } from "../model/types";
 import { splitDividers } from "./dividers";
-import { maxCrossing } from "./fill";
+import { maxCrossing, rowPlayU } from "./fill";
 import { mergeParts } from "./merge";
 import { splitRisers } from "./risers";
 import { openSpacers } from "./spacers";
@@ -98,8 +98,14 @@ export function summarize(
   const bottoms: Rect[] = printed
     .filter((t) => t.level === 0)
     .map((t) => ({ x: toU(t.x), y: toU(t.y), w: toU(t.w), d: toU(t.d) }));
-  const play = (crossed: number): number =>
-    toMm(nominalPlayU(toU(eff.boxClearance), toU(eff.trayGap), crossed));
+  // The nominal play (clearance and gaps), or more where room beside an alike tray is left empty.
+  const play = (crossed: number, alongX: boolean): number =>
+    toMm(
+      Math.max(
+        nominalPlayU(toU(eff.boxClearance), toU(eff.trayGap), crossed),
+        rowPlayU(toU(alongX ? box.innerWidth : box.innerDepth), bottoms, alongX),
+      ),
+    );
   const crossX = maxCrossing(bottoms, true);
   const crossY = maxCrossing(bottoms, false);
   return {
@@ -112,8 +118,8 @@ export function summarize(
     minRiser: settings.minRiser,
     filamentG: round(filament * PLA_G_PER_MM3, 1),
     playLimit: settings.playLimit,
-    playX: play(crossX),
-    playY: play(crossY),
+    playX: play(crossX, true),
+    playY: play(crossY, false),
     crossX,
     crossY,
   };

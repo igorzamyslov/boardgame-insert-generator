@@ -3,7 +3,7 @@ import { summarize } from "./summarize";
 import { makeInput, traySpec } from "./test-utils";
 
 describe("summarize", () => {
-  const input = makeInput([], { box: { innerWidth: 201.4, innerDepth: 51, innerHeight: 20 } });
+  const input = makeInput([], { box: { innerWidth: 201.2, innerDepth: 51, innerHeight: 20 } });
 
   it("computes fill, counts, filament and play", () => {
     const trays = [
@@ -21,7 +21,7 @@ describe("summarize", () => {
     const s = summarize(trays, input);
     expect(s.trayCount).toBe(2);
     expect(s.stackCount).toBe(2);
-    expect(s.fillPct).toBe(round1(((2 * 100 * 50 * 20) / (200.4 * 50 * 20)) * 100));
+    expect(s.fillPct).toBe(round1(((2 * 100 * 50 * 20) / (200.2 * 50 * 20)) * 100));
     const g = (100 * 50 * 20 - 98 * 48 * 19 + 100 * 50 * 20 + 5 * 10 * 10) * 0.00124;
     expect(s.filamentG).toBe(round1(g));
     expect(s.playX).toBe(1.2);
@@ -29,6 +29,17 @@ describe("summarize", () => {
     // two trays side by side: the 1.2 mm is 2 × 0.5 + 1 × 0.2
     expect(s.crossX).toBe(2);
     expect(s.crossY).toBe(1);
+  });
+
+  it("adds room left empty in a row to the play: the row lets a tray shift in it as well", () => {
+    // the same two trays in a box 1.8 mm wider than they need, a gap too thin for any filler
+    const wide = makeInput([], { box: { innerWidth: 203, innerDepth: 51, innerHeight: 20 } });
+    const trays = [
+      traySpec({ key: "a", x: 0, stack: 0 }),
+      traySpec({ key: "b", x: 100.2, stack: 1 }),
+    ];
+    expect(summarize(trays, wide).playX).toBe(3);
+    expect(summarize(trays, wide).playY).toBe(1);
   });
 
   it("adds the lip ring to the filament estimate", () => {

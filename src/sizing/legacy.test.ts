@@ -126,7 +126,30 @@ describe("an ungrouped project sizes as it did in 0.6", () => {
         ),
       })),
     };
-    expect(without).toEqual(was["multi-block"]);
+    // 0.14.0 offers only even splits (owner, 2026-10-23): a split of three decks in two is gone,
+    // and a split in four is new. What is still offered is 0.6's, the same and in the same order.
+    const old = was["multi-block"] as Shot;
+    const kept = {
+      ...old,
+      requirements: old.requirements.map((r, i) => ({
+        ...r,
+        variants: r.variants.filter((v) =>
+          shot.requirements[i]?.variants.some((now) => now.id === v.id),
+        ),
+      })),
+    };
+    expect({
+      ...without,
+      requirements: without.requirements.map((r) => ({
+        ...r,
+        variants: r.variants.filter((v) => !v.id.endsWith("split4")),
+      })),
+    }).toEqual(kept);
+    const gone = old.requirements.flatMap((r, i) =>
+      r.variants.filter((v) => !shot.requirements[i]?.variants.some((now) => now.id === v.id)),
+    );
+    expect(gone.length).toBeGreaterThan(0);
+    expect(gone.every((v) => /split[23]$/.test(v.id))).toBe(true);
     expect(shot.requirements.some((r) => r.variants.some((v) => v.id.includes("|columns|")))).toBe(
       true,
     );

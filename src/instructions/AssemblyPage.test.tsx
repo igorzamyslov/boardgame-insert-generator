@@ -622,7 +622,7 @@ describe("AssemblyPage: taking it out", () => {
   });
 
   it("lifts the strip beside the Event cards by its finger dip, and flags the one spacer left without a grip", () => {
-    const { project } = loadSeed("harbour-kings");
+    const { project } = loadSeed("harbour-kings", true);
     const trays = printableParts(project.layout?.trays ?? [], {
       components: project.components,
       settings: project.settings,

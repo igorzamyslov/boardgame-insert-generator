@@ -68,7 +68,7 @@ export interface TrayRequirement {
   componentIds: string[];
   access: Access; // the group's, or the item's own
   loose: boolean; // contains bulk, minis-bulk, tiles or a member in its bulk fallback (coverage rule)
-  variants: TrayVariant[]; // 1..MAX_VARIANTS (9) per storage option, preferred first, fixed order
+  variants: TrayVariant[]; // 1..MAX_VARIANTS (12) per storage option, preferred first, fixed order
 }
 
 export interface OuterSize {
@@ -96,6 +96,14 @@ export interface RealizeOptions {
    * the height beyond the contents' is raised floor, as realizeTray made it before geometry 0.9.0.
    */
   padding?: number;
+  /**
+   * The wells keep the depth their contents ask for, whatever height the tray has beyond them: a
+   * compartment whose contents may grow in height is not deepened by the room (all of which is
+   * lift above it, padding below it), so trays built at different heights have the same wells. The
+   * trays of one set of alike trays are (owner, 2026-10-23), standing in stacks with unlike padding.
+   * Absent: such a well takes the room as deep as its growth setting allows.
+   */
+  fixedDepth?: boolean;
 }
 
 export interface RealizedTray {

@@ -11,7 +11,7 @@ import {
   type Level,
 } from "./stack";
 import type { OuterCutSides } from "../sizing";
-import { placeLeaves, type Leaf, type StackItem, type Tree } from "./tree";
+import { placeLeaves, type Leaf, type StackItem, type Tree, type TreeNode } from "./tree";
 import type { Ext, Rect, U } from "./units";
 
 const NO_CUTS: OuterCutSides = { left: false, right: false, front: false, back: false };
@@ -28,6 +28,17 @@ export interface PlacedTray {
   readonly d: U;
   readonly h: U;
   readonly lipped: boolean;
+  /**
+   * The tray has the lip printed on it: `lipped`, but for the top copy of a stack of alike trays
+   * whose stack cannot afford its rim (it is built as if lipped, so it is the same size, and has no
+   * lip).
+   */
+  readonly rim: boolean;
+  /**
+   * An alike tray of a set that stands in a stack (`Level.plug`): built, and realized, as a tray in
+   * the middle of one is, wherever it stands.
+   */
+  readonly plug: boolean;
   /** Nothing is stacked on it. */
   readonly top: boolean;
   readonly minW: U;
@@ -58,6 +69,13 @@ export interface PlacedLeftover {
   readonly solid: boolean;
 }
 
+/** Room left empty, because it is too thin to be a filler: a box in units. */
+export interface Air {
+  readonly w: U;
+  readonly d: U;
+  readonly h: U;
+}
+
 /** Constraint violations in units; all zero = feasible. */
 export interface Overflow {
   readonly x: U;
@@ -72,11 +90,16 @@ export interface Plan {
   readonly trays: PlacedTray[];
   readonly leftovers: PlacedLeftover[];
   readonly overflow: Overflow;
+  /** Room no part fills, beside the trays of a set: thinner than a filler can be. */
+  readonly air: Air[];
   /** Per axis: how much larger the box would have to be (z: worst stack). */
   readonly shortfall: { readonly x: U; readonly y: U; readonly z: U };
   /** Most bottom-level parts crossed by a line along X / along Y. */
   readonly crossX: number;
   readonly crossY: number;
+  /** The most a tray can shift left to right and front to back, `rowPlayU`. */
+  readonly playX: U;
+  readonly playY: U;
 }
 
 export function overflowTotal(o: Overflow): U {
@@ -162,6 +185,8 @@ export interface StackPlacement {
   readonly fillers: LevelFiller[];
   readonly overflowZ: U;
   readonly overflowLock: U;
+  /** Room beside an alike tray that is too thin to be a filler. */
+  readonly air: Air[];
 }
 
 /**
@@ -206,7 +231,14 @@ function beside(ctx: Ctx, region: Rect, foot: Ext, highX = false, highY = false)
  */
 export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): StackPlacement {
   if (levels.length === 0) {
-    return { trays: [], leftovers: [rect], fillers: [], overflowZ: 0, overflowLock: 0 };
+    return {
+      trays: [],
+      leftovers: [rect],
+      fillers: [],
+      overflowZ: 0,
+      overflowLock: 0,
+      air: [],
+    };
   }
   const mins = levelMinFootprints(levels);
   const heights = stackHeights(ctx, levels);
@@ -214,6 +246,7 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
   const fillers: LevelFiller[] = [];
   let z = 0;
   let lockOver = heights.lockOverflow;
+  const empty: { rect: Rect; level: number; z: U }[] = [];
   let region = rect;
   // The walls with a finger cut among the tray of each level and everything above it
   const cutsFrom: OuterCutSides[] = [];
@@ -230,7 +263,11 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
   }
   const trays = levels.map((l, k) => {
     const F = mins[k] ?? { w: l.minW, d: l.minD };
-    const { foot } = chooseTray(ctx, l, F, region, k === 0 ? ctx.minFiller : ctx.minFillerUpper);
+    const minFiller = k === 0 ? ctx.minFiller : ctx.minFillerUpper;
+    // An alike tray is as big as its set asks and no bigger, wherever it stands and whatever room
+    // it has: what is left of its room is for fillers (owner, 2026-10-23: "where a copy's slot has
+    // spare room, spacers take it, not the tray"), so every tray of the set is the same size.
+    const foot = l.alike >= 0 ? F : chooseTray(ctx, l, F, region, minFiller).foot;
     const h = heights.h[k] ?? 0;
     // An upper tray with slack beside it stands at the end of its axis that keeps the filler off
     // the walls a finger cut goes through, when only one of the two ends has one (spec §6.4). The
@@ -253,6 +290,8 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
       d: foot.d,
       h,
       lipped: l.lipped,
+      rim: l.lipped && !(k === levels.length - 1 && l.plug && !heights.rim),
+      plug: l.plug,
       top: k === levels.length - 1,
       minW: l.minW,
       minD: l.minD,
@@ -265,7 +304,14 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
     if (l.fixed) {
       lockOver += Math.max(0, foot.w - l.fixed.w) + Math.max(0, foot.d - l.fixed.d);
     }
-    const rest = beside(ctx, region, foot, highX, highY);
+    // Room too thin to be a filler cannot go into an alike tray either: it stays empty.
+    const made = beside(ctx, region, foot, highX, highY);
+    const rest = l.alike >= 0 ? made.filter((r) => Math.min(r.w, r.d) >= minFiller) : made;
+    for (const r of made) {
+      if (!rest.includes(r)) {
+        empty.push({ rect: r, level: k, z });
+      }
+    }
     if (k === 0) {
       leftovers = rest;
     } else {
@@ -287,7 +333,35 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
     fillers: fillers.map((f) => ({ ...f, h: stackTop - f.z })),
     overflowZ: heights.overflow,
     overflowLock: lockOver,
+    air: empty.map((e) => ({
+      w: e.rect.w,
+      d: e.rect.d,
+      h: e.level === 0 ? Math.max(0, ctx.topPlane) : stackTop - e.z,
+    })),
   };
+}
+
+/**
+ * The most a tray can shift along one axis (alongX: left to right), units: what is left of the
+ * box's `room` on the line through a part, beyond the parts that line crosses. With the parts
+ * tiling the floor with only the tray gap it is `nominalPlayU`; room left empty beside an alike
+ * tray adds to it.
+ */
+export function rowPlayU(room: U, rects: readonly Rect[], alongX: boolean): U {
+  let worst = 0;
+  for (const r of rects) {
+    const line = alongX ? r.y : r.x;
+    let used = 0;
+    for (const s of rects) {
+      const lo = alongX ? s.y : s.x;
+      const hi = alongX ? s.y + s.d : s.x + s.w;
+      if (lo <= line && line < hi) {
+        used += alongX ? s.w : s.d;
+      }
+    }
+    worst = Math.max(worst, room - used);
+  }
+  return worst;
 }
 
 /** Most rectangles crossed by one straight line along X (alongX) or along Y. */
@@ -308,15 +382,79 @@ export function maxCrossing(rects: readonly Rect[], alongX: boolean): number {
   return best;
 }
 
+/**
+ * What a tree holds of alike trays: the sets with one of their trays in a stack of two or more (all
+ * of the set are built as a tray in the middle of a stack is, wherever they stand: `Level.plug`),
+ * and the leaves with a tray of a set in them.
+ */
+function alikeIn(
+  ctx: Ctx,
+  node: TreeNode,
+  into: { plugged: Set<number>; leaves: Leaf[] } = { plugged: new Set(), leaves: [] },
+): { plugged: Set<number>; leaves: Leaf[] } {
+  if (node.kind === "leaf") {
+    const sets = node.stack.map((item) => ctx.alikeOf(item)).filter((set) => set >= 0);
+    if (sets.length > 0) {
+      into.leaves.push(node);
+      if (node.stack.length > 1) {
+        sets.forEach((set) => into.plugged.add(set));
+      }
+    }
+    return into;
+  }
+  alikeIn(ctx, node.a, into);
+  return alikeIn(ctx, node.b, into);
+}
+
+/**
+ * The size every tray of each set of alike trays is built at (owner, 2026-10-23: all trays of one
+ * set are the same size): the largest any place of the set asks of it, in the tray's own frame. A
+ * place asks the tray's own minimum, or more under a wider tray, whose size may be its own set's:
+ * so the sizes are found by raising them until no place asks for more.
+ */
+function setSizes(
+  ctx: Ctx,
+  leaves: readonly Leaf[],
+  plugged: ReadonlySet<number>,
+): Map<number, { w: U; d: U }> {
+  const sizes = new Map<number, { w: U; d: U }>();
+  for (let round = 0; round < 8; round++) {
+    let raised = false;
+    for (const leaf of leaves) {
+      const levels = stackLevels(ctx, leaf.stack, plugged, sizes);
+      const need = levelMinFootprints(levels);
+      levels.forEach((l, k) => {
+        const f = need[k];
+        if (l.alike < 0 || !f) {
+          return;
+        }
+        const w = l.item.rotated ? f.d : f.w;
+        const d = l.item.rotated ? f.w : f.d;
+        const had = sizes.get(l.alike);
+        if (!had || w > had.w || d > had.d) {
+          sizes.set(l.alike, { w: Math.max(w, had?.w ?? 0), d: Math.max(d, had?.d ?? 0) });
+          raised = true;
+        }
+      });
+    }
+    if (!raised) {
+      break;
+    }
+  }
+  return sizes;
+}
+
 /** Turns a tree into concrete integer placements, leftovers and overflow (the "fill" step). */
 export function evaluate(ctx: Ctx, tree: Tree): Plan {
+  const { plugged, leaves: withAlike } = alikeIn(ctx, tree.root);
+  const sizes = withAlike.length > 0 ? setSizes(ctx, withAlike, plugged) : undefined;
   const levelCache = new Map<Leaf, Level[]>();
   const levelsOf = (leaf: Leaf): Level[] => {
     const hit = levelCache.get(leaf);
     if (hit) {
       return hit;
     }
-    const lv = stackLevels(ctx, leaf.stack);
+    const lv = stackLevels(ctx, leaf.stack, plugged, sizes);
     levelCache.set(leaf, lv);
     return lv;
   };
@@ -330,6 +468,7 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
   let zMax = 0;
   let bed = 0;
   let lock = 0;
+  const air: Air[] = [];
   let stack = 0;
   const leftoverH = Math.max(0, ctx.topPlane);
   const pending: { path: string; rect: Rect }[] = [];
@@ -340,10 +479,11 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
     z += sp.overflowZ;
     zMax = Math.max(zMax, sp.overflowZ);
     lock += sp.overflowLock;
+    air.push(...sp.air);
     if (sp.trays.length > 0) {
       for (const t of sp.trays) {
         trays.push({ ...t, path: pl.path, stack });
-        bed += bedExcess(ctx.bed, t.w, t.d, printedHeight(ctx, t.h, t.lipped, t.level > 0));
+        bed += bedExcess(ctx.bed, t.w, t.d, printedHeight(ctx, t.h, t.rim, t.level > 0 || t.plug));
       }
       for (const filler of sp.fillers) {
         inLevel.push({ path: pl.path, stack, filler });
@@ -400,8 +540,11 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
     trays,
     leftovers,
     overflow: { x: ox, y: oy, z, bed, lock },
+    air,
     shortfall: { x: ox, y: oy, z: zMax },
     crossX: maxCrossing(bottoms, true),
     crossY: maxCrossing(bottoms, false),
+    playX: rowPlayU(ctx.floorW + 2 * ctx.boxClearance, bottoms, true),
+    playY: rowPlayU(ctx.floorD + 2 * ctx.boxClearance, bottoms, false),
   };
 }
