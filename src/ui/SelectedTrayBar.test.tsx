@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 // The tray bar of a selected tray, wired to the project: a group's tray (G1) is called by its
 // group's name, drawn as a tiny tray of its members' colours, and its Edit opens the group.
-import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
+import type { MeshSource } from "../app/meshes";
+import { cubeMesh, fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { inputsHash } from "../model/hash";
 import { newComponent } from "../model/defaults";
 import type { CompartmentSpec, Project, TraySpec } from "../model/types";
@@ -79,10 +80,23 @@ function kitProject(copies = 2): Project {
   return { ...next, layout: makeLayout(inputsHash(next), trays) };
 }
 
+/** Meshes for the filament line: every part is a 190 × 71 × 38 mm box, 40 % of it plastic. */
+function stubMeshes(): MeshSource {
+  return {
+    get: vi.fn(() =>
+      Promise.resolve({ mesh: cubeMesh([190, 71, 38]), volumeMm3: 190 * 71 * 38 * 0.4 }),
+    ),
+    reset: vi.fn(),
+    forget: vi.fn(),
+    dispose: vi.fn(),
+  };
+}
+
 function bar(selectedKey: string, over: Partial<SelectedTrayBarProps> = {}) {
   const project = over.project ?? kitProject();
   const p: SelectedTrayBarProps = {
     project,
+    meshes: stubMeshes(),
     trays: project.layout?.trays ?? [],
     selectedKey,
     inPlan: true,
@@ -115,10 +129,12 @@ describe("SelectedTrayBar for a group's tray", () => {
     expect(fills[2]).toContain(shadeHex("minis", 0, "light").fill);
   });
 
-  it("says its size, how many compartments it has, and what it costs to print", () => {
+  it("says its size, how many compartments it has, and its filament", async () => {
     bar("kit:p1:0");
-    expect(region().querySelector(".tray-bar__meta")?.textContent).toMatch(
-      /^190 × 71 × 38 mm · 4 compartments · about [\d.]+ (h|min), \d+ g$/,
+    await waitFor(() =>
+      expect(region().querySelector(".tray-bar__meta")?.textContent).toMatch(
+        /^190 × 71 × 38 mm · 4 compartments · about \d+ g$/,
+      ),
     );
   });
 

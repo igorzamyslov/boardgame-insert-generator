@@ -22,8 +22,7 @@
   --chip: #e9e5db; /* Empty's size chips */
   --track: #e9e7e0; /* Main's Layer and View segments */
   --icon-ground: #edeae2; /* box card icon, step badge 2 */
-  --scrim: #8e8b83; /* behind dialogs */
-  --scrim-see: rgb(29 31 28 / 49%); /* behind the drawer: the page (#f4f3ef) under it reads as --scrim, the plan shows */
+  --scrim-see: rgb(29 31 28 / 49%); /* behind a dialog and the drawer: the page shows, dimmed */
 
   /* Lines. */
   --rule: #e4e1d9;

@@ -92,7 +92,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    every new insert starts with it; when the open insert uses another printer, a row at the top of
    "My printer" says so and "Apply" copies the browser's printer to it.
 8. **Download.** The header's "Download" opens one dialog, "Ready to print": a chip for each tray
-   in its colour, the filament and the print time, one primary button, "Download the 3MF file"
+   in its colour, the filament, one primary button, "Download the 3MF file"
    (a single combined file), a "Packing guide" card and "Other formats" ("One 3MF per part (.zip)"
    and "STL files (.zip)"). It becomes "Building your print file" with a progress bar and "Stop"
    (closing the dialog stops it), then says every tray is in the file; a tray that fails to build is

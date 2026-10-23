@@ -631,7 +631,7 @@ export function Gallery() {
 
         <Section
           name="Dialog"
-          note="Export's dialog: radius 22, padding 32, over the scrim."
+          note="Export's dialog: radius 22, padding 32, over the dimmed page."
           region="dialog"
         >
           <div class="k-dialog gal__surface" role="group" aria-labelledby="gal-dialog-title">

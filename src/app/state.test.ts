@@ -63,17 +63,17 @@ describe("createState", () => {
       settings: { ...s.project.value.settings, leftover: "solid" },
     };
     expect(s.summary.value).not.toBe(result.summary);
-    // infill alone is not in the hash but still refreshes the estimate
     s.project.value = {
       ...s.project.value,
       settings: { ...s.project.value.settings, leftover: p.settings.leftover },
     };
     expect(s.summary.value).toBe(result.summary);
+    // the infill is no part of the summary: the run's own still stands
     s.project.value = {
       ...s.project.value,
       settings: { ...s.project.value.settings, infill: 40 },
     };
-    expect(s.summary.value?.infillPct).toBe(40);
+    expect(s.summary.value).toBe(result.summary);
   });
 
   it("does not go stale when a merge switch changes, but recomputes the summary for it", () => {

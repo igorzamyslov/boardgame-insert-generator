@@ -542,6 +542,7 @@ export function App(props: AppProps) {
     project,
     foreign: s.foreign.value,
     trays: printable,
+    meshes,
     selectedKey: layout ? s.selection.value : null,
     edit: store.edit,
     onSelect: (key: string | null) => {
@@ -1214,7 +1215,6 @@ export function App(props: AppProps) {
           settings={project.settings}
           meshes={meshes}
           projectName={project.name}
-          summary={summary}
           disabled={run.status === "running"}
           stale={s.stale.value}
           download={download}

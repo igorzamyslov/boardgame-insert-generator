@@ -1,5 +1,5 @@
 export { optimize, DEFAULT_ITERATIONS } from "./optimize";
-export { summarize, PRINT_FLOW_MM3_PER_S } from "./summarize";
+export { summarize, PLA_G_PER_MM3 } from "./summarize";
 export { splitRisers } from "./risers";
 export { openSpacers } from "./spacers";
 export { mergeParts, MIN_JOIN_MM } from "./merge";

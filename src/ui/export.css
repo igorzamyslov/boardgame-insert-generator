@@ -94,10 +94,10 @@
   line-height: 27px;
 }
 
-/* ---- Stat tiles: Filament and Print time ---- */
+/* ---- Stat tile: Filament, the one figure, across the dialog ---- */
 .export-stats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-12);
   margin: 0;
 }
