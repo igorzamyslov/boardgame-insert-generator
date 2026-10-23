@@ -78,7 +78,9 @@ export interface Groove {
 /**
  * The groove of a tray at `level` (null when it has none): with the lip on, every tray above
  * level 0 stands on a lipped tray, and has one (spacers and dividers are always built at level 0).
- * No tray at level 0 has one: it stands on the box floor or on a riser, neither of which has a lip.
+ * No tray at level 0 has one: it stands on the box floor or on a plain riser, neither of which has a
+ * lip. A tray on a riser that carries the lip (`TraySpec.onRiser`, set by splitRisers) is built as
+ * one at level 1 is.
  * The foot chamfer is the tray's bottom chamfer (at least UPPER_MIN_CHAMFER), less where the
  * inner wall is lower.
  */

@@ -72,7 +72,7 @@ describe("a stack with the lip on is as wide at the top as at the bottom", () =>
     expect(checked).toBeGreaterThan(0);
   });
 
-  it("gives every part above level 0 a groove, and no other", () => {
+  it("gives every part above level 0, and the tray on a riser with the lip, a groove, and no other", () => {
     const parts = printableParts(layout.trays, {
       components: [],
       settings: input.settings,
@@ -83,7 +83,10 @@ describe("a stack with the lip on is as wide at the top as at the bottom", () =>
     for (const part of parts) {
       for (const spec of part.merged?.members ?? [part]) {
         const plan = planTray(spec, input.settings);
-        const expected = spec.level > 0 && spec.part !== "spacer" && spec.part !== "divider";
+        const expected =
+          (spec.level > 0 || spec.onRiser === true) &&
+          spec.part !== "spacer" &&
+          spec.part !== "divider";
         expect(plan.groove !== null, `${spec.key} at level ${spec.level}`).toBe(expected);
         grooved += plan.groove === null ? 0 : 1;
       }

@@ -27,10 +27,12 @@ interface Item {
   readonly y1: number;
   readonly z0: number;
   readonly z1: number;
+  /** Where the part's highest point is: z1, or the lip a riser carries above it. */
+  readonly top: number;
   readonly volume: number;
 }
 
-function itemOf(spec: TraySpec): Item {
+function itemOf(spec: TraySpec, lipHeight: number): Item {
   return {
     spec,
     x0: spec.x,
@@ -39,6 +41,7 @@ function itemOf(spec: TraySpec): Item {
     y1: spec.y + spec.d,
     z0: spec.z,
     z1: spec.z + spec.h,
+    top: spec.z + spec.h + (spec.lip ? lipHeight : 0),
     volume: spec.w * spec.d * spec.h,
   };
 }
@@ -129,6 +132,8 @@ interface Bounds {
   y1: number;
   z0: number;
   z1: number;
+  /** The highest point, the lip of a lipped part included. */
+  top: number;
 }
 
 function boundsOf(items: readonly Item[]): Bounds {
@@ -139,13 +144,15 @@ function boundsOf(items: readonly Item[]): Bounds {
     y1: Math.max(...items.map((i) => i.y1)),
     z0: Math.min(...items.map((i) => i.z0)),
     z1: Math.max(...items.map((i) => i.z1)),
+    top: Math.max(...items.map((i) => i.top)),
   };
 }
 
 /**
  * Whether these parts can be one print, and whether it prints upside down.
- * - Its bounding box fits the bed in plan (either way round) and in height. A box, not the exact
- *   shape: a comb that only fits the bed on a diagonal is left as two parts.
+ * - Its bounding box fits the bed in plan (either way round) and in height, the lip a riser
+ *   carries standing above it included. A box, not the exact shape: a comb that only fits the bed
+ *   on a diagonal is left as two parts.
  * - Every member stands on the same floor: then the part prints as it stands, and nothing hangs.
  *   Otherwise (a filler in a stack level, beside a ground one) the part prints without supports
  *   only upside down, every member running from the top plane down, and only when every member is
@@ -157,7 +164,7 @@ function check(items: readonly Item[], bed: Bed): { ok: boolean; flipped: boolea
     bed,
     toU(roundMm(b.x1 - b.x0)),
     toU(roundMm(b.y1 - b.y0)),
-    toU(roundMm(b.z1 - b.z0)),
+    toU(roundMm(b.top - b.z0)),
   );
   if (!fits) {
     return { ok: false, flipped: false };
@@ -304,7 +311,8 @@ function mergedSpec(
  * What merges: parts `leftover` (the fillers, including the ones beside a tray in a stack level,
  * which stand from that level's floor to the top of the stack; with the lip on, not those, which
  * have a groove for the lip below them), and with `mergeRisers` the risers
- * too. Two parts are connected when they stand side by side across a gap of at most `trayGap`
+ * too (with the lip on a riser carries the lip, standing above the bridges, which stop at its
+ * rim: the lip is built on the riser member, as a lipped part is, and counts for the bed's height). Two parts are connected when they stand side by side across a gap of at most `trayGap`
  * (the gap between leaves, or between a tray and its filler) over at least MIN_JOIN_MM of their
  * edge and height; the part absorbs the gap with a solid bridge, so it is a little larger than
  * the parts it joins. Only a connected set can be one part: two strips with a tray between them
@@ -330,7 +338,7 @@ export function mergeParts(trays: readonly TraySpec[], o: MergeInputs): TraySpec
     t.merged === undefined &&
     !(settings.lip.enabled && t.level > 0) &&
     (t.part === "leftover" || (settings.mergeRisers && t.part === "riser"));
-  const items = trays.filter(candidate).map(itemOf);
+  const items = trays.filter(candidate).map((t) => itemOf(t, settings.lip.height));
   if (items.length < 2) {
     return [...trays];
   }

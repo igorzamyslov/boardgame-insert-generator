@@ -87,6 +87,15 @@ export interface RealizeOptions {
    * given beyond it. Absent: the part's own minimum.
    */
   stackMin?: { w: number; d: number };
+  /**
+   * The height (mm) the tray carries only as padding, to bring its stack to the top plane: a raised
+   * floor that a riser takes at print time (splitRisers). Given, a compartment whose contents may
+   * not grow in height is as deep as the tray is without that padding, so the height a tray has
+   * beyond its contents' (the least an upper tray may be, the layer rounding) is air above them
+   * and the floor under the deepest well is the Floor setting, not a thicker one. Absent: all of
+   * the height beyond the contents' is raised floor, as realizeTray made it before geometry 0.9.0.
+   */
+  padding?: number;
 }
 
 export interface RealizedTray {

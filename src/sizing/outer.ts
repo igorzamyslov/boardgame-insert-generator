@@ -131,6 +131,12 @@ export interface MinLayout {
   w: number; // innerW + 2·wall, or more for the bottom chamfer (chamferMinimumsU)
   d: number;
   h: number;
+  /**
+   * The height the contents alone ask for: the floor and the deepest compartment (and the
+   * slots of a divided well's floor). `h` is this, or more where the bottom chamfer or the upper
+   * tray's minimum asks for more; the difference is height the tray has beyond its contents.
+   */
+  content: number;
 }
 
 function cutsOn(c: CompartmentReq | undefined, side: Side): boolean {
@@ -271,5 +277,6 @@ export function minLayoutU(
     w: Math.max(innerW + 2 * wall, chamfer.side),
     d: Math.max(innerD + 2 * wall, chamfer.side),
     h,
+    content,
   };
 }
