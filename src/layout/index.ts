@@ -4,6 +4,7 @@ export { splitRisers } from "./risers";
 export { openSpacers } from "./spacers";
 export { mergeParts, MIN_JOIN_MM } from "./merge";
 export { printableParts } from "./printable";
+export { addFingerDips, dipsFacingTrays } from "./dips";
 export { splitDividers } from "./dividers";
 export { SEPARATORS_REDUCED_CODE, splitSeparators } from "./separators";
 export { swapLocks } from "./locks";

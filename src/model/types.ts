@@ -296,7 +296,12 @@ export type FeatureSpec =
   // it (tray-local, like a wall cutout's `at`). The divider itself is derived (splitDividers).
   | { type: "dividerSlot"; axis: "x" | "y"; at: number; width: number; depth: number }
   | { type: "scoop"; side: Side; r: number }
-  | { type: "cornerRelief"; d: number };
+  | { type: "cornerRelief"; d: number }
+  // A finger dip (model/finger-dip.ts): a U cut from the top of a solid filler where it touches a
+  // tray, `width` wide and `depth` deep, open on the filler's face `side` and centred on `at` along
+  // it (part-local, like a wall cutout's `at`). On a part's own `features`, never stored: the app
+  // derives it at print time (layout/dips.ts), and a merged part carries it on its members.
+  | { type: "fingerDip"; side: Side; at: number; width: number; depth: number };
 
 export interface CompartmentSpec {
   x: number; // inner, tray-local, min corner; origin = tray outer min corner
