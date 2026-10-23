@@ -77,7 +77,14 @@ export interface PlanViewProps {
   onLevelChange: (level: number) => void;
   /** The tray a "Swap with…" is under way from, or null; the app owns it. */
   swapFrom: string | null;
-  onSwapFromChange: (key: string | null) => void;
+  onSwapFromChange: (key: string | null, mode?: "swap" | "putOn") => void;
+  /** What the tray chosen next does while `swapFrom` is set: a swap (default), or "Put on…". */
+  pick?: "swap" | "putOn";
+  /**
+   * Stands the tray on the base. Gives back the sentence that says why it can't be done, or null
+   * when it was (the app owns the check and the edit).
+   */
+  onPutOn?: (trayKey: string, baseKey: string) => string | null;
   /**
    * A picture of a plan and nothing more (the fit problems, UI rebuild Task 12): no tile is a
    * control, nothing is selected, dragged or lit by the pointer, the slot above the box and the
@@ -124,6 +131,7 @@ interface Drag {
 const NOTE_LEFTOVER_SOURCE =
   "Leftover trays and spacers can't be dragged. Tap one to select it, or drag a real tray.";
 const NOTE_LEFTOVER_TARGET = "Leftover trays and spacers can't be swapped with.";
+const NOTE_PUT_ON_SPARE = "Spare trays and spacers can't be stood on. Pick another tray.";
 const NOTE_NO_TARGET = "Nothing was swapped: drop the tray onto another tray.";
 
 /** Whether the keyboard focus ring should show (not after a mouse press); true if unsure. */
@@ -172,7 +180,8 @@ export function PlanView(props: PlanViewProps) {
   const phone = useMediaQuery(PHONE_QUERY);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
-  const [swapRefused, setSwapRefused] = useState(false);
+  const [swapRefused, setSwapRefused] = useState<string | boolean>(false);
+  const putting = props.pick === "putOn" && props.onPutOn !== undefined;
   // The tray bar starts a swap from outside: a refusal of the last one is no longer news.
   useEffect(() => {
     if (swapFrom === null) {
@@ -222,6 +231,8 @@ export function PlanView(props: PlanViewProps) {
   const components = props.components ?? [];
   const groups = props.groups ?? [];
   const names = trayNames(numbered, components, groups);
+  const putOnPrompt = (from: string): string =>
+    `Pick the tray to put ${names.get(from)?.full ?? "this tray"} on.`;
   const layerAll = props.layerAll === true && levels.length > 1;
   // "All": every layer, the lower first so the upper stands over it (a merged part once, as all its members).
   const shown = layerAll
@@ -319,6 +330,17 @@ export function PlanView(props: PlanViewProps) {
     if (swapFrom !== null && swapFrom !== key) {
       if (!swappable(key)) {
         setSwapRefused(true);
+        return;
+      }
+      if (putting) {
+        const why = props.onPutOn?.(swapFrom, key) ?? null;
+        if (why !== null) {
+          setSwapRefused(why);
+          return;
+        }
+        setSwapRefused(false);
+        setSwapFrom(null);
+        onSelect(swapFrom);
         return;
       }
       onSwap(swapFrom, key);
@@ -471,9 +493,15 @@ export function PlanView(props: PlanViewProps) {
 
   const message =
     swapFrom !== null
-      ? swapRefused
-        ? "Spare trays and spacers can't be swapped. Choose another tray, or press Escape."
-        : "Choose the tray to swap with, or press Escape."
+      ? typeof swapRefused === "string"
+        ? swapRefused
+        : putting
+          ? swapRefused
+            ? NOTE_PUT_ON_SPARE
+            : putOnPrompt(swapFrom)
+          : swapRefused
+            ? "Spare trays and spacers can't be swapped. Choose another tray, or press Escape."
+            : "Choose the tray to swap with, or press Escape."
       : dragNote;
   const hasBar = props.bar !== undefined && props.bar !== null && props.bar !== false;
   // A picture has no handlers: what a press, a key or the pointer could do is not there to do.

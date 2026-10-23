@@ -137,6 +137,12 @@ export type BulkItem =
 export interface BulkComponent extends ComponentBase {
   kind: "bulk";
   items: BulkItem[];
+  /**
+   * How much of the bin's space its pieces fill, 0.05 to 1 (packingOf in ./settings). Absent: the
+   * insert's `packingFactor`. Only count-and-size pieces read it: a pile given as a volume is
+   * already the room it takes.
+   */
+  packing?: number;
 }
 
 export type TileShape =
@@ -153,8 +159,21 @@ export interface TilesComponent extends ComponentBase {
 
 export interface MinisComponent extends ComponentBase {
   kind: "minis";
-  figures: { name: string; w: number; d: number; h: number; count: number }[];
+  /**
+   * keepUpright: never laid on its side or its back, for a fragile figure: only `w` and `d` may
+   * swap (a turn in plan). Absent: the figure may be laid down where that makes a smaller tray.
+   */
+  figures: {
+    name: string;
+    w: number;
+    d: number;
+    h: number;
+    count: number;
+    keepUpright?: boolean;
+  }[];
   storage: "pockets" | "bulk";
+  /** Like BulkComponent.packing, for the figures stored loose in a tray (`storage` "bulk"). */
+  packing?: number;
 }
 
 export interface CustomComponent extends ComponentBase {

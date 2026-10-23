@@ -63,10 +63,14 @@ export interface TrayBarProps {
   phone?: boolean;
   /** A "Swap with…" is under way from this tray. */
   swapping?: boolean;
+  /** A "Put on…" is under way from this tray. */
+  puttingOn?: boolean;
   onPin: () => void;
   onTurn: () => void;
   /** Only where a swap can be made (the plan): without it there is no Swap with…. */
   onSwap?: () => void;
+  /** Only where a tray can be put on another (the plan): without it there is no Put on…. */
+  onPutOn?: () => void;
   onToggleSizeLock: () => void;
   /** Only for a tray that holds a component: opens that component's editor. */
   onEdit?: () => void;
@@ -243,12 +247,14 @@ type More = ReturnType<typeof useMore>;
 interface MoreItemsProps {
   more: More;
   swapping: boolean;
+  puttingOn: boolean;
   sizeLocked: boolean;
   onSwap?: () => void;
+  onPutOn?: () => void;
   onToggleSizeLock: () => void;
 }
 
-/** The panel: Swap with… (the plan only) and Lock size. */
+/** The panel: Swap with… and Put on… (the plan only) and Lock size. */
 function MoreItems(p: MoreItemsProps) {
   return (
     <div class="tray-more__panel" id={p.more.panelId}>
@@ -260,6 +266,18 @@ function MoreItems(p: MoreItemsProps) {
             onClick={p.onSwap}
           >
             Swap with…
+          </MenuItem>
+        ) : null}
+        {p.onPutOn ? (
+          <MenuItem
+            aria-pressed={p.puttingOn}
+            class={p.puttingOn ? "is-on" : undefined}
+            onClick={() => {
+              p.onPutOn?.();
+              p.more.close();
+            }}
+          >
+            Put on…
           </MenuItem>
         ) : null}
         <MenuItem
@@ -297,6 +315,7 @@ function Told(p: { pinned: boolean; turned: boolean; sizeLocked: boolean }) {
  */
 export function TrayBar(p: TrayBarProps) {
   const facts = useTrayFacts(p);
+  // A put-on closes the panel (its prompt and its refusals are sentences the panel would cover); a swap keeps it open.
   const more = useMore(p.swapping === true);
   return p.phone === true ? (
     <PhoneSheet {...p} facts={facts} more={more} />
@@ -392,8 +411,10 @@ function DesktopBar(p: Inner) {
               <MoreItems
                 more={more}
                 swapping={p.swapping === true}
+                puttingOn={p.puttingOn === true}
                 sizeLocked={facts.sizeLocked}
                 onSwap={p.onSwap}
+                onPutOn={p.onPutOn}
                 onToggleSizeLock={p.onToggleSizeLock}
               />
             ) : null}
@@ -510,8 +531,10 @@ function PhoneSheet(p: Inner) {
                   <MoreItems
                     more={more}
                     swapping={p.swapping === true}
+                    puttingOn={p.puttingOn === true}
                     sizeLocked={facts.sizeLocked}
                     onSwap={p.onSwap}
+                    onPutOn={p.onPutOn}
                     onToggleSizeLock={p.onToggleSizeLock}
                   />
                 ) : null}

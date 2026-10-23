@@ -242,6 +242,20 @@ describe("validateProject", () => {
     ]);
   });
 
+  it("keeps an item's own packing above 0.05 and at most 1, on bulk and minis", () => {
+    const bulk = (packing: number) =>
+      withComponents({ ...(newComponent("bulk") as BulkComponent), packing });
+    const minis = (packing: number) =>
+      withComponents({ ...(newComponent("minis") as MinisComponent), packing });
+    expect(validateProject(bulk(0.65))).toEqual([]);
+    expect(validateProject(bulk(1))).toEqual([]);
+    expect(validateProject(minis(0.8))).toEqual([]);
+    for (const bad of [0, 0.04, 1.01, Number.NaN]) {
+      expect(codes(validateProject(bulk(bad)))).toEqual([[field.packing, "/components/0/packing"]]);
+    }
+    expect(codes(validateProject(minis(2)))).toEqual([[field.packing, "/components/0/packing"]]);
+  });
+
   it("requires headroom below the box height and a usable bed", () => {
     const p = newProject();
     p.box = { ...p.box, innerHeight: 40, headroom: 40 };

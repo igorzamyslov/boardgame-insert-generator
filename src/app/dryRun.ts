@@ -2,11 +2,12 @@
 // Answers "can this tray turn?" without running the optimizer: the locks a turn would write go
 // through `resolveLocks`, the check every run starts with, so the reason a run would later give for
 // refusing them is known now.
-import { createCtx } from "../layout/context";
+import { createCtx, MAX_LEVELS } from "../layout/context";
 import type { Ctx } from "../layout/context";
 import { resolveLocks } from "../layout/locks";
 import { warmHints } from "../layout/warmstart";
 import type { ForeignData, Lock, Project, StoredLayout, TraySpec } from "../model/types";
+import { putOnKeys, putOnLocks } from "./actions";
 import { buildLayoutInput, canOptimize } from "./runner";
 
 export interface TurnCheck {
@@ -147,5 +148,71 @@ export function canTurn(p: Project, trayKey: string, foreign?: ForeignData): Tur
       : { ok: true };
   } catch {
     return { ok: false, reason: "Turning isn't possible right now." };
+  }
+}
+
+export interface PutOnCheck {
+  ok: boolean;
+  reason?: string;
+}
+
+/**
+ * Whether standing this tray on that one is worth offering, with a sentence the screen can show as
+ * is when not. Reads the stored plan; no optimizer. It checks what a run would: the stack lock
+ * `putOnLocks` writes goes through `resolveLocks`, so "too tall for the box" and a clash with a
+ * pin are known now. A pin on either tray's stack is refused up front (a put-on would split it).
+ * `name` calls a tray by its key. Never throws.
+ */
+export function canPutOn(
+  p: Project,
+  trayKey: string,
+  baseKey: string,
+  name: (key: string) => string,
+  foreign?: ForeignData,
+): PutOnCheck {
+  try {
+    const layout = p.layout;
+    if (!layout) {
+      return { ok: false, reason: "Make a plan first." };
+    }
+    if (!canOptimize(p, undefined, foreign)) {
+      return { ok: false, reason: "Fix the errors first." };
+    }
+    const tray = stackOf(layout, trayKey);
+    const base = stackOf(layout, baseKey);
+    if (!tray || !base) {
+      return { ok: false, reason: "That tray isn't in the plan." };
+    }
+    if (trayKey === baseKey) {
+      return { ok: false, reason: "Pick another tray to put it on." };
+    }
+    for (const found of [tray, base]) {
+      if (stackPinned(p, found.stack)) {
+        const who = name(found.tray.key);
+        return { ok: false, reason: `${who} is pinned. Unpin it before you put trays on it.` };
+      }
+    }
+    const keys = putOnKeys(p, trayKey, baseKey);
+    const locks = putOnLocks(p, trayKey, baseKey);
+    if (!keys || !locks) {
+      return { ok: false, reason: "That tray isn't in the plan." };
+    }
+    const mine = name(trayKey);
+    const theirs = name(baseKey);
+    if (keys.length > MAX_LEVELS) {
+      return {
+        ok: false,
+        reason: `${theirs} already has ${MAX_LEVELS - 1} trays on it. A stack holds at most ${MAX_LEVELS}.`,
+      };
+    }
+    const ctx = ctxOf(p);
+    const { conflicts } = resolveLocks(ctx, locks, warmHints(ctx, layout.trays));
+    const own = conflicts.find((c) => c.kind === "stack" && c.trayKey === keys[0]);
+    if (own) {
+      return { ok: false, reason: `${mine} doesn't go on ${theirs}: ${own.reason}.` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "Putting a tray on another isn't possible right now." };
   }
 }

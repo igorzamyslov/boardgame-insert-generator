@@ -68,14 +68,51 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(misfit?.name).toBe("Heroes");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(h1().textContent).toBe(`The ${misfit?.name} tray doesn't fit yet`);
-    // the engine's whole-plan shortfall (16.2 mm in height) is the one figure
+    // the engine's whole-plan shortfall (14.2 mm in height) is the one figure
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box. The closest plan is 16.2 mm too tall.",
+      "There's no room left for it in the box. The closest plan is 14.2 mm too tall.",
     );
     // the status is in the stage as a region of its own, in the warn tone
     expect(
       document.querySelector('[data-region="status"] .k-status')?.getAttribute("data-tone"),
     ).toBe("warn");
+  });
+
+  it("says how much room the items need against the box, under the cards", () => {
+    fitProblem("harbour-kings-nofit");
+    expect(options().querySelector(".fp-volume")?.textContent).toBe(
+      "Your items need at least 1.8 L as trays. The box has 5.6 L.",
+    );
+    // the cards come first: the phone's sheet shows them in its peek
+    expect(options().querySelector(".fp-cards")?.firstElementChild?.tagName).toBe("BUTTON");
+  });
+
+  it("says very tight beside the figures when the items nearly fill the box", () => {
+    // 170 × 170 × 70: 2.0 L of box for 1.8 L of trays
+    fitProblem("harbour-kings-nofit", undefined, (p) => ({
+      ...p,
+      box: { ...p.box, innerWidth: 170, innerDepth: 170 },
+    }));
+    expect(options().querySelector(".fp-volume__line")?.textContent).toMatch(
+      /^Your items need at least 1\.8 L as trays\. The box has 2\.\d L\. Very tight: expect to change settings\.$/,
+    );
+    expect(h1().textContent).toMatch(/tray doesn't fit yet$/);
+  });
+
+  it("blames no tray when the items need more than the box has, and says so in the heading", () => {
+    // 150 × 150 × 70: 1.6 L of box for 1.8 L of trays
+    fitProblem("harbour-kings-nofit", undefined, (p) => ({
+      ...p,
+      box: { ...p.box, innerWidth: 150, innerDepth: 150 },
+    }));
+    expect(h1().textContent).toBe("Not everything fits yet");
+    expect(document.querySelector(".k-status__line")?.textContent).toMatch(
+      /^Your items need at least 1\.8 L as trays\. The box has 1\.\d L\. This can't fit: take something out\.$/,
+    );
+    expect(names(options())).toEqual(["Try another arrangement"]);
+    // the biggest items, so it is clear what to leave out
+    expect(options().querySelector(".fp-volume__list")?.textContent).toMatch(/Heroes takes 0\.6 L/);
+    expect(document.querySelector("[data-misfit]")).toBeNull();
   });
 
   it("says the bed when no print bed orientation holds the tray", () => {
@@ -222,6 +259,24 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(document.activeElement).toBe(
       within(options()).getByRole("button", { name: "Edit Heroes" }),
     );
+  });
+
+  it("takes the focus without scrolling the stage, so the heading and the plan's top stay in view", () => {
+    const app = fitProblem("harbour-kings-nofit");
+    const keep = within(options()).getByRole("button", { name: "Try another arrangement" });
+    vi.spyOn(app.store, "refit").mockImplementation(() => {
+      act(() => {
+        app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "improve" };
+      });
+    });
+    keep.focus();
+    fireEvent.click(keep);
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    act(() => {
+      app.store.state.run.value = { status: "done" };
+    });
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    focus.mockRestore();
   });
 
   it("does not take the focus from where the person put it", () => {

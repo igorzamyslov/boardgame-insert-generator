@@ -490,9 +490,11 @@ function buildPart(
 // taken out of it, and only out of it.
 //
 // A socketed riser (the stepped base) is built once like any other: its socket is one of its own
-// cuts (buildCutters). A flipped part (members on different floors, printed upside down), a member
-// with a groove, a lip or a step, and members with different chamfers are built the way each member would be alone, joined by
-// the bridges (buildMergedAsMembers).
+// cuts (buildCutters). A riser's lip ring (the rim between layers) is added on its member after the
+// outline is built, as buildSolid adds it, so a lipped riser is no reason to build the members
+// alone. A flipped part (members on different floors, printed upside down), a member with a groove
+// or a step, and members with different chamfers are built the way each member would be alone,
+// joined by the bridges.
 function buildMerged(
   m: ManifoldToplevel,
   scope: Scope,
@@ -559,11 +561,7 @@ function buildMergedOnce(
     !first ||
     merged.flipped ||
     plans.some(
-      (p) =>
-        p.lip !== null ||
-        p.groove !== null ||
-        p.step !== null ||
-        Math.abs(p.chamfer - first.chamfer) > 1e-9,
+      (p) => p.groove !== null || p.step !== null || Math.abs(p.chamfer - first.chamfer) > 1e-9,
     )
   ) {
     return null;
@@ -608,8 +606,25 @@ function buildMergedOnce(
   if (!body) {
     return null;
   }
-  const solid = body.translate([0, 0, floor]);
-  scope.track(solid);
+  const joined = scope.track(body.translate([0, 0, floor]));
+  // A riser's lip ring (the rim between layers) stands on its own member's rim, round its own rounded
+  // footprint as it does alone: the ring is what the tray above fits, and it is added before the
+  // member's cuts, which go through it as they do through a lipped part alone.
+  const rings = merged.members.flatMap((member, i) => {
+    const lip = plans[i]?.lip;
+    return lip
+      ? [
+          scope.track(
+            buildLip(m, scope, plans[i] as TrayPlan, lip).translate([
+              member.x - spec.x,
+              member.y - spec.y,
+              member.z - spec.z,
+            ]),
+          ),
+        ]
+      : [];
+  });
+  const solid = rings.length === 0 ? joined : scope.track(m.Manifold.union([joined, ...rings]));
   // A member's cuts leave through its faces (a notch, a wall cutout) and past them by OVERSHOOT:
   // they take material out of the member and the air around it, and never out of a neighbour or a
   // bridge, which would have filled them again.
@@ -631,7 +646,7 @@ function buildMergedOnce(
       m,
       scope,
       [own.x0 - OVERSHOOT, own.y0 - OVERSHOOT, own.z0 - OVERSHOOT],
-      [own.x1 + OVERSHOOT, own.y1 + OVERSHOOT, own.z1 + OVERSHOOT],
+      [own.x1 + OVERSHOOT, own.y1 + OVERSHOOT, own.z1 + (plan.lip?.height ?? 0) + OVERSHOOT],
     );
     const room = scope.track(reach.subtract(scope.track(m.Manifold.union(others))));
     const moved = scope.track(

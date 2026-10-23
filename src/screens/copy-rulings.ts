@@ -37,6 +37,15 @@ const PICKER = "Add opens a kind picker";
 const SUMMARY = "A row's line under the name is short";
 const CHIPS = "The rail's rule chips are one per rule";
 const CLEAR = "Clear all my choices lifts every pin";
+const UPRIGHT = "A figure may lie on any side";
+const MINIS_STATES = [
+  "editor-minis",
+  "editor-minis-more",
+  "m-edit",
+  "m-edit-more",
+  "kit-member",
+  "m-kit-member",
+] as const;
 const NOTE = "The rules note says what stays";
 // 0.7.0 Task 13: Turned, the rules note's turn sentence and Between decks
 const TURNED = "A tray turned and not pinned says";
@@ -86,11 +95,13 @@ const RAIL = [
   "no-fit-bed",
   "pin-conflict",
   "workspace-turned",
+  "workspace-put-on",
   ...FLAT_DECKS,
 ] as const;
 const SHEET = [
   "m-workspace",
   "m-turned",
+  "m-put-on",
   "m-workspace-add",
   "m-workspace-rules",
   "m-fix",
@@ -114,6 +125,7 @@ const PINS =
   "Pins in the way: the first conflict names the heading, the engine's reasons are its line, and each conflict is a card";
 const FIT_PANEL = "The fit problems are a stage of their own";
 const NOFIT_FIGURE = "The no-fit line gives the closest plan's shortfall";
+const VOLUME = "The no-fit screen says how much room the items need";
 const FIT_ROW = "The rail marks the tray that does not fit: Doesn't fit";
 const BANNERS = "The plan banners use DESIGN's words";
 const NOTES = "Layout and sizing notices sit under the plan caption";
@@ -128,9 +140,36 @@ const FAILED = ["workspace-failed"] as const;
 const ERRORS = ["workspace-error"] as const;
 const FIT_PROBLEMS = ["no-fit", "no-fit-bed", "pin-conflict", "m-fix", "m-pin-conflict"] as const;
 const NO_FIT = ["no-fit", "no-fit-bed", "m-fix"] as const;
+/** The volume note's sentences; `{name}` stands for a figure in litres or an item's name. */
+const NEEDS = "Your items need at least {name} L as trays.";
+const HAS = ["The box has {name} L.", "The box has {name} L under the headroom."];
+const OVER = [
+  "This can't fit: take something out or reserve less space on top.",
+  "This can't fit: take something out.",
+];
+const VOLUME_RULINGS: readonly CopyRuling[] = [
+  ...HAS.map((has) => ({ text: `${NEEDS} ${has}`, states: NO_FIT, ruling: VOLUME })),
+  ...OVER.map((text) => ({ text, states: NO_FIT, ruling: VOLUME })),
+  // over the box's volume the heading says both: the figures, then the judgement
+  ...HAS.flatMap((has) =>
+    OVER.map((over) => ({ text: `${NEEDS} ${has} ${over}`, states: NO_FIT, ruling: VOLUME })),
+  ),
+  { text: "Very tight: expect to change settings.", states: NO_FIT, ruling: VOLUME },
+  { text: "{name} takes {name} L", states: NO_FIT, ruling: VOLUME },
+  {
+    text: "Leaving out {name} would bring it under the box's {name} L.",
+    states: NO_FIT,
+    ruling: VOLUME,
+  },
+];
 const PIN_CONFLICT = ["pin-conflict", "m-pin-conflict"] as const;
 // Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
 const MORE = "More holds Swap with… and Lock size";
+// 0.15.0: Put on… (a stack lock without a position: the pair moves anywhere together)
+const PUT_ON = "Put on… stands one tray on another";
+/** The states that draw a put-on: the plan's prompt while the base is chosen, and the rail after it. */
+const PUT_ON_PICK = ["workspace-put-on-pick", "m-put-on-pick"] as const;
+const PUT_ON_CHIP = ["workspace-put-on", "m-put-on"] as const;
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
 const PIN_WORDS = "Pin and Turn say what they hold";
 const TRAY_SHEET = "A phone's tray bar is a modal sheet";
@@ -139,6 +178,7 @@ const BAR_STATES = [
   "workspace-tray",
   "workspace-tray-more",
   "workspace-tray-spacer",
+  "workspace-put-on-pick",
   "kit-rail",
 ] as const;
 const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
@@ -208,6 +248,8 @@ const RESIZE = "The rail's handle is named";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_CHANGED = "More options marks what differs from its default";
 const EDITOR_ROOM = "Room around the pieces shows the insert's number and lets the item change it";
+const THIN_WALLS = "Walls' Thin choice is 1.0 mm all through";
+const ITEM_PACKING = "An item's own packing is a row under More options";
 const ITEM_COPIES = "An item's Copies and Group row replace Per player and the Group box";
 const ITEM_MOVES = "Moving an item into or out of a group says what happens to its copies";
 // 0.7.0 Task 14: a drop in the rail
@@ -401,8 +443,12 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: SETTINGS_STATES,
     ruling: SET_GAPS,
   },
+  { text: "{name} stays upright", states: MINIS_STATES, ruling: UPRIGHT },
+  { text: "Never laid on its side", states: MINIS_STATES, ruling: UPRIGHT },
   { text: "Back to a spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
+  { text: "Thin", states: SETTINGS_STATES, ruling: THIN_WALLS },
+  { text: "You set the floor or the dividers below.", states: SETTINGS_STATES, ruling: THIN_WALLS },
   { text: "Extra space beside walls to reach in", states: SETTINGS_STATES, ruling: SET_WORDS },
   { text: "No exact number matches.", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "{n} of {n} shown.", states: SETTINGS_STATES, ruling: SET_EXACT },
@@ -537,7 +583,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Bed {n} × {n} mm", states: RAIL, ruling: BED },
   {
     text: "Clear all my choices",
-    states: ["m-workspace-rules", "m-pin-conflict", "m-turned"],
+    states: ["m-workspace-rules", "m-pin-conflict", "m-turned", "m-put-on"],
     ruling: CLEAR,
   },
   { text: "bottom layer", states: RAIL, ruling: SUMMARY },
@@ -590,6 +636,9 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: NOFIT_FIGURE,
   },
   { text: "The closest plan is {name}.", states: NO_FIT, ruling: NOFIT_FIGURE },
+  // 0.15.0: the volume note under the cards, and (over the box's volume) the heading's line. Its
+  // sentences are `volumeNote`'s (src/ui/volumeFit.ts), with and without a headroom.
+  ...VOLUME_RULINGS,
   { text: "It's too big for your printer's bed.", states: ["no-fit-bed"], ruling: NOFIT },
   { text: "{name} doesn't fit with your pins", states: PIN_CONFLICT, ruling: PINS },
   { text: "{name} doesn't fit with its size locked", states: PIN_CONFLICT, ruling: PINS },
@@ -669,10 +718,43 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: MORE,
   },
   {
+    text: "Put on…",
+    states: ["workspace-tray-more", "m-tray-more", "m-tray-market", ...PUT_ON_PICK],
+    ruling: PUT_ON,
+  },
+  {
     text: "Lock size",
     states: ["workspace-tray-more", "m-tray-more", "m-tray-market"],
     ruling: MORE,
   },
+  { text: "Pick the tray to put {name} on.", states: PUT_ON_PICK, ruling: PUT_ON },
+  {
+    text: "Spare trays and spacers can't be stood on. Pick another tray.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  { text: "On {name}", states: PUT_ON_CHIP, ruling: PUT_ON },
+  {
+    text: "Trays put on another stay on it when the plan updates.",
+    states: PUT_ON_CHIP,
+    ruling: PUT_ON,
+  },
+  {
+    text: "{name} is pinned. Unpin it before you put trays on it.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  {
+    text: "{name} already has {n} trays on it. A stack holds at most {n}.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  {
+    text: "{name} doesn't go on {name}: the stack is taller than the space in the box.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  { text: "Pick another tray to put it on.", states: PUT_ON_PICK, ruling: PUT_ON },
   { text: "Unlock size", states: ["workspace-tray-more", "m-tray-more"], ruling: MORE },
   {
     text: "Fills the gap so the trays can't slide. Print it too. {size}",
@@ -767,6 +849,25 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: ITEM_COPIES,
   },
   { text: "Room around the pieces", states: OPENED_ROWS, ruling: EDITOR_ROOM },
+  { text: "How tightly it packs", states: OPENED_ROWS, ruling: ITEM_PACKING },
+  ...["Loose", "Snug", "Tight"].map((text) => ({
+    text,
+    states: OPENED_ROWS,
+    ruling: ITEM_PACKING,
+  })),
+  ...["Loose", "Snug", "Tight"].map((word) => ({
+    text: `Back to ${word}`,
+    states: OPENED_ROWS,
+    ruling: ITEM_PACKING,
+  })),
+  {
+    text: "How much of the tray's space the pieces fill.",
+    states: OPENED_ROWS,
+    ruling: ITEM_PACKING,
+  },
+  { text: "Needs the figures loose in a tray.", states: OPENED_ROWS, ruling: ITEM_PACKING },
+  { text: "This item packs at {n}.", states: OPENED_ROWS, ruling: ITEM_PACKING },
+  { text: "The insert packs at {n}.", states: OPENED_ROWS, ruling: ITEM_PACKING },
   {
     text: "{name} now has the group's {n} copies.",
     states: ["kit-member-moved", "kit-drag"],

@@ -19,6 +19,7 @@ import { levelsOf } from "../plan/layers";
 import { mm } from "../ui/identity";
 import { HeaderMenu } from "./Header";
 import type { Misfit } from "../ui/noFit";
+import type { VolumeNote } from "../ui/volumeFit";
 
 // ---------------------------------------------------------------- what the status says
 
@@ -91,6 +92,8 @@ export interface StatusInput {
   noFit: {
     misfit: Misfit | null;
     shortfall?: { x: number; y: number; z: number } | null;
+    /** What the items need against the box: over the box's volume, it speaks for the heading and no tray is named. */
+    volume?: VolumeNote | null;
   } | null;
   /** The pins the last run could not keep. */
   conflicts: readonly LockConflict[];
@@ -251,14 +254,18 @@ export function statusOf(s: StatusInput): Status {
     };
   }
   if (s.noFit !== null) {
+    const volume = s.noFit.volume;
     const misfit = s.noFit.misfit;
     const figure = shortfallSentence(s.noFit.shortfall);
     const line =
-      misfit === null
-        ? figure
-        : misfit.reason === "bed"
-          ? "It's too big for your printer's bed."
-          : `There's no room left for it in the box.${figure === "" ? "" : ` ${figure}`}`;
+      // needing more than the box has is no one tray's fault (App names none then), and no search will change it
+      volume?.verdict === "over" && misfit === null
+        ? `${volume.line} ${volume.judgement}`
+        : misfit === null
+          ? figure
+          : misfit.reason === "bed"
+            ? "It's too big for your printer's bed."
+            : `There's no room left for it in the box.${figure === "" ? "" : ` ${figure}`}`;
     return {
       tone: "warn",
       fit: "noFit",

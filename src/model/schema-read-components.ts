@@ -209,13 +209,24 @@ function readTileShape(r: Reader): TileShape {
   return s.finish({ type, w: s.num("w"), d: s.num("d") });
 }
 
+/** `packing` on a bulk or minis item, when the file has one (absent stays absent: it is hashed only when set). */
+function optionalPacking(r: Reader): { packing?: number } {
+  const packing = r.optNum("packing");
+  return packing === undefined ? {} : { packing };
+}
+
 function readKnownComponent(r: Reader, kind: ComponentKind): Component {
   const base = readBase(r, kind);
   switch (kind) {
     case "cards":
       return readCards(r, base);
     case "bulk":
-      return r.finish({ ...base, kind, items: r.objects("items").map(readBulkItem) });
+      return r.finish({
+        ...base,
+        kind,
+        items: r.objects("items").map(readBulkItem),
+        ...optionalPacking(r),
+      });
     case "tiles":
       return r.finish({
         ...base,
@@ -229,16 +240,20 @@ function readKnownComponent(r: Reader, kind: ComponentKind): Component {
       return r.finish({
         ...base,
         kind,
-        figures: r.objects("figures").map((f) =>
-          f.finish({
+        figures: r.objects("figures").map((f) => {
+          const keepUpright = f.optBool("keepUpright");
+          return f.finish({
             name: f.str("name", ""),
             w: f.num("w"),
             d: f.num("d"),
             h: f.num("h"),
             count: f.num("count"),
-          }),
-        ),
+            // Only when set, so a figure that may lie reads (and saves) as it did before 0.2.3.
+            ...(keepUpright === true ? { keepUpright } : {}),
+          });
+        }),
         storage: r.oneOf("storage", ["pockets", "bulk"], COMPONENT_DEFAULTS.minis.storage),
+        ...optionalPacking(r),
       });
     case "custom":
       return r.finish({

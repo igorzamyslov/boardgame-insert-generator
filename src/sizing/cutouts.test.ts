@@ -394,7 +394,8 @@ describe("cut sides beside a rounded outer corner", () => {
             shape: { type: "rect", w: 15, d: 15 },
             thickness: 2,
             count: 40,
-            storage: "auto",
+            // Explicit: auto no longer stands a 15 mm chit upright (its cut is under a fingertip).
+            storage: variant.startsWith("upright") ? "upright" : "auto",
           }),
         ],
         variant,
@@ -715,22 +716,33 @@ describe("posts: a cut never removes a whole wall (spec §6.1)", () => {
   });
 
   it("drops the flat variants of tiles too small for a cut, keeping the upright ones or a bin", () => {
-    const hexes = (storage: "flat" | "auto") =>
+    const hexes = (storage: "flat" | "auto" | "upright") =>
       tiles({
         shape: { type: "hex", flatToFlat: 8.5, orientation: "flat" },
         thickness: 1.5,
         count: 19,
         storage,
       });
-    const auto = size([hexes("auto")], s);
-    const ids = auto.requirements.flatMap((req) => req.variants.map((v) => v.id));
+    // An explicit upright is kept, with a warning that its cuts are hard to reach.
+    const upright = size([hexes("upright")], s);
+    const ids = upright.requirements.flatMap((req) => req.variants.map((v) => v.id));
     expect(ids.length).toBeGreaterThan(0);
     expect(ids.every((id) => id.startsWith("upright"))).toBe(true);
-    // Flat only: no flat variant is left, so the tiles go in a scoop bin, and a notice says so.
-    const flat = size([hexes("flat")], s);
-    const binIds = flat.requirements.flatMap((req) => req.variants.map((v) => v.id));
-    expect(binIds.every((id) => id.startsWith("bulk-"))).toBe(true);
-    expect(flat.notices.map((n) => [n.level, n.code])).toEqual([["info", "sizing.noFingerSlot"]]);
+    expect(upright.notices.map((n) => n.code)).toEqual(["sizing.uprightHardToReach"]);
+    // Neither flat nor (under `auto`) upright has a cut a finger can use: the tiles go in a scoop
+    // bin, and a notice says so.
+    for (const storage of ["flat", "auto"] as const) {
+      const sized = size([hexes(storage)], s);
+      const binIds = sized.requirements.flatMap((req) => req.variants.map((v) => v.id));
+      expect(
+        binIds.every((id) => id.startsWith("bulk-")),
+        storage,
+      ).toBe(true);
+      expect(
+        sized.notices.map((n) => [n.level, n.code]),
+        storage,
+      ).toEqual([["info", "sizing.noFingerSlot"]]);
+    }
   });
 });
 

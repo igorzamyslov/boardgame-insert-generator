@@ -4,6 +4,9 @@ import {
   FINGER_DIVIDER_ROOM_MM,
   FINGER_ROOM_MM,
   FIT_CHOICES,
+  MIN_FEATURE_MM,
+  MIN_WALL_MM,
+  PACKING_CHOICES,
   WALL_CHOICES,
   applyFingerRoom,
   applyFitChoice,
@@ -14,6 +17,8 @@ import {
   fingerRoomOf,
   fitChoiceOf,
   maxBottomChamfer,
+  packingChoiceOf,
+  packingOf,
   topPlane,
   wallChoiceOf,
 } from "./settings";
@@ -82,10 +87,53 @@ describe("DEFAULT_SETTINGS", () => {
 });
 
 describe("simple-mode choices", () => {
-  it("maps wall thin/normal/sturdy to 1.2/1.6/2.0", () => {
-    expect(applyWallChoice(DEFAULT_SETTINGS, "thin").wall).toBe(1.2);
+  it("maps wall thin/normal/sturdy to 1.0/1.6/2.0", () => {
+    expect(applyWallChoice(DEFAULT_SETTINGS, "thin").wall).toBe(1);
     expect(applyWallChoice(DEFAULT_SETTINGS, "normal").wall).toBe(1.6);
     expect(applyWallChoice(DEFAULT_SETTINGS, "sturdy").wall).toBe(2);
+  });
+
+  it("writes the floor and the dividers with the wall: thin is 1.0 mm all through", () => {
+    const thin = applyWallChoice(DEFAULT_SETTINGS, "thin");
+    expect([thin.wall, thin.floor, thin.divider]).toEqual([1, 1, 1]);
+    // going back leaves no thin floor behind
+    for (const c of ["normal", "sturdy"] as const) {
+      const back = applyWallChoice(thin, c);
+      expect([back.floor, back.divider]).toEqual([
+        DEFAULT_SETTINGS.floor,
+        DEFAULT_SETTINGS.divider,
+      ]);
+    }
+  });
+
+  it("is custom while the floor or a divider is not the choice's, whatever the wall is", () => {
+    expect(wallChoiceOf({ ...DEFAULT_SETTINGS, floor: 1 })).toBe("custom");
+    expect(wallChoiceOf({ ...DEFAULT_SETTINGS, divider: 1.5 })).toBe("custom");
+    expect(wallChoiceOf({ ...applyWallChoice(DEFAULT_SETTINGS, "thin"), floor: 1.2 })).toBe(
+      "custom",
+    );
+  });
+
+  it("keeps every choice printable: walls at MIN_WALL_MM, floors and dividers at MIN_FEATURE_MM", () => {
+    for (const c of Object.keys(WALL_CHOICES) as WallChoice[]) {
+      const s = applyWallChoice(DEFAULT_SETTINGS, c);
+      expect(s.wall).toBeGreaterThanOrEqual(MIN_WALL_MM);
+      expect(s.floor).toBeGreaterThanOrEqual(MIN_FEATURE_MM);
+      expect(s.divider).toBeGreaterThanOrEqual(MIN_FEATURE_MM);
+    }
+  });
+
+  it("names the packing choices: loose 0.5, snug 0.65, tight 0.8", () => {
+    expect(PACKING_CHOICES).toEqual({ loose: 0.5, snug: 0.65, tight: 0.8 });
+    expect(packingChoiceOf(0.65)).toBe("snug");
+    expect(packingChoiceOf(0.65 + 1e-12)).toBe("snug");
+    expect(packingChoiceOf(0.7)).toBe("custom");
+  });
+
+  it("reads an item's packing, or the insert's when it has none", () => {
+    expect(packingOf({}, DEFAULT_SETTINGS)).toBe(0.5);
+    expect(packingOf({ packing: 0.8 }, DEFAULT_SETTINGS)).toBe(0.8);
+    expect(packingOf({}, { ...DEFAULT_SETTINGS, packingFactor: 0.65 })).toBe(0.65);
   });
 
   it("maps fit tight/normal/loose to 0.7/1/1.4", () => {

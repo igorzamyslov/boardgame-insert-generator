@@ -1,14 +1,14 @@
 {
   "layout": {
-    "createdWith": "0.12.0",
-    "geometryVersion": "0.9.4",
-    "inputsHash": "1b894917413e7c",
+    "createdWith": "0.15.0",
+    "geometryVersion": "0.9.6",
+    "inputsHash": "0bc60fb4d1a050",
     "seed": 1,
     "iterations": 100000,
     "capped": false,
     "trays": [
       {
-        "key": "starter1:p0:1",
+        "key": "hextiles:p0:0",
         "part": "tray",
         "path": "00",
         "stack": 0,
@@ -16,8 +16,504 @@
         "x": 0,
         "y": 0,
         "z": 0,
-        "w": 153.44,
-        "d": 105.83,
+        "w": 227.47,
+        "d": 63.94,
+        "h": 70,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": false,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 224.27,
+            "d": 60.74,
+            "floorZ": 17,
+            "kind": "well",
+            "contents": "Hex tiles ×100",
+            "componentId": "hextiles",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 31.97,
+                "width": 25,
+                "depth": 26.5,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 31.97,
+                "width": 25,
+                "depth": 26.5,
+                "floorNotch": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "dice0001:p0:0",
+        "part": "tray",
+        "path": "01",
+        "stack": 1,
+        "level": 0,
+        "x": 227.67,
+        "y": 0,
+        "z": 0,
+        "w": 56.33,
+        "d": 63.94,
+        "h": 70,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": false,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 53.13,
+            "d": 60.74,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Dice ×10",
+            "componentId": "dice0001",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "left",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "heroes01:p0:0",
+        "part": "tray",
+        "path": "10000",
+        "stack": 2,
+        "level": 0,
+        "x": 0,
+        "y": 64.14,
+        "z": 0,
+        "w": 70.4,
+        "d": 104.6,
+        "h": 70,
+        "rotated": true,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": false,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 35.8,
+            "y": 1.6,
+            "w": 33,
+            "d": 33,
+            "floorZ": 29,
+            "kind": "pocket",
+            "contents": "Heroes — Hero 1/6",
+            "componentId": "heroes01",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 18.1,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 18.1,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 35.8,
+            "y": 35.8,
+            "w": 33,
+            "d": 33,
+            "floorZ": 29,
+            "kind": "pocket",
+            "contents": "Heroes — Hero 3/6",
+            "componentId": "heroes01",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 52.3,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 52.3,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 35.8,
+            "y": 70,
+            "w": 33,
+            "d": 33,
+            "floorZ": 29,
+            "kind": "pocket",
+            "contents": "Heroes — Hero 5/6",
+            "componentId": "heroes01",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 86.5,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 86.5,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 33,
+            "d": 33,
+            "floorZ": 29,
+            "kind": "pocket",
+            "contents": "Heroes — Hero 2/6",
+            "componentId": "heroes01",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 18.1,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 18.1,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 35.8,
+            "w": 33,
+            "d": 33,
+            "floorZ": 29,
+            "kind": "pocket",
+            "contents": "Heroes — Hero 4/6",
+            "componentId": "heroes01",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 52.3,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 52.3,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 70,
+            "w": 33,
+            "d": 33,
+            "floorZ": 29,
+            "kind": "pocket",
+            "contents": "Heroes — Hero 6/6",
+            "componentId": "heroes01",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 86.5,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 86.5,
+                "width": 25,
+                "depth": 20.5,
+                "floorNotch": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "events01:p0:0",
+        "part": "tray",
+        "path": "10001",
+        "stack": 3,
+        "level": 0,
+        "x": 70.6,
+        "y": 64.14,
+        "z": 0,
+        "w": 72.7,
+        "d": 97.2,
+        "h": 70,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": false,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 69.5,
+            "d": 94,
+            "floorZ": 56,
+            "kind": "well",
+            "contents": "Event cards ×30",
+            "componentId": "events01",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 48.6,
+                "width": 25,
+                "depth": 14,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 48.6,
+                "width": 25,
+                "depth": 14,
+                "floorNotch": 12.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "market01:p0:0",
+        "part": "tray",
+        "path": "1001",
+        "stack": 4,
+        "level": 0,
+        "x": 143.5,
+        "y": 64.14,
+        "z": 0,
+        "w": 72.7,
+        "d": 97.2,
+        "h": 70,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": false,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 69.5,
+            "d": 94,
+            "floorZ": 34.2,
+            "kind": "well",
+            "contents": "Market deck ×80",
+            "componentId": "market01",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 48.6,
+                "width": 25,
+                "depth": 35.8,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 48.6,
+                "width": 25,
+                "depth": 35.8,
+                "floorNotch": 12.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "resourc1:p0:0",
+        "part": "tray",
+        "path": "101",
+        "stack": 5,
+        "level": 0,
+        "x": 216.4,
+        "y": 64.14,
+        "z": 0,
+        "w": 67.6,
+        "d": 104.6,
+        "h": 70,
+        "rotated": true,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": false,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 34.4,
+            "y": 1.6,
+            "w": 31.6,
+            "d": 33,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Resource tokens — Wood ×20",
+            "componentId": "resourc1",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              }
+            ]
+          },
+          {
+            "x": 34.4,
+            "y": 35.8,
+            "w": 31.6,
+            "d": 33,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Resource tokens — Grain ×20",
+            "componentId": "resourc1",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              }
+            ]
+          },
+          {
+            "x": 34.4,
+            "y": 70,
+            "w": 31.6,
+            "d": 33,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Resource tokens — Ore ×20",
+            "componentId": "resourc1",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 31.6,
+            "d": 33,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Resource tokens — Stone ×20",
+            "componentId": "resourc1",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 35.8,
+            "w": 31.6,
+            "d": 33,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Resource tokens — Wool ×20",
+            "componentId": "resourc1",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 70,
+            "w": 31.6,
+            "d": 33,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Resource tokens — Fish ×20",
+            "componentId": "resourc1",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "starter1:p0:1",
+        "part": "tray",
+        "path": "110",
+        "stack": 6,
+        "level": 0,
+        "x": 0,
+        "y": 168.94,
+        "z": 0,
+        "w": 146,
+        "d": 99.8,
         "h": 7.4,
         "rotated": false,
         "wall": 1.6,
@@ -26,10 +522,10 @@
         "solid": false,
         "compartments": [
           {
-            "x": 3.12,
-            "y": 4.16,
-            "w": 73,
-            "d": 97.5,
+            "x": 2.9,
+            "y": 2.9,
+            "w": 69.5,
+            "d": 94,
             "floorZ": 1.2,
             "kind": "well",
             "contents": "Starter decks — Deck 3 ×12",
@@ -38,7 +534,7 @@
               {
                 "type": "wallCutout",
                 "side": "left",
-                "at": 52.91,
+                "at": 49.9,
                 "width": 25,
                 "depth": 6.2,
                 "floorNotch": 12.5
@@ -46,7 +542,7 @@
               {
                 "type": "wallCutout",
                 "side": "right",
-                "at": 52.91,
+                "at": 49.9,
                 "width": 25,
                 "depth": 6.2,
                 "floorNotch": 12.5
@@ -54,10 +550,10 @@
             ]
           },
           {
-            "x": 77.32,
-            "y": 4.16,
-            "w": 73,
-            "d": 97.5,
+            "x": 73.6,
+            "y": 2.9,
+            "w": 69.5,
+            "d": 94,
             "floorZ": 1.2,
             "kind": "well",
             "contents": "Starter decks — Deck 4 ×12",
@@ -66,7 +562,7 @@
               {
                 "type": "wallCutout",
                 "side": "left",
-                "at": 52.91,
+                "at": 49.9,
                 "width": 25,
                 "depth": 6.2,
                 "floorNotch": 12.5
@@ -74,7 +570,7 @@
               {
                 "type": "wallCutout",
                 "side": "right",
-                "at": 52.91,
+                "at": 49.9,
                 "width": 25,
                 "depth": 6.2,
                 "floorNotch": 12.5
@@ -86,27 +582,27 @@
       {
         "key": "starter1:p0:0",
         "part": "tray",
-        "path": "00",
-        "stack": 0,
+        "path": "110",
+        "stack": 6,
         "level": 1,
         "x": 0,
-        "y": 0,
+        "y": 168.94,
         "z": 7.4,
-        "w": 153.44,
-        "d": 105.83,
-        "h": 7.4,
+        "w": 146,
+        "d": 99.8,
+        "h": 62.6,
         "rotated": false,
         "wall": 1.6,
         "floor": 1.2,
-        "lip": true,
+        "lip": false,
         "solid": false,
         "compartments": [
           {
-            "x": 3.12,
-            "y": 4.16,
-            "w": 73,
-            "d": 97.5,
-            "floorZ": 1.2,
+            "x": 2.9,
+            "y": 2.9,
+            "w": 69.5,
+            "d": 94,
+            "floorZ": 56.4,
             "kind": "well",
             "contents": "Starter decks — Deck 1 ×12",
             "componentId": "starter1",
@@ -114,7 +610,7 @@
               {
                 "type": "wallCutout",
                 "side": "left",
-                "at": 52.91,
+                "at": 49.9,
                 "width": 25,
                 "depth": 6.2,
                 "floorNotch": 12.5
@@ -122,7 +618,7 @@
               {
                 "type": "wallCutout",
                 "side": "right",
-                "at": 52.91,
+                "at": 49.9,
                 "width": 25,
                 "depth": 6.2,
                 "floorNotch": 12.5
@@ -130,11 +626,11 @@
             ]
           },
           {
-            "x": 77.32,
-            "y": 4.16,
-            "w": 73,
-            "d": 97.5,
-            "floorZ": 1.2,
+            "x": 73.6,
+            "y": 2.9,
+            "w": 69.5,
+            "d": 94,
+            "floorZ": 56.4,
             "kind": "well",
             "contents": "Starter decks — Deck 2 ×12",
             "componentId": "starter1",
@@ -142,7 +638,7 @@
               {
                 "type": "wallCutout",
                 "side": "left",
-                "at": 52.91,
+                "at": 49.9,
                 "width": 25,
                 "depth": 6.2,
                 "floorNotch": 12.5
@@ -150,209 +646,9 @@
               {
                 "type": "wallCutout",
                 "side": "right",
-                "at": 52.91,
+                "at": 49.9,
                 "width": 25,
                 "depth": 6.2,
-                "floorNotch": 12.5
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "key": "resourc1:p0:0",
-        "part": "tray",
-        "path": "00",
-        "stack": 0,
-        "level": 2,
-        "x": 0,
-        "y": 0,
-        "z": 14.8,
-        "w": 153.44,
-        "d": 105.83,
-        "h": 55.2,
-        "rotated": false,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": false,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 2.56,
-            "y": 2.56,
-            "w": 48.64,
-            "d": 49.76,
-            "floorZ": 20.2,
-            "kind": "scoop",
-            "contents": "Resource tokens — Wood ×20",
-            "componentId": "resourc1",
-            "features": [
-              {
-                "type": "scoop",
-                "side": "left",
-                "r": 12
-              },
-              {
-                "type": "scoop",
-                "side": "right",
-                "r": 12
-              }
-            ]
-          },
-          {
-            "x": 52.4,
-            "y": 2.56,
-            "w": 48.64,
-            "d": 49.76,
-            "floorZ": 20.2,
-            "kind": "scoop",
-            "contents": "Resource tokens — Grain ×20",
-            "componentId": "resourc1",
-            "features": [
-              {
-                "type": "scoop",
-                "side": "left",
-                "r": 12
-              },
-              {
-                "type": "scoop",
-                "side": "right",
-                "r": 12
-              }
-            ]
-          },
-          {
-            "x": 102.24,
-            "y": 2.56,
-            "w": 48.64,
-            "d": 49.76,
-            "floorZ": 20.2,
-            "kind": "scoop",
-            "contents": "Resource tokens — Ore ×20",
-            "componentId": "resourc1",
-            "features": [
-              {
-                "type": "scoop",
-                "side": "left",
-                "r": 12
-              },
-              {
-                "type": "scoop",
-                "side": "right",
-                "r": 12
-              }
-            ]
-          },
-          {
-            "x": 2.56,
-            "y": 53.52,
-            "w": 48.64,
-            "d": 49.75,
-            "floorZ": 20.2,
-            "kind": "scoop",
-            "contents": "Resource tokens — Stone ×20",
-            "componentId": "resourc1",
-            "features": [
-              {
-                "type": "scoop",
-                "side": "left",
-                "r": 12
-              },
-              {
-                "type": "scoop",
-                "side": "right",
-                "r": 12
-              }
-            ]
-          },
-          {
-            "x": 52.4,
-            "y": 53.52,
-            "w": 48.64,
-            "d": 49.75,
-            "floorZ": 20.2,
-            "kind": "scoop",
-            "contents": "Resource tokens — Wool ×20",
-            "componentId": "resourc1",
-            "features": [
-              {
-                "type": "scoop",
-                "side": "left",
-                "r": 12
-              },
-              {
-                "type": "scoop",
-                "side": "right",
-                "r": 12
-              }
-            ]
-          },
-          {
-            "x": 102.24,
-            "y": 53.52,
-            "w": 48.64,
-            "d": 49.75,
-            "floorZ": 20.2,
-            "kind": "scoop",
-            "contents": "Resource tokens — Fish ×20",
-            "componentId": "resourc1",
-            "features": [
-              {
-                "type": "scoop",
-                "side": "left",
-                "r": 12
-              },
-              {
-                "type": "scoop",
-                "side": "right",
-                "r": 12
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "key": "events01:p0:0",
-        "part": "tray",
-        "path": "010",
-        "stack": 1,
-        "level": 0,
-        "x": 153.64,
-        "y": 0,
-        "z": 0,
-        "w": 77.28,
-        "d": 101.7,
-        "h": 70,
-        "rotated": false,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": false,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 1.64,
-            "y": 1.6,
-            "w": 74,
-            "d": 98.5,
-            "floorZ": 56,
-            "kind": "well",
-            "contents": "Event cards ×30",
-            "componentId": "events01",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "left",
-                "at": 50.85,
-                "width": 25,
-                "depth": 14,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "wallCutout",
-                "side": "right",
-                "at": 50.85,
-                "width": 25,
-                "depth": 14,
                 "floorNotch": 12.5
               }
             ]
@@ -362,69 +658,71 @@
       {
         "key": "coins001:p0:0",
         "part": "tray",
-        "path": "011",
-        "stack": 2,
+        "path": "111",
+        "stack": 7,
         "level": 0,
-        "x": 231.12,
-        "y": 0,
+        "x": 146.2,
+        "y": 168.94,
         "z": 0,
-        "w": 52.88,
-        "d": 105.83,
-        "h": 38.8,
-        "rotated": true,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": true,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 2.9,
-            "y": 2.9,
-            "w": 47.08,
-            "d": 100.03,
-            "floorZ": 3.8,
-            "kind": "scoop",
-            "contents": "Coins and cubes — Gold coins ×40",
-            "componentId": "coins001",
-            "features": [
-              {
-                "type": "scoop",
-                "side": "right",
-                "r": 12
-              },
-              {
-                "type": "scoop",
-                "side": "left",
-                "r": 12
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "key": "coins001:p0:1",
-        "part": "tray",
-        "path": "011",
-        "stack": 2,
-        "level": 1,
-        "x": 231.12,
-        "y": 0,
-        "z": 38.8,
-        "w": 52.88,
-        "d": 105.83,
-        "h": 31.2,
-        "rotated": true,
+        "w": 137.8,
+        "d": 115.06,
+        "h": 70,
+        "rotated": false,
         "wall": 1.6,
         "floor": 1.2,
         "lip": false,
         "solid": false,
         "compartments": [
           {
-            "x": 2.56,
-            "y": 2.56,
-            "w": 47.76,
-            "d": 38.75,
-            "floorZ": 1.2,
+            "x": 1.6,
+            "y": 1.6,
+            "w": 83.4,
+            "d": 56.57,
+            "floorZ": 45,
+            "kind": "scoop",
+            "contents": "Coins and cubes — Gold coins ×40",
+            "componentId": "coins001",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "front",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "back",
+                "r": 12
+              }
+            ]
+          },
+          {
+            "x": 86.2,
+            "y": 1.6,
+            "w": 50,
+            "d": 56.57,
+            "floorZ": 45,
+            "kind": "scoop",
+            "contents": "Coins and cubes — Wood discs ×8",
+            "componentId": "coins001",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "left",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 59.37,
+            "w": 71.08,
+            "d": 54.09,
+            "floorZ": 45,
             "kind": "scoop",
             "contents": "Coins and cubes — Silver coins ×24",
             "componentId": "coins001",
@@ -433,15 +731,20 @@
                 "type": "scoop",
                 "side": "front",
                 "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "back",
+                "r": 12
               }
             ]
           },
           {
-            "x": 2.56,
-            "y": 42.51,
-            "w": 47.76,
-            "d": 31.6,
-            "floorZ": 1.2,
+            "x": 73.88,
+            "y": 59.37,
+            "w": 62.32,
+            "d": 54.09,
+            "floorZ": 45,
             "kind": "scoop",
             "contents": "Coins and cubes — Wood cubes ×24",
             "componentId": "coins001",
@@ -450,501 +753,11 @@
                 "type": "scoop",
                 "side": "front",
                 "r": 12
-              }
-            ]
-          },
-          {
-            "x": 2.56,
-            "y": 75.31,
-            "w": 47.76,
-            "d": 27.96,
-            "floorZ": 6.2,
-            "kind": "scoop",
-            "contents": "Coins and cubes — Wood discs ×8",
-            "componentId": "coins001",
-            "features": [
-              {
-                "type": "scoop",
-                "side": "front",
-                "r": 12
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "key": "hextiles:p0:0",
-        "part": "tray",
-        "path": "100",
-        "stack": 3,
-        "level": 0,
-        "x": 0,
-        "y": 106.03,
-        "z": 0,
-        "w": 136.88,
-        "d": 61.7,
-        "h": 70,
-        "rotated": false,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": false,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 1.6,
-            "y": 1.6,
-            "w": 66.24,
-            "d": 58.5,
-            "floorZ": 13,
-            "kind": "well",
-            "contents": "Hex tiles ×22",
-            "componentId": "hextiles",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 34.72,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 34.72,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "cornerRelief",
-                "d": 3
-              }
-            ]
-          },
-          {
-            "x": 69.04,
-            "y": 1.6,
-            "w": 66.24,
-            "d": 58.5,
-            "floorZ": 13,
-            "kind": "well",
-            "contents": "Hex tiles ×22",
-            "componentId": "hextiles",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 102.16,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 102.16,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "cornerRelief",
-                "d": 3
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "key": "market01:p0:0",
-        "part": "tray",
-        "path": "101",
-        "stack": 4,
-        "level": 0,
-        "x": 182.8,
-        "y": 106.03,
-        "z": 0,
-        "w": 101.2,
-        "d": 76.7,
-        "h": 70,
-        "rotated": true,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": false,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 1.6,
-            "y": 1.6,
-            "w": 98,
-            "d": 73.5,
-            "floorZ": 34.2,
-            "kind": "well",
-            "contents": "Market deck ×80",
-            "componentId": "market01",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 50.6,
-                "width": 25,
-                "depth": 35.8,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 50.6,
-                "width": 25,
-                "depth": 35.8,
-                "floorNotch": 12.5
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "key": "dice0001:p0:0",
-        "part": "tray",
-        "path": "1100",
-        "stack": 5,
-        "level": 0,
-        "x": 0,
-        "y": 182.93,
-        "z": 0,
-        "w": 79.48,
-        "d": 62.55,
-        "h": 70,
-        "rotated": false,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": false,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 1.6,
-            "y": 1.6,
-            "w": 76.28,
-            "d": 59.35,
-            "floorZ": 41,
-            "kind": "scoop",
-            "contents": "Dice ×10",
-            "componentId": "dice0001",
-            "features": [
-              {
-                "type": "scoop",
-                "side": "front",
-                "r": 12
               },
               {
                 "type": "scoop",
                 "side": "back",
                 "r": 12
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "key": "hextiles:p0:1",
-        "part": "tray",
-        "path": "1101",
-        "stack": 6,
-        "level": 0,
-        "x": 79.68,
-        "y": 182.93,
-        "z": 0,
-        "w": 204.32,
-        "d": 62.55,
-        "h": 70,
-        "rotated": false,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": false,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 1.6,
-            "y": 2.02,
-            "w": 66.24,
-            "d": 58.5,
-            "floorZ": 13,
-            "kind": "well",
-            "contents": "Hex tiles ×22",
-            "componentId": "hextiles",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 34.72,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 34.72,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "cornerRelief",
-                "d": 3
-              }
-            ]
-          },
-          {
-            "x": 69.04,
-            "y": 2.02,
-            "w": 66.24,
-            "d": 58.5,
-            "floorZ": 13,
-            "kind": "well",
-            "contents": "Hex tiles ×22",
-            "componentId": "hextiles",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 102.16,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 102.16,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "cornerRelief",
-                "d": 3
-              }
-            ]
-          },
-          {
-            "x": 136.48,
-            "y": 2.02,
-            "w": 66.24,
-            "d": 58.5,
-            "floorZ": 13,
-            "kind": "well",
-            "contents": "Hex tiles ×22",
-            "componentId": "hextiles",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 169.6,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 169.6,
-                "width": 25,
-                "depth": 57,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "cornerRelief",
-                "d": 3
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "key": "heroes01:p0:0",
-        "part": "tray",
-        "path": "111",
-        "stack": 7,
-        "level": 0,
-        "x": 0,
-        "y": 245.68,
-        "z": 0,
-        "w": 219.2,
-        "d": 38.32,
-        "h": 70,
-        "rotated": false,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": false,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 1.6,
-            "y": 1.66,
-            "w": 35,
-            "d": 35,
-            "floorZ": 27,
-            "kind": "pocket",
-            "contents": "Heroes — Hero 1/6",
-            "componentId": "heroes01",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 19.1,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 19.1,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              }
-            ]
-          },
-          {
-            "x": 37.8,
-            "y": 1.66,
-            "w": 35,
-            "d": 35,
-            "floorZ": 27,
-            "kind": "pocket",
-            "contents": "Heroes — Hero 2/6",
-            "componentId": "heroes01",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 55.3,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 55.3,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              }
-            ]
-          },
-          {
-            "x": 74,
-            "y": 1.66,
-            "w": 35,
-            "d": 35,
-            "floorZ": 27,
-            "kind": "pocket",
-            "contents": "Heroes — Hero 3/6",
-            "componentId": "heroes01",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 91.5,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 91.5,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              }
-            ]
-          },
-          {
-            "x": 110.2,
-            "y": 1.66,
-            "w": 35,
-            "d": 35,
-            "floorZ": 27,
-            "kind": "pocket",
-            "contents": "Heroes — Hero 4/6",
-            "componentId": "heroes01",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 127.7,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 127.7,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              }
-            ]
-          },
-          {
-            "x": 146.4,
-            "y": 1.66,
-            "w": 35,
-            "d": 35,
-            "floorZ": 27,
-            "kind": "pocket",
-            "contents": "Heroes — Hero 5/6",
-            "componentId": "heroes01",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 163.9,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 163.9,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              }
-            ]
-          },
-          {
-            "x": 182.6,
-            "y": 1.66,
-            "w": 35,
-            "d": 35,
-            "floorZ": 27,
-            "kind": "pocket",
-            "contents": "Heroes — Hero 6/6",
-            "componentId": "heroes01",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "front",
-                "at": 200.1,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
-              },
-              {
-                "type": "wallCutout",
-                "side": "back",
-                "at": 200.1,
-                "width": 25,
-                "depth": 21.5,
-                "floorNotch": 0
               }
             ]
           }
@@ -953,14 +766,14 @@
       {
         "key": "leftover:0",
         "part": "leftover",
-        "path": "010",
+        "path": "10001",
         "stack": 8,
         "level": 0,
-        "x": 153.64,
-        "y": 101.9,
+        "x": 70.6,
+        "y": 161.54,
         "z": 0,
-        "w": 77.28,
-        "d": 3.93,
+        "w": 72.7,
+        "d": 7.2,
         "h": 70,
         "rotated": false,
         "wall": 1.6,
@@ -972,44 +785,14 @@
       {
         "key": "leftover:1",
         "part": "leftover",
-        "path": "100",
+        "path": "1001",
         "stack": 9,
         "level": 0,
-        "x": 137.08,
-        "y": 106.03,
+        "x": 143.5,
+        "y": 161.54,
         "z": 0,
-        "w": 45.52,
-        "d": 76.7,
-        "h": 70,
-        "rotated": false,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": false,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 1.6,
-            "y": 1.6,
-            "w": 42.32,
-            "d": 73.5,
-            "floorZ": 1.2,
-            "kind": "spare",
-            "contents": "",
-            "features": []
-          }
-        ]
-      },
-      {
-        "key": "leftover:2",
-        "part": "leftover",
-        "path": "100",
-        "stack": 10,
-        "level": 0,
-        "x": 0,
-        "y": 167.93,
-        "z": 0,
-        "w": 136.88,
-        "d": 14.8,
+        "w": 72.7,
+        "d": 7.2,
         "h": 70,
         "rotated": false,
         "wall": 1.6,
@@ -1019,54 +802,48 @@
         "compartments": []
       },
       {
-        "key": "leftover:3",
+        "key": "leftover:2",
         "part": "leftover",
-        "path": "111",
-        "stack": 11,
+        "path": "110",
+        "stack": 10,
         "level": 0,
-        "x": 219.4,
-        "y": 245.68,
+        "x": 0,
+        "y": 268.94,
         "z": 0,
-        "w": 64.6,
-        "d": 38.32,
+        "w": 146,
+        "d": 15.06,
         "h": 70,
         "rotated": false,
         "wall": 1.6,
         "floor": 1.2,
         "lip": false,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 1.6,
-            "y": 1.6,
-            "w": 61.4,
-            "d": 35.12,
-            "floorZ": 1.2,
-            "kind": "spare",
-            "contents": "",
-            "features": []
-          }
-        ]
+        "solid": true,
+        "compartments": []
       }
     ]
   },
   "bestAttempt": null,
   "summary": {
-    "fillPct": 99.6,
-    "trayCount": 15,
-    "stackCount": 12,
+    "fillPct": 99.7,
+    "trayCount": 12,
+    "stackCount": 11,
     "fillerCount": 3,
     "mergeFillers": true,
     "mergeRisers": true,
     "minRiser": 3,
-    "filamentG": 1141.8,
+    "filamentG": 1050.5,
     "playLimit": 1.5,
-    "playX": 1.4,
+    "playX": 1.6,
     "playY": 1.8,
-    "crossX": 3,
+    "crossX": 4,
     "crossY": 5
   },
   "notices": [
+    {
+      "level": "warning",
+      "code": "layout.play",
+      "message": "Trays can shift 1.60 mm left–right (Play limit: 1.5 mm): 4 trays sit side by side in one row. To reduce it: choose a tighter Fit; lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact numbers; or put fewer trays in that row. Or raise Play limit there."
+    },
     {
       "level": "warning",
       "code": "layout.play",

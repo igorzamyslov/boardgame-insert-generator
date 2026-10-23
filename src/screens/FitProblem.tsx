@@ -12,6 +12,7 @@ import { StatusHeading } from "../kit";
 import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
+import type { VolumeNote } from "../ui/volumeFit";
 import type { Status, StatusAction } from "./StageTop";
 import "./fitProblem.css";
 
@@ -37,6 +38,8 @@ export interface FitCardsProps extends Fixes {
   kind: FitKind;
   /** The status' actions, each a card in this order. */
   actions: readonly StatusAction[];
+  /** NoFit: what the items need against the box, under the cards. */
+  volume?: VolumeNote | null;
 }
 
 /** One thing to do, as a card: its words alone (no outcome: the engine has no way to say one). */
@@ -51,6 +54,39 @@ function Card(p: { lead: boolean; first: boolean; label: string; onClick: () => 
     >
       {p.label}
     </button>
+  );
+}
+
+/**
+ * The volume note under NoFit's cards: the figures and the judgement (over the box's volume, the
+ * heading has them), the biggest items, and the one item whose leaving out would do.
+ */
+function Volume(p: { note: VolumeNote }) {
+  const { note } = p;
+  const over = note.verdict === "over";
+  return (
+    <div class="fp-volume" data-verdict={note.verdict}>
+      {over ? null : (
+        // one paragraph, so the judgement stays in view with the figures in a phone's peek
+        <p class="fp-volume__line">
+          {note.line}
+          {note.judgement === null ? null : (
+            <>
+              {" "}
+              <strong class="fp-volume__judgement">{note.judgement}</strong>
+            </>
+          )}
+        </p>
+      )}
+      {note.biggest.length === 0 ? null : (
+        <ul class="fp-volume__list">
+          {note.biggest.map((b) => (
+            <li key={b}>{b}</li>
+          ))}
+        </ul>
+      )}
+      {note.leaveOut === null ? null : <p class="fp-volume__line">{note.leaveOut}</p>}
+    </div>
   );
 }
 
@@ -99,6 +135,7 @@ export function FitCards(p: FitCardsProps) {
             return null;
         }
       })}
+      {noFit && p.volume ? <Volume note={p.volume} /> : null}
     </div>
   );
 }
@@ -166,10 +203,10 @@ export function FitProblem(p: FitProblemProps) {
             />
           )}
         </section>
-        {p.phone || (p.actions.length === 0 && p.after === undefined) ? null : (
+        {p.phone || (p.actions.length === 0 && !p.volume && p.after === undefined) ? null : (
           // beside the picture, under the panel: the notices have room there, and the stage keeps its height
           <div class="fp-side" data-kind={p.kind}>
-            {p.actions.length === 0 ? null : (
+            {p.actions.length === 0 && !p.volume ? null : (
               <section
                 class="fp-panel"
                 data-kind={p.kind}

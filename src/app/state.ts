@@ -64,6 +64,8 @@ export interface State {
   viewLayer: Signal<number | null | undefined>;
   /** The tray a "Swap with…" is under way from, or null; reset on Escape, after a swap, on clearing the selection and on a new project. */
   swapFrom: Signal<string | null>;
+  /** What the tray picked next does while `swapFrom` is set: swaps with it, or is stood on it ("Put on…"). */
+  pickMode: Signal<"swap" | "putOn">;
   appNotices: Signal<Notice[]>;
   /** Newer-minor file: automatic runs are skipped, a user run asks first (spec §9). */
   needsConfirm: Signal<boolean>;
@@ -246,6 +248,7 @@ export function createState(
     selection: signal<string | null>(null),
     viewLayer: signal<number | null | undefined>(undefined),
     swapFrom: signal<string | null>(null),
+    pickMode: signal<"swap" | "putOn">("swap"),
     appNotices: signal<Notice[]>([]),
     needsConfirm: signal(false),
     conflict,

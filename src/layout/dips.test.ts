@@ -428,23 +428,20 @@ describe("the Harbour Kings seed", () => {
     locks: project.locks,
   }).trays;
 
-  it("gives the two strips a dip: Heroes' strip beside Events, Dice's beside Starter", () => {
-    const heroes = dipsOf(printed, "leftover:2");
-    const dice = dipsOf(printed, "leftover:4");
-    expect(heroes.length).toBeGreaterThan(0);
-    expect(dice.length).toBeGreaterThan(0);
+  it("gives the strips a dip: the thin one beside Events, the long one beside Starter and Market", () => {
+    const events = dipsOf(printed, "leftover:3");
+    const long = dipsOf(printed, "leftover:1");
+    expect(events.length).toBeGreaterThan(0);
+    expect(long.length).toBeGreaterThan(0);
     const strip = (key: string): TraySpec => printed.find((p) => p.key === key) as TraySpec;
-    // both strips are thinner than a finger (9.64 and 10.64 mm): cut across
-    expect(dipBox(heroes[0] as NonNullable<(typeof heroes)[0]>, strip("leftover:2")).through).toBe(
-      true,
-    );
-    expect(dipBox(dice[0] as NonNullable<(typeof dice)[0]>, strip("leftover:4")).through).toBe(
+    // the strip beside Events is thinner than a finger (7.88 mm): cut across
+    expect(dipBox(events[0] as NonNullable<(typeof events)[0]>, strip("leftover:3")).through).toBe(
       true,
     );
     // each is 25 mm wide and about half the strip's height deep, over the groove it stands on
     for (const [key, dips] of [
-      ["leftover:2", heroes],
-      ["leftover:4", dice],
+      ["leftover:3", events],
+      ["leftover:1", long],
     ] as const) {
       const h = strip(key).h;
       for (const dip of dips) {
@@ -459,9 +456,9 @@ describe("the Harbour Kings seed", () => {
 
   it("reaches Events and Starter, and the trays on the strips' other faces", () => {
     const facing = dipsFacingTrays(printed, { settings: project.settings });
-    expect(facing.get("events01:p0:0")?.map((f) => f.by.key)).toContain("leftover:2");
-    expect(facing.get("starter1:p0:0")?.map((f) => f.by.key)).toContain("leftover:4");
-    expect(facing.get("coins001:p0:0")?.map((f) => f.by.key)).toContain("leftover:2");
+    expect(facing.get("events01:p0:0")?.map((f) => f.by.key)).toContain("leftover:3");
+    expect(facing.get("starter1:p0:0")?.map((f) => f.by.key)).toContain("leftover:1");
+    expect(facing.get("market01:p0:0")?.map((f) => f.by.key)).toContain("leftover:1");
   });
 
   it("puts at most two dips on any side of a tray", () => {

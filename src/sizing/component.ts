@@ -21,7 +21,7 @@ export function componentOptions(c: Component, s: Settings, index: number): Opti
     case "bulk":
       return bulkOptions(c, s);
     case "tiles":
-      return tileOptions(c, s);
+      return tileOptions(c, s, index);
     case "minis":
       return minisOptions(c, s);
     case "custom":

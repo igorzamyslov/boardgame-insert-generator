@@ -14,7 +14,7 @@ import {
   separatorsOf,
   COMPONENT_DEFAULTS,
 } from "../../model/defaults";
-import { effective } from "../../model/settings";
+import { FLOAT_EPSILON, effective } from "../../model/settings";
 import type { Component, GrowthAxis, Settings } from "../../model/types";
 
 /**
@@ -34,7 +34,8 @@ export type OptionId =
   | "separators"
   | "thickness"
   | "copies"
-  | "clearance";
+  | "clearance"
+  | "packing";
 
 /** Whether the deck or stack of tiles may grow along its stack, which is what offers spacer plates and dividers. */
 export function wellMayGrow(c: Component): boolean {
@@ -97,6 +98,14 @@ export function insertClearance(c: Component, settings: Settings): number {
   return c.kind === "cards" ? e.cardClearance : e.pieceClearance;
 }
 
+/**
+ * Whether the item has a pile of loose pieces whose packing it can set: bulk always, minis only
+ * while the figures are stored loose in a tray (the row stays, blocked, for the other).
+ */
+export function packingOffered(c: Component): c is Component & { kind: "bulk" | "minis" } {
+  return c.kind === "bulk" || (c.kind === "minis" && c.storage === "bulk");
+}
+
 /** The chip value of the curved floor: a file may set one where the kind has none (it still shows). */
 export function curvedFloorShown(c: Component): boolean {
   return c.curvedFloor === true || curvedFloorOn(c);
@@ -142,6 +151,13 @@ export function changedOptions(c: Component, settings: Settings, grouped = false
   }
   if (c.clearance !== undefined && c.clearance !== insertClearance(c, settings)) {
     out.add("clearance");
+  }
+  if (
+    packingOffered(c) &&
+    c.packing !== undefined &&
+    Math.abs(c.packing - settings.packingFactor) > FLOAT_EPSILON
+  ) {
+    out.add("packing");
   }
   if (c.kind === "cards") {
     if (c.storage !== COMPONENT_DEFAULTS.cards.storage) {

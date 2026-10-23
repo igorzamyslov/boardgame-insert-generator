@@ -98,6 +98,8 @@ export interface WhatsInsideProps {
   onUnpin?: (trayKeys: string[]) => void;
   onFreeTurn?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
+  /** An "On …" chip's ×: these trays come off what they stand on. */
+  onTakeOff?: (trayKeys: string[]) => void;
   /** An option of the open editor changed, and this is what it does: the stage shows it as a note. */
   onNote?: (text: string) => void;
   /** The phone's strip in the open editor: the tray drawn small and the sentence (or the note). */
@@ -138,6 +140,7 @@ export function WhatsInside({
   onUnpin,
   onFreeTurn,
   onUnlockSize,
+  onTakeOff,
   onNote,
   strip,
 }: WhatsInsideProps) {
@@ -351,6 +354,7 @@ export function WhatsInside({
       onUnpin,
       onFreeTurn,
       onUnlockSize,
+      onTakeOff,
       onClearChoices,
     };
     return (

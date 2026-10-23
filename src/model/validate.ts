@@ -34,6 +34,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     layerHeight: "field.layerHeight",
     length: "field.length",
     lipBearing: "field.lipBearing",
+    packing: "field.packing",
     stepPlay: "field.stepPlay",
     lockPath: "field.lockPath",
     lockStack: "field.lockStack",
@@ -452,6 +453,18 @@ class Checker {
     }
   }
 
+  /** An item's own packing: a share of its bin, above the least a setting takes and at most 1. */
+  packing(path: string, n: number): void {
+    const range = SETTING_RANGES.find((r) => r.path === "packingFactor");
+    if (!(n >= (range?.min ?? 0.05) && n <= 1)) {
+      this.error(
+        VALIDATION_NOTICE_CODES.field.packing,
+        path,
+        `How tightly it packs must be between ${range?.min ?? 0.05} and 1.`,
+      );
+    }
+  }
+
   notEmpty(path: string, what: string, list: unknown[]): void {
     if (list.length === 0) {
       this.error(VALIDATION_NOTICE_CODES.field.empty, path, `Add at least one ${what}.`);
@@ -557,6 +570,9 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
       return;
     }
     case "bulk":
+      if (c.packing !== undefined) {
+        ck.packing(`${at}/packing`, c.packing);
+      }
       ck.notEmpty(`${at}/items`, "item", c.items);
       c.items.forEach((item, i) => {
         const p = `${at}/items/${i}`;
@@ -593,6 +609,9 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
       ck.count(`${at}/count`, "Tile count", c.count);
       return;
     case "minis":
+      if (c.packing !== undefined) {
+        ck.packing(`${at}/packing`, c.packing);
+      }
       ck.notEmpty(`${at}/figures`, "figure", c.figures);
       c.figures.forEach((f, i) => {
         const p = `${at}/figures/${i}`;

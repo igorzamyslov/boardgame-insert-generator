@@ -1,6 +1,7 @@
 // src/screens/Rail.tsx
 import type { ComponentKind, Box, Component, Group, Lock, Printer, TraySpec } from "../model/types";
 import { Button, Card, Icon, IconTile, ListRow } from "../kit";
+import { standingOn } from "../app/actions";
 import { mm } from "../ui/identity";
 import { ComponentList } from "../ui/components/ComponentList";
 import type { DropTarget } from "../ui/components/useRailDrag";
@@ -40,6 +41,8 @@ interface ListProps {
   /** A "Turned" chip's ×: these trays may turn as the plan likes. */
   onFreeTurn?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
+  /** An "On …" chip's ×: these trays come off what they stand on. */
+  onTakeOff?: (trayKeys: string[]) => void;
   /** Every rule comes off (pins, stack locks, size locks, turn locks), in one undo step. */
   onClearChoices: () => void;
 }
@@ -62,6 +65,7 @@ function clearChoices(onClear: () => void): () => void {
 }
 
 const TURNED_NOTE = "Turned trays keep their direction when the plan updates.";
+const STACKED_NOTE = "Trays put on another stay on it when the plan updates.";
 
 /**
  * What the note says the plan keeps, by which rules exist (a ruling, DESIGN §7): the pins, and the
@@ -69,16 +73,16 @@ const TURNED_NOTE = "Turned trays keep their direction when the plan updates.";
  * its tray is the pin's, so it asks for no sentence of its own.
  */
 export function rulesNoteText(locks: readonly Lock[]): string {
-  const pins = locks.some((l) => l.kind !== "turn");
+  const pins = locks.some((l) => l.kind === "position" || l.kind === "size");
   const held = new Set(locks.flatMap((l) => (l.kind === "position" ? [l.trayKey] : [])));
   const turns = locks.some((l) => l.kind === "turn" && !held.has(l.trayKey));
+  const stacks = standingOn(locks).size > 0;
   const pinSentence = locks.some((l) => l.kind === "size")
     ? "Pinned and size-locked trays stay as you set them when the plan updates."
     : "Pinned trays stay where you put them when the plan updates.";
-  if (!turns) {
-    return pinSentence;
-  }
-  return pins ? `${pinSentence} ${TURNED_NOTE}` : TURNED_NOTE;
+  return [pins ? pinSentence : null, turns ? TURNED_NOTE : null, stacks ? STACKED_NOTE : null]
+    .filter((x) => x !== null)
+    .join(" ");
 }
 
 /** Main's note under the list while any rule is set, and the way to lift them all. */
@@ -140,6 +144,7 @@ export function Rail(p: RailProps) {
         onUnpin={p.onUnpin}
         onFreeTurn={p.onFreeTurn}
         onUnlockSize={p.onUnlockSize}
+        onTakeOff={p.onTakeOff}
       />
       {locks.length > 0 ? (
         <RulesNote locks={locks} onClear={clearChoices(p.onClearChoices)} />
@@ -179,6 +184,7 @@ export function SheetList(p: ListProps) {
         onUnpin={p.onUnpin}
         onFreeTurn={p.onFreeTurn}
         onUnlockSize={p.onUnlockSize}
+        onTakeOff={p.onTakeOff}
         first={
           <li class="rail-item">
             <ListRow
