@@ -34,6 +34,22 @@ export const POST_MM = 3;
 export const MIN_CUT_MM = 10;
 
 /**
+ * The narrowest cut a finger must go into to take something out, mm: the one that reaches an
+ * upright stack of tiles or chits, whose end is the only part of the stack the cut shows. A
+ * fingertip is 15 to 18 mm across, so a cut of MIN_CUT_MM (10) touches the end piece through a
+ * gap narrower than the finger. Sizing offers upright storage only where its slot leaves a cut
+ * this wide, or the `width` setting, if smaller (`reachableCutMm`). The other cuts (a flat stack's
+ * half-round, a spacer's notch, a divider's) keep MIN_CUT_MM: the finger goes beside or under the
+ * piece there, or the piece shows its whole side.
+ */
+export const MIN_FINGER_CUT_MM = 15;
+
+/** MIN_FINGER_CUT_MM, or the `width` setting if smaller. */
+export function reachableCutMm(width: number): number {
+  return Math.min(MIN_FINGER_CUT_MM, width);
+}
+
+/**
  * The narrowest finger cut a well must be able to take, mm: MIN_CUT_MM, or the `width` setting if
  * smaller, in whole hundredths rounded up (as sizing reads the setting) and then down to an even
  * count. A cut is a whole-hundredth half-width either side of a whole-hundredth centre, so its
