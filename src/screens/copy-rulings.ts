@@ -244,6 +244,8 @@ const RESIZE = "The rail's handle is named";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_CHANGED = "More options marks what differs from its default";
 const EDITOR_ROOM = "Room around the pieces shows the insert's number and lets the item change it";
+const THIN_WALLS = "Walls' Thin choice is 1.0 mm all through";
+const ITEM_PACKING = "An item's own packing is a row under More options";
 const ITEM_COPIES = "An item's Copies and Group row replace Per player and the Group box";
 const ITEM_MOVES = "Moving an item into or out of a group says what happens to its copies";
 // 0.7.0 Task 14: a drop in the rail
@@ -441,6 +443,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Never laid on its side", states: MINIS_STATES, ruling: UPRIGHT },
   { text: "Back to a spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
+  { text: "Thin", states: SETTINGS_STATES, ruling: THIN_WALLS },
+  { text: "You set the floor or the dividers below.", states: SETTINGS_STATES, ruling: THIN_WALLS },
   { text: "Extra space beside walls to reach in", states: SETTINGS_STATES, ruling: SET_WORDS },
   { text: "No exact number matches.", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "{n} of {n} shown.", states: SETTINGS_STATES, ruling: SET_EXACT },
@@ -829,6 +833,25 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: ITEM_COPIES,
   },
   { text: "Room around the pieces", states: OPENED_ROWS, ruling: EDITOR_ROOM },
+  { text: "How tightly it packs", states: OPENED_ROWS, ruling: ITEM_PACKING },
+  ...["Loose", "Snug", "Tight"].map((text) => ({
+    text,
+    states: OPENED_ROWS,
+    ruling: ITEM_PACKING,
+  })),
+  ...["Loose", "Snug", "Tight"].map((word) => ({
+    text: `Back to ${word}`,
+    states: OPENED_ROWS,
+    ruling: ITEM_PACKING,
+  })),
+  {
+    text: "How much of the tray's space the pieces fill.",
+    states: OPENED_ROWS,
+    ruling: ITEM_PACKING,
+  },
+  { text: "Needs the figures loose in a tray.", states: OPENED_ROWS, ruling: ITEM_PACKING },
+  { text: "This item packs at {n}.", states: OPENED_ROWS, ruling: ITEM_PACKING },
+  { text: "The insert packs at {n}.", states: OPENED_ROWS, ruling: ITEM_PACKING },
   {
     text: "{name} now has the group's {n} copies.",
     states: ["kit-member-moved", "kit-drag"],

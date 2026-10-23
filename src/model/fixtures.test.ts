@@ -282,6 +282,36 @@ describe("schema history", () => {
     ).toBe(true);
   });
 
+  it("reads a figure's keepUpright from the 0.2.3 file, and leaves it absent for older files", () => {
+    const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.2.3.json"]);
+    expect(notices).toEqual([]);
+    const minis = project.components.find((c) => c.kind === "minis");
+    expect(minis?.kind === "minis" && minis.figures[0]?.keepUpright).toBe(true);
+    expect(minis?.kind === "minis" && minis.figures[1]).not.toHaveProperty("keepUpright");
+    const older = loadOld(HISTORY["../../test/fixtures/schema/0.2.2.json"]);
+    expect(older.notices).toEqual([]);
+    for (const c of older.project.components) {
+      if (c.kind === "minis") {
+        for (const f of c.figures) {
+          expect(f).not.toHaveProperty("keepUpright");
+        }
+      }
+    }
+  });
+
+  it("reads an item's own packing from the 0.2.4 file, and leaves it absent for older files", () => {
+    const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.2.4.json"]);
+    expect(notices).toEqual([]);
+    const own = project.components.filter(
+      (c) => (c.kind === "bulk" || c.kind === "minis") && c.packing !== undefined,
+    );
+    expect(own.length).toBeGreaterThan(0);
+    expect(own.some((c) => c.kind === "bulk" && c.packing === 0.65)).toBe(true);
+    const older = loadOld(HISTORY["../../test/fixtures/schema/0.2.3.json"]);
+    expect(older.notices).toEqual([]);
+    expect(older.project.components.some((c) => "packing" in c)).toBe(false);
+  });
+
   it("reads the engraving switch from the 0.1.14 file, and defaults it on for older files", () => {
     const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.1.14.json"]);
     expect(notices).toEqual([]);

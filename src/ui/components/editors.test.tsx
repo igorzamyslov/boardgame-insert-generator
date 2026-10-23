@@ -12,7 +12,8 @@ import type {
   Notice,
   TilesComponent,
 } from "../../model/types";
-import { SizingContext, ValidationContext } from "../validation";
+import { DEFAULT_SETTINGS } from "../../model/settings";
+import { SettingsContext, SizingContext, ValidationContext } from "../validation";
 import { BulkEditor } from "./BulkEditor";
 import { CardsEditor } from "./CardsEditor";
 import { CustomEditor } from "./CustomEditor";
@@ -131,6 +132,73 @@ describe("TilesEditor", () => {
     expect(pressedIn("Tiles stand")).toBe("Auto");
     choose("Tiles stand", "Upright");
     expect(lastOf(onChange).storage).toBe("upright");
+  });
+});
+
+describe("How tightly it packs", () => {
+  const HINT = "How much of the tray's space the pieces fill.";
+
+  it("shows the insert's packing as a choice, and says what it means", () => {
+    render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
+    openRows();
+    expect(pressedIn("How tightly it packs")).toBe("Loose");
+    expect(screen.getByText(HINT)).toBeTruthy();
+    // the three choices, in words: a number says nothing about a bin
+    const group = screen.getByRole("group", { name: "How tightly it packs" });
+    expect(Array.from(group.querySelectorAll("button")).map((b) => b.textContent)).toEqual([
+      "Loose",
+      "Snug",
+      "Tight",
+    ]);
+  });
+
+  it("gives the item its own packing, and takes it back when the insert's own is chosen", () => {
+    const onChange = vi.fn<(c: BulkComponent) => void>();
+    const view = render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
+    openRows();
+    choose("How tightly it packs", "Snug");
+    expect(lastOf(onChange).packing).toBe(0.65);
+    view.rerender(
+      <BulkEditor component={{ ...of("bulk"), packing: 0.65 }} index={0} onChange={onChange} />,
+    );
+    expect(pressedIn("How tightly it packs")).toBe("Snug");
+    // Loose is the insert's own: nothing is set
+    choose("How tightly it packs", "Loose");
+    expect("packing" in lastOf(onChange)).toBe(false);
+    // and the row's way back says where it goes
+    fireEvent.click(screen.getByRole("button", { name: /^Back to Loose/ }));
+    expect("packing" in lastOf(onChange)).toBe(false);
+  });
+
+  it("reads the insert's number when the item has none", () => {
+    render(
+      <SettingsContext.Provider value={{ ...DEFAULT_SETTINGS, packingFactor: 0.8 }}>
+        <BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />
+      </SettingsContext.Provider>,
+    );
+    openRows();
+    expect(pressedIn("How tightly it packs")).toBe("Tight");
+  });
+
+  it("leaves a number that is no choice pressed on none, and says it", () => {
+    render(<BulkEditor component={{ ...of("bulk"), packing: 0.7 }} index={0} onChange={vi.fn()} />);
+    openRows();
+    expect(pressedIn("How tightly it packs")).toBeNull();
+    expect(screen.getByText("This item packs at 0.7.")).toBeTruthy();
+  });
+
+  it("is on a minis item only while the figures are loose in a tray, and says so otherwise", () => {
+    const onChange = vi.fn<(c: MinisComponent) => void>();
+    const view = render(<MinisEditor component={of("minis")} index={0} onChange={onChange} />);
+    openMore();
+    expect(screen.queryByRole("group", { name: "How tightly it packs" })).toBeNull();
+    expect(screen.getByText("Needs the figures loose in a tray.")).toBeTruthy();
+    view.rerender(
+      <MinisEditor component={{ ...of("minis"), storage: "bulk" }} index={0} onChange={onChange} />,
+    );
+    openRows();
+    choose("How tightly it packs", "Tight");
+    expect(lastOf(onChange).packing).toBe(0.8);
   });
 });
 

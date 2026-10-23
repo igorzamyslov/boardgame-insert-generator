@@ -417,6 +417,19 @@ describe("inputsHash: groups, copies, turn locks and flat decks", () => {
     );
   });
 
+  it("an item's own packing is hashed only when set, so no saved plan goes stale", () => {
+    const base = sample();
+    const packed = (packing?: number): Project => ({
+      ...base,
+      components: base.components.map((c) =>
+        c.kind === "bulk" || c.kind === "minis" ? { ...c, packing } : c,
+      ),
+    });
+    expect(inputsHash(packed(undefined))).toBe(inputsHash(base));
+    expect(inputsHash(packed(0.65))).not.toBe(inputsHash(base));
+    expect(inputsHash(packed(0.65))).not.toBe(inputsHash(packed(0.8)));
+  });
+
   it("a turn lock changes the hash; flatDecks walls doesn't, dividers does", () => {
     const base = sample();
     const turned: Project = {

@@ -12,7 +12,7 @@ import {
   serializeProject,
   toSerializable,
 } from "./schema";
-import type { Project, StoredLayout, TraySpec } from "./types";
+import type { Component, Project, StoredLayout, TraySpec } from "./types";
 import { VALIDATION_NOTICE_CODES, validateProject } from "./validate";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
 
@@ -58,6 +58,19 @@ describe("serializeProject / parseProject", () => {
     const result = parseProject(raw(p));
     expect(result.ok && result.project.components).toEqual(p.components);
     expect(result.ok && result.project.components[2]).not.toHaveProperty("fingerCuts");
+  });
+
+  it("round-trips an item's own packing on bulk and minis, and writes nothing when absent", () => {
+    const p = newProject();
+    p.components = [
+      { ...newComponent("bulk"), id: "b1", packing: 0.65 } as Component,
+      { ...newComponent("bulk"), id: "b2" },
+      { ...newComponent("minis"), id: "m1", packing: 0.8 } as Component,
+    ];
+    const result = parseProject(raw(p));
+    expect(result.ok && result.project.components).toEqual(p.components);
+    expect(result.ok && result.project.components[1]).not.toHaveProperty("packing");
+    expect(JSON.stringify(raw(p).components)).not.toMatch(/"packing":undefined/);
   });
 
   it("round-trips a project with no components", () => {

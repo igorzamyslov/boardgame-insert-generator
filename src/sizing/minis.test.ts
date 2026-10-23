@@ -172,6 +172,12 @@ describe("minisOptions", () => {
     expect(deep.minW).toBe(57.74); // √(100000/30) = 57.735…, rounded up
     expect(deep.minH).toBe(30);
   });
+
+  it("bulk mode packs by the figure's own packing when it has one", () => {
+    const { options } = minisOptions(minis({ storage: "bulk", packing: 1 }), s);
+    // the bounding-box volume is 50 000 mm³: at packing 1 the pile needs exactly that
+    expect(at(at(at(options, 0).blocks, 0), 0).minVolume).toBe(50000);
+  });
 });
 
 describe("minis growth (minimal-trays spec §5)", () => {

@@ -1,6 +1,6 @@
 // src/app/App.putOn.test.tsx
 // @vitest-environment jsdom
-// Put on… (0.14.0): More's item, the plan's prompt, the stack lock it writes (no pin), the dry run's
+// Put on… (0.15.0): More's item, the plan's prompt, the stack lock it writes (no pin), the dry run's
 // refusals in the pill, and the rail's "On <base>" chip with its ×.
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

@@ -209,13 +209,24 @@ function readTileShape(r: Reader): TileShape {
   return s.finish({ type, w: s.num("w"), d: s.num("d") });
 }
 
+/** `packing` on a bulk or minis item, when the file has one (absent stays absent: it is hashed only when set). */
+function optionalPacking(r: Reader): { packing?: number } {
+  const packing = r.optNum("packing");
+  return packing === undefined ? {} : { packing };
+}
+
 function readKnownComponent(r: Reader, kind: ComponentKind): Component {
   const base = readBase(r, kind);
   switch (kind) {
     case "cards":
       return readCards(r, base);
     case "bulk":
-      return r.finish({ ...base, kind, items: r.objects("items").map(readBulkItem) });
+      return r.finish({
+        ...base,
+        kind,
+        items: r.objects("items").map(readBulkItem),
+        ...optionalPacking(r),
+      });
     case "tiles":
       return r.finish({
         ...base,
@@ -242,6 +253,7 @@ function readKnownComponent(r: Reader, kind: ComponentKind): Component {
           });
         }),
         storage: r.oneOf("storage", ["pockets", "bulk"], COMPONENT_DEFAULTS.minis.storage),
+        ...optionalPacking(r),
       });
     case "custom":
       return r.finish({

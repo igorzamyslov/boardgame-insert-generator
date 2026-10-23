@@ -523,6 +523,21 @@ describe("readProject: files from a newer minor", () => {
     expect(result.project.settings.wall).toBeNaN();
   });
 
+  it("reads an item's own packing, and a null as NaN so validateProject can report it", () => {
+    const input = sampleJson();
+    const bulk = list(input, "components").find((c) => c.kind === "bulk") as Json;
+    bulk.packing = 0.65;
+    const read = expectOk(readProject(input, CURRENT)).project.components.find(
+      (c) => c.kind === "bulk",
+    );
+    expect(read?.kind === "bulk" && read.packing).toBe(0.65);
+    bulk.packing = null;
+    const nan = expectOk(readProject(input, CURRENT)).project.components.find(
+      (c) => c.kind === "bulk",
+    );
+    expect(nan?.kind === "bulk" && nan.packing).toBeNaN();
+  });
+
   it("reads a JSON null as NaN in a component, optional numbers included", () => {
     const input = sampleJson();
     const cards = at(input, "components", 0);

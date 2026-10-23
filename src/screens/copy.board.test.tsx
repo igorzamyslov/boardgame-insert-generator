@@ -825,7 +825,7 @@ const CASES: readonly Case[] = [
   { state: "workspace-rules", board: "Main", region: "rail", steps: setRules },
   // 0.7.0 Task 13: Turn 90° alone (the Turned chip and its note), and the Cards editor's Between decks
   { state: "workspace-turned", board: "Main", region: "rail", steps: setTurn },
-  // 0.14.0: Put on…, the pill that asks for the base, and the On chip with its note
+  // 0.15.0: Put on…, the pill that asks for the base, and the On chip with its note
   { state: "workspace-put-on", board: "Main", region: "rail", steps: setPutOn },
   { state: "workspace-put-on-pick", board: "Main", region: "tray-bar", steps: choosePutOn },
   {
