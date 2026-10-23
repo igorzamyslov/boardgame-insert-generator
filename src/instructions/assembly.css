@@ -58,16 +58,12 @@
 }
 
 /* The sheets: what is inside the guide, one thing at a time. */
-.assembly > section,
-.assembly-layer {
+.assembly > section {
+  margin: 0 0 var(--s-24);
   padding: var(--s-20);
   border: 1px solid var(--rule);
   border-radius: var(--r-card);
   background: var(--sheet);
-}
-
-.assembly > section {
-  margin: 0 0 var(--s-24);
 }
 
 .assembly ol {
@@ -83,13 +79,6 @@
   margin-bottom: var(--s-24);
 }
 
-.assembly-layers {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s-16);
-  margin: 0 0 var(--s-24);
-}
-
 .assembly-exploded {
   display: flex;
   flex-direction: column;
@@ -97,15 +86,21 @@
   align-items: flex-start;
 }
 
-.assembly-layer {
+/* A layer: its picture beside its parts, in the order to put them in. */
+.assembly-layer__body {
+  display: grid;
+  grid-template-columns: minmax(150px, 240px) minmax(0, 1fr);
+  gap: var(--s-20);
+  align-items: start;
+}
+
+.assembly-layer__picture {
+  position: sticky;
+  top: var(--s-16);
   display: flex;
   flex-direction: column;
   gap: var(--s-12);
   align-items: flex-start;
-}
-
-.assembly-layer h2 {
-  margin: 0;
 }
 
 .assembly-svg {
@@ -131,17 +126,14 @@
   line-height: 20px;
 }
 
+/* The page's `anywhere` lets a column shrink to a letter ("Banner s"): `break-word` keeps a word whole. */
 .parts-table th,
 .parts-table td {
   padding: var(--s-8);
   border-bottom: 1px solid var(--rule);
   text-align: left;
   vertical-align: top;
-}
-
-/* "Layer 1 (bottom)" stays on one line. */
-.parts-table td[data-label="Layer"] {
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 
 .parts-table thead th {
@@ -162,13 +154,16 @@
     font-size: var(--h1);
   }
 
-  .assembly > section,
-  .assembly-layer {
+  .assembly > section {
     padding: var(--s-14);
   }
 
-  .assembly-layers {
+  .assembly-layer__body {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assembly-layer__picture {
+    position: static;
   }
 
   .parts-table thead {
@@ -227,7 +222,13 @@
     color: #000;
   }
 
+  /*
+   * The screen-only controls: the toolbar, the stale note, the PNG buttons. `.assembly .no-print`
+   * is one class more than the kit's `.k-btn` (display: inline-flex), which would else win on a
+   * button that carries both.
+   */
   .no-print,
+  .assembly .no-print,
   .ws-header {
     display: none;
   }
@@ -248,17 +249,35 @@
   }
 
   /* No sheets on paper: the page itself is the sheet. */
-  .assembly > section,
-  .assembly-layer {
+  .assembly > section {
     padding: 0;
     border: 0;
     background: none;
   }
 
+  /* One layer to a page; a long table goes on to the next page between its rows, under its heading. */
+  .assembly-exploded ~ .assembly-layer,
+  .assembly-layer ~ .assembly-layer {
+    break-before: page;
+  }
+
   .assembly-exploded,
-  .assembly-layer,
+  .assembly-layer__picture,
   .parts-table tr {
     break-inside: avoid;
+  }
+
+  .assembly h2 {
+    break-after: avoid;
+  }
+
+  .assembly-layer__body {
+    display: block;
+  }
+
+  .assembly-layer__picture {
+    position: static;
+    margin-bottom: var(--s-16);
   }
 
   .assembly-svg {
@@ -266,9 +285,31 @@
     print-color-adjust: exact;
   }
 
+  /* The picture keeps its proportions and leaves room for the table under it. */
+  .assembly-layer .assembly-svg {
+    width: auto;
+    max-width: 100%;
+    max-height: 80mm;
+  }
+
+  /* Closer rows: a layer's table fits its page where it can. */
+  .parts-table {
+    font-size: 9pt;
+    line-height: 1.3;
+  }
+
   .parts-table th,
   .parts-table td {
+    padding: 3px 6px;
     border-bottom-color: #767676;
     color: #000;
+  }
+
+  .parts-table thead {
+    display: table-header-group;
+  }
+
+  .parts-table thead th {
+    font-size: 8pt;
   }
 }

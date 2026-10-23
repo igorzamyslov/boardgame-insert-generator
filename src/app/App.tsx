@@ -84,6 +84,7 @@ import {
 } from "./actions";
 import type { EditResult } from "./actions";
 import { downloadBlob } from "./download";
+import { useGuideHistory } from "./guideHistory";
 import type { MeshSource } from "./meshes";
 import { OPEN_FAILED_CODE } from "./persistence";
 import { GEOMETRY_MAJOR_CODE, GEOMETRY_REPRINT_REASON, STALE_CODE } from "./state";
@@ -280,6 +281,17 @@ export function App(props: AppProps) {
     }
   }, [assemblyFor, showAssembly]);
 
+  // The guide is a step of the browser's history: Back (a mouse button, Alt+Left, a swipe) leaves it
+  // for the plan, as its own button does (the Download dialog stays closed: the header's Download
+  // is the one way to open it, DESIGN §2 Flow); Forward opens it again.
+  const guideHistory = useGuideHistory(showAssembly ? project.id : null, {
+    onBackOut: () => {
+      restoreFocus.current = true;
+      setAssemblyFor(null);
+    },
+    onForwardTo: (id) => setAssemblyFor(id),
+  });
+
   // A page swap replaces everything on screen: put the reader at the top of the new page, and
   // bring them back to the button they pressed when they return.
   useEffect(() => {
@@ -339,6 +351,7 @@ export function App(props: AppProps) {
           onBack={() => {
             restoreFocus.current = true;
             setAssemblyFor(null);
+            guideHistory.leave();
           }}
         />
       </main>
@@ -1213,6 +1226,7 @@ export function App(props: AppProps) {
           onOpenGuide={() => {
             setExportOpen(false);
             setAssemblyFor(project.id);
+            guideHistory.push(project.id);
           }}
         />
       ) : null}
