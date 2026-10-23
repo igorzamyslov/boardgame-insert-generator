@@ -655,10 +655,10 @@ describe("size", () => {
         shape: { type: "rect", w: 15, d: 15 },
         thickness: 2,
         count: 40,
-        storage: "auto",
+        storage: "upright",
       });
       const { requirements, notices } = size([squares], thinAndTight);
-      expect(notices).toEqual([]);
+      expect(notices.map((n) => n.code)).toEqual(["sizing.uprightHardToReach"]);
       const ids = at(requirements, 0).variants.map((v) => v.id);
       expect(ids.length).toBeGreaterThan(0);
       expect(ids.some((id) => id.includes("bulk"))).toBe(false);
