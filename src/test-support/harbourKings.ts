@@ -68,14 +68,14 @@ export const NO_TUNING: Tuning = { settings: {}, components: {} };
 export const LAYER_TUNING: Tuning = {
   settings: {},
   components: {
-    market01: { clearance: 3 },
-    starter1: { clearance: 3 },
-    events01: { clearance: 3 },
-    coins001: { clearance: 3 },
-    resourc1: { clearance: 3 },
-    dice0001: { clearance: 3 },
-    hextiles: { clearance: 3 },
-    heroes01: { clearance: 3 },
+    market01: { clearance: 5 },
+    starter1: { clearance: 6.5 },
+    events01: { clearance: 4 },
+    coins001: { clearance: 8 },
+    resourc1: { clearance: 4 },
+    dice0001: { clearance: 10 },
+    hextiles: { clearance: 7.5 },
+    heroes01: { clearance: 2.5 },
   },
 };
 
@@ -202,6 +202,9 @@ export function harbourKingsKitLoose(): Project {
   return {
     ...p,
     id: "harbkit1",
+    // A row of four turned kit trays is 279 mm wide: in this box the copies, which are one size, stand
+    // in a column, as the board draws them.
+    box: { ...p.box, innerWidth: 270 },
     components: [
       cards("market01", "Market deck", "often", [{ name: "Market deck", count: 80 }]),
       // Mini cards, lying flat: a copy's tray is about 70 mm deep, so four copies stand in one column.
@@ -268,6 +271,9 @@ export function harbourKingsKitSplit(length = 140): Project {
   return {
     ...kit,
     id: "harbkit2",
+    box: { ...kit.box, innerWidth: 380 },
+    // the copies are one size, so a printer that cannot take a whole kit splits all four the same way
+    printer: { ...kit.printer, bedX: 170, bedY: 170 },
     components: kit.components.map((c) =>
       c.id === "kithero1" && c.kind === "minis"
         ? {
