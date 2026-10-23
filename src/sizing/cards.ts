@@ -1,5 +1,6 @@
 import { dividersOf, flatDecksOffered, growthOf, separatorsOf, togglesOf } from "../model/defaults";
 import { SLEEVES } from "../model/presets";
+import { roomOf } from "../model/room";
 import { effective } from "../model/settings";
 import type { CardsComponent, Notice, Settings } from "../model/types";
 import {
@@ -83,6 +84,12 @@ export function stackWidth(n: number, t: number, s: Settings): number {
   return n * t * (1 + pct) + effective(s).cardStackClearance;
 }
 
+/** How many more cards each deck's well is planned for: the item's "some" room, else none. */
+function moreCards(c: CardsComponent): number {
+  const room = roomOf(c);
+  return room.mode === "some" ? room.amount : 0;
+}
+
 function deckCompartment(
   c: CardsComponent,
   deck: { name: string; count: number },
@@ -91,8 +98,11 @@ function deckCompartment(
   s: Settings,
 ): CompartmentReq {
   const clearance = mainClearance(c, s);
-  // As built (compartment rounds it up the same way), so growth is measured on the real stack.
-  const stack = fromU(ceilU(stackWidth(deck.count, dims.t, s)));
+  // As built (compartment rounds it up the same way), so growth is measured on the real stack. An
+  // item's "some" room is more cards in the well, part of the size the layout plans on.
+  const more = moreCards(c);
+  const natural = fromU(ceilU(stackWidth(deck.count, dims.t, s)));
+  const stack = more > 0 ? fromU(ceilU(stackWidth(deck.count + more, dims.t, s))) : natural;
   const base = {
     componentId: c.id,
     contents: `${itemLabel(c, deck.name)} ×${deck.count}`,
@@ -105,8 +115,9 @@ function deckCompartment(
       w: dims.S + clearance,
       d: dims.L + clearance,
       h: stack,
-      // More room means more cards in the stack: only when asked, the spare height is a riser's.
-      grow: { h: growthMm(growthOf(c, "stack", true), stack) },
+      // As much as fits (or bigger wells) means more cards in the stack, after the layout is chosen:
+      // never otherwise, the spare height is a riser's.
+      grow: { h: growthMm(growthOf(c, "stack", true, s.biggerWells), stack) },
       features: featuresOf(togglesOf(c), [
         wallCutout("left", 1, true),
         wallCutout("right", 1, true),
@@ -123,12 +134,16 @@ function deckCompartment(
   const dividers = dividersOf(c);
   const plates = separatorsOf(c);
   const grow = stackGrowthMm(
-    growthOf(c, "stack"),
+    growthOf(c, "stack", false, s.biggerWells),
     stack,
     dividers === 0 && plates > 0,
     dividers,
     togglesOf(c).fingerCuts ? s.fingerPocket.width : undefined,
   );
+  // The planned room is a spacer's when plates are asked for: it pins the deck and comes out as the
+  // collection grows. The spacer is as wide as the room, and takes what the well gains on top.
+  const planned = stack - natural;
+  const spacer = dividers === 0 && plates > 0 && (grow > 0 || planned > 0);
   return compartment({
     ...base,
     w: dividers > 0 ? dividedWidth(stack, dividers, s) : stack,
@@ -136,11 +151,16 @@ function deckCompartment(
     h: (onLongEdge ? dims.S : dims.L) + clearance,
     ...(dividers > 0
       ? { grow: { w: grow }, dividers, floorExtra: DIVIDER_GROOVE }
-      : grow > 0
-        ? plates > 0
-          ? { grow: { w: grow }, spacerAxis: "w" as const, separators: plates }
-          : { grow: { w: grow } }
-        : {}),
+      : spacer
+        ? {
+            grow: { w: grow },
+            spacerAxis: "w" as const,
+            separators: plates,
+            ...(planned > 0 ? { spacerRoom: planned } : {}),
+          }
+        : grow > 0
+          ? { grow: { w: grow } }
+          : {}),
     // One channel through the walls and dividers the card faces touch.
     features: featuresOf(togglesOf(c), [
       wallCutout("left", CHANNEL_DEPTH, false),
@@ -161,7 +181,10 @@ function deckCompartment(
  */
 function sharedWell(c: CardsComponent, dims: CardDims, s: Settings): CompartmentReq {
   const clearance = mainClearance(c, s);
-  const stack = Math.max(...c.decks.map((deck) => fromU(ceilU(stackWidth(deck.count, dims.t, s)))));
+  const more = moreCards(c);
+  const stack = Math.max(
+    ...c.decks.map((deck) => fromU(ceilU(stackWidth(deck.count + more, dims.t, s)))),
+  );
   const slots = c.decks.length - 1;
   const own = displayName(c);
   const parts = c.decks.map((deck, i) => `${label(deck.name, `Deck ${i + 1}`)} ×${deck.count}`);
@@ -172,7 +195,7 @@ function sharedWell(c: CardsComponent, dims: CardDims, s: Settings): Compartment
     w: fromU(c.decks.length * ceilU(dims.S + clearance) + slots * toU(dividerSlotWidth(s))),
     d: dims.L + clearance,
     h: stack,
-    grow: { h: growthMm(growthOf(c, "stack", true), stack) },
+    grow: { h: growthMm(growthOf(c, "stack", true, s.biggerWells), stack) },
     dividers: slots,
     floorExtra: DIVIDER_GROOVE,
     features: featuresOf(togglesOf(c), [sectionCutouts("front")]),

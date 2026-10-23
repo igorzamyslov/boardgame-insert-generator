@@ -38,7 +38,7 @@ export function commonOptionPaths(index: number): string[] {
     `${at}/curvedFloor`,
     `${at}/separators`,
     `${at}/dividers`,
-    `${at}/growth`,
+    `${at}/room`,
   ];
 }
 

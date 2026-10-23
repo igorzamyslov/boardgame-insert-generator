@@ -29,9 +29,7 @@ describe("EditorStage", () => {
     renderApp({ project: loadSeed("harbour-kings").project });
     editMarket();
     const h1 = screen.getByRole("heading", { level: 1 });
-    expect(h1.textContent).toMatch(
-      /^Market deck tray, \d+(\.\d)? × \d+(\.\d)? mm\. It grows as you add cards\.$/,
-    );
+    expect(h1.textContent).toMatch(/^Market deck tray, \d+(\.\d)? × \d+(\.\d)? mm\.$/);
     // the name is in bold, as Edit has it
     expect(h1.querySelector("strong")?.textContent).toBe("Market deck");
     // the slot is the board's 52 px one, and the stage holds no status heading beside it
@@ -284,14 +282,14 @@ describe("StageSentence", () => {
   const tray = (over: Partial<TraySpec> = {}): TraySpec => makeTray({ w: 95, d: 190, ...over });
 
   it("gives the size, and that a deck grows", () => {
-    render(<StageSentence component={cards()} trays={[tray()]} />);
+    render(<StageSentence component={cards({ room: 20 })} trays={[tray()]} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Market deck tray, 95 × 190 mm. It grows as you add cards.",
     );
   });
 
   it("says nothing of growing for a deck that does not, or for another kind", () => {
-    render(<StageSentence component={cards({ growth: { stack: "off" } })} trays={[tray()]} />);
+    render(<StageSentence component={cards({ room: undefined })} trays={[tray()]} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Market deck tray, 95 × 190 mm.",
     );

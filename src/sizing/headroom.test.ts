@@ -14,14 +14,14 @@ import type { RealizeOptions } from "./types";
 
 const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
 const upper: RealizeOptions = { lipped: true, level: 2 };
-const flat = (count: number, growth?: { stack: "max" }) =>
+const flat = (count: number, room?: "max") =>
   partOf(
     [
       cards({
         storage: "flat",
         sleeve: "none",
         decks: [{ name: "Deck", count }],
-        ...(growth ? { growth } : {}),
+        ...(room ? { room } : {}),
       }),
     ],
     "flat|strip|split1",
@@ -90,7 +90,7 @@ describe("realizeTray with padding: the height a tray must have beyond its conte
   });
 
   it("leaves a well that may grow deeper alone: it takes the height as before", () => {
-    const grow = flat(5, { stack: "max" });
+    const grow = flat(5, "max");
     const m = minOuter(grow, s, upper);
     const outer = { ...m, h: m.h + 10 };
     const without = realizeTray(grow, outer, s, upper);
@@ -100,10 +100,10 @@ describe("realizeTray with padding: the height a tray must have beyond its conte
 });
 
 describe("realizeTray with fixedDepth: an alike tray's wells do not depend on how much padding it has", () => {
-  // Bits in a bin that may grow in height (auto) take a deeper well from the room a tray has; the
+  // Bits in a bin that may grow in height (as much as fits) take a deeper well from the room a tray has; the
   // trays of one set stand in stacks with different padding, so they must not (owner, 2026-10-23).
   const bin = partOf(
-    [bulk({ items: [{ name: "Bits", count: 20, w: 10, d: 10, h: 4 }], growth: { h: "auto" } })],
+    [bulk({ items: [{ name: "Bits", count: 20, w: 10, d: 10, h: 4 }], room: "max" })],
     "deep|strip|split1",
   );
   const base = minOuter(bin, s, upper);

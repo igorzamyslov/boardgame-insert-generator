@@ -36,7 +36,7 @@ export function BackLink({
   focus,
 }: {
   revert: Revert;
-  /** What it reverts, for assistive technology ("Room for expansions"). */
+  /** What it reverts, for assistive technology ("Room for more cards"). */
   name: string;
   focus: () => HTMLElement | null | undefined;
 }) {

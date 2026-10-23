@@ -1,4 +1,5 @@
 import { growthOf, togglesOf, type Toggles } from "../model/defaults";
+import { roomOf } from "../model/room";
 import { packingOf } from "../model/settings";
 import type { BulkComponent, BulkItem, Component, GrowthMode, Settings } from "../model/types";
 import {
@@ -23,14 +24,24 @@ export interface BulkLine {
   hFloor: number; // smallest useful content depth
 }
 
-export function bulkLine(item: BulkItem, clearance: number, packingFactor: number): BulkLine {
+/**
+ * The pile's line. `percent` is the item's "some" room: that many percent more pieces, which is that
+ * much more volume in the bin (a pile given as a volume too).
+ */
+export function bulkLine(
+  item: BulkItem,
+  clearance: number,
+  packingFactor: number,
+  percent = 0,
+): BulkLine {
+  const more = 1 + percent / 100;
   if ("volumeMl" in item) {
-    return { volume: item.volumeMl * 1000, side0: BULK_MIN_SIDE, hFloor: 0 };
+    return { volume: item.volumeMl * 1000 * more, side0: BULK_MIN_SIDE, hFloor: 0 };
   }
   const largest = Math.max(item.w, item.d, item.h);
   const smallest = Math.min(item.w, item.d, item.h);
   return {
-    volume: (item.count * item.w * item.d * item.h) / packingFactor,
+    volume: ((item.count * item.w * item.d * item.h) / packingFactor) * more,
     side0: Math.max(largest + clearance, BULK_MIN_SIDE),
     hFloor: smallest + clearance,
   };
@@ -152,7 +163,14 @@ function itemContents(c: BulkComponent, item: BulkItem): string {
 export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
   const on = togglesOf(c);
-  const modes = { w: growthOf(c, "w"), d: growthOf(c, "d"), h: growthOf(c, "h") };
+  const wells = s.biggerWells;
+  const modes = {
+    w: growthOf(c, "w", false, wells),
+    d: growthOf(c, "d", false, wells),
+    h: growthOf(c, "h", false, wells),
+  };
+  const room = roomOf(c);
+  const percent = room.mode === "some" ? room.amount : 0;
   return {
     options: BULK_SHAPES.map((shape) => ({
       id: shape,
@@ -162,7 +180,7 @@ export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
           on,
           modes,
           itemContents(c, item),
-          bulkLine(item, clearance, packingOf(c, s)),
+          bulkLine(item, clearance, packingOf(c, s), percent),
           shape,
         ),
       ]),

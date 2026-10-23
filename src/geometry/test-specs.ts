@@ -370,17 +370,18 @@ export function traySpecFrom(
 // sizing output of the fixture projects, under fixture and edge-of-range settings, at every lip
 // and level option and a few outer sizes.
 
-// The fixtures take every kind's default growth (spec minimal-trays §5: auto on bulk and upright
-// stacks); the "growth off" and "growth max" variants set every axis of every component to one
-// extreme, so the sweeps cover content-tight trays and ones that take all the slack too.
+// The fixtures take every item's own `room` (absent: none, a tray never grows on its own); the
+// "growth off" and "growth max" variants set every component to one extreme (no room, or room
+// "max"), so the sweeps cover content-tight trays and ones that take all the slack too.
 const withGrowth = (raw: unknown, mode: "off" | "max"): unknown => {
   const { components, ...rest } = raw as { components: Record<string, unknown>[] };
   return {
     ...rest,
-    components: components.map((component) => ({
-      ...component,
-      growth: { w: mode, d: mode, h: mode, stack: mode },
-    })),
+    components: components.map((component) => {
+      const bare = { ...component };
+      delete bare.room;
+      return mode === "max" ? { ...bare, room: "max" } : bare;
+    }),
   };
 };
 
@@ -395,7 +396,7 @@ const withDividers = (raw: unknown): unknown => {
         ? {
             ...component,
             storage: component.kind === "cards" ? "upright-long" : "upright",
-            growth: { stack: "max" },
+            room: "max",
             dividers: 2,
           }
         : component,
@@ -415,7 +416,7 @@ const withSpacers = (raw: unknown): unknown => {
         ? {
             ...component,
             storage: component.kind === "cards" ? "upright-long" : "upright",
-            growth: { stack: "max" },
+            room: "max",
             separators: 1,
           }
         : component,

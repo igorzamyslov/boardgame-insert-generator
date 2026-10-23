@@ -28,16 +28,23 @@ export interface CompartmentReq {
   // How much more (mm) on each elastic axis: absent means as much as there is. Never Infinity, so a
   // requirement survives JSON; `max` is the absence of a cap.
   growth?: { w?: number; d?: number; h?: number };
-  // A group member's axis on Max (group-tray-fill spec §2): the well takes the slack its group tray
-  // already has on that axis and never makes the tray bigger. Such an axis is NOT elastic and has no
-  // cap, so the layout sees no growth room from it and the outer size is as with the axis Off; only
+  // A group member's axis on "as much as fits" (group-tray-fill spec §2): the well takes the slack its
+  // group tray already has on that axis and never makes the tray bigger. Such an axis is NOT elastic,
+  // so the layout sees no growth room from it and the outer size is as with the axis Off; only
   // realize (layoutAt) draws the well bigger: d as deep as its row, w with the slack the walls would
-  // take, h down to the tray's deepest floor.
+  // take (up to the axis's `growth` cap, retention along a stack), h down to the tray's deepest floor.
   fill?: { w?: true; d?: true; h?: true };
+  // With the fill setting "bigger wells": an item set to "as much as fits" takes the room before the
+  // wells that only follow the setting do (realize: elasticShares)
+  first?: true;
+  // The well can take room a stack forces on its tray (a bin, a pocket, a custom well): it is the
+  // wells' to take, not the walls' (realize: withForcedWells). Never a deck's or a stack of tiles'.
+  forcedOk?: true;
   minVolume?: number; // mm³; bulk: w·d·h must stay ≥ this
   maxHRatio?: number; // bulk: h ≤ maxHRatio × min(w, d)
   features: FeatureReq[];
   spacerAxis?: "w" | "d"; // upright cards/tiles with `separators` set: spare length on this axis → spacer (≥ 5 mm); never otherwise
+  spacerRoom?: number; // with spacerAxis: mm of minW/minH-planned room (an item's "some" room) the spacer fills on top of any slack it takes
   dividers?: number; // upright cards/tiles: dividers in the well's floor slots (splitDividers); no spacer then
   floorExtra?: number; // mm the floor under this compartment is thicker than the tray's, for the slots
   separators?: number; // with spacerAxis (above 1): plates the user wants the spacer printed as (splitSeparators); the layout is the same for any count

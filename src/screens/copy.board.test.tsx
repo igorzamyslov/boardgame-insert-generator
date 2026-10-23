@@ -397,7 +397,7 @@ const CASES: readonly Case[] = [
   },
   { state: "settings-nomatch", board: "Settings", region: "drawer", steps: searchSettings("zzzz") },
   {
-    // Fill small gaps with on Thicker walls: its hint, the thickness box and the way back
+    // Fill the space that's left on Thicker walls: its hint, the thickness box and the way back
     state: "settings-spacers-walls",
     board: "Settings",
     region: "drawer",

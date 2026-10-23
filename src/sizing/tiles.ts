@@ -1,4 +1,5 @@
 import { dividersOf, growthOf, separatorsOf, togglesOf } from "../model/defaults";
+import { roomOf } from "../model/room";
 import { FLOAT_EPSILON, POST_MM, reachableCutMm } from "../model/settings";
 import type { Notice, Settings, Side, TileShape, TilesComponent } from "../model/types";
 import {
@@ -58,7 +59,13 @@ export function columnCounts(count: number, thickness: number): number[] {
 }
 
 /** Flat tiles: half-round cutouts through the two long walls (left and right for a square). */
-function flatColumn(c: TilesComponent, n: number, clearance: number): CompartmentReq {
+function flatColumn(
+  c: TilesComponent,
+  n: number,
+  more: number,
+  clearance: number,
+  s: Settings,
+): CompartmentReq {
   const foot = flatFootprint(c.shape);
   const [a, b]: [Side, Side] = foot.x > foot.y ? ["front", "back"] : ["left", "right"];
   return compartment({
@@ -67,8 +74,8 @@ function flatColumn(c: TilesComponent, n: number, clearance: number): Compartmen
     kind: "well",
     w: foot.x + clearance,
     d: foot.y + clearance,
-    h: n * c.thickness + clearance,
-    grow: { h: growthMm(growthOf(c, "stack", true), n * c.thickness) },
+    h: (n + more) * c.thickness + clearance,
+    grow: { h: growthMm(growthOf(c, "stack", true, s.biggerWells), (n + more) * c.thickness) },
     features: featuresOf(togglesOf(c), [wallCutout(a, 1, true), wallCutout(b, 1, true)]),
   });
 }
@@ -76,6 +83,7 @@ function flatColumn(c: TilesComponent, n: number, clearance: number): Compartmen
 function uprightStack(
   c: TilesComponent,
   n: number,
+  more: number,
   clearance: number,
   s: Settings,
 ): CompartmentReq {
@@ -84,13 +92,16 @@ function uprightStack(
   const plates = separatorsOf(c);
   // Retention and reachability bound it (stackGrowthMm); no spacer unless `separators` is set.
   const grow = stackGrowthMm(
-    growthOf(c, "stack"),
-    fromU(ceilU(n * c.thickness)),
+    growthOf(c, "stack", false, s.biggerWells),
+    fromU(ceilU((n + more) * c.thickness)),
     dividers === 0 && plates > 0,
     dividers,
     togglesOf(c).fingerCuts ? s.fingerPocket.width : undefined,
   );
-  const stack = n * c.thickness + clearance;
+  const stack = (n + more) * c.thickness + clearance;
+  // With plates, the planned room is a spacer's (see cards.ts)
+  const planned = more * c.thickness;
+  const spacer = dividers === 0 && plates > 0 && (grow > 0 || planned > 0);
   return compartment({
     componentId: c.id,
     contents: `${displayName(c)} ×${n}`,
@@ -100,11 +111,16 @@ function uprightStack(
     h: profile.height + clearance,
     ...(dividers > 0
       ? { grow: { w: grow }, dividers, floorExtra: DIVIDER_GROOVE }
-      : grow > 0
-        ? plates > 0
-          ? { grow: { w: grow }, spacerAxis: "w" as const, separators: plates }
-          : { grow: { w: grow } }
-        : {}),
+      : spacer
+        ? {
+            grow: { w: grow },
+            spacerAxis: "w" as const,
+            separators: plates,
+            ...(planned > 0 ? { spacerRoom: planned } : {}),
+          }
+        : grow > 0
+          ? { grow: { w: grow } }
+          : {}),
     // No corner reliefs: they let a tile sit flat, and one on its edge doesn't need them. Toggles
     // are per component and "auto" storage offers flat and upright from one, so the rule lives
     // here, not in kindDefaults; an explicit cornerReliefs: true applies to the flat variant only.
@@ -148,12 +164,19 @@ export function tileOptions(c: TilesComponent, s: Settings, index = 0): OptionsR
   const clearance = mainClearance(c, s);
   const reachable = uprightReachable(c, clearance, s);
   const counts = columnCounts(c.count, c.thickness);
+  // The item's "some" room is more tiles in all, shared by the stacks as the tiles are.
+  const room = roomOf(c);
+  const extra = room.mode === "some" ? room.amount : 0;
+  const withRoom = (columns: number, make: (n: number, more: number) => CompartmentReq) => {
+    const mores = splitEven(extra, columns);
+    return splitEven(c.count, columns).map((n, i) => [make(n, mores[i] ?? 0)]);
+  };
   const options: StorageOption[] = [];
   if (c.storage !== "upright") {
     for (const columns of counts) {
       options.push({
         id: `flat-c${columns}`,
-        blocks: splitEven(c.count, columns).map((n) => [flatColumn(c, n, clearance)]),
+        blocks: withRoom(columns, (n, more) => flatColumn(c, n, more, clearance, s)),
       });
     }
   }
@@ -161,7 +184,7 @@ export function tileOptions(c: TilesComponent, s: Settings, index = 0): OptionsR
     for (const columns of counts) {
       options.push({
         id: `upright-c${columns}`,
-        blocks: splitEven(c.count, columns).map((n) => [uprightStack(c, n, clearance, s)]),
+        blocks: withRoom(columns, (n, more) => uprightStack(c, n, more, clearance, s)),
       });
     }
   }

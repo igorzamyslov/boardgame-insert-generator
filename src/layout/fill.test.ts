@@ -320,7 +320,8 @@ describe("fill", () => {
         d: 6400,
       });
       expect(sp.trays[0]?.w).toBe(10400);
-      expect(sp.leftovers).toEqual([{ x: 10420, y: 0, w: extra - 20, d: 6400 }]);
+      // the leaf touches the left wall only, so the room goes there, against it
+      expect(sp.leftovers).toEqual([{ x: 0, y: 0, w: extra - 20, d: 6400 }]);
     }
   });
 
@@ -409,7 +410,7 @@ describe("fill", () => {
       d: 6400,
     });
     expect(over.trays[0]?.w).toBe(10400);
-    expect(over.leftovers).toEqual([{ x: 10420, y: 0, w: 301, d: 6400 }]);
+    expect(over.leftovers).toEqual([{ x: 0, y: 0, w: 301, d: 6400 }]);
   });
 
   it("gives all slack to an elastic tray", () => {
@@ -521,6 +522,8 @@ describe("fill: alike trays (owner, 2026-10-23: all trays of one set are the sam
   const grower = boxReq("g", 50, 40, 10, { elastic: { w: true, d: true } });
   const wide = boxReq("o", 100, 60, 20);
   const ctx = ctxOf([copies, wide, grower]);
+  // The plan as the search sees it, growth off (growth is the last step): a copy is its minimum.
+  const still = createCtx(makeInput([copies, wide, grower]), fakeMeasure, { growth: false });
   const copy = (i: number) => ({ req: 0, variant: 0, part: i, rotated: false });
   const room = { x: 0, y: 0, w: 9000, d: 7000 };
 
@@ -551,7 +554,7 @@ describe("fill: alike trays (owner, 2026-10-23: all trays of one set are the sam
     });
     // one copy under a 104 × 64 tray of another kind, another beside: both are 104 × 64, as wide as
     // the tray the first stands under, and there is nothing to be infeasible about
-    const unlike = evaluate(ctx, tree(leaf([copy(0), item(1)]), leaf([copy(1)])));
+    const unlike = evaluate(still, tree(leaf([copy(0), item(1)]), leaf([copy(1)])));
     const copies = unlike.trays.filter((t) => t.item.req === 0);
     expect(copies.map((t) => [t.w, t.d])).toEqual([
       [10400, 6400],
@@ -566,7 +569,7 @@ describe("fill: alike trays (owner, 2026-10-23: all trays of one set are the sam
     ]);
     // every copy under the same: the same size, and the same as when only one is
     const same = evaluate(
-      ctx,
+      still,
       tree(leaf([copy(0), item(1)]), leaf([copy(1), { ...item(1), part: 0 }])),
     );
     expect(same.trays.filter((t) => t.item.req === 0).map((t) => t.w)).toEqual([10400, 10400]);
@@ -591,7 +594,7 @@ describe("fill: alike trays (owner, 2026-10-23: all trays of one set are the sam
   });
 
   it("builds a lone copy as one in a stack when its set stands in a stack elsewhere", () => {
-    const plan = evaluate(ctx, {
+    const plan = evaluate(still, {
       root: cut("x", leaf([copy(0), copy(1)]), leaf([copy(2)])),
       variants: [0, 0, 0],
     });
@@ -600,7 +603,7 @@ describe("fill: alike trays (owner, 2026-10-23: all trays of one set are the sam
       [5600, 4600, true, true],
       [5600, 4600, true, true],
     ]);
-    const alone = evaluate(ctx, {
+    const alone = evaluate(still, {
       root: cut("x", leaf([copy(0)]), leaf([copy(1)])),
       variants: [0, 0, 0],
     });
@@ -608,6 +611,19 @@ describe("fill: alike trays (owner, 2026-10-23: all trays of one set are the sam
       [5400, 4400, false, false],
       [5400, 4400, false, false],
     ]);
+  });
+
+  it("grows the copies of a set together when growth is on: the same size, bigger than their minimum", () => {
+    // the old intent above is the plan's (growth off); with the room given last, the copies of a
+    // set still stay alike: every copy takes the same share, never one more than another
+    const grown = evaluate(ctx, {
+      root: cut("x", leaf([copy(0)]), cut("y", leaf([copy(1)]), leaf([copy(2)]))),
+      variants: [0, 0, 0],
+    });
+    const sizes = grown.trays.map((t) => `${t.w}x${t.d}`);
+    expect(new Set(sizes).size).toBe(1);
+    expect(grown.trays[0]?.w).toBeGreaterThan(5400);
+    expect(grown.trays[0]?.d).toBeGreaterThan(4400);
   });
 
   it("totals the alike overflow with the others, and counts empty room as air", () => {

@@ -11,7 +11,7 @@ import { useState } from "preact/hooks";
 import { Button, Segmented, Toast } from "../kit";
 import { parentKey } from "../instructions/numbering";
 import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
-import { growthOf } from "../model/defaults";
+import { roomOf } from "../model/room";
 import { DEFAULT_GROUP_NAME, groupById, groupOfItem, parseTrayKey } from "../model/groups";
 import { planFrame, toSvgRect, traysAt } from "../plan/layers";
 import { levelsOf } from "../plan/layers";
@@ -134,7 +134,7 @@ export function StageSentence({
   tag?: "h1" | "p";
   hidden?: boolean;
 }) {
-  const grows = c.kind === "cards" && growthOf(c, "stack", c.storage === "flat") !== "off";
+  const grows = c.kind === "cards" && roomOf(c).mode !== "none";
   return (
     <Sentence
       name={c.name === "" ? "(unnamed)" : c.name}

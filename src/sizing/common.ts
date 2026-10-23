@@ -131,6 +131,8 @@ export interface CompartmentInput {
   grow?: { w?: number; d?: number; h?: number };
   features: FeatureReq[];
   spacerAxis?: "w" | "d";
+  /** With `spacerAxis`: the part of `w` that is room the spacer fills (an item's "some" room), mm. */
+  spacerRoom?: number;
   separators?: number;
   dividers?: number;
   floorExtra?: number;
@@ -175,6 +177,9 @@ export function compartment(input: CompartmentInput): CompartmentReq {
   }
   if (input.spacerAxis !== undefined) {
     req.spacerAxis = input.spacerAxis;
+    if (input.spacerRoom !== undefined && input.spacerRoom > 0) {
+      req.spacerRoom = fromU(ceilU(input.spacerRoom));
+    }
   }
   if (input.dividers !== undefined && input.dividers > 0) {
     req.dividers = input.dividers;

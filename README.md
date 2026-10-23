@@ -34,7 +34,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
 2. **What's inside.** Five kinds: Cards, Tokens and dice, Tiles, Miniatures (the pieces are
    figures) and Other. Each item has its own shade of its kind's colour and icon, and
    that same shade marks its trays in the plan and in the 3D view. Editing an item opens
-   a panel with the basics and, under "More options", the rest: room for expansions, how
+   a panel with the basics and, under "More options", the rest: room for more cards, tiles or pieces, how
    often you reach for it, finger cuts, curved floor, corner holes, how cards stand,
    copies (each its own tray), the group an item belongs to, removable dividers between flat
    decks in one well, and the exact numbers in rows that open in place. While you edit, the stage
@@ -223,7 +223,7 @@ in `app/meshes.ts`.
 4. **UI:** create `src/ui/components/<Kind>Editor.tsx` taking
    `EditorProps<YourComponent>` (the basics first, then the rest inside the
    `<MoreOptions summary={moreSummary(c)} errorPaths={commonOptionPaths(index)}>` disclosure,
-   with `<GrowthOptions …/>`, `<AccessChoice …/>`, `<TrayShape …/>` and `<CommonRows …/>`; the
+   with `<RoomOptions …/>`, `<AccessChoice …/>`, `<TrayShape …/>` and `<CommonRows …/>`; the
    controls are in `ui/components/controls.tsx`), add a `case` to `KindEditor` in `EditorPanel.tsx`,
    and add the kind to `KIND_TILES` in `screens/KindPicker.tsx`. Field paths must
    match `validateProject()` so errors show next to the field.

@@ -78,10 +78,7 @@ describe("splitRisers: a riser under a stack (spec §3 rule 2)", () => {
     });
 
     it("sheds it from a tray the sizing layer realized with a long spare length: a spacer, no pocket", () => {
-      const part = partOf(
-        [cards({ growth: { stack: "max" }, separators: 2 })],
-        "upright-long|strip|split1",
-      );
+      const part = partOf([cards({ room: "max", separators: 2 })], "upright-long|strip|split1");
       const r = realizeTray(part, { w: 82.8, d: 95.9, h: 90 }, DEFAULT_SETTINGS, {
         lipped: false,
         level: 0,

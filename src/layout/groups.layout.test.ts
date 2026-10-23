@@ -221,11 +221,17 @@ describe("stored 0.6 plans", () => {
     return r.project;
   };
 
-  it("a per-player plan opens current: its stored hash is the migrated project's", () => {
+  it("a per-player plan opens stale, once: its stored hash is the old one, the migrated project's is new", () => {
+    // It used to open current (stored hash = the migrated project's). Schema 0.3.0 put the planning
+    // model (growth as the last step) into every hash, so every stored plan is stale once, by
+    // design; the stored hash is still the one it was made with, and the migrated project's
+    // is the one pinned here (changes only with what the hash covers, as in hash.test.ts).
     const p = open(perPlayerLegacy);
     expect(p.layout).toBeDefined();
-    expect(p.layout?.inputsHash).toBe(inputsHash(p));
-    expect(inputsHash(p)).toBe(hashes["per-player"]);
+    expect(p.layout?.inputsHash).toBe(hashes["per-player"]);
+    expect(inputsHash(p)).not.toBe(hashes["per-player"]);
+    expect(inputsHash(p)).toBe("14f72bc153ab6a");
+    expect(p.layout?.inputsHash).not.toBe(inputsHash(p));
   });
 
   it("grouped-space and combined plans open stale", () => {

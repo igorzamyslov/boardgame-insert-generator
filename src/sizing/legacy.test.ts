@@ -65,7 +65,12 @@ const hashOf = (part: TrayPartReq): string =>
     JSON.stringify(
       sorted({
         ...part,
-        compartments: part.compartments.map((c) => ({ ...c, contents: own(c.contents) })),
+        // `forcedOk` (which wells may take the room a stack forces on their tray) did not exist in 0.6
+        compartments: part.compartments.map((c) => ({
+          ...c,
+          forcedOk: undefined,
+          contents: own(c.contents),
+        })),
       }),
     ),
   );
@@ -96,7 +101,10 @@ function sizedNow(raw: unknown): { shot: Shot; requirements: TrayRequirement[] }
     throw new Error(parsed.error);
   }
   const { components, groups, settings } = parsed.project;
-  const { requirements, notices } = size(components, settings, groups);
+  // 0.6 grew every well by default; since the growth redesign a tray never grows on its own, and that old
+  // default is the fill setting "bigger wells" (owner, 2026-10-23), so the snapshot is compared
+  // with it on.
+  const { requirements, notices } = size(components, { ...settings, biggerWells: true }, groups);
   return { shot: shotOf(requirements, notices.length), requirements };
 }
 

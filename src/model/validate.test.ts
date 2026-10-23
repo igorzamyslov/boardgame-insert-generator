@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { newComponent, newProject } from "./defaults";
+import type { Room } from "./room";
 import { parseProject } from "./schema";
 import { DEFAULT_SETTINGS, maxBottomChamfer } from "./settings";
 import type {
@@ -9,7 +10,6 @@ import type {
   Component,
   ComponentKind,
   CustomComponent,
-  GrowthMode,
   Group,
   MinisComponent,
   Notice,
@@ -399,22 +399,60 @@ describe("validateProject", () => {
     expect(codes(validateProject(withComponents(cards())))).toEqual([]);
   });
 
-  const growthCases: [GrowthMode, string | null][] = [
-    ["off", null],
-    ["auto", null],
+  // "Room for more" (schema 0.3.0) replaced the per-axis growth: "max", or a whole number of at
+  // least 1 and at most MAX_ROOM of the kind (1000 cards or tiles, 500 percent of pieces).
+  const roomCases: [Room, string | null][] = [
     ["max", null],
-    [0, null],
-    [12.5, null],
+    [1, null],
+    [20, null],
     [1000, null],
-    [1000.5, limit.length],
-    [Number.POSITIVE_INFINITY, limit.length],
-    [-1, field.length],
-    [Number.NaN, field.length],
+    [1001, limit.room],
+    [1000.5, limit.room],
+    [Number.POSITIVE_INFINITY, limit.room],
+    [0, field.room],
+    [-1, field.room],
+    [12.5, field.room],
+    [Number.NaN, field.room],
   ];
-  it.each(growthCases)("checks a growth of %s (%s)", (mode, code) => {
-    expect(codes(validateProject(withComponents(cards({ growth: { stack: mode } }))))).toEqual(
-      code === null ? [] : [[code, "/components/0/growth/stack"]],
+  it.each(roomCases)("checks a room of %s on a deck (%s)", (room, code) => {
+    expect(codes(validateProject(withComponents(cards({ room }))))).toEqual(
+      code === null ? [] : [[code, "/components/0/room"]],
     );
+  });
+
+  it("holds tiles to the same bound as cards, and bulk to 500 percent", () => {
+    const tiles = (room: Room): TilesComponent => ({
+      ...(newComponent("tiles") as TilesComponent),
+      room,
+    });
+    const bulk = (room: Room): BulkComponent => ({
+      ...(newComponent("bulk") as BulkComponent),
+      room,
+    });
+    expect(validateProject(withComponents(tiles(1000)))).toEqual([]);
+    expect(codes(validateProject(withComponents(tiles(1001))))).toEqual([
+      [limit.room, "/components/0/room"],
+    ]);
+    expect(validateProject(withComponents(bulk(500)))).toEqual([]);
+    expect(validateProject(withComponents(bulk("max")))).toEqual([]);
+    expect(codes(validateProject(withComponents(bulk(501))))).toEqual([
+      [limit.room, "/components/0/room"],
+    ]);
+    expect(codes(validateProject(withComponents(bulk(0.5))))).toEqual([
+      [field.room, "/components/0/room"],
+    ]);
+  });
+
+  it("ignores a room on minis and custom items, which have no such row", () => {
+    const minis: MinisComponent = { ...(newComponent("minis") as MinisComponent), room: -3 };
+    expect(validateProject(withComponents(minis, custom({ room: 5000 })))).toEqual([]);
+  });
+
+  it("blocks only past the limit: a bad number is a field error, a huge one a limit error", () => {
+    const bad = validateProject(withComponents(cards({ room: 0 })));
+    const huge = validateProject(withComponents(cards({ room: 5000 })));
+    expect(bad.some(isBlocking)).toBe(false);
+    expect(huge.every(isBlocking)).toBe(true);
   });
 
   const copiesCases: [number, string][] = [
@@ -649,10 +687,11 @@ describe("validateProject: groups", () => {
     }
   });
 
-  it("is no error when the member is a foreign component of a newer 0.2.x file", () => {
+  it("is no error when the member is a foreign component of a newer 0.3.x file", () => {
     const base = withGroups([a], [group("kit", [a.id, "dial0001"])]);
     const file = JSON.parse(JSON.stringify(base)) as Record<string, unknown>;
-    file.schemaVersion = "0.2.9";
+    // a newer 0.3.x file: 0.2.x files are upgraded on the way in, so a foreign kind needs a newer minor
+    file.schemaVersion = "0.3.9";
     (file.components as unknown[]).push({ id: "dial0001", name: "Dial", kind: "dial", size: 40 });
     const result = parseProject(file);
     expect(result).toMatchObject({ ok: true });
@@ -711,15 +750,6 @@ describe("validateProject: groups", () => {
     ]);
     expect(notices.every(isBlocking)).toBe(true);
     expect(validateProject(withGroups([a], many.slice(0, 100)))).toEqual([]);
-  });
-
-  it("checks a group's growth like an item's", () => {
-    expect(
-      codes(validateProject(withGroups([a], [group("kit", [a.id], { growth: { w: -1 } })]))),
-    ).toEqual([[field.length, "/groups/0/growth/w"]]);
-    for (const growth of [{ w: "off" }, { w: "auto" }, { w: 5, d: "max" }, { h: 0 }] as const) {
-      expect(validateProject(withGroups([a], [group("kit", [a.id], { growth })]))).toEqual([]);
-    }
   });
 });
 

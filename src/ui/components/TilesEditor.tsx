@@ -6,7 +6,7 @@ import type { TileShape, TilesComponent } from "../../model/types";
 import { LENGTH } from "../limits";
 import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { Choice, CountField, NumField } from "./controls";
-import { GrowthOptions } from "./GrowthOptions";
+import { RoomOptions } from "./RoomOptions";
 import { MoreOptions } from "./MoreOptions";
 import { BinNotes, TrayShape, WellRows } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -131,7 +131,7 @@ export function TilesEditor({ component: c, index, onChange }: EditorProps<Tiles
       />
       <BinNotes component={c} index={index} />
       <MoreOptions component={c} errorPaths={commonOptionPaths(index)}>
-        <GrowthOptions component={c} index={index} onChange={onChange} />
+        <RoomOptions component={c} index={index} onChange={onChange} />
         <AccessChoice component={c} index={index} onChange={onChange} />
         <TrayShape component={c} index={index} onChange={onChange} />
         <WellRows component={c} index={index} onChange={onChange} />

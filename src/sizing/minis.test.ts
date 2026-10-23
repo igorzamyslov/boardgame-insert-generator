@@ -189,18 +189,21 @@ describe("minis growth (minimal-trays spec §5)", () => {
     expect(pocket().growth).toBeUndefined();
   });
 
-  it("makes pockets looser in width and length when asked, never in depth", () => {
-    const c = pocket(minis({ growth: { w: 4, d: "auto", h: "max" } }));
-    expect(c.elastic).toEqual({ w: true, d: true, h: false });
-    // auto: the figure's own 25 mm
-    expect(c.growth).toEqual({ w: 4, d: 25 });
+  it("never makes pockets looser: minis offer no room, whatever a file sets", () => {
+    // was per-axis growth of a pocket; the pocket is as loose as its clearance (owner, 2026-10-23)
+    const c = pocket({ ...minis(), room: "max" } as never);
+    expect(c.elastic).toEqual({ w: false, d: false, h: false });
+    expect(c.growth).toBeUndefined();
   });
 
-  it("stored as bulk, grows like loose pieces: auto on every axis", () => {
-    const c = pocket(minis({ storage: "bulk" }));
-    expect(c.elastic).toEqual({ w: true, d: true, h: true });
-    expect(minis({ storage: "bulk", growth: { h: "off" } }).growth).toEqual({ h: "off" });
-    expect(pocket(minis({ storage: "bulk", growth: { h: "off" } })).elastic.h).toBe(false);
+  it("stored as bulk, grows like loose pieces only under bigger wells: auto on every axis", () => {
+    expect(pocket(minis({ storage: "bulk" })).elastic).toEqual({ w: false, d: false, h: false });
+    const wells = { ...s, biggerWells: true };
+    const bin = at(at(at(minisOptions(minis({ storage: "bulk" }), wells).options, 0).blocks, 0), 0);
+    expect(bin.elastic).toEqual({ w: true, d: true, h: true });
+    // pockets stay tight under bigger wells: more room there is only a looser fit
+    const pockets = at(at(at(minisOptions(minis(), wells).options, 0).blocks, 0), 0);
+    expect(pockets.elastic).toEqual({ w: false, d: false, h: false });
   });
 });
 

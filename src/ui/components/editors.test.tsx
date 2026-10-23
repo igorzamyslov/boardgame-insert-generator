@@ -298,20 +298,14 @@ describe("toggles", () => {
   });
 
   it("offers spacer plates on tiles while the stack may grow, never on tokens, figures or others", () => {
-    render(
-      <TilesEditor
-        component={{ ...of("tiles"), growth: { stack: "off" } }}
-        index={0}
-        onChange={vi.fn()}
-      />,
-    );
+    render(<TilesEditor component={of("tiles")} index={0} onChange={vi.fn()} />);
     openRows();
     expect(screen.queryByLabelText("Spacer plates")).toBeNull();
     cleanup();
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(
       <TilesEditor
-        component={{ ...of("tiles"), storage: "upright" }}
+        component={{ ...of("tiles"), storage: "upright", room: 10 }}
         index={0}
         onChange={onChange}
       />,
@@ -340,7 +334,7 @@ describe("toggles", () => {
     render(
       <SizingContext.Provider value={[notice]}>
         <TilesEditor
-          component={{ ...of("tiles"), storage: "upright", separators: 5 }}
+          component={{ ...of("tiles"), storage: "upright", room: 10, separators: 5 }}
           index={0}
           onChange={vi.fn()}
         />
@@ -361,83 +355,52 @@ describe("toggles", () => {
     }
   });
 
-  describe("room to grow, by kind (minimal-trays spec §5)", () => {
-    const groups = (): string[] =>
+  describe("room for more, by kind", () => {
+    const rooms = (): string[] =>
       Array.from(document.querySelectorAll<HTMLElement>('[role="group"]'))
         .map((g) => g.getAttribute("aria-label") ?? "")
-        .filter((n) => /^(Room for expansions|Extra |Looser pockets)/.test(n));
+        .filter((n) => /^Room for more /.test(n));
 
-    it("offers tiles one choice, along the stack, auto when they stand up and none when they lie", () => {
+    it("offers tiles one row, None by default, and stores As much as fits as max", () => {
       const onChange = vi.fn<(c: TilesComponent) => void>();
-      render(
-        <TilesEditor
-          component={{ ...of("tiles"), storage: "upright" }}
-          index={0}
-          onChange={onChange}
-        />,
-      );
+      render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
       openMore();
-      expect(groups()).toEqual(["Room for expansions"]);
-      expect(pressedIn("Room for expansions")).toBe("Auto");
-      choose("Room for expansions", "Max");
-      expect(lastOf(onChange).growth).toEqual({ stack: "max" });
-      cleanup();
-      render(
-        <TilesEditor
-          component={{ ...of("tiles"), storage: "flat" }}
-          index={0}
-          onChange={vi.fn()}
-        />,
-      );
-      openMore();
-      expect(pressedIn("Room for expansions")).toBe("None");
+      expect(rooms()).toEqual(["Room for more tiles"]);
+      expect(pressedIn("Room for more tiles")).toBe("None");
+      choose("Room for more tiles", "As much as fits");
+      expect(lastOf(onChange).room).toBe("max");
     });
 
-    it("offers tokens all three axes, auto by default, each stored on its own", () => {
+    it("offers tokens one row, in pieces, and stores a number of percent", () => {
       const onChange = vi.fn<(c: BulkComponent) => void>();
       render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
       openMore();
-      expect(groups()).toEqual(["Extra width", "Extra length", "Extra height"]);
-      for (const g of groups()) {
-        expect(pressedIn(g)).toBe("Auto");
+      expect(rooms()).toEqual(["Room for more pieces"]);
+      expect(pressedIn("Room for more pieces")).toBe("None");
+      choose("Room for more pieces", "Some");
+      expect(lastOf(onChange).room).toBe(25);
+    });
+
+    it("offers figures, in pockets or loose, and a custom well no row at all", () => {
+      for (const storage of ["pockets", "bulk"] as const) {
+        render(
+          <MinisEditor component={{ ...of("minis"), storage }} index={0} onChange={vi.fn()} />,
+        );
+        openMore();
+        expect(rooms(), storage).toEqual([]);
+        expect(screen.queryByRole("group", { name: /Extra |Looser pockets/ }), storage).toBeNull();
+        cleanup();
       }
-      choose("Extra length", "None");
-      expect(lastOf(onChange).growth).toEqual({ d: "off" });
-    });
-
-    it("offers figures in pockets only width and length, none by default: a pocket's depth is a figure's height", () => {
-      render(<MinisEditor component={of("minis")} index={0} onChange={vi.fn()} />);
-      openMore();
-      expect(groups()).toEqual(["Looser pockets: width", "Looser pockets: length"]);
-      expect(pressedIn("Looser pockets: width")).toBe("None");
-      expect(screen.queryByRole("group", { name: /Looser pockets: (height|depth)/ })).toBeNull();
-    });
-
-    it("offers figures stored loose all three, auto", () => {
-      render(
-        <MinisEditor
-          component={{ ...of("minis"), storage: "bulk" }}
-          index={0}
-          onChange={vi.fn()}
-        />,
-      );
-      openMore();
-      expect(groups()).toEqual(["Extra width", "Extra length", "Extra height"]);
-      expect(pressedIn("Extra height")).toBe("Auto");
-    });
-
-    it("offers a custom well all three, none by default", () => {
       render(<CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />);
       openMore();
-      expect(groups()).toEqual(["Extra width", "Extra length", "Extra height"]);
-      expect(pressedIn("Extra width")).toBe("None");
+      expect(rooms()).toEqual([]);
     });
 
-    it("keeps them under More options", () => {
+    it("keeps it under More options", () => {
       render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
-      expect(groups()).toEqual([]);
+      expect(rooms()).toEqual([]);
       openMore();
-      expect(groups().length).toBeGreaterThan(0);
+      expect(rooms().length).toBeGreaterThan(0);
     });
   });
 });
@@ -563,22 +526,17 @@ describe("validation shown in place", () => {
     const Editor = EDITORS[kind] as unknown as AnyEditor;
     const more = () => screen.getByRole("button", { name: /^More options/ });
 
-    it.each([
-      "copies",
-      "clearance",
-      "curvedFloor",
-      "separators",
-      "dividers",
-      "growth/stack",
-      "growth/w",
-    ])("opens for an error at /components/0/%s", (field) => {
-      render(
-        <ValidationContext.Provider value={[err("field.test", `/components/0/${field}`, "Bad.")]}>
-          <Editor component={of(kind)} index={0} onChange={vi.fn()} />
-        </ValidationContext.Provider>,
-      );
-      expect(more().getAttribute("aria-expanded")).toBe("true");
-    });
+    it.each(["copies", "clearance", "curvedFloor", "separators", "dividers", "room"])(
+      "opens for an error at /components/0/%s",
+      (field) => {
+        render(
+          <ValidationContext.Provider value={[err("field.test", `/components/0/${field}`, "Bad.")]}>
+            <Editor component={of(kind)} index={0} onChange={vi.fn()} />
+          </ValidationContext.Provider>,
+        );
+        expect(more().getAttribute("aria-expanded")).toBe("true");
+      },
+    );
 
     it("stays closed for an error at another component", () => {
       render(

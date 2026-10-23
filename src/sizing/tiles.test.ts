@@ -9,9 +9,17 @@ import type { CompartmentReq } from "./types";
 const s: Settings = DEFAULT_SETTINGS;
 const C2C40 = (40 * 2) / Math.sqrt(3); // 46.18802…
 
-function first(component: TilesComponent, option = 0, block = 0): CompartmentReq {
-  return at(at(at(tileOptions(component, s).options, option).blocks, block), 0);
+function first(
+  component: TilesComponent,
+  option = 0,
+  block = 0,
+  settings: Settings = s,
+): CompartmentReq {
+  return at(at(at(tileOptions(component, settings).options, option).blocks, block), 0);
 }
+
+// "auto" is what the fill setting "bigger wells" gives an item that asked for nothing
+const wells: Settings = { ...s, biggerWells: true };
 
 describe("tile geometry", () => {
   it("computes hex corner-to-corner", () => {
@@ -98,10 +106,10 @@ describe("tileOptions", () => {
     expect(stack.minW).toBeCloseTo(121, 9);
     expect(stack.minD).toBe(47.19);
     expect(stack.minH).toBeCloseTo(41, 9);
-    // The stack grows along its width by default (auto, at most 50 mm), with no spacer axis (that
-    // takes `separators`). And no corner reliefs: a tile on its edge doesn't need them.
-    expect(stack.elastic).toEqual({ w: true, d: false, h: false });
-    expect(stack.growth).toEqual({ w: AUTO_GROWTH_CEILING });
+    // The stack never grows on its own (owner, 2026-10-23), with no spacer axis (that takes
+    // `separators`). And no corner reliefs: a tile on its edge doesn't need them.
+    expect(stack.elastic).toEqual({ w: false, d: false, h: false });
+    expect(stack.growth).toBeUndefined();
     expect(stack.spacerAxis).toBeUndefined();
     expect(stack.features).toEqual([
       { type: "wallCutout", side: "left", depthFraction: 1 / 2, floorNotch: false },
@@ -110,78 +118,90 @@ describe("tileOptions", () => {
   });
 
   describe("growth (minimal-trays spec §5)", () => {
-    const stack = (over: Partial<TilesComponent>) => first(tiles({ storage: "upright", ...over }));
+    const stack = (over: Partial<TilesComponent>, settings: Settings = s) =>
+      first(tiles({ storage: "upright", ...over }), 0, 0, settings);
+    const max = { room: "max" } as const;
 
-    it("is `auto` for an upright stack: its thickness, at most 50 mm", () => {
-      expect(stack({}).growth).toEqual({ w: AUTO_GROWTH_CEILING });
+    it("is `auto` for an upright stack under bigger wells: its thickness, at most 50 mm", () => {
+      expect(stack({}, wells).growth).toEqual({ w: AUTO_GROWTH_CEILING });
       // 10 tiles of 2 mm: a 20 mm stack, so it binds
-      expect(stack({ count: 10 }).growth).toEqual({ w: 20 });
+      expect(stack({ count: 10 }, wells).growth).toEqual({ w: 20 });
     });
 
-    it("is off when set off: content-tight, no spacer, the footprint never grows", () => {
-      const c = stack({ growth: { stack: "off" } });
+    it("is off by default: content-tight, no spacer, the footprint never grows", () => {
+      const c = stack({});
       expect(c.elastic).toEqual({ w: false, d: false, h: false });
       expect(c.spacerAxis).toBeUndefined();
     });
 
-    it("never grows the tile's footprint, whatever a file sets", () => {
-      const c = stack({ growth: { w: "max", d: "max", h: "max" } });
+    it("takes a number as that many more tiles, built into the well and not grown after", () => {
+      // was a number of mm of growth; now "some" is counted in tiles (owner, 2026-10-23)
+      const none = stack({ count: 10 });
+      const c = stack({ count: 10, room: 5 });
+      expect(c.minW).toBeCloseTo(none.minW + 5 * 2, 9);
+      expect(c.elastic).toEqual({ w: false, d: false, h: false });
+      expect(c.growth).toBeUndefined();
+    });
+
+    it("never grows the tile's footprint, whatever the room", () => {
+      const c = stack(max);
       expect(c.elastic).toEqual({ w: true, d: false, h: false });
     });
 
     it("holds the stack to its own thickness without plates, and to 6× with them", () => {
       // 60 tiles of 2 mm: a 120 mm stack
-      expect(stack({ growth: { stack: "max" } }).growth).toEqual({ w: 120 });
-      expect(stack({ growth: { stack: "max" }, separators: 2 }).growth).toEqual({
+      expect(stack(max).growth).toEqual({ w: 120 });
+      expect(stack({ ...max, separators: 2 }).growth).toEqual({
         w: 120 * PLATED_RETENTION,
       });
     });
 
-    it("has no spacer axis unless `separators` is set, at any growth", () => {
-      for (const growth of ["auto", "max", 5, 100] as const) {
-        const c = stack({ growth: { stack: growth } });
-        expect(c.spacerAxis, `${growth}`).toBeUndefined();
-        expect(c.elastic.w).toBe(true);
+    it("has no spacer axis unless `separators` is set, at any room", () => {
+      for (const [name, c] of [
+        ["max", stack(max)],
+        ["bigger wells", stack({}, wells)],
+      ] as const) {
+        expect(c.spacerAxis, name).toBeUndefined();
+        expect(c.elastic.w, name).toBe(true);
       }
-      expect(stack({ separators: 1 }).spacerAxis).toBe("w");
+      expect(stack({ room: 5 }).spacerAxis).toBeUndefined();
+      // plates with no room asked: nothing to fill, so no spacer either
+      expect(stack({ separators: 1 }).spacerAxis).toBeUndefined();
+      expect(stack({ ...max, separators: 1 }).spacerAxis).toBe("w");
+      // some room with plates: the planned room is the spacer's, as wide as the room
+      const planned = stack({ room: 5, separators: 1 });
+      expect(planned.spacerAxis).toBe("w");
+      expect(planned.spacerRoom).toBeCloseTo(5 * 2, 2);
     });
 
     it("holds the stack to what keeps it under its finger cut, when that is tighter", () => {
       const narrow: Settings = { ...s, fingerPocket: { ...s.fingerPocket, width: 12 } };
       // 10 tiles of 2 mm: a 20 mm stack; a 12 mm cut leaves 12 + 20 - 20 = 12 mm of room
       const narrowStack = (over: Partial<TilesComponent>) =>
-        at(
-          at(
-            at(tileOptions(tiles({ storage: "upright", count: 10, ...over }), narrow).options, 0)
-              .blocks,
-            0,
-          ),
-          0,
-        );
-      expect(narrowStack({ growth: { stack: "max" } }).growth).toEqual({ w: 12 });
-      expect(narrowStack({ growth: { stack: "max" }, separators: 2 }).growth).toEqual({
+        first(tiles({ storage: "upright", count: 10, ...over }), 0, 0, narrow);
+      expect(narrowStack(max).growth).toEqual({ w: 12 });
+      expect(narrowStack({ ...max, separators: 2 }).growth).toEqual({
         w: 20 * PLATED_RETENTION,
       });
       // the default 25 mm cut leaves retention the tighter
-      expect(stack({ count: 10, growth: { stack: "max" } }).growth).toEqual({ w: 20 });
-      // a flat stack is unaffected
-      const flat = at(
-        at(
-          at(tileOptions(tiles({ storage: "flat", growth: { stack: 8 } }), narrow).options, 0)
-            .blocks,
-          0,
-        ),
-        0,
-      );
-      expect(flat.growth).toEqual({ h: 8 });
+      expect(stack({ count: 10, ...max }).growth).toEqual({ w: 20 });
+      // a flat stack is unaffected: as much as fits has no cap of its own
+      const flat = first(tiles({ storage: "flat", ...max }), 0, 0, narrow);
+      expect(flat.growth).toBeUndefined();
     });
 
     it("keeps a flat stack from growing taller by default, and grows it when asked", () => {
       expect(first(tiles({ storage: "flat" })).elastic).toEqual({ w: false, d: false, h: false });
-      const asked = first(tiles({ storage: "flat", growth: { stack: 8 } }));
+      // not even under bigger wells
+      expect(first(tiles({ storage: "flat" }), 0, 0, wells).elastic.h).toBe(false);
+      const asked = first(tiles({ storage: "flat", room: "max" }));
       expect(asked.elastic).toEqual({ w: false, d: false, h: true });
-      expect(asked.growth).toEqual({ h: 8 });
+      expect(asked.growth).toBeUndefined();
       expect(asked.spacerAxis).toBeUndefined();
+      // some: more tiles in the stack, so a taller well and nothing grown after
+      const some = first(tiles({ storage: "flat", room: 4 }));
+      expect(some.minH).toBeCloseTo(first(tiles({ storage: "flat" })).minH + 4 * 2, 9);
+      expect(some.elastic.h).toBe(false);
     });
   });
 

@@ -87,10 +87,13 @@ describe("custom growth (minimal-trays spec §5)", () => {
     expect(well().growth).toBeUndefined();
   });
 
-  it("grows the axes it is asked to, by number, auto or max", () => {
-    const c = well(custom({ growth: { w: 3, d: "auto", h: "max" } }));
-    expect(c.elastic).toEqual({ w: true, d: true, h: true });
-    // auto: the item's 30 mm depth, under the 50 mm ceiling
-    expect(c.growth).toEqual({ w: 3, d: 30 });
+  it("never grows: it has no room row, whatever a file sets or the fill setting says", () => {
+    // was per-axis number, auto and max growth; a custom item offers no room (owner, 2026-10-23)
+    const c = custom();
+    expect(well({ ...c, room: "max" } as never).elastic).toEqual({ w: false, d: false, h: false });
+    const wells = { ...s, biggerWells: true };
+    const bigger = at(at(at(customOptions(c, wells).options, 0).blocks, 0), 0);
+    expect(bigger.elastic).toEqual({ w: false, d: false, h: false });
+    expect(bigger.growth).toBeUndefined();
   });
 });

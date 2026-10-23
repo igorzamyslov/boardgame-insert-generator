@@ -391,6 +391,20 @@
   padding: 0 var(--s-12);
 }
 
+/*
+ * Fill the space that's left has four choices: on a narrow drawer they wrap to a second line of
+ * the track instead of running past the row's edge.
+ */
+.st-row__choice--wrap .k-seg--stretch {
+  flex-wrap: wrap;
+  border-radius: var(--r-field);
+}
+
+.st-row__choice--wrap .k-seg--stretch .k-seg__item {
+  flex: 1 1 auto;
+  padding: 0 var(--s-12);
+}
+
 /* ---- My printer ---- */
 
 /* This insert uses another printer: 12 14, radius 12, the info colours, 14 px (owner decision N8). */
