@@ -176,7 +176,7 @@ function stackRoles(ctx: Ctx, ref: PartRef): StackRoles {
   const bottomH = printedHeight(ctx, lower.h, ctx.lipOn);
   return {
     bottom: fitsBed(ctx.bed, lower.w, lower.d, bottomH),
-    top: fitsBed(ctx.bed, topSize.w, topSize.d, upper.h),
+    top: fitsBed(ctx.bed, topSize.w, topSize.d, printedHeight(ctx, upper.h, false, true)),
     bottomSize: { w: lower.w, d: lower.d, h: bottomH },
     topSize,
   };
@@ -305,7 +305,7 @@ export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[
     }
     if (
       t.part !== "tray" ||
-      fitsBed(ctx.bed, toU(t.w), toU(t.d), printedHeight(ctx, toU(t.h), t.lip))
+      fitsBed(ctx.bed, toU(t.w), toU(t.d), printedHeight(ctx, toU(t.h), t.lip, t.level > 0))
     ) {
       return [];
     }
@@ -326,7 +326,7 @@ export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[
         ),
         w: t.w,
         d: t.d,
-        h: toMm(printedHeight(ctx, toU(t.h), t.lip)),
+        h: toMm(printedHeight(ctx, toU(t.h), t.lip, t.level > 0)),
         stackPhrase: roles && !(roles.bottom && roles.top) ? rolesPhrase(roles) : null,
       },
     ];

@@ -343,7 +343,7 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
     if (sp.trays.length > 0) {
       for (const t of sp.trays) {
         trays.push({ ...t, path: pl.path, stack });
-        bed += bedExcess(ctx.bed, t.w, t.d, printedHeight(ctx, t.h, t.lipped));
+        bed += bedExcess(ctx.bed, t.w, t.d, printedHeight(ctx, t.h, t.lipped, t.level > 0));
       }
       for (const filler of sp.fillers) {
         inLevel.push({ path: pl.path, stack, filler });

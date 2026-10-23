@@ -1,5 +1,5 @@
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
-import { bottomMinimums, upperTrayMinH } from "../model/lip";
+import { bottomMinimums, lipAbove, stepBelow, upperTrayMinH } from "../model/lip";
 import type { Settings } from "../model/types";
 import { minOuter, outerCutSides, wallFor, type OuterCutSides } from "../sizing";
 import { growthCapU, partGrowthCapOf } from "../sizing/growth";
@@ -69,9 +69,12 @@ export interface Ctx {
   /** Nominal lateral play above this is penalized and warned about (hard rule 1): settings.playLimit. */
   readonly playLimit: U;
   readonly layer: U;
+  /** The rim between layers is on (either joint): a tray with another on it is `lipped`. */
   readonly lipOn: boolean;
-  /** The lip's height; a lipped tray prints this much taller than its `h`. */
+  /** The lip's height with the rim (0 with the stepped base); a lipped tray prints this much taller than its `h`. */
   readonly lipHeight: U;
+  /** The step's slab with the stepped base (0 otherwise); a tray above level 0 prints this much taller. */
+  readonly stepHeight: U;
   /** Minimum h of a tray at level ≥ 1 when the lip is on: what its groove needs (`upperTrayMinH`, 3.65 mm by default). */
   readonly upperMinH: U;
   /** Base outer wall and floor as sizing writes them: wallFor, floor ≥ MIN_FEATURE_MM, rounded up. */
@@ -125,11 +128,12 @@ export interface Ctx {
 }
 
 /**
- * How tall a tray prints: its height, plus the lip a lipped tray carries on top. The print
- * bed's Z limit (hard rule 5) applies to this, not to `h`.
+ * How tall a tray prints: its height, plus the lip a lipped tray carries on top (the rim), or the
+ * slab an `upper` tray (above level 0) hangs below it (the stepped base). The print bed's Z limit
+ * (hard rule 5) applies to this, not to `h`.
  */
-export function printedHeight(ctx: Ctx, h: U, lipped: boolean): U {
-  return lipped ? h + ctx.lipHeight : h;
+export function printedHeight(ctx: Ctx, h: U, lipped: boolean, upper = false): U {
+  return h + (lipped ? ctx.lipHeight : 0) + (upper ? ctx.stepHeight : 0);
 }
 
 /** partId's base for the variant and part indices: each must be below it. */
@@ -235,7 +239,8 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     playLimit: toU(settings.playLimit),
     layer: Math.max(1, toU(printer.layerHeight)),
     lipOn: settings.lip.enabled,
-    lipHeight: toU(settings.lip.height),
+    lipHeight: toU(lipAbove(settings, true)),
+    stepHeight: toU(stepBelow(settings, 1)),
     upperMinH: toUCeil(upperTrayMinH(settings)),
     wall,
     upperWall,

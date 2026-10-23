@@ -29,13 +29,14 @@ describe("EXACT_GROUPS", () => {
     expect(FIRST_SCREEN_PATHS.some((p) => placed.includes(p))).toBe(false);
   });
 
-  it("gives the board's counts: Cards 4, Finger cuts 4, Rim between layers 5", () => {
+  // The board's Rim between layers has 5; the stepped base's Step height (2026-10-23) is the sixth.
+  it("gives the board's counts: Cards 4, Finger cuts 4, Rim between layers 5 and Step height", () => {
     const count = (title: string): number | undefined =>
       EXACT_GROUPS.find((g) => g.title === title)?.paths.length;
     expect(count("Walls and floors")).toBe(3);
     expect(count("Cards")).toBe(4);
     expect(count("Finger cuts")).toBe(4);
-    expect(count("Rim between layers")).toBe(5);
+    expect(count("Rim between layers")).toBe(6);
   });
 
   it("puts Unused space and Fill small gaps with under Spacers and space, which draws the wall thickness", () => {

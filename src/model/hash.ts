@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from "./settings";
-import type { Component, Group, Project } from "./types";
+import type { Component, Group, Project, Settings } from "./types";
 
 /**
  * JSON with object keys sorted at every level, so key order never changes the
@@ -96,6 +96,12 @@ export function cyrb53(str: string, seed = 0): number {
   return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 }
 
+/** The rim between layers as inputsHash hashes it (see there). */
+export function lipForHash(lip: Settings["lip"]): Record<string, unknown> {
+  const { kind, stepHeight, ...rim } = lip;
+  return kind === "step" ? { ...rim, stepBase: stepHeight } : rim;
+}
+
 /**
  * Hash of everything that affects the layout (spec §5 StoredLayout.inputsHash):
  * box, printer, settings, components and locks. Names are left out, so renaming never
@@ -108,10 +114,17 @@ export function inputsHash(p: Project): string {
   // infill only scales the filament estimate; no part depends on it, so it must not stale the plan.
   // wallAbsorb is hashed under its old name, wallGrowth: renaming the setting must not change the
   // hash of every saved project and so mark all of their plans stale.
-  const { wallAbsorb, oneWall, playLimit, ...rest } = p.settings;
+  const { wallAbsorb, oneWall, playLimit, lip, ...rest } = p.settings;
+  // The joint's kind and the step's height are hashed only for the stepped base: the rim, the only
+  // joint before schema 0.2.2, is left out so every saved plan keeps its hash, and the step's
+  // height changes nothing with the rim. The step is hashed as `stepBase`, a key no file holds: an
+  // older app keeps a newer file's `kind` and `stepHeight` as they are and hashes them so, which
+  // must not match, or it would take a stepped plan for current and export rim trays from it.
+  const hashedLip = lipForHash(lip);
   // mergeFillers and mergeRisers are print-time decompositions (mergeParts), so they are out too, as is minRiser (splitRisers).
   const settings = {
     ...rest,
+    lip: hashedLip,
     wallGrowth: wallAbsorb,
     // It moves where leaf slack goes, so it is hashed, but only when on: off is left out so every
     // project saved before the setting existed keeps its hash and its plan stays current.

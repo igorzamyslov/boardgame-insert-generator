@@ -212,6 +212,48 @@ describe("InsertSettings: how the trays sit", () => {
   });
 });
 
+describe("InsertSettings: Kind of rim, under Rim between layers", () => {
+  const section = (): HTMLElement =>
+    screen.getByRole("region", { name: "How the trays sit" }) as HTMLElement;
+  const stepped = {
+    ...DEFAULT_SETTINGS,
+    lip: { ...DEFAULT_SETTINGS.lip, kind: "step" as const },
+  };
+
+  it("offers the rim and groove (pressed by default) and the stepped base, with what each costs", () => {
+    const onChange = vi.fn();
+    render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
+    const kind = within(section()).getByRole("group", { name: "Kind of rim" });
+    const rim = within(kind).getByRole("button", { name: "Rim and groove" });
+    expect(rim.getAttribute("aria-pressed")).toBe("true");
+    expect(within(section()).getByText("Trays with one on top get thicker walls.")).toBeTruthy();
+    fireEvent.click(within(kind).getByRole("button", { name: "Stepped base" }));
+    expect(onChange).toHaveBeenCalledWith(stepped);
+  });
+
+  it("says what the step costs, and the switch's hint names the step", () => {
+    render(<InsertSettings settings={stepped} onChange={vi.fn()} />);
+    const here = within(section());
+    expect(
+      here.getByText("Walls stay thin; a tray with one on top is 1.75 mm deeper."),
+    ).toBeTruthy();
+    expect(here.getByText("A step under each tray keeps the top layer from sliding")).toBeTruthy();
+    const step = here.getByRole("button", { name: "Stepped base" });
+    expect(step.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("stays, blocked with its reason, while the rim is off", () => {
+    const onChange = vi.fn();
+    const off = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: false } };
+    render(<InsertSettings settings={off} onChange={onChange} />);
+    const step = within(section()).getByRole("button", { name: "Stepped base" });
+    expect(step.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(step);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getAllByText("Needs Rim between layers.").length).toBeGreaterThan(0);
+  });
+});
+
 describe("InsertSettings: the riser rows beside Fill to the lid", () => {
   const LABEL = /^Separate risers from( \(mm\))?$/;
   const FOLD = "Fold risers into the joined spacers";
@@ -317,7 +359,7 @@ describe("InsertSettings: Exact numbers", () => {
       "Room around trays and pieces4 values",
       "Cards4 values",
       "Finger cuts4 values",
-      "Rim between layers5 values",
+      "Rim between layers6 values",
       "Shape and printing6 values",
       "Spacers and space2 values",
     ]);
@@ -680,9 +722,13 @@ describe("InsertSettings: search", () => {
   it("narrows to the numbers whose name or words have every typed word, whatever the case", () => {
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
     search("LIP play");
-    // the words count too: Fit mentions the lip and play
-    expect(shown().map((t) => t.replace(/ \(mm\)$/, ""))).toEqual(["Fit", "Lip play"]);
-    expect(screen.getByRole("status").textContent).toMatch(/^2 of \d+ shown\.$/);
+    // the words count too: Fit mentions the lip and play, and Step height its lip play
+    expect(shown().map((t) => t.replace(/ \(mm\)$/, ""))).toEqual([
+      "Fit",
+      "Lip play",
+      "Step height",
+    ]);
+    expect(screen.getByRole("status").textContent).toMatch(/^3 of \d+ shown\.$/);
     search("");
     expect(screen.getByRole("group", { name: "Walls and floors" })).toBeTruthy();
     expect(screen.getByRole("status").textContent).toBe("");

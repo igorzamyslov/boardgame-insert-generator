@@ -10,6 +10,7 @@ import {
   topPlane,
 } from "./settings";
 import { DEFAULT_GROUP_NAME } from "./groups";
+import { rimOn, stepOn } from "./lip";
 import type { Component, ForeignData, Group, Lock, Notice, Project, Settings } from "./types";
 
 /**
@@ -33,6 +34,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     layerHeight: "field.layerHeight",
     length: "field.length",
     lipBearing: "field.lipBearing",
+    stepPlay: "field.stepPlay",
     lockPath: "field.lockPath",
     lockStack: "field.lockStack",
     separators: "field.separators",
@@ -278,6 +280,14 @@ const settingRanges: SettingRange[] = [
     min: 0,
     max: 2,
     hint: "Sideways room between the lip and the groove of the tray above it, per side. Scaled by Fit. Too little and trays will not drop in; too much and they rattle.",
+  },
+  {
+    path: "lip/stepHeight",
+    label: "Step height",
+    get: (s) => s.lip.stepHeight,
+    min: 1,
+    max: 4,
+    hint: "With the stepped base: how far the solid step under a stacked tray reaches down into the tray below, which leaves that much room above its contents. The lip play is the room around it.",
   },
   {
     path: "topPressFit",
@@ -605,7 +615,7 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
  * One field.setting error per setting outside its SETTING_RANGES entry (NaN included), then the
  * cross-field rules, each checked only when the settings it reads are in range themselves:
  * - bottomChamfer ≤ maxBottomChamfer (field.bottomChamfer);
- * - with the lip on, an upper tray's bottom chamfer (effectiveBottomChamfer at level 1, at least
+ * - with the rim on (not the stepped base), an upper tray's bottom chamfer (effectiveBottomChamfer at level 1, at least
  *   UPPER_MIN_CHAMFER) is less than lip.ledge − 2 × the effective lip play, so the tray still
  *   rests on the ledge (field.lipBearing, at /settings/bottomChamfer; not added on top of
  *   field.bottomChamfer).
@@ -637,7 +647,22 @@ function checkSettings(ck: Checker, settings: Settings): void {
     );
     return;
   }
-  if (!settings.lip.enabled || ["lip/ledge", "lip/play", "fit"].some((path) => outside.has(path))) {
+  // The stepped base's slab keeps MIN_FEATURE_MM of side under its play (model/lip.ts stepOf: the
+  // step starts the play under the seam, the slab's bed face `stepHeight` under it).
+  if (
+    stepOn(settings) &&
+    !["lip/play", "lip/stepHeight", "fit"].some((path) => outside.has(path)) &&
+    !(effective(settings).lipPlay <= settings.lip.stepHeight - MIN_FEATURE_MM + FLOAT_EPSILON)
+  ) {
+    ck.error(
+      VALIDATION_NOTICE_CODES.field.stepPlay,
+      "/settings/lip/stepHeight",
+      `Step height must be at least the lip play (times Fit) plus ${MIN_FEATURE_MM} mm, ${Math.ceil((effective(settings).lipPlay + MIN_FEATURE_MM) * 100) / 100} mm.`,
+    );
+    return;
+  }
+  // The stepped base has no ledge: its trays rest on their 45° step.
+  if (!rimOn(settings) || ["lip/ledge", "lip/play", "fit"].some((path) => outside.has(path))) {
     return;
   }
   const bearing = settings.lip.ledge - 2 * effective(settings).lipPlay;

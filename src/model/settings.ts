@@ -79,7 +79,19 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   // On for new inserts: every upper tray has a groove that takes the lip below it, flush (geometry
   // 0.8.0), so the trays key together and do not rattle. The cost is a wall of about 2.56 mm beside
   // the groove. Files that say nothing about the lip read it off (LIP_ENABLED_WHEN_ABSENT).
-  lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
+  // The joint is the rim (a lip and groove) unless the insert asks for the stepped base, so every
+  // project saved before the choice existed keeps its trays (LIP_KIND_WHEN_ABSENT). The step's
+  // slab is 1.5 mm: two or three layers more than the floor, at the cost of that much room in the
+  // tray below.
+  lip: {
+    enabled: true,
+    kind: "rim",
+    height: 2,
+    thickness: 1.2,
+    ledge: 1.7,
+    play: 0.25,
+    stepHeight: 1.5,
+  },
   topPressFit: 0,
   packingFactor: 0.5,
   leftover: "spare",

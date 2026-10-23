@@ -1,12 +1,28 @@
 import {
   CORNER_MARGIN,
   MIN_FEATURE_MM,
+  MIN_WALL_MM,
   SPEC_TOLERANCE,
   chamferMinimums,
   effective,
   effectiveBottomChamfer,
 } from "./settings";
-import type { Settings } from "./types";
+import type { Settings, TraySpec } from "./types";
+
+/** The rim between layers is on and is the lip and groove (`lip.kind` "rim"). */
+export function rimOn(s: Settings): boolean {
+  return s.lip.enabled && s.lip.kind !== "step";
+}
+
+/** The rim between layers is on and is the stepped base (`lip.kind` "step"). */
+export function stepOn(s: Settings): boolean {
+  return s.lip.enabled && s.lip.kind === "step";
+}
+
+/** How far a part's joint stands above its `h`: the lip of a lipped part with the rim, else 0. */
+export function lipAbove(s: Settings, lipped: boolean): number {
+  return lipped && rimOn(s) ? s.lip.height : 0;
+}
 
 // The locating lip on a tray's rim and the groove under the tray above it (spec §6.1 "Locating
 // lip", geometry 0.8.0). Pure numbers, shared by sizing (walls, minimum sizes, cut placement) and
@@ -85,7 +101,7 @@ export interface Groove {
  * inner wall is lower.
  */
 export function grooveOf(s: Settings, level: number): Groove | null {
-  if (!s.lip.enabled || !(level > 0)) {
+  if (!rimOn(s) || !(level > 0)) {
     return null;
   }
   const { flat, zIn } = lipShape(s.lip.height, s.lip.thickness);
@@ -110,6 +126,8 @@ export interface BottomEdge {
   readonly top: number;
   /** Height of the cavity at distance u in from the outer face (0 where there is none). */
   rise(u: number): number;
+  /** The least outer corner radius the edge needs; `reach` when absent (a chamfer, a groove). */
+  readonly round?: number;
 }
 
 export function plainEdge(c: number): BottomEdge {
@@ -130,10 +148,14 @@ export function asEdge(e: number | BottomEdge): BottomEdge {
   return typeof e === "number" ? plainEdge(e) : e;
 }
 
-/** The edge of a tray at `level`: its groove, or its plain bottom chamfer. */
+/** The edge of a tray at `level`: its groove, its step, or its plain bottom chamfer. */
 export function bottomEdgeOf(s: Settings, level: number): BottomEdge {
   const g = grooveOf(s, level);
-  return g ? grooveEdge(g) : plainEdge(effectiveBottomChamfer(s, level));
+  if (g) {
+    return grooveEdge(g);
+  }
+  const st = stepOf(s, level);
+  return st ? stepEdge(st) : plainEdge(effectiveBottomChamfer(s, level));
 }
 
 /**
@@ -183,10 +205,162 @@ export function grooveWall(s: Settings, level: number): number {
  * the lip height, thickness and play. The floor needs nothing of its own: the groove is in the
  * outer wall only, and `grooveWall` and the cut rules (`planCut`, `edge`) keep every well and cut
  * MIN_FEATURE_MM clear of it. Before 2026-10-23 sizing asked lip.height + 3 mm (5 mm) on top of this,
- * air above shallow contents that a riser could have been.
+ * air above shallow contents that a riser could have been. With the stepped base it is the step's
+ * (`bottomMinimums`: the wall + MIN_FEATURE_MM above the seam, 2.4 mm at the defaults); the slab
+ * hangs below the seam and is no part of it.
  */
 export function upperTrayMinH(s: Settings): number {
   return s.lip.enabled ? bottomMinimums(s, 1).h : 0;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The stepped base (`lip.kind` "step", owner 2026-10-23): the other joint between stacked parts.
+//
+// Cross-section of the upper part's edge, in (u, z): u in from its outer face, z from the seam
+// (where it meets the top of the part below; its TraySpec z). With `wall` the lower part's wall,
+// `inset` = wall + play:
+//
+//   slab:    a solid block under the floor, the outer contour inset by `inset` on every side, from
+//            z = −height up; its bed edge has the 45° `foot` chamfer;
+//   step:    a 45° chamfer from the slab's side at (inset, −play) out to the outer face at
+//            (0, wall), through (wall, 0): the inner edge of the lower part's rim.
+//
+// So the upper part rests on that edge with its chamfer, centred on every side it has a rim
+// under, and the slab hangs `height` into the part below, `play` clear of its wall. Printed slab
+// down, every layer stands on the one under it: the slab is the bed face, the step widens at 45°,
+// so nothing overhangs and nothing needs support. The part's walls stay at `wall`, and its floor
+// above the seam is the Floor setting, so under its wells there are floor + height of solid.
+//
+// The part below has a socket for the slab: everything inside its wall (dividers, the tops of its
+// wells' walls) stops `depth` = height + play under its rim, and its contents stay under that
+// (sizing: MinLayout.socket). The upper part's TraySpec z and h are from the seam, as with the rim:
+// the slab hangs below z as a lip stands above h, so a stack's heights add up as before; only the
+// part below is that much taller and, to the top plane, the part above that much lower.
+// ---------------------------------------------------------------------------------------------
+
+/** The stepped base of a part that stands on a socketed part, mm (see above). */
+export interface Step {
+  /** The slab's height under the seam. */
+  height: number;
+  /** The lower part's wall the slab clears, and the step's size above the seam. */
+  wall: number;
+  /** The effective play, sideways between the slab and that wall and under the slab. */
+  play: number;
+  /** wall + play: how far the slab's side is in from the outer face. */
+  inset: number;
+  /** The 45° chamfer on the slab's bed edge, at most: the tray's bottom chamfer (planTray may make it less). */
+  foot: number;
+  /** inset + foot: how far the outline is pulled in at the bed. */
+  reach: number;
+}
+
+/** The base wall every part keeps (wallFor's base), which a socket leaves around it. */
+function stepWallOf(s: Settings): number {
+  return Math.max(s.wall, MIN_WALL_MM);
+}
+
+/**
+ * The step of a part at `level` (null when it has none): with the stepped base on, every tray and
+ * filler above level 0 stands on a socketed part and has one; level 0 stands on the box floor or a
+ * plain riser. A tray on a riser that carries the joint (`TraySpec.onRiser`) is built as one at
+ * level 1 is. The foot is the tray's bottom chamfer, less where the slab is lower than it and its
+ * play.
+ */
+export function stepOf(s: Settings, level: number): Step | null {
+  if (!stepOn(s) || !(level > 0)) {
+    return null;
+  }
+  const wall = stepWallOf(s);
+  const play = effective(s).lipPlay;
+  const height = s.lip.stepHeight;
+  const inset = wall + play;
+  const foot = Math.max(0, Math.min(effectiveBottomChamfer(s, level), height - play));
+  return { height, wall, play, inset, foot, reach: inset + foot };
+}
+
+/**
+ * The socket a socketed part (one with something stacked on it, `TraySpec.lip`, with the stepped
+ * base on) has for the slab above: inside `wall` from its outer face, `depth` (slab height + play)
+ * deep from its rim; null otherwise. Its corners are rounded only up to `round` (the slab's inset):
+ * every slab, whatever its own corner radius (at least the inset, see `stepEdge`), then fits it
+ * with the play all round.
+ */
+export function socketOf(
+  s: Settings,
+  lipped: boolean,
+): { wall: number; depth: number; round: number } | null {
+  if (!lipped || !stepOn(s)) {
+    return null;
+  }
+  const wall = stepWallOf(s);
+  const play = effective(s).lipPlay;
+  return { wall, depth: s.lip.stepHeight + play, round: wall + play };
+}
+
+/**
+ * The most outer corner radius a socketed part may have, mm: at the corner its wall beside the
+ * socket (whose corner is rounded only to `round`) is thinner than at its faces, by
+ * (R − round)·(√2 − 1), and stays MIN_WALL_MM.
+ */
+export function socketCornerCap(socket: { wall: number; round: number }): number {
+  return socket.round + Math.max(0, socket.wall - MIN_WALL_MM) / (Math.SQRT2 - 1);
+}
+
+/**
+ * The step as a bottom edge, above the seam (z ≥ 0, the only heights wells, cuts and slots
+ * reach): the step's 45° plane u + z = wall, so a plain chamfer of the wall's size; `reach` is the
+ * slab's foot at the bed, and the outer corner needs to be only as round as the inset (`round`),
+ * where the step's rings stay exact offsets of the outline.
+ */
+export function stepEdge(st: Step): BottomEdge {
+  return {
+    at: () => st.wall,
+    reach: st.reach,
+    top: st.wall,
+    round: st.inset,
+    rise: (u) => Math.max(0, st.wall - u),
+  };
+}
+
+/** How far a part at `level` (onRiser: as level 1) hangs below its z: its slab, else 0. */
+export function stepBelow(s: Settings, level: number): number {
+  return stepOf(s, level)?.height ?? 0;
+}
+
+/**
+ * The level a part's bottom is built at (planTray): spacers and dividers always as level 0, a tray
+ * on a riser that carries the joint (`onRiser`) as one above level 0, everything else its level.
+ */
+export function builtLevel(spec: Pick<TraySpec, "part" | "level" | "onRiser">): number {
+  if (spec.part === "spacer" || spec.part === "divider") {
+    return 0;
+  }
+  return spec.onRiser === true ? Math.max(1, spec.level) : spec.level;
+}
+
+/**
+ * How far a printed part hangs below its z, mm: the slab of a part with the stepped base, else 0.
+ * A merged part never has one (mergeParts keeps the parts above level 0 apart with the joint on).
+ */
+export function slabUnder(s: Settings, spec: TraySpec): number {
+  return spec.merged === undefined ? stepBelow(s, builtLevel(spec)) : 0;
+}
+
+/**
+ * The outer wall a part at `level` needs for its step, mm (0 without one): the wells' bottom
+ * corner at the lowest floor there is, where the step pulls the outline in by wall − floor, keeps
+ * MIN_FEATURE_MM + CORNER_MARGIN to an outer corner as round as the step needs (the inset;
+ * maxCornerRadius solved for the wall, the corner at p = q). At the defaults 1.47 mm, under the
+ * 1.6 mm wall: the step never thickens a wall there; it does with a thin floor.
+ */
+export function stepWall(s: Settings, level: number): number {
+  const st = stepOf(s, level);
+  if (st === null) {
+    return 0;
+  }
+  const floor = Math.max(s.floor, MIN_FEATURE_MM);
+  const m = MIN_FEATURE_MM + CORNER_MARGIN + Math.max(0, st.wall - floor);
+  return Math.max(m, (st.inset + (1 + Math.SQRT2) * m) / (2 + Math.SQRT2)) + 2 * SPEC_TOLERANCE;
 }
 
 /**
@@ -198,8 +372,14 @@ export function upperTrayMinH(s: Settings): number {
  */
 export function bottomMinimums(s: Settings, level: number): { side: number; h: number } {
   const g = grooveOf(s, level);
-  if (g === null) {
-    return chamferMinimums(s, level);
+  if (g !== null) {
+    return { side: 2 * (g.reach + MIN_FEATURE_MM), h: g.zTop + MIN_FEATURE_MM };
   }
-  return { side: 2 * (g.reach + MIN_FEATURE_MM), h: g.zTop + MIN_FEATURE_MM };
+  const st = stepOf(s, level);
+  if (st !== null) {
+    // The slab's bed face keeps MIN_FEATURE_MM each side of the middle; above the seam the outer
+    // face stands whole MIN_FEATURE_MM over the step.
+    return { side: 2 * (st.reach + MIN_FEATURE_MM), h: st.wall + MIN_FEATURE_MM };
+  }
+  return chamferMinimums(s, level);
 }

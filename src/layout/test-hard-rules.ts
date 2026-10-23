@@ -12,7 +12,7 @@
  */
 import { planTray } from "../geometry/plan";
 import { effective } from "../model/settings";
-import { grooveOf } from "../model/lip";
+import { grooveOf, rimOn } from "../model/lip";
 import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
 import { hasGrip, needsGrip, wallFor } from "../sizing";
@@ -209,7 +209,8 @@ export function checkHardRules(
           v.push(`${t.key}: upper tray lower than its groove needs`);
         }
         const lower = stack[k - 1];
-        if (lower && settings.lip.enabled) {
+        // The stepped base has no ledge to bear on: its trays rest on their 45° step.
+        if (lower && rimOn(settings)) {
           // The lower tray's outer wall as planTray builds it: its base wall or the lipped wall.
           const lipped = Math.max(lower.wall, wallFor(settings, true));
           // the end of x the tray stands flush on (a tray with a filler beside it hangs over the
@@ -316,7 +317,7 @@ export function checkHardRules(
 
   // Rule 5: bed fit with margin, either rotation; a lipped tray prints its lip tall as well.
   for (const t of trays) {
-    if (!fitsBed(ctx.bed, toU(t.w), toU(t.d), printedHeight(ctx, toU(t.h), t.lip))) {
+    if (!fitsBed(ctx.bed, toU(t.w), toU(t.d), printedHeight(ctx, toU(t.h), t.lip, t.level > 0))) {
       v.push(`${t.key}: does not fit the print bed`);
     }
   }

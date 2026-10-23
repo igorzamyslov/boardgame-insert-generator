@@ -179,6 +179,11 @@
   flex-direction: column;
 }
 
+/* Kind of rim, a choice among the switches: the room a switch row has above and below it. */
+.st-checks > .st-field {
+  padding-block: var(--s-8);
+}
+
 /* A switch and, while it differs from its default, the way back under its words. */
 .st-switch {
   display: flex;

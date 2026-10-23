@@ -150,7 +150,15 @@ describe("finger cuts and curved floor toggles", () => {
       fit: 0.7,
       bottomChamfer: 0,
       fingerPocket: { width: 5.002, floorNotch: 0, wallRoom: 0.891, dividerRoom: 12.611 },
-      lip: { enabled: false, height: 1, thickness: 0.9, ledge: 0.5, play: 0.25 },
+      lip: {
+        enabled: false,
+        kind: "rim" as const,
+        height: 1,
+        thickness: 0.9,
+        ledge: 0.5,
+        play: 0.25,
+        stepHeight: 1.5,
+      },
     };
     const parts = size([m], settings).requirements.flatMap((req) =>
       req.variants.flatMap((v) => v.parts),

@@ -1,6 +1,7 @@
 // Test helper: everything wrong with a built tray's mesh (topology, volume, bounds and
 // printability), shared by the mesh sweeps and cases.
 import type { ManifoldToplevel } from "manifold-3d";
+import { lipAbove, slabUnder } from "../model/lip";
 import { MIN_FEATURE_MM } from "../model/settings";
 import type { Settings, TraySpec } from "../model/types";
 import { checkPrintability } from "./printability";
@@ -25,7 +26,11 @@ export function problemsOf(m: ManifoldToplevel, spec: TraySpec, settings: Settin
     problems.push(`volume ${volumeMm3} (mesh ${signedVolume(mesh)})`);
   }
   const b = bounds(mesh);
-  const expected = [spec.w, spec.d, spec.h + (spec.lip ? settings.lip.height : 0)];
+  const expected = [
+    spec.w,
+    spec.d,
+    spec.h + lipAbove(settings, spec.lip) + slabUnder(settings, spec),
+  ];
   const off = b.max.some(
     (v, k) => Math.abs(v - (expected[k] ?? 0)) > 1e-3 || Math.abs(b.min[k] ?? 1) > 1e-3,
   );

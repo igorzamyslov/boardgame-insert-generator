@@ -230,7 +230,7 @@ export function planCornerRadius(
       r = Math.min(r, maxCornerRadius(p, q, disc.rho + disc.e));
     }
   }
-  return Math.max(r, edge.reach);
+  return Math.max(r, edge.round ?? edge.reach);
 }
 
 // The thinnest outer material left at a cut corner or relief when the outer corner radius is

@@ -1,3 +1,4 @@
+import { builtLevel, rimOn, stepOf } from "../model/lip";
 import { effective, topPlane } from "../model/settings";
 import type { BoxMm, TraySpec } from "../model/types";
 import { splitDividers } from "./dividers";
@@ -34,9 +35,10 @@ function overlapMm3(a: BoxMm, b: BoxMm): number {
  * (mergeParts) is its members as they print alone, plus its solid bridges. (What a slicer really
  * uses at the owner's infill is app/filament.ts, from the built mesh.)
  */
-function solidVolume(t: TraySpec, lip: LayoutInput["settings"]["lip"]): number {
+function solidVolume(t: TraySpec, settings: LayoutInput["settings"]): number {
+  const { lip } = settings;
   if (t.merged) {
-    let solid = t.merged.members.reduce((sum, m) => sum + solidVolume(m, lip), 0);
+    let solid = t.merged.members.reduce((sum, m) => sum + solidVolume(m, settings), 0);
     // A bridge reaches into the members it joins: only the part of it outside them is new plastic.
     for (const b of t.merged.bridges) {
       const inside = t.merged.members.reduce((sum, m) => sum + overlapMm3(b, m), 0);
@@ -44,15 +46,21 @@ function solidVolume(t: TraySpec, lip: LayoutInput["settings"]["lip"]): number {
     }
     return solid;
   }
-  const outer = t.w * t.d * t.h;
+  // The stepped base's slab under a part above level 0 (spacers and dividers stand at level 0).
+  const step = stepOf(settings, builtLevel(t));
+  const slab = step
+    ? Math.max(0, t.w - 2 * step.inset) * Math.max(0, t.d - 2 * step.inset) * step.height
+    : 0;
+  const outer = t.w * t.d * t.h + slab;
   if (t.solid) {
     return outer;
   }
   const hollow = t.compartments.reduce((s, c) => s + c.w * c.d * Math.max(0, t.h - c.floorZ), 0);
-  const ring = t.lip
-    ? (t.w * t.d - Math.max(0, t.w - 2 * lip.thickness) * Math.max(0, t.d - 2 * lip.thickness)) *
-      lip.height
-    : 0;
+  const ring =
+    t.lip && rimOn(settings)
+      ? (t.w * t.d - Math.max(0, t.w - 2 * lip.thickness) * Math.max(0, t.d - 2 * lip.thickness)) *
+        lip.height
+      : 0;
   return outer - hollow + ring;
 }
 
@@ -76,13 +84,16 @@ export function summarize(
   // an open box like a riser; its separator plates are not split out here (see partVolumes).
   const parts = mergeParts(
     openSpacers(
-      splitDividers(splitRisers(trays, { settings, printer: input.printer, locks: input.locks })),
+      splitDividers(
+        splitRisers(trays, { settings, printer: input.printer, locks: input.locks }),
+        settings,
+      ),
       { settings },
     ),
     { settings, printer: input.printer },
   );
   for (const t of parts) {
-    filament += solidVolume(t, settings.lip);
+    filament += solidVolume(t, settings);
   }
   const bottoms: Rect[] = printed
     .filter((t) => t.level === 0)

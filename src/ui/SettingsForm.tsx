@@ -13,7 +13,8 @@ import {
   wallChoiceOf,
 } from "../model/settings";
 import type { FitChoice, WallChoice } from "../model/settings";
-import type { Settings } from "../model/types";
+import { socketOf } from "../model/lip";
+import type { LipKind, Settings } from "../model/types";
 import { SETTING_RANGES } from "../model/validate";
 import { CheckRow, DisclosureRow, SearchField, Segmented } from "../kit";
 import { ONE_WALL_MAX_MM } from "../sizing/constants";
@@ -550,8 +551,48 @@ function Labelled({
   );
 }
 
+/** What the rim and groove cost, under "Kind of rim". */
+export const RIM_KIND_RIM_LINE = "Trays with one on top get thicker walls.";
+/** Why "Kind of rim" is blocked. */
+export const RIM_KIND_BLOCKED = "Needs Rim between layers.";
+
 /** What the least riser does, under its box: the trays carry any smaller padding as a thicker floor. */
 const MIN_RISER_LINE = "Smaller padding stays a thicker tray floor.";
+
+/**
+ * The rim's kind, under its switch (2026-10-23): the rim and groove, or the stepped base, with a
+ * line that says what each costs. Blocked, with its reason, while the rim is off.
+ */
+function RimKind({ settings, onChange }: SettingsFormProps) {
+  const kind = settings.lip.kind;
+  const blockedReason = settings.lip.enabled ? undefined : RIM_KIND_BLOCKED;
+  const socket = socketOf(
+    { ...settings, lip: { ...settings.lip, enabled: true, kind: "step" } },
+    true,
+  );
+  return (
+    <Labelled
+      label="Kind of rim"
+      changed={kind !== DEFAULT_SETTINGS.lip.kind}
+      line={
+        kind === "step"
+          ? `Walls stay thin; a tray with one on top is ${formatNumber(socket?.depth ?? 0)} mm deeper.`
+          : RIM_KIND_RIM_LINE
+      }
+    >
+      <Segmented<LipKind>
+        label="Kind of rim"
+        stretch
+        options={[
+          { value: "rim", label: "Rim and groove", blockedReason },
+          { value: "step", label: "Stepped base", blockedReason, changed: true },
+        ]}
+        value={kind}
+        onChange={(k) => onChange({ ...settings, lip: { ...settings.lip, kind: k } })}
+      />
+    </Labelled>
+  );
+}
 
 /** "Separate risers from": the one number of the first screen, beside the switches it belongs with. */
 function MinRiserRow({ settings, onChange }: SettingsFormProps) {
@@ -643,7 +684,11 @@ function HowTheTraysSit({
         />
         <SwitchRow
           label="Rim between layers"
-          hint="A small rim on each tray keeps the top layer from sliding"
+          hint={
+            settings.lip.kind === "step"
+              ? "A step under each tray keeps the top layer from sliding"
+              : "A small rim on each tray keeps the top layer from sliding"
+          }
           checked={settings.lip.enabled}
           changed={settings.lip.enabled !== DEFAULT_SETTINGS.lip.enabled}
           defaultOn={DEFAULT_SETTINGS.lip.enabled}
@@ -655,6 +700,7 @@ function HowTheTraysSit({
             })
           }
         />
+        <RimKind settings={settings} onChange={onChange} />
         <SwitchRow
           label="Fill to the lid"
           hint="Keeps everything snug if the box is stored on its side"

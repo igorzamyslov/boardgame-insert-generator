@@ -76,7 +76,17 @@ describe("layout warnings", () => {
   it("warns about play above 1.5 mm per axis and about a disabled lip", () => {
     const ctx = createCtx(
       makeInput(reqs, {
-        settings: { lip: { enabled: false, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 } },
+        settings: {
+          lip: {
+            enabled: false,
+            kind: "rim",
+            height: 2,
+            thickness: 1.2,
+            ledge: 1.7,
+            play: 0.25,
+            stepHeight: 1.5,
+          },
+        },
       }),
       fakeMeasure,
     );
@@ -250,7 +260,17 @@ describe("layout warnings", () => {
     // nothing to say with the lip off, on a bigger bed, or when another variant stacks fine
     const off = makeInput([wide], {
       ...small,
-      settings: { lip: { enabled: false, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 } },
+      settings: {
+        lip: {
+          enabled: false,
+          kind: "rim",
+          height: 2,
+          thickness: 1.2,
+          ledge: 1.7,
+          play: 0.25,
+          stepHeight: 1.5,
+        },
+      },
     });
     expect(bedNotices(createCtx(off, fakeMeasure))).toEqual([]);
     expect(bedNotices(createCtx(makeInput([wide]), fakeMeasure))).toEqual([]);
@@ -334,7 +354,17 @@ describe("layout warnings", () => {
     const off = createCtx(
       makeInput([wide], {
         ...small,
-        settings: { lip: { enabled: false, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 } },
+        settings: {
+          lip: {
+            enabled: false,
+            kind: "rim",
+            height: 2,
+            thickness: 1.2,
+            ledge: 1.7,
+            play: 0.25,
+            stepHeight: 1.5,
+          },
+        },
       }),
       fakeMeasure,
     );

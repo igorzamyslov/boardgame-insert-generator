@@ -102,7 +102,15 @@ function build(spec: InputSpec): LayoutInput {
     settings: {
       fit: spec.fit,
       leftover: spec.solid ? "solid" : "spare",
-      lip: { enabled: spec.lip, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
+      lip: {
+        enabled: spec.lip,
+        kind: "rim",
+        height: 2,
+        thickness: 1.2,
+        ledge: 1.7,
+        play: 0.25,
+        stepHeight: 1.5,
+      },
     },
   });
 }

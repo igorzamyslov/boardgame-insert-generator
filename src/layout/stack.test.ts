@@ -146,7 +146,17 @@ describe("stackAllowed", () => {
     createCtx(
       makeInput(reqs, {
         printer: { bedX: 130, bedY: 130 },
-        settings: { lip: { enabled: lip, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 } },
+        settings: {
+          lip: {
+            enabled: lip,
+            kind: "rim",
+            height: 2,
+            thickness: 1.2,
+            ledge: 1.7,
+            play: 0.25,
+            stepHeight: 1.5,
+          },
+        },
       }),
       fakeMeasure,
     );

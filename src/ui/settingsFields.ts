@@ -34,6 +34,7 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
   "lip/thickness": (s, v) => ({ ...s, lip: { ...s.lip, thickness: v } }),
   "lip/ledge": (s, v) => ({ ...s, lip: { ...s.lip, ledge: v } }),
   "lip/play": (s, v) => ({ ...s, lip: { ...s.lip, play: v } }),
+  "lip/stepHeight": (s, v) => ({ ...s, lip: { ...s.lip, stepHeight: v } }),
   topPressFit: (s, v) => ({ ...s, topPressFit: v }),
   packingFactor: (s, v) => ({ ...s, packingFactor: v }),
   wallAbsorb: (s, v) => ({ ...s, wallAbsorb: v }),
