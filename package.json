@@ -1,6 +1,6 @@
 {
   "name": "insert-generator",
-  "version": "0.25.0",
+  "version": "0.25.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -54,7 +54,7 @@
     "vitest": "^5.0.5"
   },
   "engines": {
-    "node": ">=20.20.2"
+    "node": ">=24.22.1"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,tsx}": [
