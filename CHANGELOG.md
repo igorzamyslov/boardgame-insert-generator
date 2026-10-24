@@ -2,7 +2,8 @@
 
 What changed in Insert Generator, version by version, for the people who use it. Newest first.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): each version lists
-what was Added, Changed and Fixed. Every version is also a release on GitHub with the same notes.
+what was Added, Changed and Fixed. Versions released after this changelog was added are also releases on GitHub with the same
+notes; earlier versions are recorded here only.
 
 New entries go under "Unreleased" until a version is cut; see "Changelog and releases" in
 `docs/DEVELOPMENT.md`.

@@ -8,7 +8,6 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkChangelog } from "./check-changelog.mjs";
 import { lintChangelog, notesFor, parseChangelog, releaseTitle } from "./changelog.mjs";
-import { releaseCandidates } from "./backfill-releases.mjs";
 
 const SAMPLE = `# Changelog
 
@@ -94,20 +93,6 @@ describe("checkChangelog", () => {
   });
   it("ignores a pull request that does not raise the version", () => {
     expect(checkChangelog("0.2.0", "0.2.0", "nothing here")).toEqual([]);
-  });
-});
-
-describe("releaseCandidates", () => {
-  it("picks the first commit of each version, oldest first", () => {
-    const c = (sha, version) => ({ sha, version, date: "", subject: "" });
-    const plan = releaseCandidates([
-      c("a", null),
-      c("b", "0.1.0"),
-      c("c", "0.1.0"),
-      c("d", "0.2.0"),
-      c("e", "0.2.0"),
-    ]);
-    expect(plan.map((p) => `${p.version}@${p.sha}`)).toEqual(["0.1.0@b", "0.2.0@d"]);
   });
 });
 

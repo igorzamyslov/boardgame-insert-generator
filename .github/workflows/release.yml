@@ -2,7 +2,7 @@ name: Release
 
 # A push to main that changes package.json's version tags that version and publishes a GitHub
 # Release whose notes are the version's CHANGELOG.md section. Re-running does nothing once the
-# tag exists. Releases made by hand or by scripts/backfill-releases.mjs are left alone.
+# tag exists. Earlier versions have no tags or releases; they start with the first version after this workflow.
 on:
   push:
     branches: [main]

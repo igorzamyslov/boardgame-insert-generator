@@ -725,9 +725,7 @@ what to reprint. Behind-the-scenes changes get one short line saying the app is 
   release gets GitHub's generated notes and the entries stay under Unreleased for the next
   version that moves them. So a release PR must move them.
 - **Check it** without GitHub: `node scripts/changelog.mjs notes 0.22.0` prints the notes and
-  `node scripts/changelog.mjs title 0.22.0 "0.22.0: summary (#1)"` the title;
-  `node scripts/backfill-releases.mjs` lists what a backfill would create (it only creates
-  anything with `--apply`, which was run once, with the owner's go-ahead).
+  `node scripts/changelog.mjs title 0.22.0 "0.22.0: summary (#1)"` the title.
 
 ### Add a notice
 
