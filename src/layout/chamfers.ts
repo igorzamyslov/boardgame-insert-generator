@@ -188,6 +188,7 @@ function chamfersOfCandidate(
   trays: readonly Box[],
   settings: Settings,
   gap: number,
+  cap: number,
 ): TopChamfer[] {
   const { box, part } = c;
   const top = box.z1;
@@ -211,11 +212,13 @@ function chamfersOfCandidate(
     let active: readonly Side[] = pinch ? pair : own;
     let size = 0;
     let runs = new Map<Side, Run[]>();
-    // Whether a tray against the face reaches `depth` into the groove: the face is chamfered.
+    // Whether a tray against the face stands in the groove at all: the face is chamfered. Whether
+    // its wall is deep enough to grip is the lift guide's question (`traysOpenedBy`), not this one:
+    // a spacer a little taller than the stack beside it is chamfered like its neighbours.
     const reached = (s: Side, depth: number): boolean =>
-      (beside.get(s) ?? []).some((t) => grip(t, top, depth) >= CHAMFER_MIN_GRIP_MM - EPS);
+      (beside.get(s) ?? []).some((t) => grip(t, top, depth) > EPS);
     for (let round = 0; round < 4 && active.length > 0; round += 1) {
-      size = chamferSize(across, part.h, edgeTop, active.length === 2 ? 2 : 1);
+      size = chamferSize(across, part.h, edgeTop, active.length === 2 ? 2 : 1, cap);
       if (size === 0 && active.length === 2) {
         // Two chamfers would be under a grip: take the longer face, with all its room.
         const length = (s: Side): number =>
@@ -224,7 +227,7 @@ function chamfersOfCandidate(
             .reduce((a, t) => a + sharedLength(box, t, s), 0);
         const best = length(pair[0]) >= length(pair[1]) ? pair[0] : pair[1];
         active = [best];
-        size = chamferSize(across, part.h, edgeTop, 1);
+        size = chamferSize(across, part.h, edgeTop, 1, cap);
       }
       runs = new Map(
         active.map((s) => {
@@ -288,12 +291,23 @@ export function addTopChamfers(trays: readonly TraySpec[], o: ChamferInputs): Tr
   const { settings } = o;
   const gap = effective(settings).trayGap;
   const targets = trays.filter((t) => t.part === "tray").map((t) => boxOf(t));
-  const placed = new Map<TraySpec, TopChamfer[]>();
-  for (const c of candidatesOf(trays)) {
-    const found = chamfersOfCandidate(c, targets, settings, gap);
-    if (found.length > 0) {
-      placed.set(c.part, found);
+  const candidates = candidatesOf(trays);
+  const place = (cap: number): Map<TraySpec, TopChamfer[]> => {
+    const out = new Map<TraySpec, TopChamfer[]>();
+    for (const c of candidates) {
+      const found = chamfersOfCandidate(c, targets, settings, gap, cap);
+      if (found.length > 0) {
+        out.set(c.part, found);
+      }
     }
+    return out;
+  };
+  // Every chamfer of a layout is the same size, the smallest any spacer can take, so no spacer
+  // looks cut differently from the one beside it.
+  let placed = place(CHAMFER_MM);
+  const smallest = Math.min(CHAMFER_MM, ...[...placed.values()].flat().map((c) => c.size));
+  if (smallest < CHAMFER_MM) {
+    placed = place(smallest);
   }
   const withChamfers = (part: TraySpec): TraySpec => {
     const chamfers = (placed.get(part) ?? []).sort(

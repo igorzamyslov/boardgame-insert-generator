@@ -10,6 +10,8 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-24
+
 ### Changed
 
 - **Settings opens on one page, with three rows that open the rest.** The three tabs are gone. "This
@@ -23,6 +25,10 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 - **The item list's drag handle has its own gutter.** The six dots sit to the left of the icon and
   show only when you point at a row or move the keyboard to it. On a touch screen there is no handle:
   hold a row to lift it.
+- **Every spacer's top chamfer is the same size.** A spacer next to a tray that stood a little
+  lower was left square beside spacers with a slope. Now each spacer beside a tray gets the slope,
+  and all of them share the smallest size any spacer can take. A spacer too thin for that stays
+  square. Printed parts change, so re-export inserts you want to print.
 
 ### Fixed
 
