@@ -12,12 +12,14 @@ import {
   LineSegments,
   Mesh as ThreeMesh,
   MeshBasicMaterial,
-  MeshStandardMaterial,
+  MeshLambertMaterial,
+  OrthographicCamera,
   PerspectiveCamera,
   Raycaster,
   Scene,
   TOUCH,
   Vector2,
+  Vector3,
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -34,7 +36,28 @@ import {
   trayPosition,
 } from "./transform";
 import type { BoxOutline, SceneFactory, SceneHandle, SceneTray } from "./types";
-import { cornersOf, fitDistance, modelRadius, ndcOf, outlineTarget } from "./fit";
+import {
+  AMBIENT_INTENSITY,
+  SUN_DIRECTION,
+  SUN_INTENSITY,
+  fadedColor,
+  hexOf,
+  litColor,
+} from "./colors";
+import {
+  CAMERA_FOV,
+  boxRadius,
+  cornersOf,
+  fitDistance,
+  modelRadius,
+  ndcOf,
+  orthoHalfHeight,
+  outlineTarget,
+} from "./fit";
+import type { Vec3 } from "./fit";
+import { keepsView } from "./view";
+import type { Projection, ViewState } from "./view";
+import { BODY, groupTriangles, wellOfTriangles } from "./wells";
 import { exposeShotsScene } from "./shotsScene";
 import { WebGLUnavailableError } from "./webgl";
 
@@ -46,15 +69,20 @@ interface TrayObject {
   /** SceneTray.below: the mesh's bed face is this far under the spec's z. */
   below: number;
   object: ThreeMesh;
-  material: MeshStandardMaterial;
+  /**
+   * One material per colour the part is drawn in: the body's first, then each distinct colour its
+   * wells are drawn in inside (the mesh's triangle groups index them). A part with no coloured well
+   * has the body's alone.
+   */
+  materials: MeshLambertMaterial[];
   /**
    * The tray drawn into depth only, just before the tray itself while it is drawn through: without
    * it a see-through tray's far walls and wells blend over its near faces in whatever order the
    * triangles come, and it reads as turned inside out. With it only the nearest face blends.
    */
   depth: ThreeMesh;
-  /** The tray's own colour: what it shows at full strength, before any fade toward the page. */
-  base: Color;
+  /** Each material's own colour (same order): what it shows at full strength, before any fade toward the page. */
+  bases: Color[];
 }
 
 const CLICK_SLOP_PX = 5;
@@ -71,20 +99,10 @@ const SLAB_OPACITY = 0.18;
  * The camera's first place, as a direction from the middle of the box (y toward the front, z up):
  * in front of it and above, as the view has always opened. Its length is the fit's, not this one's.
  */
-const OPENING_VIEW = { y: -1, z: 0.9 };
-
-/** A shade as a lit surface needs it: the dark-scheme shades are lifted so the shading shows. */
-function litColor(css: string): Color {
-  const c = new Color(css);
-  const hsl = { h: 0, s: 0, l: 0 };
-  c.getHSL(hsl);
-  return hsl.l < 0.4 ? c.setHSL(hsl.h, Math.min(1, hsl.s + 0.1), hsl.l + 0.25) : c;
-}
-
-/** A colour as "#rrggbb", for the shots window. */
-function hexOf(c: Color): string {
-  return "#".concat(c.getHexString());
-}
+const OPENING_VIEW: Vec3 = (() => {
+  const unit = Math.hypot(1, 0.9);
+  return [0, -1 / unit, 0.9 / unit];
+})();
 
 /** Frees the renderer and, since browsers keep only a few, the WebGL context behind it. */
 function release(renderer: WebGLRenderer): void {
@@ -110,9 +128,15 @@ export const createScene: SceneFactory = (canvas) => {
 function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHandle {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   const scene = new Scene();
-  const camera = new PerspectiveCamera(40, 1, 1, 10000);
-  camera.up.set(0, 0, 1);
-  camera.position.set(150, -300, 300);
+  // Both cameras exist for the scene's life and the controls take whichever is shown (`projection`).
+  const perspective = new PerspectiveCamera(CAMERA_FOV, 1, 1, 10000);
+  const orthographic = new OrthographicCamera(-100, 100, 100, -100, 1, 10000);
+  for (const c of [perspective, orthographic]) {
+    c.up.set(0, 0, 1);
+    c.position.set(150, -300, 300);
+  }
+  let projection: Projection = "perspective";
+  let camera = perspective as PerspectiveCamera | OrthographicCamera;
   const controls = new OrbitControls(camera, canvas);
   // The camera turns and zooms about the middle of the box and never slides off it: the fit (fit.ts)
   // holds for a sphere about that point only.
@@ -122,9 +146,9 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   // fingers zoom and turn. The mouse keeps drag to turn, wheel to zoom.
   canvas.style.touchAction = "pan-y";
   controls.touches = { ONE: null, TWO: TOUCH.DOLLY_ROTATE };
-  scene.add(new AmbientLight(0xffffff, 0.7));
-  const sun = new DirectionalLight(0xffffff, 1.6);
-  sun.position.set(-1, -2, 3);
+  scene.add(new AmbientLight(0xffffff, AMBIENT_INTENSITY));
+  const sun = new DirectionalLight(0xffffff, SUN_INTENSITY);
+  sun.position.set(SUN_DIRECTION.x, SUN_DIRECTION.y, SUN_DIRECTION.z);
   scene.add(sun);
 
   let trays: TrayObject[] = [];
@@ -172,30 +196,56 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       const [x, y, z] = trayPosition(t.spec, explode, center, t.anchor);
       t.object.position.set(x, y, z - t.below);
       t.object.visible = isVisible(t.spec, maxLevel);
-      t.material.emissive.setHex(emissiveOf(t.spec.key, selected, lit, edited));
-      t.material.color.copy(t.base).lerp(pageColor, fadeOf(t.spec.key, selected, lit, edited));
+      const glow = emissiveOf(t.spec.key, selected, lit, edited);
+      const fade = fadeOf(t.spec.key, selected, lit, edited);
       // The faded trays of an edited item are drawn through, so the item's own show behind them.
       const opacity = opacityOf(t.spec.key, selected, lit, edited);
-      t.material.opacity = opacity;
-      t.material.transparent = opacity < 1;
-      t.material.depthWrite = opacity === 1;
+      t.materials.forEach((material, i) => {
+        material.emissive.setHex(glow);
+        fadedColor(material.color, t.bases[i] ?? t.bases[0] ?? pageColor, pageColor, fade);
+        material.opacity = opacity;
+        material.transparent = opacity < 1;
+        material.depthWrite = opacity === 1;
+      });
       t.depth.visible = opacity < 1;
     }
     requestDraw();
   }
 
-  /** The distance from the middle of the box at which the model, spread as far as it is, is in frame. */
-  function wantedDistance(): number {
+  /** The sphere about the middle of the box that holds the model, spread as far as it is (0: no box yet). */
+  function wantedRadius(): number {
     return framed === null
       ? 0
-      : fitDistance(
-          modelRadius(
-            framed,
-            trays.map(({ spec, anchor }) => ({ spec, anchor })),
-            explode,
-          ),
-          aspect,
+      : modelRadius(
+          framed,
+          trays.map(({ spec, anchor }) => ({ spec, anchor })),
+          explode,
         );
+  }
+
+  /** The distance from the middle of the box at which the model, spread as far as it is, is in frame. */
+  function wantedDistance(): number {
+    return framed === null ? 0 : fitDistance(wantedRadius(), aspect);
+  }
+
+  /**
+   * Sets the shown camera's frame: the field of view follows the frame's shape; the orthographic
+   * camera's box is the sphere's size (it has no distance to fit by) over its zoom.
+   */
+  function updateProjection(): void {
+    if (camera === orthographic) {
+      const radius = wantedRadius();
+      if (radius > 0) {
+        const half = orthoHalfHeight(radius, aspect);
+        orthographic.top = half;
+        orthographic.bottom = -half;
+        orthographic.left = -half * aspect;
+        orthographic.right = half * aspect;
+      }
+    } else {
+      perspective.aspect = aspect;
+    }
+    camera.updateProjectionMatrix();
   }
 
   /**
@@ -216,15 +266,82 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
     }
     fitted = wanted;
     camera.far = wanted * 10;
-    camera.updateProjectionMatrix();
+    updateProjection();
     controls.update();
+  }
+
+  /** Where the camera stands now, as shares of the fit (view.ts ViewState). */
+  function currentView(): ViewState {
+    const offset = camera.position.clone().sub(controls.target);
+    const dist = offset.length();
+    const unit = dist > 0 ? offset.divideScalar(dist) : new Vector3(...OPENING_VIEW);
+    return {
+      direction: [unit.x, unit.y, unit.z],
+      share: fitted > 0 ? dist / fitted : 1,
+      zoom: orthographic.zoom,
+      projection,
+      boxRadius: framed === null ? 0 : boxRadius(framed),
+      explode,
+    };
+  }
+
+  /** Puts the shown camera where `direction`, `share` of the fit away and `zoom` say, about the box's middle. */
+  function placeCamera(direction: Vec3, share: number, zoom: number): void {
+    if (framed === null) {
+      return;
+    }
+    const [tx, ty, tz] = outlineTarget(framed);
+    const dist = wantedDistance();
+    controls.target.set(tx, ty, tz);
+    camera.position.set(
+      tx + direction[0] * dist * share,
+      ty + direction[1] * dist * share,
+      tz + direction[2] * dist * share,
+    );
+    orthographic.zoom = zoom;
+    fitted = dist;
+    camera.far = dist * 10;
+    updateProjection();
+    controls.update();
+  }
+
+  /**
+   * Shows the other camera from the same side at the same apparent size: a perspective camera
+   * that is `share` of the fit away is an orthographic one zoomed by 1 / share, and back.
+   */
+  function showProjection(next: Projection): void {
+    if (next === projection) {
+      return;
+    }
+    if (framed === null) {
+      // Nothing is framed yet: the camera that is shown changes, and the box's frame places it.
+      projection = next;
+      camera = next === "orthographic" ? orthographic : perspective;
+      controls.object = camera;
+      return;
+    }
+    const was = camera;
+    const apparent = projection === "perspective" ? currentView().share : 1 / orthographic.zoom;
+    const dir = was.position.clone().sub(controls.target).normalize();
+    projection = next;
+    camera = next === "orthographic" ? orthographic : perspective;
+    controls.object = camera;
+    camera.position
+      .copy(controls.target)
+      .addScaledVector(dir, fitted * (next === "orthographic" ? 1 : apparent));
+    camera.quaternion.copy(was.quaternion);
+    orthographic.zoom = next === "orthographic" ? 1 / apparent : 1;
+    camera.far = Math.max(fitted, 1) * 10;
+    updateProjection();
+    controls.update();
+    requestDraw();
   }
 
   function clearTrays(): void {
     for (const t of trays) {
       scene.remove(t.object);
       t.object.geometry.dispose();
-      t.material.dispose();
+      t.materials.forEach((m) => m.dispose());
       (t.depth.material as MeshBasicMaterial).dispose();
     }
     trays = [];
@@ -282,13 +399,18 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   // Shots mode only: lets the harness read which trays glow (shotsScene.ts).
   const dropShotsScene = exposeShotsScene({
     emissive: () =>
-      Object.fromEntries(trays.map((t) => [t.spec.key, t.material.emissive.getHex()])),
+      Object.fromEntries(trays.map((t) => [t.spec.key, t.materials[0]?.emissive.getHex() ?? 0])),
     tints: () => ({
       page: PAGE_HEX,
       trays: Object.fromEntries(
         trays.map((t) => [
           t.spec.key,
-          { color: hexOf(t.material.color), base: hexOf(t.base), opacity: t.material.opacity },
+          {
+            color: hexOf(t.materials[0]?.color ?? pageColor),
+            base: hexOf(t.bases[0] ?? pageColor),
+            opacity: t.materials[0]?.opacity ?? 1,
+            wells: t.bases.slice(1).map(hexOf),
+          },
         ]),
       ),
     }),
@@ -320,6 +442,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   const handle: SceneHandle = {
     setBox(o: BoxOutline) {
       clearOutline();
+      const framedBefore = framed;
       const [w, d, h] = o.size;
       const [x0, y0, z0] = o.min;
       center = outlineCenter(o);
@@ -331,27 +454,22 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       line.position.set(x0 + w / 2, y0 + d / 2, z0 + h / 2);
       scene.add(line);
       outline = { line, material };
-      // A new box starts the view again: the opening direction, at the distance that fits the model.
+      // A box of about the same size keeps the view (the turn, the zoom, the projection) and is
+      // framed as before; one of another size starts it again from the opening place.
+      const was = currentView();
+      const keep = framedBefore !== null && keepsView(boxRadius(framedBefore), boxRadius(o));
       framed = o;
-      const [tx, ty, tz] = outlineTarget(o);
-      const dist = wantedDistance();
-      const unit = Math.hypot(OPENING_VIEW.y, OPENING_VIEW.z);
-      controls.target.set(tx, ty, tz);
-      camera.position.set(
-        tx,
-        ty + (OPENING_VIEW.y / unit) * dist,
-        tz + (OPENING_VIEW.z / unit) * dist,
-      );
-      fitted = dist;
-      camera.far = dist * 10;
-      camera.updateProjectionMatrix();
-      controls.update();
+      if (keep) {
+        placeCamera(was.direction, was.share, was.zoom);
+      } else {
+        placeCamera(OPENING_VIEW, 1, 1);
+      }
       apply();
     },
     setTrays(list: readonly SceneTray[]) {
       clearTrays();
       const byKey = new Map(list.map(({ spec }) => [spec.key, spec]));
-      list.forEach(({ spec, mesh, color, below }) => {
+      list.forEach(({ spec, mesh, color, wells, below }) => {
         const geometry = new BufferGeometry();
         geometry.setAttribute("position", new BufferAttribute(mesh.positions, 3));
         geometry.setIndex(new BufferAttribute(mesh.indices, 1));
@@ -359,13 +477,35 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         // A part with no colour of its own takes the neutral, not a hue of its own: colour here
         // means "this is that component" (its shade, as in the top view), so an invented one
         // would claim an identity it hasn't got.
-        const base = litColor(color ?? SPACER_SHADE.light.fill);
-        const material = new MeshStandardMaterial({
-          color: base.clone(),
-          flatShading: true,
-          roughness: 0.8,
-        });
-        const object = new ThreeMesh(geometry, material);
+        const colors = [litColor(color ?? SPACER_SHADE.light.fill)];
+        // The wells' own colours: the triangles inside each compartment are drawn in its colour,
+        // as a draw range of the same index buffer, so the mesh itself is not touched.
+        const wellColors = [...new Set(wells ?? [])];
+        if (wellColors.length > 0) {
+          const inWell = wellOfTriangles(spec, mesh, below ?? 0);
+          const classes = Array.from(inWell, (w) => {
+            const hex = w === BODY ? undefined : wells?.[w];
+            return hex === undefined ? 0 : wellColors.indexOf(hex) + 1;
+          });
+          const { indices, groups } = groupTriangles(mesh.indices, classes, wellColors.length + 1);
+          if (groups.length > 1) {
+            const used = groups.map((g) => g.cls);
+            colors.length = 0;
+            used.forEach((cls) => {
+              const hex = wellColors[cls - 1];
+              colors.push(
+                litColor(cls === 0 || hex === undefined ? (color ?? SPACER_SHADE.light.fill) : hex),
+              );
+            });
+            geometry.setIndex(new BufferAttribute(indices, 1));
+            groups.forEach((g, i) => geometry.addGroup(g.start, g.count, i));
+          }
+        }
+        const bases = colors;
+        const materials = bases.map(
+          (c) => new MeshLambertMaterial({ color: c.clone(), flatShading: true }),
+        );
+        const object = new ThreeMesh(geometry, materials.length > 1 ? materials : materials[0]);
         // Both are drawn with the see-through trays, after the solid ones: the depth first.
         const depth = new ThreeMesh(
           geometry,
@@ -378,7 +518,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         object.add(depth);
         scene.add(object);
         const anchor = anchorOf(spec, byKey);
-        trays.push({ spec, anchor, object, material, depth, base, below: below ?? 0 });
+        trays.push({ spec, anchor, object, materials, depth, bases, below: below ?? 0 });
       });
       refit();
       apply();
@@ -437,9 +577,27 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       }
       renderer.setSize(width, height, false);
       aspect = width / height;
-      camera.aspect = aspect;
-      camera.updateProjectionMatrix();
+      updateProjection();
       refit();
+      requestDraw();
+    },
+    setProjection(next) {
+      showProjection(next);
+    },
+    getView() {
+      return currentView();
+    },
+    setView(view) {
+      if (framed === null || !keepsView(view.boxRadius, boxRadius(framed))) {
+        return false;
+      }
+      showProjection(view.projection);
+      placeCamera(view.direction, view.share, view.zoom);
+      requestDraw();
+      return true;
+    },
+    resetView() {
+      placeCamera(OPENING_VIEW, 1, 1);
       requestDraw();
     },
     dispose() {

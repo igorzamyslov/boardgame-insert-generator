@@ -9,9 +9,12 @@ import type { Box, Component, Group, ReservedSpec, Settings, TraySpec } from "..
 import { levelsOf } from "../plan/layers";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
-import { pageScheme, shadeColorOf } from "./shades";
+import { Segmented } from "../kit";
+import { pageScheme, shadeColorOf, wellColorsOf } from "./shades";
 import { boxOutline, reservedSlabs } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
+import { loadProjection, saveProjection, viewMemory } from "./view";
+import type { Projection } from "./view";
 import { WebGLUnavailableError, hasWebGL } from "./webgl";
 
 export interface ViewerProps {
@@ -22,6 +25,12 @@ export interface ViewerProps {
   components?: readonly Component[];
   /** The project's groups: a group's trays are called by its name and drawn in its neutral colour. */
   groups?: readonly Group[];
+  /**
+   * The project the view shows: its camera (where it stands, the projection, the spread) is kept
+   * for the visit under this id, so leaving 3D for the top view and coming back finds the same view.
+   * Without it nothing is kept.
+   */
+  projectId?: string;
   /** The inputs no longer match the layout: keep what was built rather than build for new settings. */
   stale?: boolean;
   meshes: MeshSource;
@@ -53,6 +62,11 @@ export interface ViewerProps {
   loadScene?: () => Promise<SceneFactory>;
 }
 
+const PROJECTIONS = [
+  { value: "perspective", label: "Perspective" },
+  { value: "orthographic", label: "Orthographic" },
+] as const;
+
 type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
 
 async function defaultLoadScene(): Promise<SceneFactory> {
@@ -69,6 +83,9 @@ export function Viewer(p: ViewerProps) {
     (p.webgl ?? hasWebGL)() ? "loading" : "nowebgl",
   );
   const [explode, setExplode] = useState(0);
+  const [projection, setProjection] = useState<Projection>(() => loadProjection());
+  // The project the camera was last put back for on the scene now (a new scene starts again).
+  const restoredFor = useRef<string | undefined | null>(null);
   const [build, setBuild] = useState({ done: 0, total: 0, failed: 0 });
   const [attempt, setAttempt] = useState(0);
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
@@ -110,6 +127,7 @@ export function Viewer(p: ViewerProps) {
       return undefined;
     }
     let cancelled = false;
+    restoredFor.current = null;
     (p.loadScene ?? defaultLoadScene)().then(
       (factory) => {
         const canvas = canvasRef.current;
@@ -143,8 +161,37 @@ export function Viewer(p: ViewerProps) {
     const h = handleRef.current;
     if (status === "ready" && h) {
       h.setBox(outline);
+      // The first box this scene frames for a project: its remembered camera goes back, if the box is
+      // about the size it was (the scene says); a later change of box is the scene's to frame.
+      if (restoredFor.current !== p.projectId) {
+        restoredFor.current = p.projectId;
+        const saved = viewMemory.get(p.projectId);
+        if (saved !== undefined && h.setView?.(saved) === true) {
+          setProjection(saved.projection);
+          setExplode(saved.explode);
+        }
+      }
     }
-  }, [status, outlineKey]);
+  }, [status, outlineKey, p.projectId]);
+
+  // The camera is kept as the view goes (to the top view, to another project, off the page).
+  useEffect(() => {
+    const h = handleRef.current;
+    if (status !== "ready" || !h) {
+      return undefined;
+    }
+    const projectId = p.projectId;
+    return () => {
+      const view = h.getView?.();
+      if (view !== undefined) {
+        viewMemory.set(projectId, view);
+      }
+    };
+  }, [status, p.projectId]);
+
+  useEffect(() => {
+    handleRef.current?.setProjection?.(projection);
+  }, [status, projection]);
 
   // A string key, so the scene hears of a change and not of every render.
   const slabs = reservedSlabs(p.reserved, p.box);
@@ -195,6 +242,7 @@ export function Viewer(p: ViewerProps) {
             spec,
             mesh: built.mesh,
             color: shadeColorOf(spec, p.components ?? [], scheme, p.groups ?? []),
+            wells: wellColorsOf(spec, p.components ?? [], scheme, p.groups ?? []),
             below: slabUnder(p.settings, spec),
           };
         } catch {
@@ -408,18 +456,32 @@ export function Viewer(p: ViewerProps) {
       {/* The caption row under the frame, as the plan's: what the view does at its left, Spread apart (the one control only 3D has) at its right. */}
       <div class="plan-caption plan-caption--3d">
         <span>{p.tapHint === true ? "Drag to turn · tap a tray for details" : "Drag to turn"}</span>
-        <label class="range-field">
-          Spread apart
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            aria-valuetext={explode === 0 ? "Together" : `${Math.round(explode * 100)}% apart`}
-            value={explode}
-            onInput={(e) => setExplode(Number(e.currentTarget.value))}
+        <div class="plan-caption__controls">
+          <button type="button" class="view-reset" onClick={() => handleRef.current?.resetView?.()}>
+            Reset view
+          </button>
+          <Segmented
+            label="Projection"
+            options={PROJECTIONS}
+            value={projection}
+            onChange={(next) => {
+              setProjection(next);
+              saveProjection(next);
+            }}
           />
-        </label>
+          <label class="range-field">
+            Spread apart
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              aria-valuetext={explode === 0 ? "Together" : `${Math.round(explode * 100)}% apart`}
+              value={explode}
+              onInput={(e) => setExplode(Number(e.currentTarget.value))}
+            />
+          </label>
+        </div>
       </div>
     </div>
   );

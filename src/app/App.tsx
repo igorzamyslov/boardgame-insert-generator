@@ -1115,6 +1115,7 @@ export function App(props: AppProps) {
             reserved: layout?.reserved,
             stale: s.stale.value,
             meshes,
+            projectId: project.id,
             ...props.viewerProps,
           }}
         />
@@ -1158,6 +1159,7 @@ export function App(props: AppProps) {
             reserved: layout?.reserved,
             stale: s.stale.value,
             meshes,
+            projectId: project.id,
             ...props.viewerProps,
           }}
           normal={{
@@ -1241,6 +1243,7 @@ export function App(props: AppProps) {
                       groups: project.groups,
                       stale: s.stale.value,
                       meshes,
+                      projectId: project.id,
                       selectedKey: s.selection.value,
                       topLayer: layerNow,
                       levels: planLevels,

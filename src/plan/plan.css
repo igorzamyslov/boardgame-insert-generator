@@ -366,6 +366,34 @@
   min-height: 24px;
 }
 
+/* The 3D view's controls, at the right end of the caption row: Reset view, the projection, Spread apart. */
+.plan-caption__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-4) var(--s-16);
+}
+
+/* Small, so the row keeps the height it has in Top: the same 24 px as its slider. */
+.plan-caption--3d .k-seg__item {
+  height: 24px;
+  padding: 0 var(--s-12);
+  font-size: var(--text-xs);
+}
+
+.view-reset {
+  min-height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted-strong);
+  font: 500 var(--text-xs) / 20px var(--font-ui);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /*
  * From a tablet's width the 3D view's frame fills the working column (WideStage2): as wide as the
  * column, as tall as the top view's box (a square at most). The model is fitted to the frame's
