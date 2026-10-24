@@ -142,6 +142,30 @@ describe("the stepped base in the owner's Star Realms file", { timeout: 120_000 
     }
   });
 
+  it("carries a name on its walls, floor and underside, and stays a closed solid with the slab and socket as before", () => {
+    // Overpass names (geometry 0.9.9) and the stepped base meet here: the underside name is cut
+    // into the slab's bottom face, the floor name into a floor that stands on the slab, and a
+    // riser's name keeps clear of its socket.
+    for (const t of [...trays, ...risers]) {
+      const named: TraySpec = { ...t, partName: "Heroes 1" };
+      const plain = buildTray(m, t, settings);
+      const withName = buildTray(m, named, settings);
+      expect(problemsOf(m, named, settings), t.key).toEqual([]);
+      expect(withName.volumeMm3, t.key).toBeLessThan(plain.volumeMm3);
+      const a = bounds(plain.mesh);
+      const b = bounds(withName.mesh);
+      // a name only takes material away: the part is as tall, as wide and as long as before
+      expect(b.min, t.key).toEqual(a.min);
+      expect(b.max, t.key).toEqual(a.max);
+      expect(planTray(named, settings).step === null, t.key).toBe(
+        planTray(t, settings).step === null,
+      );
+      expect(planTray(named, settings).socket === null, t.key).toBe(
+        planTray(t, settings).socket === null,
+      );
+    }
+  });
+
   it("prints a stepped tray slab down: its mesh is its height and the slab tall", () => {
     for (const t of trays) {
       const { mesh } = buildTray(m, t, settings);
