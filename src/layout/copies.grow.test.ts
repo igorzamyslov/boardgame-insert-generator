@@ -96,4 +96,15 @@ describe("copies that ask for as much as fits", { timeout: 180_000 }, () => {
     expect(Math.max(...copiesOf(plain.trays).map((t) => Math.max(t.w, t.d)))).toBeLessThan(60);
     expect(plain.trays.some((t) => t.part === "leftover")).toBe(true);
   });
+
+  it("keep the hard rules on every seed: room too thin for a spacer stays at the end of the row, not between trays", () => {
+    const project = projectOf(box, [bits(8, { room: "max" })]);
+    for (let seed = 1; seed <= 8; seed++) {
+      const { input, result } = planned(project, seed);
+      expect(
+        result.layout && checkHardRules(input, result.layout, result.notices),
+        `seed ${seed}`,
+      ).toEqual([]);
+    }
+  });
 });
