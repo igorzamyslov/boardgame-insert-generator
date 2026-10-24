@@ -823,16 +823,20 @@
   gap: var(--s-8);
 }
 
-/* A closable notice: the × sits at the top right whatever the width, the words keep clear of it. */
+/* A closable notice: the × is centred on the box's right edge whatever the height, and the box is
+   at least as tall as the button, so the circle never sticks out. */
 .k-notice[data-closable="true"] {
   position: relative;
-  padding-inline-end: 56px;
+  min-height: 52px;
+  padding-inline-end: 64px;
 }
 
 .k-notice__close {
   position: absolute;
-  inset-block-start: var(--s-4);
+  inset-block-start: 50%;
   inset-inline-end: var(--s-8);
+  display: flex;
+  transform: translateY(-50%);
 }
 
 .k-notice .k-btn--secondary {
