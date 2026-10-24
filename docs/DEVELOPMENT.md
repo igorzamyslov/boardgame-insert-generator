@@ -217,12 +217,21 @@ it only with a written reason in the code or the PR.
   `groove.zTop` (with the stepped base, geometry 0.9.2, at the step's top, and the underside name
   goes on the slab's bed face; a socketed wall is only the socket's wall thick at the top). The underside name stays `EDGE_MM` inside the groove's `reach`. Tests fail if the
   groove is ignored (`engrave.test.ts`, "on three faces").
-- MUST engrave on at most three faces, each only where it has room (`planEngravings`): the wall
-  `planEngraving` prefers, the wall across from it (the thinnest feature kept between the two
-  recesses), and the underside (`planUnderside`: mirrored, centred, V grooves with no flat roof,
-  because no downward face may be steeper than 45°). A merged part carries walls only. A new
+- MUST engrave on at most four faces, each only where it has room (`planEngravings`): the floor of
+  one well (`planInside`, geometry 0.9.7: straight walls, planned first), the wall `planEngraving`
+  prefers, the wall across from it (the thinnest feature kept between the two recesses), and the
+  underside (`planUnderside`: mirrored, a flat recess 0.4 mm deep that moves aside from the floor's
+  name or drops out; the one flat downward face `checkPrintability` lets through). A merged part
+  carries walls, and the floor of a riser's pocket (`planMergedInside`), never the underside. A new
   engraving input goes in the spec or settings, so it reaches the mesh cache key; the faces
   themselves depend only on the spec and settings.
+- MUST set names with `layoutText` (`geometry/glyphs.ts`): Overpass Bold outlines (SIL OFL 1.1) in
+  `name-font-data.ts`, which `scripts/build-name-font.mjs` generates (never edit it by hand; the
+  script's header says how to run it). A name's size is one of `CAP_SIZES_MM` (8, 6, 5, 4 mm),
+  chosen by `fitCap`. Planners measure with `layoutText` (pure, no kernel); only the builders
+  (`buildEngraving`, `buildUnderside`, `buildInside`) make a `CrossSection`, from the same polygons.
+  The licence text is `licenses/overpass-OFL.txt`, and `licenses.config.ts` puts it on the
+  third-party licences page (`REQUIRED_PACKAGES`).
 
 ### Components and accessibility
 

@@ -6,6 +6,10 @@ import { triangles } from "./triangles";
 
 const OVERHANG_NZ = -0.71; // a 45° face has normal.z = −0.7071, which passes
 const BED_Z = 1e-3; // triangles entirely below this lie on the bed
+// The one downward face allowed over the bed: the flat ceiling of the underside name's recess, two
+// layers (0.4 mm) up, which spans a stroke at most and bridges (geometry 0.9.7, owner's print).
+const BRIDGE_NZ = -0.99;
+const BRIDGE_MAX_Z = 0.4 + 1e-3;
 const MIN_AREA = 1e-4; // mm²; ignore slivers whose float32 normals are noise…
 const MIN_ALTITUDE = 1e-3; // mm; …also long thin ones (a 45° face 2 mm long, 0.0008 mm high)
 const VERTICAL = 0.02; // |normal.z| below this: a wall face
@@ -23,9 +27,11 @@ function usable(tri: Triangles, t: number): boolean {
 function overhangCount(tri: Triangles): number {
   let count = 0;
   for (let t = 0; t < tri.count; t += 1) {
-    if (usable(tri, t) && at(tri.normals, t * 3 + 2) < OVERHANG_NZ && at(tri.maxZ, t) > BED_Z) {
-      count += 1;
+    if (!usable(tri, t) || at(tri.normals, t * 3 + 2) >= OVERHANG_NZ || at(tri.maxZ, t) <= BED_Z) {
+      continue;
     }
+    const bridge = at(tri.normals, t * 3 + 2) < BRIDGE_NZ && at(tri.maxZ, t) <= BRIDGE_MAX_Z;
+    count += bridge ? 0 : 1;
   }
   return count;
 }
@@ -92,7 +98,8 @@ function smallestExtent(mesh: Mesh): number {
 // spec that would build a feature under MIN_FEATURE_MM (roadmap §4.6), so production builds never
 // run this; tests run it on built meshes to confirm the rules leave nothing thinner.
 // - Overhangs: triangles facing down more steeply than 45° (normal.z < −0.71)
-//   that are not on the bed (z = 0).
+//   that are not on the bed (z = 0), except a flat one within 0.4 mm of it: the ceiling of the
+//   underside name's recess, which bridges.
 // - Minimum feature: from the centroid of every wall face a horizontal ray
 //   goes into the material and stops at the nearest wall face it could leave
 //   through (one facing the ray); from every horizontal face a vertical ray
@@ -110,7 +117,10 @@ function smallestExtent(mesh: Mesh): number {
 //   always finite and survives JSON.
 //
 // Cost: about 1 s per 50k triangles (a BVH ray query per sampled face).
-export function checkPrintability(mesh: Mesh): PrintabilityReport {
+export function checkPrintability(
+  mesh: Mesh,
+  minFeature: number = MIN_FEATURE_MM,
+): PrintabilityReport {
   const tri = triangles(mesh);
   let usableCount = 0;
   for (let t = 0; t < tri.count; t += 1) {
@@ -138,10 +148,8 @@ export function checkPrintability(mesh: Mesh): PrintabilityReport {
     const noun = overhangTriangles === 1 ? "triangle overhangs" : "triangles overhang";
     problems.push(`${overhangTriangles} ${noun} more than 45° above the bed`);
   }
-  if (minFeatureMm < MIN_FEATURE_MM - THICKNESS_TOLERANCE) {
-    problems.push(
-      `thinnest feature is ${minFeatureMm.toFixed(3)} mm (minimum ${MIN_FEATURE_MM} mm)`,
-    );
+  if (minFeatureMm < minFeature - THICKNESS_TOLERANCE) {
+    problems.push(`thinnest feature is ${minFeatureMm.toFixed(3)} mm (minimum ${minFeature} mm)`);
   }
   return { ok: problems.length === 0, overhangTriangles, minFeatureMm, problems };
 }

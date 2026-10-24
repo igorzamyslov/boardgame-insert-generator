@@ -26,6 +26,7 @@ export const REQUIRED_PACKAGES = [
   "fflate",
   "@fontsource/bricolage-grotesque",
   "@fontsource/figtree",
+  "Overpass",
 ];
 
 const RULE = "=".repeat(72);

@@ -4,7 +4,7 @@ import source from "./version.ts?raw";
 
 describe("isOlderGeometryLine", () => {
   it("pre-1.0, treats each 0.MINOR as a major line (spec §9)", () => {
-    expect(GEOMETRY_VERSION).toBe("0.9.6");
+    expect(GEOMETRY_VERSION).toBe("0.9.7");
     expect(isOlderGeometryLine("0.0.9")).toBe(true);
     expect(isOlderGeometryLine("0.1.1")).toBe(true); // finger pockets: refused now, reprint
     expect(isOlderGeometryLine("0.2.0")).toBe(true); // finger-cut minis and scoop walls: reprint
@@ -22,8 +22,9 @@ describe("isOlderGeometryLine", () => {
     expect(isOlderGeometryLine("0.9.3")).toBe(false); // the notched cut, a PATCH of this line
     expect(isOlderGeometryLine("0.9.4")).toBe(false); // the finger dip, a PATCH of this line
     expect(isOlderGeometryLine("0.9.5")).toBe(false); // upright reach, a PATCH of this line
-    expect(isOlderGeometryLine("0.9.6")).toBe(false); // the current version: one shape for a lipped fold
-    expect(isOlderGeometryLine("0.9.7")).toBe(false); // a PATCH ahead is the same line
+    expect(isOlderGeometryLine("0.9.6")).toBe(false); // one shape for a lipped fold
+    expect(isOlderGeometryLine("0.9.7")).toBe(false); // the current version: the name on a well's floor
+    expect(isOlderGeometryLine("0.9.8")).toBe(false); // a PATCH ahead is the same line
     expect(isOlderGeometryLine("1.0.0")).toBe(false);
     expect(isOlderGeometryLine("0.4.1", "0.5.0")).toBe(true);
   });
@@ -46,7 +47,7 @@ describe("isOlderGeometryLine", () => {
 describe("the version history", () => {
   const at = (heading: string) => source.indexOf(` * ${heading} `);
 
-  it("reads in order: 0.8.0 flush stacking, then 0.8.1 name engraving, then 0.8.2 one rounding of a merged part, then 0.8.3 group Max filling its tray, then 0.8.4 columns, then 0.8.5 risers from 3 mm, then 0.9.0 the lip on a riser and one floor under every tray, then 0.9.1 no slit in a merged part, then 0.9.2 the stepped base, then 0.9.3 the notched cut of flat custom items and short minis, then 0.9.4 the finger dip, then 0.9.5 no upright storage for small chits, then 0.9.6 one shape for a folded part with a lipped riser; no version that never shipped", () => {
+  it("reads in order: 0.8.0 flush stacking, then 0.8.1 name engraving, then 0.8.2 one rounding of a merged part, then 0.8.3 group Max filling its tray, then 0.8.4 columns, then 0.8.5 risers from 3 mm, then 0.9.0 the lip on a riser and one floor under every tray, then 0.9.1 no slit in a merged part, then 0.9.2 the stepped base, then 0.9.3 the notched cut of flat custom items and short minis, then 0.9.4 the finger dip, then 0.9.5 no upright storage for small chits, then 0.9.6 one shape for a folded part with a lipped riser, then 0.9.7 the name on a well's floor and Overpass outlines; no version that never shipped", () => {
     expect(at("0.8.0")).toBeGreaterThan(at("0.7.2"));
     expect(at("0.8.1")).toBeGreaterThan(at("0.8.0"));
     expect(at("0.8.2")).toBeGreaterThan(at("0.8.1"));
@@ -60,6 +61,7 @@ describe("the version history", () => {
     expect(at("0.9.4")).toBeGreaterThan(at("0.9.3"));
     expect(at("0.9.5")).toBeGreaterThan(at("0.9.4"));
     expect(at("0.9.6")).toBeGreaterThan(at("0.9.5"));
+    expect(at("0.9.7")).toBeGreaterThan(at("0.9.6"));
     expect(source).not.toContain(" * 0.7.3 ");
   });
 });

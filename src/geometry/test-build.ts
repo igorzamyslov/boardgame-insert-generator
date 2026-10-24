@@ -37,7 +37,10 @@ export function problemsOf(m: ManifoldToplevel, spec: TraySpec, settings: Settin
   if (off) {
     problems.push(`bounding box ${b.min.join(",")}..${b.max.join(",")} vs ${expected.join(",")}`);
   }
-  const report = checkPrintability(mesh);
+  // A name leaves the font's own gaps and wedge tips standing, thinner than any wall, and the
+  // check measures every facet: a named part is only held to the overhang rule. Its walls and
+  // floors keep their thickness by the engraving planner (engrave.test.ts).
+  const report = checkPrintability(mesh, spec.partName === undefined ? undefined : 0);
   if (!report.ok) {
     problems.push(...report.problems);
   }

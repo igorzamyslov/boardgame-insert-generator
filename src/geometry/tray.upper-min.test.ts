@@ -114,7 +114,8 @@ describe("a tray at exactly the minimum, with the groove", () => {
 
   it("builds a closed printable solid with nothing thinner than 0.8 mm, at every height", () => {
     expect(problemsOf(m, spec, GEO)).toEqual([]);
-    const { mesh } = buildTray(m, spec, GEO);
+    // the tray's own walls and floors: a name leaves the font's own gaps and tips (engrave.test.ts)
+    const { mesh } = buildTray(m, { ...spec, partName: undefined }, GEO);
     expect(thinSlices(m, mesh, sliceHeights(MIN_H))).toEqual([]);
   });
 
@@ -190,7 +191,7 @@ describe("what sizing makes at the minimum, built", () => {
         };
         expect(() => planTray(spec, GEO)).not.toThrow();
         expect(problemsOf(m, spec, GEO)).toEqual([]);
-        const { mesh } = buildTray(m, spec, GEO);
+        const { mesh } = buildTray(m, { ...spec, partName: undefined }, GEO);
         expect(thinSlices(m, mesh, sliceHeights(Math.min(spec.h, 12)))).toEqual([]);
       });
     }
