@@ -10,6 +10,18 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.23.4] - 2026-10-24
+
+### Changed
+
+- **A spacer's chamfer runs the whole edge.** A spacer used to be chamfered only over the stretch
+  where a tray stood against it, which left square steps between and beyond trays on a long
+  spacer. Now every side of a spacer that has a tray against it is chamfered along its whole top
+  edge, end to end, and a side with no tray stays square. Where two chamfered sides meet, the
+  corner is a clean mitre. A part folded from several spacers is chamfered member by member,
+  along the whole member. Trays still mate with parts you printed before; print a spacer again
+  only if you want the longer grip.
+
 ## [0.23.3] - 2026-10-24
 
 ### Fixed

@@ -19,6 +19,7 @@ import { addTopChamfers, chamfersFacingTrays } from "./chamfers";
 import { mergeParts } from "./merge";
 import { printableParts } from "./printable";
 import { TEST_PRINTER, traySpec } from "./test-utils";
+import { roundMm } from "./units";
 
 const S: Settings = DEFAULT_SETTINGS;
 const GAP = S.trayGap;
@@ -54,21 +55,49 @@ describe("where a chamfer goes", () => {
     expect(out[1]).toMatchObject({ x: filler().x, w: 40, h: 30, solid: true });
   });
 
-  it("covers only the stretch the tray's side shares with the filler's face", () => {
-    // the filler is shorter than the tray and stands at its far end
-    const out = addTopChamfers([tray({ d: 120 }), filler({ y: 80, d: 40 })], { settings: S });
+  it("runs the face's whole top edge, however little of it the tray's side shares", () => {
+    // the filler is 60 mm long and the tray only 20 mm of it, at one end (owner, 2026-10-24: "if
+    // spacer has any component on one of its sides, the edge of this side should be chamfered")
+    const out = addTopChamfers([tray({ d: 20 }), filler()], { settings: S });
     expect(chamfersOf(out, "leftover:0")).toEqual([
-      { type: "topChamfer", side: "left", from: 0, to: 40, size: CHAMFER_MM },
+      { type: "topChamfer", side: "left", from: 0, to: 60, size: CHAMFER_MM },
+    ]);
+    // the tray in the middle of a longer filler: still end to end, no square stubs either side
+    const mid = addTopChamfers([tray({ y: 50, d: 20 }), filler({ d: 120 })], { settings: S });
+    expect(chamfersOf(mid, "leftover:0")).toEqual([
+      { type: "topChamfer", side: "left", from: 0, to: 120, size: CHAMFER_MM },
     ]);
     // a tray that shares under CHAMFER_MIN_CONTACT_MM of the face is no reason for one
     const edge = addTopChamfers([tray({ d: 85 }), filler({ y: 80, d: 40 })], { settings: S });
     expect(chamfersOf(edge, "leftover:0")).toEqual([]);
   });
 
+  it("stops at the filler's own ends, not at the tray's", () => {
+    // the filler is shorter than the tray and stands at its far end
+    const out = addTopChamfers([tray({ d: 120 }), filler({ y: 80, d: 40 })], { settings: S });
+    expect(chamfersOf(out, "leftover:0")).toEqual([
+      { type: "topChamfer", side: "left", from: 0, to: 40, size: CHAMFER_MM },
+    ]);
+  });
+
   it("is on a tray's side only: a filler beside the box wall or beside nothing has none", () => {
     expect(topChamfersOf(addTopChamfers([filler()], { settings: S })[0] as TraySpec)).toEqual([]);
     const far = addTopChamfers([tray(), filler({ x: 62 })], { settings: S });
     expect(chamfersOf(far, "leftover:0")).toEqual([]);
+  });
+
+  it("leaves a face square when no tray stands against it, even on a filler with a chamfer", () => {
+    // a tray on the left: the right, front and back faces have none against them
+    const out = addTopChamfers([tray(), filler({ w: 40, d: 60 })], { settings: S });
+    expect(chamfersOf(out, "leftover:0").map((c) => c.side)).toEqual(["left"]);
+    // a tray only at the left end of the front face does not chamfer the back
+    const front = addTopChamfers(
+      [tray({ key: "a", x: 0, y: 60 + GAP, w: 30, d: 60 }), filler({ x: 0, y: 0, w: 80, d: 60 })],
+      { settings: S },
+    );
+    expect(chamfersOf(front, "leftover:0")).toEqual([
+      { type: "topChamfer", side: "back", from: 0, to: 80, size: CHAMFER_MM },
+    ]);
   });
 
   it("is on the face that touches a tray, whichever of the four it is", () => {
@@ -85,23 +114,36 @@ describe("where a chamfer goes", () => {
     ).toEqual(["right"]);
   });
 
-  it("is on every face that touches a tray, a stretch for each tray", () => {
+  it("is on every face that touches a tray, one chamfer along each, never a stretch per tray", () => {
     const out = addTopChamfers(
       [tray({ key: "a", d: 20 }), tray({ key: "b", y: 40, d: 20 }), filler({ w: 80 })],
       { settings: S },
     );
     expect(chamfersOf(out, "leftover:0").map(({ side, from, to }) => [side, from, to])).toEqual([
-      ["left", 0, 20],
-      ["left", 40, 60],
+      ["left", 0, 60],
+    ]);
+    // a tray on the left and one at the back: two chamfered faces
+    const two = addTopChamfers(
+      [tray({ key: "a", d: 20 }), tray({ key: "b", x: 70, y: 60 + GAP, d: 30 }), filler({ w: 80 })],
+      { settings: S },
+    );
+    expect(chamfersOf(two, "leftover:0").map(({ side, from, to }) => [side, from, to])).toEqual([
+      ["back", 0, 80],
+      ["left", 0, 60],
     ]);
   });
 
-  it("joins the stretches of trays a tray gap apart into one", () => {
-    const out = addTopChamfers(
-      [tray({ key: "a", d: 30 }), tray({ key: "b", y: 30 + GAP, d: 30 - GAP }), filler({ w: 80 })],
-      { settings: S },
-    );
-    expect(chamfersOf(out, "leftover:0").map(({ from, to }) => [from, to])).toEqual([[0, 60]]);
+  it("meets at a corner without a stub: both chamfers run to the filler's ends", () => {
+    const parts = [
+      tray({ key: "a", d: 30 }),
+      tray({ key: "b", x: 70, y: 60 + GAP, w: 40, d: 40 }),
+      filler({ w: 80 }),
+    ];
+    const chamfers = chamfersOf(addTopChamfers(parts, { settings: S }), "leftover:0");
+    expect(chamfers.map((c) => [c.side, c.from, c.to, c.size])).toEqual([
+      ["back", 0, 80, CHAMFER_MM],
+      ["left", 0, 60, CHAMFER_MM],
+    ]);
   });
 
   it("is not cut where the tray stands too low to reach into the groove", () => {
@@ -123,6 +165,17 @@ describe("a strip a finger and thumb can pinch", () => {
     expect(beside(10).map((c) => [c.side, c.from, c.to, c.size])).toEqual([
       ["left", 0, 60, 4.2],
       ["right", 0, 60, 4.2],
+    ]);
+  });
+
+  it("is chamfered along the whole of both long edges, however short the tray beside it", () => {
+    const short = chamfersOf(
+      addTopChamfers([tray({ d: 20 }), filler({ w: 10 })], { settings: S }),
+      "leftover:0",
+    );
+    expect(short.map((c) => [c.side, c.from, c.to])).toEqual([
+      ["left", 0, 60],
+      ["right", 0, 60],
     ]);
   });
 
@@ -266,6 +319,48 @@ describe("a merged part", () => {
   });
 });
 
+describe("a merged part, whole member by member", () => {
+  const NO_LIP: Settings = { ...S, lip: { ...S.lip, joint: "off" as const } };
+  const BRIDGE_IN = 3; // how far a bridge reaches into each member (merge.ts)
+  const strips = (): TraySpec[] => [
+    filler({ key: "leftover:0", x: 60 + GAP, y: 0, w: 40, d: 60 }),
+    filler({ key: "leftover:1", x: 60 + GAP, y: 60 + GAP, w: 40, d: 60, stack: 8 }),
+  ];
+  const placed = (trays: TraySpec[]): TraySpec => {
+    const joined = mergeParts(trays, { settings: NO_LIP, printer: TEST_PRINTER });
+    return addTopChamfers(joined, { settings: NO_LIP }).find((p) => p.merged) as TraySpec;
+  };
+  const of = (part: TraySpec, key: string) =>
+    topChamfersOf(part)
+      .filter((c) => c.part.key === key)
+      .map(({ chamfer }) => [chamfer.side, chamfer.from, chamfer.to]);
+
+  it("chamfers the whole member's edge when a tray is against only part of it", () => {
+    // a tray along the first 20 mm of the first strip; the second strip has nothing beside it
+    const part = placed([tray({ d: 20 }), ...strips()]);
+    expect(part.merged?.bridges.length).toBeGreaterThan(0);
+    // the member's whole face, less the 3 mm the bridge to the next member would fill
+    expect(of(part, "leftover:0")).toEqual([["left", 0, 60 - BRIDGE_IN]]);
+    expect(of(part, "leftover:1")).toEqual([]);
+  });
+
+  it("chamfers each member that has a tray beside it, and never into the bridge between them", () => {
+    const part = placed([
+      tray({ key: "a", d: 60 }),
+      tray({ key: "b", y: 60 + GAP, d: 30 }),
+      ...strips(),
+    ]);
+    expect(of(part, "leftover:0")).toEqual([["left", 0, 60 - BRIDGE_IN]]);
+    expect(of(part, "leftover:1")).toEqual([["left", BRIDGE_IN, 60]]);
+  });
+
+  it("leaves the face of a member that no tray stands against square", () => {
+    // the tray is beside the first strip only; the second keeps its left face square
+    const part = placed([tray({ d: 60 }), ...strips()]);
+    expect(of(part, "leftover:1")).toEqual([]);
+  });
+});
+
 describe("derived, never stored", () => {
   it("running the pass twice gives the same parts as running it once", () => {
     const once = addTopChamfers([tray(), filler()], { settings: S });
@@ -286,6 +381,24 @@ describe("chamfersFacingTrays", () => {
     const facing = chamfersFacingTrays(out, { settings: S });
     expect(facing.get("t")?.map((f) => [f.by.key, f.side])).toEqual([["leftover:0", "right"]]);
     expect(facing.has("leftover:0")).toBe(false);
+  });
+});
+
+describe("chamfersFacingTrays on a chamfer that runs past a tray", () => {
+  it("names a tray the chamfer faces over at least CHAMFER_MIN_CONTACT_MM, and no other", () => {
+    // the long chamfer is there for tray a; tray c shares 5 mm of it, too little to grip it by
+    const parts = addTopChamfers(
+      [
+        tray({ key: "a", d: 40 }),
+        tray({ key: "c", y: 55, d: 25 }),
+        filler({ d: 60, h: 30 }),
+        tray({ key: "far", x: 200 }),
+      ],
+      { settings: S },
+    );
+    expect(chamfersOf(parts, "leftover:0")).toHaveLength(1);
+    const facing = chamfersFacingTrays(parts, { settings: S });
+    expect([...facing.keys()]).toEqual(["a"]);
   });
 });
 
@@ -357,5 +470,26 @@ describe("a chamfer never cuts into a neighbouring tray", () => {
     }
     expect(JSON.stringify(stored)).not.toContain("topChamfer");
     expect(addTopChamfers(without, o)).toEqual(without);
+  });
+
+  it.each(SEEDS)("%s: a chamfer on a plain filler runs the face end to end", (name) => {
+    const { project } = loadSeed(name);
+    const parts = printableParts(project.layout?.trays ?? [], {
+      components: project.components,
+      settings: project.settings,
+      printer: project.printer,
+      locks: project.locks,
+    }).trays;
+    for (const part of parts.filter((p) => p.merged === undefined)) {
+      for (const { chamfer } of topChamfersOf(part)) {
+        const along = chamfer.side === "front" || chamfer.side === "back" ? part.w : part.d;
+        expect([part.key, chamfer.side, chamfer.from, chamfer.to]).toEqual([
+          part.key,
+          chamfer.side,
+          0,
+          roundMm(along),
+        ]);
+      }
+    }
   });
 });
