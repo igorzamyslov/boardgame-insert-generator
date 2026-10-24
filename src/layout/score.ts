@@ -29,8 +29,9 @@ export interface ScoreTerms {
   /** Trays whose position or level differs from the warm-start layout. */
   readonly moved: number;
   /**
-   * Parts of one requirement turned differently: per requirement, the parts in the less common
-   * orientation. They are one component to the user, so they should look alike (spec §6).
+   * Parts that should look alike turned differently: per set of alike trays (the same tray of every
+   * copy), the trays in the less common orientation, and for a tray with no copies, per requirement.
+   * They are one component to the user, so they should look alike (spec §6).
    */
   readonly unturned: number;
   /**
@@ -311,14 +312,15 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
   let setup = 0;
   let stacked = 0;
   let moved = 0;
-  // Per requirement: its variant, the parts turned each way, the stacks they stand in, and the
-  // stacks of each copy.
+  // Per requirement: its variant, the stacks its parts stand in, and the stacks of each copy. The
+  // parts turned each way are counted apart: per set of alike trays (the same tray of every copy),
+  // and for a tray with no copies per requirement, so a copy's first tray is not judged against
+  // another tray of its own copy that is meant to differ.
+  const turnTally = new Map<string, { turned: number; straight: number }>();
   const siblings = new Map<
     number,
     {
       variant: number;
-      turned: number;
-      straight: number;
       stacks: Map<number, { lo: number; hi: number; n: number }>;
       copies: Map<number, Set<number>>;
     }
@@ -326,13 +328,15 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
   for (const t of plan.trays) {
     const kin = siblings.get(t.item.req) ?? {
       variant: t.item.variant,
-      turned: 0,
-      straight: 0,
       stacks: new Map<number, { lo: number; hi: number; n: number }>(),
       copies: new Map<number, Set<number>>(),
     };
     siblings.set(t.item.req, kin);
-    kin[t.item.rotated ? "turned" : "straight"]++;
+    const set = ctx.alikeOf(t.item);
+    const tallyKey = set >= 0 ? `s${set}` : `r${t.item.req}`;
+    const tally = turnTally.get(tallyKey) ?? { turned: 0, straight: 0 };
+    tally[t.item.rotated ? "turned" : "straight"]++;
+    turnTally.set(tallyKey, tally);
     const copy = ctx.copyOf(t.item);
     const copyStacks = kin.copies.get(copy) ?? new Set<number>();
     kin.copies.set(copy, copyStacks.add(t.stack));
@@ -371,11 +375,13 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     }
   }
   let unturned = 0;
+  for (const tally of turnTally.values()) {
+    unturned += Math.min(tally.turned, tally.straight);
+  }
   let apart = 0;
   let scattered = 0;
   let split = 0;
   for (const [req, kin] of siblings) {
-    unturned += Math.min(kin.turned, kin.straight);
     for (const stacks of kin.copies.values()) {
       apart += stacks.size - 1;
     }

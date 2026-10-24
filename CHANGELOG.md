@@ -10,7 +10,7 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
-## [0.23.1] - 2026-10-24
+## [0.23.2] - 2026-10-24
 
 ### Fixed
 
@@ -18,6 +18,17 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
   its button, and Delete is a small grey trash icon on each row instead of a red "Delete…" link
   (it turns red when you point at it, and still asks before it deletes). Two inserts with the same
   name show when each was last edited, so you can tell them apart.
+
+## [0.23.1] - 2026-10-24
+
+### Fixed
+
+- **Copies face the same way, so the spare room is one spacer.** In a group with several copies
+  (like Faction in the Scythe box), one copy could stand turned a quarter turn from the others.
+  It left a thin sliver of room beside it as a spacer of its own, and the room at the end of the
+  row became a second one. Copies are now turned together, so the room gathers in one thicker
+  spacer. Pressing Try another arrangement fixes a plan you already have. Turning one copy now turns
+  the others with it, where they can follow.
 
 ## [0.23.0] - 2026-10-24
 
