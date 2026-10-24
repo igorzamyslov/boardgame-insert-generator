@@ -1,5 +1,6 @@
 import type {
   Box,
+  Joint,
   Printer,
   Settings,
   Lock,
@@ -60,6 +61,8 @@ export interface LayoutResult {
     overBedKeys?: string[];
     /** Where the attempt put the kept-free areas; absent when the box has none. */
     reserved?: ReservedSpec[];
+    /** The joint the attempt was planned with, when the settings say Auto (StoredLayout.joint). */
+    joint?: Joint;
   } | null;
   summary: LayoutSummary | null;
   notices: Notice[]; // warnings (coverage, play, lip off, capped, bed, doesNotFit)

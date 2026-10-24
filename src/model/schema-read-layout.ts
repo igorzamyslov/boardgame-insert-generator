@@ -2,7 +2,14 @@ import type { Json } from "./json";
 import { isRecord, shorten, summarize } from "./json";
 import type { Ctx } from "./schema-reader";
 import { absorbErrors, adopt, childCtx, Reader, SCHEMA_NOTICE_CODES } from "./schema-reader";
-import type { CompartmentSpec, FeatureSpec, ReservedSpec, StoredLayout, TraySpec } from "./types";
+import type {
+  CompartmentSpec,
+  FeatureSpec,
+  Joint,
+  ReservedSpec,
+  StoredLayout,
+  TraySpec,
+} from "./types";
 import { UNKNOWN_APP_VERSION } from "./version";
 
 const SIDES = ["front", "back", "left", "right"] as const;
@@ -224,6 +231,7 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
     seed: r.strictNum("seed"),
     iterations: r.strictNum("iterations"),
     capped: r.bool("capped", false),
+    joint: r.has("joint") ? r.oneOf<Joint>("joint", ["off", "rim", "step"]) : undefined,
     trays,
     ...(r.has("reserved") ? { reserved: r.objects("reserved").map(readReserved) } : {}),
   });

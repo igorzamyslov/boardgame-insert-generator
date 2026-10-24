@@ -824,7 +824,17 @@ describe("App", () => {
     it("edits this insert's settings from the sheet as one undoable step", () => {
       // two changes within a second are one step (typing): the clock moves between them
       vi.useFakeTimers({ toFake: ["Date"] });
-      const { store } = renderWorkspace();
+      // the fixture's rim is a rim and groove: the project is given the default (Auto), so only the wall is a change
+      const base = fixtureProject();
+      const { store } = renderWorkspace({
+        project: {
+          ...base,
+          settings: {
+            ...base.settings,
+            lip: { ...base.settings.lip, joint: DEFAULT_SETTINGS.lip.joint },
+          },
+        },
+      });
       openMenu();
       fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
       fireEvent.click(
@@ -833,7 +843,7 @@ describe("App", () => {
         }),
       );
       expect(store.state.project.value.settings.wall).toBe(2);
-      // the header counts it, and so does the Walls group (the fixture's rim is on, the default);
+      // the header counts it, and so does the Walls group;
       // Reset all puts it back as one more step
       expect(screen.getAllByText("1 changed")).toHaveLength(2);
       vi.setSystemTime(Date.now() + 5000);

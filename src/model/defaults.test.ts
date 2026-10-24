@@ -48,7 +48,7 @@ describe("newProject", () => {
   });
 
   it("starts with the rim between layers on", () => {
-    expect(newProject().settings.lip.enabled).toBe(true);
+    expect(newProject().settings.lip.joint !== "off").toBe(true);
   });
 
   it("never shares nested objects with DEFAULT_SETTINGS", () => {

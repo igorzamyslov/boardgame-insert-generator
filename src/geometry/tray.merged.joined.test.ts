@@ -228,7 +228,7 @@ describe("the owner's folded parts (star-realms-owner-5)", { timeout: 180_000 },
       const settings: Settings = {
         ...p.settings,
         mergeRisers: true,
-        lip: { ...p.settings.lip, enabled: true, kind },
+        lip: { ...p.settings.lip, joint: kind },
       };
       const printed = printableParts(layout?.trays ?? [], {
         components: p.components,

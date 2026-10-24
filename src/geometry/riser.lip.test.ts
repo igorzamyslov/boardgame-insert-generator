@@ -178,7 +178,7 @@ describe(
 describe("a riser with the lip off", () => {
   it("is as before: no lip on the riser, no groove under the tray", () => {
     const p = owner();
-    const settings: Settings = { ...p.settings, lip: { ...p.settings.lip, enabled: false } };
+    const settings: Settings = { ...p.settings, lip: { ...p.settings.lip, joint: "off" as const } };
     const parts = splitRisers(stored(p), { settings, printer: p.printer, locks: p.locks });
     const riser = parts.find((t) => t.part === "riser" && t.stack === 0) as TraySpec;
     expect(planTray(riser, settings).lip).toBeNull();

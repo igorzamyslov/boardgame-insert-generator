@@ -591,3 +591,39 @@ describe("schema 0.3.0: room for more replaces growth and stretch", () => {
     expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
   });
 });
+
+describe("schema 0.3.3: one joint for the rim between layers", () => {
+  const HISTORY = import.meta.glob<unknown>("../../test/fixtures/schema/*.json", {
+    eager: true,
+    import: "default",
+  });
+  const fixtureAt = (version: string): Json =>
+    structuredClone(HISTORY[`../../test/fixtures/schema/${version}.json`]) as Json;
+
+  it("reads the 0.3.3 fixture with no notices, and it round-trips", () => {
+    const first = expectOk(parseProject(fixtureAt("0.3.3")));
+    expect(first.notices).toEqual([]);
+    expect(first.project.settings.lip.joint).toBe("auto");
+    const again = expectOk(
+      parseProject(JSON.parse(serializeProject(first.project, first.foreign))),
+    );
+    expect(again.notices).toEqual([]);
+    expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
+  });
+
+  it.each(["0.3.0", "0.3.2"])(
+    "reads the %s fixture's switch and kind as the joint they meant, with its hash",
+    (version) => {
+      const first = expectOk(parseProject(fixtureAt(version)));
+      expect(first.notices).toEqual([]);
+      expect(first.project.settings.lip.joint).toBe("step");
+      expect(first.project.settings.lip).not.toHaveProperty("enabled");
+      expect(first.project.settings.lip).not.toHaveProperty("kind");
+    },
+  );
+
+  it("reads a file saved at 0.3.2 with no layout joint, and leaves the layout's joint unset", () => {
+    const first = expectOk(parseProject(fixtureAt("0.3.2")));
+    expect(first.project.layout?.joint).toBeUndefined();
+  });
+});

@@ -26,7 +26,7 @@ const GAP = DEFAULT_SETTINGS.trayGap;
 // Rim off: a filler in a stack level has a groove with it on, and is not merged.
 const settings: Settings = {
   ...DEFAULT_SETTINGS,
-  lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
   mergeRisers: true,
 };
 

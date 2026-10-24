@@ -1,6 +1,6 @@
 // @vitest-environment node
 // src/geometry/tray.step.test.ts
-// The stepped base (owner, 2026-10-23; model/lip.ts stepOf): with `lip.kind` "step" a part above
+// The stepped base (owner, 2026-10-23; model/lip.ts stepOf): with `lip.joint` "step" a part above
 // another has a solid slab under its floor, inset by the lower part's wall and the play, with a 45°
 // step out to its outer face, and the part below a socket for it; the walls stay at `wall`. Built
 // from the owner's Star Realms file with the step on: every stack's riser carries the socket and
@@ -45,7 +45,7 @@ function owner(): Project {
     throw new Error(parsed.error);
   }
   const p = parsed.project;
-  return { ...p, settings: { ...p.settings, lip: { ...p.settings.lip, kind: "step" } } };
+  return { ...p, settings: { ...p.settings, lip: { ...p.settings.lip, joint: "step" as const } } };
 }
 
 function stored(p: Project): TraySpec[] {

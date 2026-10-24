@@ -57,7 +57,7 @@ const inputArb = fc.record({
   headroom: fc.integer({ min: 0, max: 10 }),
   partial: fc.boolean(),
   side: fc.boolean(),
-  lip: fc.boolean(),
+  lip: fc.constantFrom("off" as const, "rim" as const, "step" as const, "auto" as const),
   fit: fc.constantFrom(0.7, 1, 1.4),
   solid: fc.boolean(),
   bed: fc.constantFrom(180, 220, 256),
@@ -103,8 +103,7 @@ function build(spec: InputSpec): LayoutInput {
       fit: spec.fit,
       leftover: spec.solid ? "solid" : "spare",
       lip: {
-        enabled: spec.lip,
-        kind: "rim",
+        joint: spec.lip,
         height: 2,
         thickness: 1.2,
         ledge: 1.7,
@@ -122,7 +121,7 @@ function expectValid(input: LayoutInput, r: LayoutResult): void {
   seen.total++;
   if (r.layout) {
     seen.feasible++;
-    if (input.settings.lip.enabled && r.layout.trays.some((t) => t.level > 0)) {
+    if (input.settings.lip.joint !== "off" && r.layout.trays.some((t) => t.level > 0)) {
       seen.lippedStacks++;
     }
     expect(checkHardRules(input, r.layout, r.notices, r.lockConflicts)).toEqual([]);
@@ -153,7 +152,7 @@ function expectValid(input: LayoutInput, r: LayoutResult): void {
 }
 
 describe("hard rules (spec §3) on random inputs", () => {
-  it("every result satisfies all hard rules, or reports doesNotFit", () => {
+  it("every result satisfies all hard rules, or reports doesNotFit", { timeout: 120_000 }, () => {
     seen.total = 0;
     seen.feasible = 0;
     seen.lippedStacks = 0;

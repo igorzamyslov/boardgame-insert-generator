@@ -219,7 +219,7 @@ describe("a filler in an upper stack level", () => {
   });
 
   it("keeps it above the step with the stepped base", () => {
-    const step: Settings = { ...S, lip: { ...S.lip, kind: "step" } };
+    const step: Settings = { ...S, lip: { ...S.lip, joint: "step" as const } };
     expect(edgeTopOf(step, 1)).toBeCloseTo(1.6, 2);
     expect(chamfersOf(addTopChamfers(upper(6), { settings: step }), "leftover:0")[0]?.size).toBe(
       3.6,
@@ -229,7 +229,7 @@ describe("a filler in an upper stack level", () => {
 });
 
 describe("a merged part", () => {
-  const NO_LIP: Settings = { ...S, lip: { ...S.lip, enabled: false } };
+  const NO_LIP: Settings = { ...S, lip: { ...S.lip, joint: "off" as const } };
 
   it("carries the chamfer on the member it is cut in, in the member's own frame", () => {
     const strip = filler({ key: "leftover:0", x: 60 + GAP, y: 0, w: 40, d: 60 });

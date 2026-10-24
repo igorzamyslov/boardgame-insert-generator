@@ -84,7 +84,7 @@ describe("readProject: files of this schema line", () => {
     // The rim between layers is on in new inserts, but a file that says nothing about it reads it off.
     expect(project.settings).toEqual({
       ...DEFAULT_SETTINGS,
-      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+      lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
     });
     expect(project.components).toEqual([]);
     expect(project.locks).toEqual([]);
@@ -110,19 +110,19 @@ describe("readProject: files of this schema line", () => {
 
   it("fills single missing settings, including nested ones", () => {
     const { project } = expectOk(
-      readProject({ ...MINIMAL, settings: { wall: 2, lip: { enabled: false } } }, CURRENT),
+      readProject({ ...MINIMAL, settings: { wall: 2, lip: { joint: "off" as const } } }, CURRENT),
     );
     expect(project.settings).toEqual({
       ...DEFAULT_SETTINGS,
       wall: 2,
-      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+      lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
     });
   });
 
   it("a file without lip.enabled reads it off", () => {
     // New inserts start with the rim on, but a file that says nothing about it was made when it
     // was off and keeps that meaning (LIP_ENABLED_WHEN_ABSENT).
-    expect(DEFAULT_SETTINGS.lip.enabled).toBe(true);
+    expect(DEFAULT_SETTINGS.lip.joint !== "off").toBe(true);
     const cases: Json[] = [
       MINIMAL,
       { ...MINIMAL, settings: { wall: 2 } },
@@ -131,14 +131,16 @@ describe("readProject: files of this schema line", () => {
     ];
     for (const raw of cases) {
       const { project } = expectOk(readProject(raw, CURRENT));
-      expect(project.settings.lip.enabled, JSON.stringify(raw)).toBe(LIP_ENABLED_WHEN_ABSENT);
-      expect(project.settings.lip.enabled, JSON.stringify(raw)).toBe(false);
+      expect(project.settings.lip.joint !== "off", JSON.stringify(raw)).toBe(
+        LIP_ENABLED_WHEN_ABSENT,
+      );
+      expect(project.settings.lip.joint !== "off", JSON.stringify(raw)).toBe(false);
     }
     // A stored value is used as it is.
     const on = expectOk(
-      readProject({ ...MINIMAL, settings: { lip: { enabled: true } } }, CURRENT),
+      readProject({ ...MINIMAL, settings: { lip: { joint: "rim" as const } } }, CURRENT),
     ).project;
-    expect(on.settings.lip.enabled).toBe(true);
+    expect(on.settings.lip.joint !== "off").toBe(true);
   });
 
   it("a file without mergeRisers reads the default, on; an explicit value is used as it is", () => {

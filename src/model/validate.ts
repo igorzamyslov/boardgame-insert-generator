@@ -11,7 +11,7 @@ import {
   topPlane,
 } from "./settings";
 import { DEFAULT_GROUP_NAME } from "./groups";
-import { rimOn, stepOn } from "./lip";
+import { withJoint } from "./lip";
 import { MAX_ROOM, roomKindOf, roomWords } from "./room";
 import type { Component, ForeignData, Group, Lock, Notice, Project, Settings } from "./types";
 
@@ -652,6 +652,20 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
 }
 
 /**
+ * The settings let `joint` be built: the stepped base's slab keeps MIN_FEATURE_MM of side under its
+ * play, the rim's upper trays still rest on its ledge. Auto plans only with the joints that do
+ * (layout/optimize.ts), and is an error (checkSettings) only when neither does. "off" always can.
+ */
+export function jointAllowed(settings: Settings, joint: "off" | "rim" | "step"): boolean {
+  const s = withJoint(settings, joint);
+  const play = effective(s).lipPlay;
+  if (joint === "step") {
+    return play <= s.lip.stepHeight - MIN_FEATURE_MM + FLOAT_EPSILON;
+  }
+  return joint === "off" || effectiveBottomChamfer(s, 1) < s.lip.ledge - 2 * play - FLOAT_EPSILON;
+}
+
+/**
  * One field.setting error per setting outside its SETTING_RANGES entry (NaN included), then the
  * cross-field rules, each checked only when the settings it reads are in range themselves:
  * - bottomChamfer ≤ maxBottomChamfer (field.bottomChamfer);
@@ -661,6 +675,7 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
  *   field.bottomChamfer).
  */
 function checkSettings(ck: Checker, settings: Settings): void {
+  const { joint } = settings.lip;
   const outside = new Set<string>();
   for (const r of SETTING_RANGES) {
     const v = r.get(settings);
@@ -689,11 +704,12 @@ function checkSettings(ck: Checker, settings: Settings): void {
   }
   // The stepped base's slab keeps MIN_FEATURE_MM of side under its play (model/lip.ts stepOf: the
   // step starts the play under the seam, the slab's bed face `stepHeight` under it).
-  if (
-    stepOn(settings) &&
+  // Auto plans with each joint the settings allow, so it is an error only when neither is.
+  const stepFails =
+    (joint === "step" || (joint === "auto" && !jointAllowed(settings, "rim"))) &&
     !["lip/play", "lip/stepHeight", "fit"].some((path) => outside.has(path)) &&
-    !(effective(settings).lipPlay <= settings.lip.stepHeight - MIN_FEATURE_MM + FLOAT_EPSILON)
-  ) {
+    !jointAllowed(settings, "step");
+  if (stepFails) {
     ck.error(
       VALIDATION_NOTICE_CODES.field.stepPlay,
       "/settings/lip/stepHeight",
@@ -702,11 +718,14 @@ function checkSettings(ck: Checker, settings: Settings): void {
     return;
   }
   // The stepped base has no ledge: its trays rest on their 45° step.
-  if (!rimOn(settings) || ["lip/ledge", "lip/play", "fit"].some((path) => outside.has(path))) {
+  if (
+    !(joint === "rim" || (joint === "auto" && !jointAllowed(settings, "step"))) ||
+    ["lip/ledge", "lip/play", "fit"].some((path) => outside.has(path))
+  ) {
     return;
   }
   const bearing = settings.lip.ledge - 2 * effective(settings).lipPlay;
-  if (!(effectiveBottomChamfer(settings, 1) < bearing - FLOAT_EPSILON)) {
+  if (!jointAllowed(settings, "rim")) {
     ck.error(
       VALIDATION_NOTICE_CODES.field.lipBearing,
       "/settings/bottomChamfer",

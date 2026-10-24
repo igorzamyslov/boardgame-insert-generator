@@ -30,8 +30,14 @@ beforeAll(async () => {
 });
 
 const RIM: Settings = DEFAULT_SETTINGS;
-const STEP: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, kind: "step" } };
-const NO_LIP: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: false } };
+const STEP: Settings = {
+  ...DEFAULT_SETTINGS,
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "step" as const },
+};
+const NO_LIP: Settings = {
+  ...DEFAULT_SETTINGS,
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
+};
 
 const chamfer = (side: Side, from: number, to: number, size = 5): FeatureSpec => ({
   type: "topChamfer",

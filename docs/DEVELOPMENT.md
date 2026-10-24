@@ -187,6 +187,13 @@ it only with a written reason in the code or the PR.
   growth on. Never score a plan that grew, never give a tray room in the plan that an item did not
   ask for in its size (its "Some" room is part of the size sizing writes, `CompartmentReq.minW`), and
   keep the trays of a set of alike trays growing together (`alikeGrowth`, `layout/fill.ts`).
+- MUST keep Auto (`settings.lip.joint` "auto", 2026-10-24) out of the engine: `createRun`
+  (`layout/optimize.ts`) resolves it, so every search, `materialize` and `realizeTray` sees "off",
+  "rim" or "step" only, and the layout it stores says which (`StoredLayout.joint`). Everything that
+  sizes, draws or prints from stored trays (the app's `engineProject`, `jointOf`, `checkHardRules`)
+  reads Auto as that joint, and as the rim when the layout names none (an unresolved "auto" is
+  the rim in `rimOn`, never a third joint). Keep which parts carry a joint (`TraySpec.lip`,
+  `onRiser`, `Level.plug`) apart from which joint it is: a change to either must work with both.
 - MUST keep `src/layout/` deterministic. eslint bans `Math.random` there; use the seeded PRNG
   (`layout/prng.ts`).
 - MUST keep the geometry kernel off the main thread. eslint enforces it: outside `geometry/` you

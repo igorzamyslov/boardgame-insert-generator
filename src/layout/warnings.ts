@@ -1,4 +1,4 @@
-import { rimOn } from "../model/lip";
+import { lipEnabled, rimOn } from "../model/lip";
 import { FIT_CHOICES } from "../model/settings";
 import type { Notice, ReservedSpec, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
@@ -143,7 +143,7 @@ export function layoutWarnings(
       });
     }
   }
-  if (!settings.lip.enabled && real.some((t) => t.level > 0)) {
+  if (!lipEnabled(settings) && real.some((t) => t.level > 0)) {
     out.push({
       level: "warning",
       code: NOTICE_CODES.lipOff,
@@ -182,7 +182,7 @@ export function layoutWarnings(
  */
 function copiesJointNotices(ctx: Ctx, trays: readonly TraySpec[]): Notice[] {
   const { settings } = ctx.input;
-  if (!settings.lip.enabled) {
+  if (!lipEnabled(settings)) {
     return [];
   }
   const real = trays.filter((t) => t.part === "tray");
