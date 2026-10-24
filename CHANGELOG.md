@@ -10,6 +10,15 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.23.3] - 2026-10-24
+
+### Fixed
+
+- **Your inserts is tidier.** A long insert name now ends in an ellipsis instead of running under
+  its button, and Delete is a small grey trash icon on each row instead of a red "Delete…" link
+  (it turns red when you point at it, and still asks before it deletes). Two inserts with the same
+  name show when each was last edited, so you can tell them apart.
+
 ## [0.23.2] - 2026-10-24
 
 ### Fixed
