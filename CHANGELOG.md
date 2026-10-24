@@ -29,6 +29,9 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 - **The 3D camera stays where you turned it.** Switching to Top and back brought the 3D view back at
   its first framing every time. It now returns as you left it, and still starts again for another
   project and on "Reset view".
+- **Dimmed trays in 3D match the plan.** With a tray selected, the others in 3D were paler than the
+  same trays in the plan, because they faded toward the page instead of the box. They now fade
+  toward the box, as the plan's dimmed tiles do.
 - **A field's focus ring is no longer cut off at the left** in the box and item editors (for
   example "Keep space free on top").
 - **The heading of a plan being made lines up.** With no second line ("Making a new plan…"), the round

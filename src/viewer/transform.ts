@@ -137,7 +137,14 @@ export const EDITED_OPACITY = 0.45;
 export const PAGE_HEX = "#f4f3ef";
 
 /**
- * How far a faded tray's colour moves toward the page's: the plan dims a tile to opacity 0.6 on the
+ * What a dimmed tray blends toward while a tray is selected: the box's own colour (`--box`), which is
+ * what the plan's dimmed tile lets show through (opacity 0.6 over the box's floor, not the page). The
+ * page's colour here made every dimmed tray paler than its tile in the plan.
+ */
+export const DIM_TOWARD_HEX = "#d3cdbf";
+
+/**
+ * How far a faded tray's colour moves toward that colour: the plan dims a tile to opacity 0.6 on the
  * page, which is a 0.4 blend. A colour blend, not transparency: no sorting artefacts between trays.
  */
 export const FADE_BLEND = 0.4;

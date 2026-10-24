@@ -26,6 +26,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { TraySpec } from "../model/types";
 import { SPACER_SHADE } from "../ui/identity";
 import {
+  DIM_TOWARD_HEX,
   PAGE_HEX,
   anchorOf,
   emissiveOf,
@@ -179,6 +180,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   let misfit: string | null = null;
   const warnColor = new Color(MISFIT_COLOR);
   const pageColor = new Color(PAGE_HEX);
+  const dimColor = new Color(DIM_TOWARD_HEX);
   let pick: ((key: string | null) => void) | null = null;
   let frameId = 0;
   let down: { x: number; y: number } | null = null;
@@ -211,7 +213,8 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       t.materials.forEach((material, i) => {
         material.emissive.setHex(glow);
         const base = t.bases[i] ?? t.bases[0] ?? pageColor;
-        fadedColor(material.color, base, pageColor, fade);
+        // a dimmed tray goes the way the plan's does (toward the box it stands in); the edited item's others are drawn through over the page
+        fadedColor(material.color, base, edited ? pageColor : dimColor, fade);
         if (t.spec.key === misfit) {
           // The tray that does not fit is tinted in the warn colour, wells and all.
           material.color.copy(base).lerp(warnColor, MISFIT_TINT);

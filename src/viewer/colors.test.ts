@@ -99,3 +99,15 @@ describe("the lights", () => {
     expect(SUN_INTENSITY).toBeGreaterThan(0);
   });
 });
+
+describe("a dimmed tray", () => {
+  it("shows the colour the plan's dimmed tile does: the fill at 0.6 over the box, measured as #99C6BA for the teal #74C2B8", () => {
+    const shown = fadedColor(new Color(), new Color("#74C2B8"), new Color("#d3cdbf"), 0.4);
+    // one level of a byte is the plan's own rounding of the blend
+    const [r, g, b] = [0, 2, 4].map((i) => Number.parseInt(hexOf(shown).slice(1 + i, 3 + i), 16));
+    const [er, eg, eb] = [0x99, 0xc6, 0xba];
+    expect(Math.abs((r ?? 0) - er)).toBeLessThanOrEqual(1);
+    expect(Math.abs((g ?? 0) - eg)).toBeLessThanOrEqual(1);
+    expect(Math.abs((b ?? 0) - eb)).toBeLessThanOrEqual(1);
+  });
+});
