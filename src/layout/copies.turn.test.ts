@@ -191,6 +191,22 @@ describe("the owner's Scythe project", { timeout: 120_000 }, () => {
     expect(checkHardRules(input, layout, result.notices)).toEqual([]);
   });
 
+  it("has them facing one way whichever joint Auto picks", () => {
+    const raw = scythe as unknown as Raw;
+    const settings = raw.settings as Raw;
+    const auto = projectOf({
+      ...raw,
+      settings: { ...settings, lip: { ...(settings.lip as Raw), joint: "auto" } },
+    });
+    const result = optimize(buildLayoutInput(auto), 1, 6000, { warmStart: stored });
+    const layout = result.layout as StoredLayout;
+    expect(layout).not.toBeNull();
+    expect(layout.joint === "rim" || layout.joint === "step").toBe(true);
+    const faction = factions(layout.trays);
+    expect(faction).toHaveLength(6);
+    expect(new Set(faction.map((t) => t.rotated)).size).toBe(1);
+  });
+
   it("is set straight by the last pass alone, with no search left to do it", () => {
     const result = optimize(buildLayoutInput(project), 1, 0, { warmStart: stored });
     const layout = result.layout as StoredLayout;
