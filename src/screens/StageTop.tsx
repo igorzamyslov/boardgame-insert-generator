@@ -10,7 +10,7 @@ import {
   STALE_MESSAGE,
   type RunState,
 } from "../app/state";
-import { Button, MenuItem, MenuPanel, Notice, Segmented, StatusHeading } from "../kit";
+import { Button, Icon, IconButton, Notice, Segmented, StatusHeading } from "../kit";
 import type { StatusTone } from "../kit";
 import type { LockConflict } from "../layout/types";
 import { mmUp } from "../layout/warnings";
@@ -18,7 +18,6 @@ import type { Component, Notice as NoticeData, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { mm } from "../ui/identity";
 import { FitStrip } from "./FitStrip";
-import { HeaderMenu } from "./Header";
 import type { Misfit } from "../ui/noFit";
 import type { VolumeNote } from "../ui/volumeFit";
 
@@ -487,8 +486,8 @@ const TRY_ANOTHER_LINE = "Searches for longer";
  */
 export function StageTop(p: StageTopProps) {
   const status = statusOf(p);
-  // The menu item and Stop trade places: the one pressed hands the focus to the other (Stop after
-  // the menu item, the ⋯ button after Stop).
+  // Try another arrangement and Stop trade places: the one pressed hands the focus to the other (Stop
+  // after Try another arrangement, Try another arrangement after Stop).
   const row = useRef<HTMLDivElement>(null);
   const clicked = useRef<"keep" | "stop" | null>(null);
   useEffect(() => {
@@ -497,7 +496,7 @@ export function StageTop(p: StageTopProps) {
       return;
     }
     const stop = row.current?.querySelector<HTMLElement>("[data-toggle='stop']") ?? null;
-    const more = row.current?.querySelector<HTMLElement>(".hd-menu > button") ?? null;
+    const more = row.current?.querySelector<HTMLElement>("[data-toggle='again']") ?? null;
     const active = document.activeElement;
     const fell = active === null || active === document.body || active === more;
     if (want === "keep" && stop !== null && fell) {
@@ -555,34 +554,41 @@ export function StageTop(p: StageTopProps) {
     <ViewSwitch view={p.view} onViewChange={p.onViewChange} webgl={p.webgl} />
   );
 
-  // The menu is for what is not on screen already: in the no-fit strip its one entry is a button.
-  const more = strip ? null : (
-    <span key="more">
-      <HeaderMenu
-        label="Plan options"
-        panelId="stage-menu"
-        menuDot={false}
-        phone={p.phone}
-        menu={(close) => (
-          <MenuPanel label="Plan options">
-            <MenuItem
-              class="stage-menu__item"
-              blockedReason={
-                searchOn ? undefined : stopping ? "Already searching" : "Nothing to try yet"
-              }
-              onClick={() => {
-                clicked.current = "keep";
-                close();
-                p.onKeepSearching();
-              }}
-            >
-              <span>{TRY_ANOTHER}</span>
-              <span class="stage-menu__line">{TRY_ANOTHER_LINE}</span>
-            </MenuItem>
-          </MenuPanel>
-        )}
-      />
-    </span>
+  // Searching on is a quiet button beside the Top / 3D switch (a phone: its icon alone), blocked with
+  // its reason in the tooltip when there is nothing to search or a search runs. The no-fit strip has
+  // its own.
+  const blockedReason = searchOn
+    ? undefined
+    : stopping
+      ? "Already searching"
+      : "Nothing to try yet";
+  const keepTitle = blockedReason ?? TRY_ANOTHER_LINE;
+  const keepPress = () => {
+    clicked.current = "keep";
+    p.onKeepSearching();
+  };
+  const more = strip ? null : p.phone ? (
+    <IconButton
+      key="more"
+      label={TRY_ANOTHER}
+      title={keepTitle}
+      data-toggle="again"
+      icon={<Icon name="refresh" />}
+      blockedReason={blockedReason}
+      onClick={keepPress}
+    />
+  ) : (
+    <Button
+      key="more"
+      variant="quiet"
+      title={keepTitle}
+      data-toggle="again"
+      icon={<Icon name="refresh" size={18} />}
+      blockedReason={blockedReason}
+      onClick={keepPress}
+    >
+      {TRY_ANOTHER}
+    </Button>
   );
 
   const stop = stopping ? (

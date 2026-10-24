@@ -2,10 +2,48 @@
 // How the 3D view turns the plan's colours (plain sRGB hex) into what the renderer draws, and the
 // lights that put a part's top face back to that colour. Kept apart from scene.ts, which needs a
 // WebGL context, so the colour work is tested with the real three.js Color and no renderer.
-import { Color, SRGBColorSpace } from "three";
+import { Color, LinearSRGBColorSpace, SRGBColorSpace } from "three";
 
 /**
- * A shade as a lit surface needs it: the dark-scheme shades are lifted so the shading shows.
+ * How much lightness every part loses before it is lit, in OKLCH lightness (0..1, so 0.08 is
+ * "−8% L"). Its chroma and hue stay as they were, so a darker blue is the same blue, not a greyer
+ * one (HSL would shift the saturation). 0 draws the plan's own fills. Trial for the owner: 3D read
+ * brighter than the plan beside it; the owner chose 8% (2026-10-24).
+ */
+export const DARKEN_L = 0.08;
+
+const cube = (v: number): number => v * v * v;
+
+/** `c` with `drop` taken off its OKLCH lightness, chroma and hue kept (channels clipped to sRGB). */
+export function darkenedBy(c: Color, drop: number): Color {
+  if (drop === 0) {
+    return c;
+  }
+  const rgb = { r: 0, g: 0, b: 0 };
+  c.getRGB(rgb, LinearSRGBColorSpace);
+  // linear sRGB -> OKLab (Björn Ottosson)
+  const l = Math.cbrt(0.4122214708 * rgb.r + 0.5363325363 * rgb.g + 0.0514459929 * rgb.b);
+  const m = Math.cbrt(0.2119034982 * rgb.r + 0.6806995451 * rgb.g + 0.1073969566 * rgb.b);
+  const s = Math.cbrt(0.0883024619 * rgb.r + 0.2817188376 * rgb.g + 0.6299787005 * rgb.b);
+  // The lightness drops and a and b stay put: the same chroma at the same hue.
+  const L = Math.max(0, 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s - drop);
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const b = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  const l2 = cube(L + 0.3963377774 * a + 0.2158037573 * b);
+  const m2 = cube(L - 0.1055613458 * a - 0.0638541728 * b);
+  const s2 = cube(L - 0.0894841775 * a - 1.291485548 * b);
+  const clip = (v: number): number => Math.min(1, Math.max(0, v));
+  return new Color().setRGB(
+    clip(4.0767416621 * l2 - 3.3077115913 * m2 + 0.2309699292 * s2),
+    clip(-1.2684380046 * l2 + 2.6097574011 * m2 - 0.3413193965 * s2),
+    clip(-0.0041960863 * l2 - 0.7034186147 * m2 + 1.707614701 * s2),
+    LinearSRGBColorSpace,
+  );
+}
+
+/**
+ * A shade as a lit surface needs it: the dark-scheme shades are lifted so the shading shows, then
+ * every shade is darkened by `DARKEN_L`.
  *
  * The lightness is judged, and lifted, in sRGB, the space the shades are written in. three.js
  * keeps colours linear (`ColorManagement`), and `getHSL` and `setHSL` take the working space unless
@@ -16,7 +54,9 @@ export function litColor(css: string): Color {
   const c = new Color(css);
   const hsl = { h: 0, s: 0, l: 0 };
   c.getHSL(hsl, SRGBColorSpace);
-  return hsl.l < 0.4 ? c.setHSL(hsl.h, Math.min(1, hsl.s + 0.1), hsl.l + 0.25, SRGBColorSpace) : c;
+  const lifted =
+    hsl.l < 0.4 ? c.setHSL(hsl.h, Math.min(1, hsl.s + 0.1), hsl.l + 0.25, SRGBColorSpace) : c;
+  return darkenedBy(lifted, DARKEN_L);
 }
 
 /** A colour as "#rrggbb" (sRGB), for the shots window. */

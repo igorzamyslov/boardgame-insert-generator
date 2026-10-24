@@ -70,7 +70,11 @@ describe("the stage's top, in the app", () => {
       store.state.runScheduled.value = true;
     });
     expect(h1s()[0]?.textContent).toBe("Making a new plan…");
-    expect(within(stage()).queryByRole("button", { name: "Try another arrangement" })).toBeNull();
+    expect(
+      within(stage())
+        .getByRole("button", { name: "Try another arrangement" })
+        .getAttribute("aria-disabled"),
+    ).toBe("true");
   });
 
   it("shows the run error with Retry", () => {

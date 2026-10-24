@@ -10,6 +10,25 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-10-24
+
+### Changed
+
+- **One ⋯ button in the header area, not two.** "Try another arrangement" is now a quiet button with
+  a refresh icon beside the Top / 3D switch (the icon alone on a phone). Pointing at it says
+  "Searches for longer", or why it is off ("Already searching", "Nothing to try yet").
+- **3D is a little darker.** Every part is drawn 8% darker, with the same colour and strength, so it
+  sits closer to the plan.
+- **3D shows the layers below the one you picked faint, as the plan does.** Before, a tray from a
+  lower layer showed in full colour in 3D while the plan drew it grey.
+
+### Fixed
+
+- **A spacer's slope now runs to the end of its edge.** Where two spacers meet in an L or a T, the
+  slope used to stop a few millimetres short and leave a square step.
+- **Layer 1 in Top no longer hides a tray.** A hatched spare drawn over Faction 1b in the owner's Scythe
+  project covered it; Top and 3D now show the same trays.
+
 ## [0.25.0] - 2026-10-24
 
 ### Changed

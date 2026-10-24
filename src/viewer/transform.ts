@@ -64,6 +64,21 @@ export function isVisible(spec: TraySpec, maxLevel: number | null): boolean {
   return maxLevel === null || spec.level <= maxLevel;
 }
 
+/**
+ * A part of a layer below the one the Layer switch lights: the plan draws it faint under the lit
+ * layer (opacity 0.35 over the box floor, one colour for the whole part), and so does 3D. A part
+ * that also stands in the lit layer (a merged one) is not a ghost.
+ */
+export function isGhost(spec: TraySpec, maxLevel: number | null): boolean {
+  if (maxLevel === null || spec.level >= maxLevel) {
+    return false;
+  }
+  return !spec.merged || !spec.merged.members.some((m) => m.level >= maxLevel);
+}
+
+/** How far a ghost's colour moves toward the box floor: the plan's opacity 0.35 is a 0.65 blend. */
+export const GHOST_BLEND = 0.65;
+
 /** Tray coordinates start after boxClearance, so the inner box starts at −boxClearance. */
 export function boxOutline(box: Box, settings: Settings): BoxOutline {
   const bc = effective(settings).boxClearance;

@@ -50,11 +50,19 @@ export function layerHeights(trays: readonly TraySpec[]): number[] {
   return levels.map((_, i) => (lower[i + 1] ?? top) - (lower[i] ?? 0));
 }
 
+/**
+ * The parts that stand in layer `level`: the one rule for what belongs to a layer. A merged part
+ * stands there through a member that is drawn, not through the risers under trays: a part made
+ * of risers alone (the packing guide's, under a stack) is no tile, and drawn as one it covered the
+ * tray it stands under (Scythe, layer 1: the sixth Faction tray was hidden in Top, shown in 3D).
+ */
 export function traysAt(trays: readonly TraySpec[], level: number): TraySpec[] {
   return trays.filter(
     (t) =>
       !isAddOn(t) &&
-      (t.merged ? t.merged.members.some((m) => m.level === level) : t.level === level),
+      (t.merged
+        ? t.merged.members.some((m) => m.level === level && m.part !== "riser")
+        : t.level === level),
   );
 }
 

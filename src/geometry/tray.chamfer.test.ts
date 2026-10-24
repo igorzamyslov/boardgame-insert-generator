@@ -475,7 +475,7 @@ describe("a top chamfer along each member of a merged part", () => {
     filler({ key: "leftover:1", x: 60 + GAP, y: 60 + GAP, w: 40, d: 60, stack: 6 }),
   ];
 
-  it("runs the whole member, less the bridge, and builds closed, genus 0 and printable", () => {
+  it("runs the whole member, the bridge included, and builds closed, genus 0 and printable", () => {
     // a tray beside the first 30 mm of the first member and 30 mm of the second
     const joined = mergeParts([tray({ key: "a" }), tray({ key: "b", y: 60 + GAP }), ...strips()], {
       settings: NO_LIP,
@@ -486,8 +486,8 @@ describe("a top chamfer along each member of a merged part", () => {
     expect(
       topChamfersOf(part).map(({ part: p, chamfer: c }) => [p.key, c.side, c.from, c.to]),
     ).toEqual([
-      ["leftover:0", "left", 0, 57],
-      ["leftover:1", "left", 3, 60],
+      ["leftover:0", "left", 0, 60],
+      ["leftover:1", "left", 0, 60],
     ]);
     const built = buildTray(m, part, NO_LIP);
     const plain = buildTray(m, joined.find((p) => p.merged) as TraySpec, NO_LIP);
@@ -498,8 +498,52 @@ describe("a top chamfer along each member of a merged part", () => {
     });
     const z = 34.5;
     const taken = sliceArea(plain.mesh, z) - sliceArea(built.mesh, z);
-    expect(taken / (reach(5, z, 35) * 114)).toBeGreaterThan(0.95);
-    expect(taken / (reach(5, z, 35) * 114)).toBeLessThan(1.05);
+    expect(taken / (reach(5, z, 35) * 120)).toBeGreaterThan(0.95);
+    expect(taken / (reach(5, z, 35) * 120)).toBeLessThan(1.05);
+  });
+});
+
+describe("a top chamfer at the corner where two spacers meet", () => {
+  const GAP = DEFAULT_SETTINGS.trayGap;
+  // a spacer across the foot of a tray, and a strip up its side that reaches the spacer's end
+  const parts = (): TraySpec[] => [
+    traySpec({ key: "t", part: "tray", x: 0, y: 0, z: 0, w: 60, d: 60, h: 35 }),
+    filler({ key: "leftover:0", x: 0, y: 60 + GAP, w: 60, d: 20 }),
+    filler({ key: "leftover:1", x: 60 + GAP, y: 0, w: 20, d: 80 + GAP }),
+  ];
+
+  it("cuts the slope to the end of the spacer's face, over the bridge, and leaves a closed printable part", () => {
+    const joined = mergeParts(parts(), { settings: NO_LIP, printer: TEST_PRINTER });
+    const part = addTopChamfers(joined, { settings: NO_LIP }).find((p) => p.merged) as TraySpec;
+    expect(part.merged?.bridges.length).toBeGreaterThan(0);
+    const built = buildTray(m, part, NO_LIP);
+    expect(topology(built.mesh)).toMatchObject({ closed: true, genus: 0 });
+    expect(checkPrintability(printMesh(part, built.mesh))).toMatchObject({
+      ok: true,
+      overhangTriangles: 0,
+    });
+    // the spacer's face toward the tray is the part's front (y = 0 in the part's frame): its slope's
+    // triangles (normal at 45° up and out) run the spacer's whole 60 mm, not 57
+    const { positions: pos, indices: ix } = built.mesh;
+    const at = (i: number): [number, number, number] => [
+      pos[(ix[i] as number) * 3] as number,
+      pos[(ix[i] as number) * 3 + 1] as number,
+      pos[(ix[i] as number) * 3 + 2] as number,
+    ];
+    const xs: number[] = [];
+    for (let i = 0; i < ix.length; i += 3) {
+      const [a, b, c] = [at(i), at(i + 1), at(i + 2)];
+      const e = [b[0] - a[0], b[1] - a[1], b[2] - a[2]] as const;
+      const f = [c[0] - a[0], c[1] - a[1], c[2] - a[2]] as const;
+      const n = [e[1] * f[2] - e[2] * f[1], e[2] * f[0] - e[0] * f[2], e[0] * f[1] - e[1] * f[0]];
+      const len = Math.hypot(...(n as [number, number, number]));
+      const up = (n[2] as number) / len;
+      const out = (n[1] as number) / len;
+      if (up > 0.6 && up < 0.8 && out < -0.6 && Math.min(a[2], b[2], c[2]) > 29) {
+        xs.push(a[0], b[0], c[0]);
+      }
+    }
+    expect(Math.max(...xs)).toBeGreaterThanOrEqual(60 - 1e-3);
   });
 });
 

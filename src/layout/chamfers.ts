@@ -161,22 +161,25 @@ function without(run: Run, cut: Run): Run[] {
 
 /**
  * What of a chamfer along `run` on `side` of `c` a bridge or another member of a merged part
- * would fill: the band the chamfer cuts, from a tray gap outside the face to its size inside it,
- * takes none of it. The runs left, those still CHAMFER_MIN_CONTACT_MM long.
+ * stands against: the strip from a tray gap outside the face to the face, as high as the chamfer
+ * is deep. A chamfer there would be a trench between the two parts, so it stops. What reaches
+ * into the part's own footprint (a bridge's few mm at the end of a face, where two spacers meet in
+ * an L or a T) does not: the chamfer runs on over it to the end of the edge, and the slopes of
+ * the two faces meet at the corner. The runs left, those still CHAMFER_MIN_CONTACT_MM long.
  */
 function clearOf(c: Candidate, side: Side, size: number, gap: number, runs: Run[]): Run[] {
   const { box } = c;
-  const band: Box = {
+  const beside: Box = {
     ...box,
     z0: box.z1 - size,
     ...{
-      front: { y0: box.y0 - gap, y1: box.y0 + size },
-      back: { y0: box.y1 - size, y1: box.y1 + gap },
-      left: { x0: box.x0 - gap, x1: box.x0 + size },
-      right: { x0: box.x1 - size, x1: box.x1 + gap },
+      front: { y0: box.y0 - gap, y1: box.y0 },
+      back: { y0: box.y1, y1: box.y1 + gap },
+      left: { x0: box.x0 - gap, x1: box.x0 },
+      right: { x0: box.x1, x1: box.x1 + gap },
     }[side],
   };
-  const blocked = c.obstacles.filter((o) => overlaps(band, o)).map((o) => spanOf(o, side));
+  const blocked = c.obstacles.filter((o) => overlaps(beside, o)).map((o) => spanOf(o, side));
   return runs
     .flatMap((run) => blocked.reduce<Run[]>((left, b) => left.flatMap((r) => without(r, b)), [run]))
     .filter(([lo, hi]) => hi - lo >= CHAMFER_MIN_CONTACT_MM - EPS);

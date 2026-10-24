@@ -479,6 +479,7 @@ function buildCutters(
   spec: TraySpec,
   plan: TrayPlan,
   engravings: Engravings | null,
+  chamfers = true,
 ): Manifold[] {
   const cutters = plan.compartments.map((c) => buildCutter(m, scope, plan, c));
   if (plan.socket) {
@@ -498,7 +499,7 @@ function buildCutters(
     cutters.push(...buildTopFillets(m, scope, n, { top: plan.h, ...strip }));
   }
   // A filler's top chamfers run along the faces that touch a tray.
-  for (const chamfer of plan.chamfers) {
+  for (const chamfer of chamfers ? plan.chamfers : []) {
     cutters.push(buildChamfer(m, scope, chamfer, plan));
   }
   cutters.push(...buildNotches(m, scope, spec, plan));
@@ -715,16 +716,13 @@ function buildMergedOnce(
   const cuts: Manifold[] = [];
   for (const [i, member] of merged.members.entries()) {
     const plan = plans[i] as TrayPlan;
-    const cutters = buildCutters(m, scope, member, plan, engravingsOf(i));
-    if (cutters.length === 0) {
-      continue;
-    }
     const own = members[i] as (typeof members)[number];
+    const bridges = merged.bridges.map((b) => bridgeBox(m, scope, spec, b));
     const others = [
       ...members
         .filter((_, j) => j !== i)
         .map((b) => box(m, scope, [b.x0, b.y0, b.z0], [b.x1, b.y1, b.z1])),
-      ...merged.bridges.map((b) => bridgeBox(m, scope, spec, b)),
+      ...bridges,
     ];
     const reach = box(
       m,
@@ -732,11 +730,27 @@ function buildMergedOnce(
       [own.x0 - OVERSHOOT, own.y0 - OVERSHOOT, own.z0 - OVERSHOOT],
       [own.x1 + OVERSHOOT, own.y1 + OVERSHOOT, own.z1 + (plan.lip?.height ?? 0) + OVERSHOOT],
     );
-    const room = scope.track(reach.subtract(scope.track(m.Manifold.union(others))));
-    const moved = scope.track(
-      scope.track(m.Manifold.union(cutters)).translate([own.x0, own.y0, own.z0]),
+    const cutIn = (cutters: Manifold[], without: Manifold[]): void => {
+      if (cutters.length === 0) {
+        return;
+      }
+      const room =
+        without.length === 0
+          ? reach
+          : scope.track(reach.subtract(scope.track(m.Manifold.union(without))));
+      const moved = scope.track(
+        scope.track(m.Manifold.union(cutters)).translate([own.x0, own.y0, own.z0]),
+      );
+      cuts.push(scope.track(moved.intersect(room)));
+    };
+    cutIn(buildCutters(m, scope, member, plan, engravingsOf(i), false), others);
+    // A top chamfer runs the whole edge of its face, through a member that joins the part there
+    // (where two parts meet in an L or a T, both slopes run into the corner and make a valley),
+    // and stops at a bridge, which would fill the groove again.
+    cutIn(
+      plan.chamfers.map((c) => buildChamfer(m, scope, c, plan)),
+      [],
     );
-    cuts.push(scope.track(moved.intersect(room)));
   }
   return cuts.length === 0
     ? solid
