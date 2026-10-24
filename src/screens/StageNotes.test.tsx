@@ -104,7 +104,7 @@ describe("StageNotes", () => {
 
     it("leaves a hidden note out, counts it, and brings it back", () => {
       const onShowHidden = vi.fn();
-      const hidden = { [noteKey(note("x"))]: "A note." };
+      const hidden = { [noteKey(note("x"))]: ["A note."] };
       render(
         <StageNotes
           notices={[note("A note."), warn("w")]}
@@ -122,7 +122,7 @@ describe("StageNotes", () => {
     });
 
     it("shows a hidden note again when its words changed, and shows no link then", () => {
-      const hidden = { [noteKey(note("x"))]: "Cut by 2 mm." };
+      const hidden = { [noteKey(note("x"))]: ["Cut by 2 mm."] };
       render(
         <StageNotes
           notices={[note("Cut by 3 mm.")]}
@@ -137,12 +137,12 @@ describe("StageNotes", () => {
 
     it("moves focus to the next ×, then to the link when none is left", () => {
       function Host() {
-        const [hidden, setHidden] = useState<Record<string, string>>({});
+        const [hidden, setHidden] = useState<Record<string, string[]>>({});
         return (
           <StageNotes
             notices={[warn("a"), warn("b")]}
             hidden={hidden}
-            onHide={(n) => setHidden((h) => ({ ...h, [noteKey(n)]: n.message }))}
+            onHide={(n) => setHidden((h) => ({ ...h, [noteKey(n)]: [n.message] }))}
             onShowHidden={() => setHidden({})}
           />
         );

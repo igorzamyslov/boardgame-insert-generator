@@ -14,6 +14,12 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 - This changelog, and a release page on GitHub for every version, with the same notes.
 
+### Fixed
+
+- **Hidden notes stay hidden.** When two notes of the same kind were under the plan (for example
+  two stacks that only fit in one order), hiding the second brought the first one back. Each note
+  you hide now stays hidden until its own words change.
+
 ## [0.21.0] - 2026-10-24
 
 ### Added
