@@ -14,7 +14,6 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ### Added
 
-- This changelog, and a release page on GitHub for every version, with the same notes.
 - **A chamfered grip on spacers.** A spacer wedged beside a tray now has a sloped edge along its
   top, up to 5 mm across, where it touches the tray, so a fingertip can get in and lift the tray
   out. It replaces the rounded finger dip. Trays still mate with parts you printed before; print
@@ -40,6 +39,12 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
   already has no menu; the no-fit bar has none.
 - **No fit is shown over the normal plan,** in the top view and in 3D alike, instead of on a
   screen of its own that scrolled its explanation away.
+
+## [0.22.0] - 2026-10-24
+
+### Added
+
+- This changelog, and a release page on GitHub for every version, with the same notes.
 
 ## [0.21.0] - 2026-10-24
 
