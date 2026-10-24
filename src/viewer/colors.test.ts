@@ -76,6 +76,13 @@ describe("the lights", () => {
     expect(litShare([0, 0, 1])).toBeCloseTo(1, 12);
   });
 
+  it("put a top face on the screen as the plan's fill, byte for byte (measured in the running app, top-down: #74C2B8, #C0D3F7, #F0C2D6 and #FBDEAB in both views)", () => {
+    for (const fill of ["#74C2B8", "#93C0B5", "#9ECFC6", "#E0C4CC", "#EED3DC", "#C0D3F7"]) {
+      const shown = litColor(fill).multiplyScalar(litShare([0, 0, 1]));
+      expect(hexOf(shown), fill).toBe(fill.toLowerCase());
+    }
+  });
+
   it("leave a side facing the sun lighter than one facing away, and none black", () => {
     const toSun = litShare(
       [-1, -2, 0.2].map((v) => v / Math.hypot(1, 2, 0.2)) as [number, number, number],

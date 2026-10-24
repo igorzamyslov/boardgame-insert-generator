@@ -45,10 +45,10 @@
   padding: 0 var(--s-12);
 }
 
-/* ---- The tabs: Settings' quiet segment, 14 px over the body ---- */
-.st-tabs {
+/* The back button of a page the drawer opens: before its title, the header's gap apart. */
+.st-head .st-back-page {
   flex: none;
-  padding: var(--s-14) var(--s-28) 0;
+  margin-left: calc(-1 * var(--s-8));
 }
 
 /* ---- The body: the one thing that scrolls (the page behind the drawer is inert) ---- */
@@ -92,7 +92,11 @@
   border-bottom: 1px solid var(--rule-soft);
 }
 
-/* Exact numbers is the last section: its gap is 14 and it has no rule. */
+.st-stack > .st-sec:last-child {
+  border-bottom: 0;
+}
+
+/* Exact numbers is a page of its own: its gap is 14 and it has no rule. */
 .st-sec--exact {
   gap: var(--s-14);
   border-bottom: 0;
@@ -195,8 +199,9 @@
   align-self: stretch;
 }
 
+/* Under the words, not under the box that now leads them (the box and the gap before the words). */
 .st-back--switch {
-  margin: calc(-1 * var(--s-4)) 0 var(--s-8);
+  margin: calc(-1 * var(--s-4)) 0 var(--s-8) calc(22px + var(--s-12));
 }
 
 /* ---- Exact numbers: the search, then the groups ---- */
@@ -433,6 +438,16 @@
   height: var(--control-h);
 }
 
+/* ---- The pages the drawer opens: a plain row each, a soft rule between ---- */
+.st-doors {
+  gap: 0;
+  border-bottom: 0;
+}
+
+.st-doors .k-drow + .k-drow {
+  border-top: 1px solid var(--rule-soft);
+}
+
 .st-details {
   display: flex;
   flex-direction: column;
@@ -458,7 +473,6 @@
 /* ---- A phone: the drawer is full screen (the kit's), the sides take 20 px as every dialog's do ---- */
 @media (width < 600px) {
   .st-head,
-  .st-tabs,
   .st-foot {
     padding-right: var(--s-20);
     padding-left: var(--s-20);

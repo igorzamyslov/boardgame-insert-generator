@@ -9,6 +9,7 @@ import { hoveredComponent } from "../screens/hover";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
+import { viewMemory } from "../viewer/view";
 import type { AppProps } from "./App";
 import { fixtureProject, makeLayout, makeTray } from "./test-helpers";
 import { renderApp } from "./test-app";
@@ -335,5 +336,26 @@ describe("the Layer switch drives the 3D view", () => {
     openView("Top");
     openView("3D");
     expect(layer("Layer 1").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("keeps the 3D camera for the project as the view goes to Top, so it comes back", async () => {
+    viewMemory.clear();
+    const { project } = twoTrays();
+    const scene = stubScene();
+    const turned = {
+      direction: [0.6, -0.6, 0.5] as [number, number, number],
+      share: 0.7,
+      zoom: 1,
+      projection: "perspective" as const,
+      boxRadius: 1,
+      explode: 0,
+    };
+    scene.handle.getView = vi.fn(() => turned);
+    renderApp({ project, overrides: { viewerProps: scene.viewerProps } });
+    await inThreeD();
+    openView("Top");
+    // it is kept under the project's own id: without one the camera was dropped on every switch
+    await waitFor(() => expect(viewMemory.get(project.id)?.direction).toEqual(turned.direction));
+    viewMemory.clear();
   });
 });

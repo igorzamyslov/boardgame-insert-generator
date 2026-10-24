@@ -195,6 +195,9 @@ export interface RailDragOptions {
   onDrop: (itemId: string, target: DropTarget) => void;
 }
 
+/** How long a finger holds still on a row before it lifts. */
+export const LONG_PRESS_MS = 450;
+
 interface Session {
   itemId: string;
   pointerId: number;
@@ -244,13 +247,16 @@ const reducedMotion = (): boolean =>
 
 /**
  * The rail's drag (spec §7.3). `gripDown(id)` is a grip's `onPointerDown`: the drag begins after 4 px
- * of movement; the row then lifts (`is-drag-lifted`: `--shadow-sheet`) and follows the pointer, a 2 px
+ * of movement. `rowDown(id)` is an ungrouped row's, for a touch screen that has no grip: a finger
+ * held still on the row for `LONG_PRESS_MS` lifts it (a finger that moves first is a scroll, one
+ * that lifts first a tap), and the drag goes on as from a grip. The row then lifts (`is-drag-lifted`: `--shadow-sheet`) and follows the pointer, a 2 px
  * `--focus` line marks the place, a group being entered takes `data-drop`; the list scrolls when the
  * pointer nears its top or bottom edge (a step per move under reduced motion, no animation).
  * Escape, and a drop outside the list, cancel.
  */
 export function useRailDrag(options: RailDragOptions): {
   gripDown: (itemId: string) => (e: PointerEvent) => void;
+  rowDown: (itemId: string) => (e: PointerEvent) => void;
 } {
   const latest = useRef(options);
   latest.current = options;
@@ -265,7 +271,7 @@ export function useRailDrag(options: RailDragOptions): {
     [],
   );
 
-  const gripDown = (itemId: string) => (e: PointerEvent) => {
+  const open = (itemId: string, e: PointerEvent, longPress: boolean): void => {
     const { listRef, disabled } = latest.current;
     const root = listRef.current;
     const grip = e.currentTarget as HTMLElement | null;
@@ -281,12 +287,14 @@ export function useRailDrag(options: RailDragOptions): {
     ) {
       return;
     }
-    // no text selection and no focus move from a press that may become a drag
-    e.preventDefault();
-    try {
-      grip.setPointerCapture?.(e.pointerId);
-    } catch {
-      // a pointer the browser no longer knows: the window's listeners are enough
+    if (!longPress) {
+      // no text selection and no focus move from a press that may become a drag
+      e.preventDefault();
+      try {
+        grip.setPointerCapture?.(e.pointerId);
+      } catch {
+        // a pointer the browser no longer knows: the window's listeners are enough
+      }
     }
     const s: Session = {
       itemId,
@@ -369,6 +377,13 @@ export function useRailDrag(options: RailDragOptions): {
     };
     const begin = (): void => {
       s.began = true;
+      if (longPress) {
+        try {
+          grip.setPointerCapture?.(s.pointerId);
+        } catch {
+          // a pointer the browser no longer knows: the window's listeners are enough
+        }
+      }
       s.rowTop = s.row.getBoundingClientRect().top;
       s.row.classList.add("is-drag-lifted");
       root.classList.add("is-dragging");
@@ -385,6 +400,11 @@ export function useRailDrag(options: RailDragOptions): {
       window.removeEventListener("keydown", key, true);
       window.removeEventListener("contextmenu", noMenu, true);
       window.removeEventListener("blur", cancel);
+      window.removeEventListener("touchmove", noScroll, true);
+      if (held !== null) {
+        window.clearTimeout(held);
+        held = null;
+      }
       if (s.frame !== null) {
         window.cancelAnimationFrame(s.frame);
       }
@@ -399,6 +419,12 @@ export function useRailDrag(options: RailDragOptions): {
       } catch {
         // already let go
       }
+      if (longPress && s.began) {
+        // the finger lifts over the row it pressed: that is not a tap on it
+        const swallow = (ev: Event): void => ev.stopPropagation();
+        window.addEventListener("click", swallow, { capture: true, once: true });
+        window.setTimeout(() => window.removeEventListener("click", swallow, true), 400);
+      }
       session.current = null;
       stop.current = null;
     };
@@ -409,6 +435,11 @@ export function useRailDrag(options: RailDragOptions): {
       s.last = { x: ev.clientX, y: ev.clientY };
       if (!s.began) {
         if (!pastThreshold(s.start, s.last)) {
+          return;
+        }
+        if (longPress) {
+          // the finger moved before it was held: a scroll, not a lift
+          end();
           return;
         }
         begin();
@@ -422,6 +453,13 @@ export function useRailDrag(options: RailDragOptions): {
       }
       update();
     };
+    // a finger that lifts the row must not also scroll the list under it
+    const noScroll = (ev: Event): void => {
+      if (s.began && ev.cancelable) {
+        ev.preventDefault();
+      }
+    };
+    let held: number | null = null;
     const up = (ev: PointerEvent): void => {
       if (ev.pointerId !== s.pointerId) {
         return;
@@ -457,7 +495,25 @@ export function useRailDrag(options: RailDragOptions): {
     window.addEventListener("keydown", key, true);
     window.addEventListener("contextmenu", noMenu, true);
     window.addEventListener("blur", cancel);
+    if (longPress) {
+      window.addEventListener("touchmove", noScroll, { capture: true, passive: false });
+      held = window.setTimeout(() => {
+        held = null;
+        begin();
+        // a hint under the finger that the row is lifted
+        navigator.vibrate?.(10);
+        update();
+      }, LONG_PRESS_MS);
+    }
   };
 
-  return { gripDown };
+  const gripDown = (itemId: string) => (e: PointerEvent) => open(itemId, e, false);
+  // A finger only: a mouse or a pen has the grip (and a mouse's long press is a click held, not a lift).
+  const rowDown = (itemId: string) => (e: PointerEvent) => {
+    if (e.pointerType === "touch") {
+      open(itemId, e, true);
+    }
+  };
+
+  return { gripDown, rowDown };
 }

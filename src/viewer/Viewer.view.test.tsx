@@ -34,6 +34,8 @@ const TURNED: ViewState = {
 function viewScene(accepts = true) {
   const state = {
     view: { ...TURNED, direction: [0, -0.74, 0.67], share: 1, explode: 0 } as ViewState,
+    // a scene that was disposed has no camera to ask: the view must be read before that
+    gone: false,
   };
   const handle: SceneHandle = {
     setBox: vi.fn(),
@@ -48,11 +50,14 @@ function viewScene(accepts = true) {
     setMisfit: vi.fn(),
     onPick: vi.fn(),
     resize: vi.fn(),
-    dispose: vi.fn(),
+    dispose: vi.fn(() => {
+      state.gone = true;
+    }),
     setProjection: vi.fn((projection) => {
       state.view = { ...state.view, projection };
     }),
-    getView: vi.fn(() => state.view),
+    // the real scene answers nothing once it is gone; the type has no such case
+    getView: vi.fn(() => (state.gone ? undefined : state.view) as ViewState),
     setView: vi.fn((v: ViewState) => {
       if (accepts) {
         state.view = v;

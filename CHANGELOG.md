@@ -10,6 +10,30 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+### Changed
+
+- **Settings opens on one page, with three rows that open the rest.** The three tabs are gone. "This
+  insert" is the drawer: how the trays sit, then the printing options. Exact numbers, My printer and
+  Display are rows under it that open a page each, with a back button. Switches now have their box on
+  the left of their words. Every setting is still reachable on a phone.
+- **Open plans in Top or 3D.** The new Display page chooses the view a project opens in. It is kept
+  in this browser, and switching in the plan still works.
+- **The 3D view's progress looks like Download's.** While the models are built you see the same bar
+  and "12 of 28 models built" under it.
+- **The item list's drag handle has its own gutter.** The six dots sit to the left of the icon and
+  show only when you point at a row or move the keyboard to it. On a touch screen there is no handle:
+  hold a row to lift it.
+
+### Fixed
+
+- **The 3D camera stays where you turned it.** Switching to Top and back brought the 3D view back at
+  its first framing every time. It now returns as you left it, and still starts again for another
+  project and on "Reset view".
+- **A field's focus ring is no longer cut off at the left** in the box and item editors (for
+  example "Keep space free on top").
+- **The heading of a plan being made lines up.** With no second line ("Making a new plan…"), the round
+  icon, the title and Stop sit on one centre instead of the icon hanging low.
+
 ## [0.24.0] - 2026-10-24
 
 ### Added

@@ -62,4 +62,13 @@ describe("StatusHeading", () => {
     );
     expect(screen.getByRole("list", { name: "Errors without a field" })).toBeTruthy();
   });
+
+  it("says when there is no line under the title, for the rules that centre the row on the title", () => {
+    const { container, rerender } = render(
+      <StatusHeading tone="info" title="Making a new plan…" />,
+    );
+    expect(container.querySelector(".k-status")?.getAttribute("data-line")).toBe("none");
+    rerender(<StatusHeading tone="info" title="Searching…" line="A line" />);
+    expect(container.querySelector(".k-status")?.hasAttribute("data-line")).toBe(false);
+  });
 });

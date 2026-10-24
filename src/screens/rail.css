@@ -281,39 +281,41 @@
 }
 
 /*
- * An ungrouped row's grip (spec §7.3): not in the row's layout, a small pill over its left edge,
- * shown on hover and while focus is within the row. A tablet has no hover (`data-no-hover`, set by
- * the list from `(hover: none)`; the style test allows no other media query), so it is always shown there.
+ * An ungrouped row's grip (spec §7.3): in a gutter of its own to the left of the row's icon (the
+ * list's padding, so the rows stay where they were), the dots alone, shown on hover and while focus
+ * is within the row, so a list at rest is clean. A touch screen has no grip: a long press on the
+ * row lifts it (the list sets `data-no-hover`, from `(hover: none)`; the style test allows no
+ * other media query).
  */
+.rail-list:not(.rail-list--sheet) {
+  --grip-gutter: var(--s-14);
+
+  margin-left: calc(-1 * (var(--s-5) + var(--grip-gutter)));
+  padding-left: calc(var(--s-5) + var(--grip-gutter));
+}
+
 .gc-grip--loose {
   position: absolute;
-  top: calc(var(--row-min) / 2);
-  left: 0;
-  z-index: 1;
-  width: var(--s-18);
-  height: 30px;
-  border-radius: var(--s-6);
-  background: var(--sheet);
-  box-shadow: 0 0 0 1px var(--rule);
+  top: 0;
+  right: 100%;
+  width: var(--grip-gutter);
+  height: var(--row-min);
   opacity: 0;
-  transform: translateY(-50%);
+}
 
-  /* unseen, it takes no press: a press on the row's left edge opens the row */
-  pointer-events: none;
+.gc-grip--loose:hover {
+  color: var(--muted-strong);
 }
 
 .rail-item:hover > .gc-grip--loose,
 .rail-item:focus-within > .gc-grip--loose {
   opacity: 1;
-  pointer-events: auto;
 }
 
-/* No hover (a tablet): always shown, and as big a target as a member's grip (24 × 44). */
-.rail-list[data-no-hover] .gc-grip--loose {
-  width: var(--s-24);
-  height: 44px;
-  opacity: 1;
-  pointer-events: auto;
+/* A row a finger can lift: no text selection and no callout from the press that holds it. */
+.rail-list[data-no-hover] .rail-item {
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .gc-member .k-row {

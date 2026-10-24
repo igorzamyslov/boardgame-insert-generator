@@ -28,14 +28,14 @@ describe("settings.css", () => {
     expect(css.length).toBeGreaterThan(1000);
   });
 
-  it("leaves the scrolling to the body: the header, tabs and foot stay, the drawer does not scroll", () => {
+  it("leaves the scrolling to the body: the header and foot stay, the drawer does not scroll", () => {
     const body = ruleFor(".st-body");
     expect(body).toMatch(/overflow:\s*auto/);
     expect(body).toMatch(/min-height:\s*0/);
     expect(body).toMatch(/flex:\s*1 1 0/);
     // so the visually hidden text inside is clipped by the body, not stretching the drawer
     expect(body).toMatch(/position:\s*relative/);
-    for (const part of [".st-head", ".st-tabs", ".st-foot"]) {
+    for (const part of [".st-head", ".st-foot"]) {
       expect(ruleFor(part), part).toMatch(/flex:\s*none/);
     }
     const drawer = ruleFor(".k-drawer", strip(kit));
@@ -47,7 +47,7 @@ describe("settings.css", () => {
     );
   });
 
-  it("draws the header, tabs and foot at the board's paddings and rules", () => {
+  it("draws the header and foot at the board's paddings and rules", () => {
     expect(ruleFor(".st-head")).toMatch(/padding:\s*var\(--s-22\) var\(--s-28\)/);
     expect(ruleFor(".st-head")).toMatch(/gap:\s*var\(--s-12\)/);
     expect(ruleFor(".st-head")).toMatch(/border-bottom:\s*1px solid var\(--rule-soft\)/);
@@ -56,7 +56,6 @@ describe("settings.css", () => {
     expect(ruleFor(".st-title")).toMatch(/flex:\s*none/);
     expect(ruleFor(".st-title")).not.toMatch(/flex-grow/);
     expect(ruleFor(".st-head .st-title + *")).toMatch(/margin-left:\s*auto/);
-    expect(ruleFor(".st-tabs")).toMatch(/padding:\s*var\(--s-14\) var\(--s-28\) 0/);
     expect(ruleFor(".st-body")).toMatch(/padding:\s*var\(--s-8\) var\(--s-28\) var\(--s-24\)/);
     const foot = ruleFor(".st-foot");
     expect(foot).toMatch(/padding:\s*var\(--s-16\) var\(--s-28\)/);
@@ -138,5 +137,14 @@ describe("settings.css", () => {
     expect(strip(kit)).toMatch(
       /@media \(width < 600px\)\s*\{\s*\.k-dialog,\s*\.k-drawer\s*\{[^}]*height:\s*100dvh/,
     );
+  });
+
+  it("opens pages from plain rows with a rule between, and puts a switch's way back under its words", () => {
+    expect(ruleFor(".st-doors .k-drow + .k-drow")).toMatch(
+      /border-top:\s*1px solid var\(--rule-soft\)/,
+    );
+    // the box leads its words (22 px and the row's gap), so the way back is indented by both
+    expect(ruleFor(".st-back--switch")).toMatch(/calc\(22px \+ var\(--s-12\)\)/);
+    expect(strip(kit)).toMatch(/\.k-check\[data-lead\] \{\s*flex-direction:\s*row-reverse/);
   });
 });

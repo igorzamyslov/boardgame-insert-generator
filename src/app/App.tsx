@@ -1,5 +1,5 @@
 // src/app/App.tsx
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Access, ComponentKind, Lock, Project } from "../model/types";
@@ -31,7 +31,7 @@ import {
 import { RunAnnouncer } from "../screens/RunAnnouncer";
 import { StageSlot } from "../screens/StageSlot";
 import { StageNotes } from "../screens/StageNotes";
-import { stageView } from "../screens/stageView";
+import { openingView, stageView } from "../screens/stageView";
 import {
   PlanBanner,
   StageSwitches,
@@ -51,8 +51,8 @@ import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
 import { Notices } from "../ui/Notices";
 import { placeNotices } from "../ui/noticePlacement";
 import { nameExampleOf } from "../ui/settingsFields";
-import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
-import type { SettingsTab } from "../ui/SettingsSheet";
+import { SettingsSheet, settingsPageFor } from "../ui/SettingsSheet";
+import type { SettingsPage } from "../ui/SettingsSheet";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
 import { componentIdsOfTray, mm } from "../ui/identity";
@@ -234,13 +234,17 @@ export function App(props: AppProps) {
   // bottom layer and 3D shows every layer.
   const pickedLayer = s.viewLayer.value;
   const layerNow = pickedLayer !== undefined ? pickedLayer : view === "plan" ? 0 : null;
+  // The browser can draw the 3D view: asked once, when the app opens.
+  const [webgl] = useState(() => (props.viewerProps?.webgl ?? hasWebGL)());
+  // A project opens in the view Settings chose (Display); switching in the plan still works.
+  useLayoutEffect(() => {
+    stageView.value = openingView(webgl);
+  }, [project.id, webgl]);
   useEffect(() => {
     return () => {
       stageView.value = "plan";
     };
   }, []);
-  // The browser can draw the 3D view: asked once, when the app opens.
-  const [webgl] = useState(() => (props.viewerProps?.webgl ?? hasWebGL)());
   // What the 3D view says while a swap or a put-on is chosen there, or why a pick was refused (the
   // plan says the same in its own slot).
   const [pickNote, setPickNote] = useState<string | null>(null);
@@ -251,7 +255,7 @@ export function App(props: AppProps) {
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
   const [exportOpen, setExportOpen] = useState(false);
   // The settings sheet is a dialog too; null while it is closed.
-  const [settingsOpen, setSettingsOpen] = useState<{ tab: SettingsTab } | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState<{ page: SettingsPage } | null>(null);
   // What was just removed, in the words the toast says, for the Undo toast (cleared when another
   // project opens): an item's, or a group's with what its trays' rules lost.
   // A drop in the rail that gave a note shows its toast the same way, with "Undo move"; the rail's own
@@ -402,9 +406,9 @@ export function App(props: AppProps) {
   const validation = s.validation.value;
   // The editors and the sheet that hold an error: the status heading sends the reader to each.
   const problems = problemAreas(validation, project.components);
-  // The settings sheet, over whichever view is showing; `tab` is the one it opens on.
-  const openSettings = (tab?: SettingsTab): void =>
-    setSettingsOpen({ tab: tab ?? settingsTabFor(validation) });
+  // The settings sheet, over whichever view is showing; `page` is the one it opens on.
+  const openSettings = (page?: SettingsPage): void =>
+    setSettingsOpen({ page: page ?? settingsPageFor(validation) });
   // The box's editor, in the rail's place (a phone's sheet opens for it).
   const openBox = (): void => {
     setEditingId(null);
@@ -1401,6 +1405,8 @@ export function App(props: AppProps) {
                         groups: project.groups,
                         stale: s.stale.value,
                         meshes,
+                        // the camera is kept for this project while the view is Top and back
+                        projectId: project.id,
                         selectedKey: s.selection.value,
                         topLayer: layerNow,
                         levels: planLevels,
@@ -1541,7 +1547,7 @@ export function App(props: AppProps) {
           )}
           {settingsOpen !== null ? (
             <SettingsSheet
-              initialTab={settingsOpen.tab}
+              initialPage={settingsOpen.page}
               settings={saved.settings}
               plannedJoint={s.stale.value ? undefined : layout?.joint}
               nameExample={nameExampleOf(printable, project.components, project.groups)}

@@ -20,9 +20,11 @@ export interface CheckRowProps {
   invalid?: boolean;
   /** This value differs from its default: an 8 px dot after the label (Settings'). */
   changed?: boolean;
+  /** The box before the words (Settings' switches), not after them. */
+  boxFirst?: boolean;
 }
 
-/** A label and its hint on the left, a 22 px checkbox on the right. */
+/** A label and its hint on the left, a 22 px checkbox on the right (before them with `boxFirst`). */
 export function CheckRow({
   label,
   hint,
@@ -33,11 +35,16 @@ export function CheckRow({
   describedBy,
   invalid = false,
   changed = false,
+  boxFirst = false,
 }: CheckRowProps) {
   const labelId = useId();
   const hintId = useId();
   return (
-    <label class="k-check" data-compact={compact ? "" : undefined}>
+    <label
+      class="k-check"
+      data-compact={compact ? "" : undefined}
+      data-lead={boxFirst ? "" : undefined}
+    >
       <span class="k-check__text">
         <span class="k-check__label" id={labelId}>
           {label}

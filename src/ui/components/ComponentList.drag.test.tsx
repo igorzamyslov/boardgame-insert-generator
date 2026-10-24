@@ -111,11 +111,15 @@ describe("the grips", () => {
     expect(grip(container, "s").classList.contains("gc-grip--loose")).toBe(false);
   });
 
-  it("are shown all the time where there is no hover (a tablet): the list says so", () => {
+  it("are not drawn where there is no hover (a touch screen): the list says so, and a long press lifts a row", () => {
     expect(setup().list.hasAttribute("data-no-hover")).toBe(false);
     cleanup();
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q === "(hover: none)", media: q }));
-    expect(setup().list.getAttribute("data-no-hover")).toBe("true");
+    const { container, list } = setup();
+    expect(list.getAttribute("data-no-hover")).toBe("true");
+    expect(grip(container, "m")).toBeNull();
+    // a member's grip is still there
+    expect(grip(container, "s")).toBeTruthy();
     vi.unstubAllGlobals();
   });
 
@@ -315,5 +319,70 @@ describe("a drag", () => {
     fireEvent.keyDown(document.body, { key: "Escape" });
     vi.unstubAllGlobals();
     raf.mockRestore();
+  });
+});
+
+describe("a long press on a row of a touch screen", () => {
+  const touch = (el: Element, x: number, y: number) =>
+    fireEvent.pointerDown(el, {
+      clientX: x,
+      clientY: y,
+      button: 0,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+  const row = (container: Element, id: string): HTMLElement =>
+    container.querySelector(`[data-entry="${id}"]`) as HTMLElement;
+
+  function setupTouch() {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q === "(hover: none)", media: q }));
+    return setup();
+  }
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("lifts the row after 450 ms held still, and a drop calls onDrop", () => {
+    const { container, onDrop, list } = setupTouch();
+    touch(row(container, "m"), 20, 25);
+    vi.advanceTimersByTime(449);
+    expect(list.classList.contains("is-dragging")).toBe(false);
+    vi.advanceTimersByTime(2);
+    expect(list.classList.contains("is-dragging")).toBe(true);
+    expect(row(container, "m").classList.contains("is-drag-lifted")).toBe(true);
+    move(20, 380);
+    up(20, 380);
+    expect(onDrop).toHaveBeenCalledTimes(1);
+    expect(onDrop.mock.calls[0]?.[0]).toBe("m");
+  });
+
+  it("is a scroll, not a lift, when the finger moves before it is held, and a tap when it lifts first", () => {
+    const { container, onDrop, list } = setupTouch();
+    touch(row(container, "m"), 20, 25);
+    vi.advanceTimersByTime(200);
+    move(20, 60);
+    vi.advanceTimersByTime(1000);
+    expect(list.classList.contains("is-dragging")).toBe(false);
+    touch(row(container, "m"), 20, 25);
+    vi.advanceTimersByTime(200);
+    up(20, 25);
+    vi.advanceTimersByTime(1000);
+    expect(list.classList.contains("is-dragging")).toBe(false);
+    expect(onDrop).not.toHaveBeenCalled();
+  });
+
+  it("is for a finger only: a mouse press on the row does nothing", () => {
+    const { container, list } = setupTouch();
+    fireEvent.pointerDown(row(container, "m"), {
+      clientX: 20,
+      clientY: 25,
+      button: 0,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    vi.advanceTimersByTime(1000);
+    expect(list.classList.contains("is-dragging")).toBe(false);
   });
 });

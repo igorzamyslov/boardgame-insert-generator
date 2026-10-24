@@ -238,7 +238,7 @@ export function ComponentList({
       .find((r) => r.dataset.rowId === id)
       ?.focus();
   });
-  // A tablet has no hover: an ungrouped row's grip is shown there all the time (rail.css).
+  // A touch screen has no hover and no grip on an ungrouped row: a long press lifts the row instead.
   const noHover = useRef(
     typeof window.matchMedia === "function" && window.matchMedia("(hover: none)").matches,
   );
@@ -484,8 +484,14 @@ export function ComponentList({
         const enter = (): void => onHover?.(c.id);
         const leave = (): void => onHover?.(null);
         return (
-          <li class="rail-item" key={c.id} aria-label={who} data-entry={c.id}>
-            {compact ? null : (
+          <li
+            class="rail-item"
+            key={c.id}
+            aria-label={who}
+            data-entry={c.id}
+            onPointerDown={compact || !noHover.current ? undefined : drag.rowDown(c.id)}
+          >
+            {compact || noHover.current ? null : (
               <span
                 class="gc-grip gc-grip--loose"
                 aria-hidden="true"

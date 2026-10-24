@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { MeshSource } from "../app/meshes";
 import { STALE_MESSAGE } from "../app/state";
+import { ProgressBar } from "../kit";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import { slabUnder } from "../model/lip";
@@ -116,8 +117,18 @@ export function Viewer(p: ViewerProps) {
     setStatus("loading");
   }
 
+  // The page the camera is kept for, as the view goes: the cleanup below reads it when the viewer is unmounted.
+  const projectIdRef = useRef(p.projectId);
+  projectIdRef.current = p.projectId;
   useEffect(
     () => () => {
+      // The camera is read before the scene goes: this cleanup runs ahead of the one that keeps the view
+      // (effects clean up in the order they are written), so a viewer unmounted by the switch to Top
+      // would otherwise keep nothing and open at its first framing again.
+      const view = handleRef.current?.getView?.();
+      if (view !== undefined) {
+        viewMemory.set(projectIdRef.current, view);
+      }
       handleRef.current?.dispose();
       handleRef.current = null;
     },
@@ -444,9 +455,9 @@ export function Viewer(p: ViewerProps) {
               {!p.stale && build.total > 0 && build.done < build.total ? "Building 3D models." : ""}
             </div>
             {!p.stale && build.total > 0 && build.done < build.total ? (
-              <div class="run-status">
-                <progress value={build.done} max={build.total} aria-label="Building 3D models" />
-                <span>{`Building 3D models ${build.done}/${build.total}…`}</span>
+              <div class="run-status viewer-build">
+                <ProgressBar label="Building 3D models" value={(build.done / build.total) * 100} />
+                <span class="viewer-build__caption">{`${build.done} of ${build.total} models built`}</span>
               </div>
             ) : null}
             {build.failed > 0 && build.done === build.total ? (

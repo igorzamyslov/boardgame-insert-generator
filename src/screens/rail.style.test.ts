@@ -161,25 +161,26 @@ describe("rail.css", () => {
     expect(grip).toMatch(/-webkit-touch-callout:\s*none/);
   });
 
-  it("shows an ungrouped row's grip on hover and focus within, out of the row's layout, and always without hover", () => {
+  it("puts an ungrouped row's grip in a gutter of its own beside the row, shown on hover and focus within; a touch screen has none", () => {
     const loose = ruleFor(".gc-grip--loose");
     expect(loose).toMatch(/position:\s*absolute/);
+    // left of the row, not over its icon
+    expect(loose).toMatch(/right:\s*100%/);
+    expect(loose).toMatch(/width:\s*var\(--grip-gutter\)/);
     expect(loose).toMatch(/opacity:\s*0/);
     expect(ruleFor(".rail-item")).toMatch(/position:\s*relative/);
     expect(
       ruleFor(".rail-item:hover > .gc-grip--loose,\n.rail-item:focus-within > .gc-grip--loose"),
     ).toMatch(/opacity:\s*1/);
-    // a tablet has no hover: the list says so, and the grip is there without it, 24 × 44 as a member's
-    const touch = ruleFor(".rail-list[data-no-hover] .gc-grip--loose");
-    expect(touch).toMatch(/opacity:\s*1/);
-    expect(touch).toMatch(/width:\s*var\(--s-24\)/);
-    expect(touch).toMatch(/height:\s*44px/);
-    // unseen, the grip takes no press (a press on the row's edge opens the row); seen, it does
-    expect(loose).toMatch(/pointer-events:\s*none/);
-    expect(
-      ruleFor(".rail-item:hover > .gc-grip--loose,\n.rail-item:focus-within > .gc-grip--loose"),
-    ).toMatch(/pointer-events:\s*auto/);
-    expect(touch).toMatch(/pointer-events:\s*auto/);
+    // the gutter is the list's padding, so the rows stay where they were
+    const list = ruleFor(".rail-list:not(.rail-list--sheet)");
+    expect(list).toMatch(/margin-left:\s*calc\(-1 \* \(var\(--s-5\) \+ var\(--grip-gutter\)\)\)/);
+    expect(list).toMatch(/padding-left:\s*calc\(var\(--s-5\) \+ var\(--grip-gutter\)\)/);
+    // a touch screen has no grip at all: a long press lifts the row, with no callout or selection
+    expect(css).not.toMatch(/data-no-hover\] \.gc-grip--loose/);
+    const touch = ruleFor(".rail-list[data-no-hover] .rail-item");
+    expect(touch).toMatch(/user-select:\s*none/);
+    expect(touch).toMatch(/-webkit-touch-callout:\s*none/);
   });
 
   it("draws the drag (spec §7.3): the lifted row on the sheet shadow, a 2 px focus line, the entered group washed and dashed, no animation", () => {

@@ -26,6 +26,10 @@
   flex-direction: column;
   gap: var(--s-20);
   min-height: 0;
+
+  /* What scrolls clips what is drawn outside it: a focus ring at the edge of a field needs room, which the margin takes back. */
+  padding-left: var(--s-4);
+  margin-left: calc(-1 * var(--s-4));
   overflow: auto;
   scroll-padding-top: calc(var(--control-h) * 2 + var(--s-20) + var(--s-8));
 }
