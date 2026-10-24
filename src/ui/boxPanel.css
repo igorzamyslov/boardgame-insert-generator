@@ -55,14 +55,12 @@
  * The rail is Main's 300 px, not Box's 340 (a ruling): each field is 80 px, so the padding gives way
  * and the unit is not drawn in the box (the line above says "In mm"): "285.5" stays whole.
  */
-.bx-sizes .k-field__box,
-.bx-area .k-field__box {
+.bx-sizes .k-field__box {
   gap: var(--s-2);
   padding: 0 var(--s-8);
 }
 
-.bx-sizes .k-field__unit,
-.bx-area .k-field__unit {
+.bx-sizes .k-field__unit {
   font-size: var(--text-sm);
 }
 

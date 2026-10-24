@@ -120,10 +120,9 @@
   position: absolute;
   top: 0;
   left: var(--x);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
+  display: block;
   box-sizing: border-box;
+  padding: 0 var(--s-2);
   width: var(--w);
   min-width: 0;
   height: var(--h);
@@ -135,6 +134,8 @@
   font-size: var(--text-sm);
   font-weight: 600;
   line-height: normal;
+  text-align: center;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

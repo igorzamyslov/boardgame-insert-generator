@@ -180,3 +180,22 @@ describe("a stored plan keeps its area when it is improved", () => {
     });
   });
 });
+
+describe("the coverage warning with an area", () => {
+  const loose = (key: string) => boxReq(key, 120, 90, 30, { loose: true });
+
+  it("names the area, and does not count the trays under the paper as exposed", () => {
+    const { result, layout } = plan(AREA_BOX, [loose("a"), loose("b"), loose("c"), loose("d")]);
+    expect(layout).not.toBeNull();
+    const notice = result.notices.find((n) => n.code === "layout.coverage");
+    expect(notice?.message).toContain("Rulebook covers only some of the top layer");
+    // the trays named are the ones outside the paper: at most all four minus the ones under it
+    const named = ["a", "b", "c", "d"].filter((k) => notice?.message.includes(`${k}:`)).length;
+    expect(named).toBeLessThan(4);
+  });
+
+  it("says nothing when the paper covers every loose tray", () => {
+    const { result } = plan(AREA_BOX, [loose("a")]);
+    expect(result.notices.find((n) => n.code === "layout.coverage")).toBeUndefined();
+  });
+});

@@ -351,8 +351,7 @@ const GUIDE_LIFT = "The packing guide says how to take each tray out";
 
 // Task 11: the box's editor. The states are the box cases of copy.board.test.tsx.
 const BOX_WORDS = "The box editor has the board's words only";
-const BOX_AREA =
-  "Part of it asks for the size of what lies on top, and the line under the choice is true of each state (DESIGN decision log, 2026-10-24)";
+const BOX_AREA = "Part of it reserves only the area you give it";
 const BOX_HINT = "The box's stored-on-its-side hint says what the engine does";
 
 // Task 13: the Download dialog and the building of the file. The states are the dialog cases of
