@@ -18,13 +18,15 @@ import { shotsHold } from "../app/shotsHold";
 import { buildErrorReason } from "../app/support";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts } from "../instructions/numbering";
+import type { NumberedPart } from "../instructions/numbering";
 import type { Component, Group, Printer, Settings, TraySpec } from "../model/types";
-import { Button, Card, CloseButton, Dialog, Icon, IconTile, ProgressBar } from "../kit";
+import { Button, CloseButton, Dialog, Icon, ProgressBar } from "../kit";
 import { formatGrams } from "./estimates";
 import {
   componentIndexOfTray,
   groupShadeIndexOfTray,
   isGroupTray,
+  layerLabel,
   shadeIndexOf,
   shadeVars,
 } from "./identity";
@@ -84,15 +86,16 @@ type View = "ready" | "building" | "done" | "partial";
 
 const noun = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
-/** "8 trays and 2 spacers for Harbour Kings": what the file holds, for what insert. */
-function subtitleOf(trays: number, spacers: number, name: string): string {
-  const held =
-    spacers === 0
-      ? noun(trays, "tray", "trays")
-      : trays === 0
-        ? noun(spacers, "spacer", "spacers")
-        : `${noun(trays, "tray", "trays")} and ${noun(spacers, "spacer", "spacers")}`;
-  return `${held} for ${name === "" ? "(unnamed)" : name}`;
+/** How many tray pills a layer's row names before the rest fold into "+ n". */
+const PILLS = 3;
+
+interface LayerRow {
+  label: string;
+  /** The trays on the layer, then how many other parts (spacers, risers) are on it. */
+  trays: NumberedPart[];
+  others: number;
+  /** The layer's filament, once counted. */
+  grams: number | null;
 }
 
 export function ExportPanel(p: ExportPanelProps) {
@@ -287,9 +290,27 @@ export function ExportPanel(p: ExportPanelProps) {
   const notExported = [...plan.skipped, ...failed];
   const phone = p.phone === true;
 
-  const trayChips = plan.parts.filter((part) => part.spec.part === "tray");
-  const spacers = total - trayChips.length;
-  const subtitle = subtitleOf(trayChips.length, spacers, p.projectName);
+  const spacers = plan.parts.filter((part) => part.spec.part !== "tray").length;
+  // The print plan: a row per layer, bottom first, with the grams of what stands on it.
+  const rows = useMemo<LayerRow[]>(() => {
+    const levels = [...new Set(plan.parts.map((part) => part.spec.level))].sort((a, b) => a - b);
+    return levels.map((level, at) => {
+      const own = plan.parts.flatMap((part, i) => (part.spec.level === level ? [i] : []));
+      const grams =
+        filament.status === "ready"
+          ? own.reduce((sum, i) => sum + (filament.parts[i] ?? 0), 0)
+          : null;
+      const trays = own
+        .map((i) => plan.parts[i])
+        .filter((part): part is NumberedPart => part?.spec.part === "tray");
+      return {
+        label: layerLabel(at, levels.length),
+        trays,
+        others: own.length - trays.length,
+        grams,
+      };
+    });
+  }, [plan, filament]);
 
   const retryFailed = (): void => {
     if (retryOff) {
@@ -322,7 +343,6 @@ export function ExportPanel(p: ExportPanelProps) {
     heading = `${total - failed.length} of ${total} ${total === 1 ? "part is" : "parts are"} ready`;
   } else {
     heading = "Ready to print";
-    line = subtitle;
   }
 
   const closeButton = <CloseButton onClick={p.onClose} />;
@@ -338,13 +358,7 @@ export function ExportPanel(p: ExportPanelProps) {
     </div>
   );
 
-  const caption =
-    blockedReason ??
-    (total === 0
-      ? null
-      : total === 1
-        ? "One file with the part."
-        : `One file with all ${total} parts.`);
+  const caption = blockedReason;
   const primaryButton = (
     <Button
       ref={primary}
@@ -442,8 +456,10 @@ export function ExportPanel(p: ExportPanelProps) {
 
   const guide =
     p.onOpenGuide !== undefined ? (
-      <Card
-        class="export-guide"
+      <Button
+        variant="secondary"
+        class="export-extra"
+        icon={<Icon name="file" size={16} />}
         aria-disabled={p.stale ? "true" : undefined}
         aria-describedby={p.stale ? reasonId : undefined}
         onClick={() => {
@@ -452,118 +468,127 @@ export function ExportPanel(p: ExportPanelProps) {
           }
         }}
       >
-        {phone ? null : (
-          <IconTile size={40}>
-            <Icon name="file" size={20} />
-          </IconTile>
-        )}
-        <span class="export-guide__text">
-          <span class="export-guide__title">Packing guide</span>
-          <span class="export-guide__line">
-            {phone
-              ? "Where each named tray goes"
-              : "A printable sheet showing where each named tray goes"}
-          </span>
-        </span>
-        <Icon name="chevron-right" size={16} />
-      </Card>
+        Packing guide
+      </Button>
     ) : null;
 
-  const formats = (
-    <div class="export-more">
-      <button
-        type="button"
-        class="export-toggle"
-        aria-expanded={moreOpen}
-        aria-controls={moreOpen ? moreId : undefined}
-        onClick={() => setMoreOpen(!moreOpen)}
-      >
-        Other formats
-        <Icon name={moreOpen ? "chevron-up" : "chevron-down"} size={14} />
-      </button>
-      {moreOpen ? (
-        <div class="export-formats" id={moreId}>
-          {OTHER_KINDS.map((k) => (
-            <Button
-              key={k}
-              variant="secondary"
-              class="export-format"
-              aria-disabled={off ? "true" : undefined}
-              aria-describedby={describedBy}
-              onClick={() => start(k)}
-            >
-              {EXPORT_LABELS[k]}
-            </Button>
-          ))}
-        </div>
-      ) : null}
-    </div>
+  const formatsToggle = (
+    <Button
+      variant="secondary"
+      class="export-extra"
+      aria-expanded={moreOpen}
+      aria-controls={moreOpen ? moreId : undefined}
+      onClick={() => setMoreOpen(!moreOpen)}
+    >
+      Other formats
+      <Icon name={moreOpen ? "chevron-up" : "chevron-down"} size={14} />
+    </Button>
   );
+  const formatList = moreOpen ? (
+    <div class="export-formats" id={moreId}>
+      {OTHER_KINDS.map((k) => (
+        <Button
+          key={k}
+          variant="secondary"
+          class="export-format"
+          aria-disabled={off ? "true" : undefined}
+          aria-describedby={describedBy}
+          onClick={() => start(k)}
+        >
+          {EXPORT_LABELS[k]}
+        </Button>
+      ))}
+    </div>
+  ) : null;
 
   const support = (
-    <div class="export-support">
-      <span class="export-support__text">This tool is free. Support it if you like it.</span>
-      <span class="export-support__links">
-        {SUPPORT_LINKS.map((l) => (
-          <a
-            key={l.name}
-            class={l.name === "Ko-fi" ? "k-btn export-kofi" : "k-btn k-btn--secondary"}
-            href={l.href}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {l.name === "Ko-fi" ? <Icon name="heart" size={15} /> : null}
+    <p class="export-support">
+      Support this tool
+      {SUPPORT_LINKS.map((l) => (
+        <Fragment key={l.name}>
+          {" · "}
+          <a href={l.href} target="_blank" rel="noopener noreferrer">
             {l.name}
             <span class="visually-hidden"> (opens in a new tab)</span>
           </a>
-        ))}
-      </span>
-    </div>
+        </Fragment>
+      ))}
+    </p>
   );
 
-  // The tile holds its place, empty, while the parts are counted, so the dialog does not jump; a
-  // part that cannot be built leaves no figure to give, and no tile.
-  const stats =
-    filament.status === "unavailable" ? null : (
-      <dl class="export-stats" aria-busy={filament.status === "counting"}>
-        <div class="export-stat">
-          <dt>Filament</dt>
-          <dd>{filament.status === "ready" ? formatGrams(filament.grams) : " "}</dd>
-        </div>
-      </dl>
+  const pill = (part: NumberedPart) => {
+    const name = names.get(part.spec.key)?.full ?? part.label;
+    const at = componentIndexOfTray(part.spec, components);
+    const kind = at === null ? undefined : components[at]?.kind;
+    // a group's tray has no kind of its own: its group's hue
+    const own = { components, groups: p.groups ?? [] };
+    const grouped = isGroupTray(part.spec, own);
+    return (
+      <li
+        class="export-chip"
+        key={part.spec.key}
+        title={name}
+        data-group={grouped ? "true" : undefined}
+        style={
+          grouped
+            ? shadeVars("group", groupShadeIndexOfTray(part.spec, own))
+            : at === null || kind === undefined
+              ? undefined
+              : shadeVars(kind, shadeIndexOf(components, at))
+        }
+      >
+        {name}
+      </li>
     );
-
-  const chips = (
-    <ul class="export-chips">
-      {trayChips.map((part) => {
-        const name = names.get(part.spec.key)?.full ?? part.label;
-        const at = componentIndexOfTray(part.spec, components);
-        const kind = at === null ? undefined : components[at]?.kind;
-        // a group's tray has no kind of its own: its group's hue
-        const own = { components, groups: p.groups ?? [] };
-        const grouped = isGroupTray(part.spec, own);
-        return (
-          <li
-            class="export-chip"
-            key={part.spec.key}
-            title={name}
-            data-group={grouped ? "true" : undefined}
-            style={
-              grouped
-                ? shadeVars("group", groupShadeIndexOfTray(part.spec, own))
-                : at === null || kind === undefined
-                  ? undefined
-                  : shadeVars(kind, shadeIndexOf(components, at))
-            }
-          >
-            {name}
-          </li>
-        );
-      })}
-      {spacers > 0 ? (
-        <li class="export-chip export-chip--spacers">{noun(spacers, "spacer", "spacers")}</li>
-      ) : null}
-    </ul>
+  };
+  // Each row's grams hold their place, empty, while the parts are counted, so the dialog does not
+  // jump; a part that cannot be built leaves no figure to give, and none is shown.
+  const counted = filament.status === "ready";
+  const gramsOf = (g: number | null): string =>
+    g !== null ? formatGrams(g) : filament.status === "counting" ? "\u00a0" : "";
+  const totalLine = [
+    counted ? `Total ${formatGrams(filament.grams)}` : null,
+    spacers > 0 ? `${noun(spacers, "spacer", "spacers")} included` : null,
+  ]
+    .filter((t) => t !== null)
+    .join(" · ");
+  const layers = (
+    <div class="export-plan" aria-busy={filament.status === "counting"}>
+      <ul class="export-layers">
+        {rows.map((row) => {
+          const more = row.trays.length - PILLS;
+          return (
+            <li class="export-layer" key={row.label}>
+              <div class="export-layer__head">
+                <h2 class="export-layer__title">
+                  {row.trays.length === 0
+                    ? `${row.label} · ${noun(row.others, "spacer", "spacers")}`
+                    : `${row.label} · ${noun(row.trays.length, "tray", "trays")}`}
+                </h2>
+                <span class="export-layer__grams">{gramsOf(row.grams)}</span>
+              </div>
+              {row.trays.length > 0 ? (
+                <ul class="export-chips">
+                  {row.trays.slice(0, PILLS).map(pill)}
+                  {more > 0 ? (
+                    <li
+                      class="export-chip export-chip--more"
+                      title={row.trays
+                        .slice(PILLS)
+                        .map((t) => names.get(t.spec.key)?.full ?? t.label)
+                        .join(", ")}
+                    >
+                      {`+ ${more}`}
+                    </li>
+                  ) : null}
+                </ul>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      {totalLine !== "" ? <span class="export-total">{totalLine}</span> : null}
+    </div>
   );
 
   const building = busy !== null && (
@@ -586,8 +611,7 @@ export function ExportPanel(p: ExportPanelProps) {
   } else if (view === "ready") {
     body = (
       <>
-        {chips}
-        {stats}
+        {layers}
         {phone ? (
           p.onSendFile !== undefined ? (
             <div class="export-send">
@@ -608,8 +632,11 @@ export function ExportPanel(p: ExportPanelProps) {
         )}
         {problemBoxes}
         {errorBox}
-        {guide}
-        {formats}
+        <div class="export-extras">
+          {guide}
+          {formatsToggle}
+        </div>
+        {formatList}
         {support}
       </>
     );

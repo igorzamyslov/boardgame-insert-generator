@@ -9,7 +9,8 @@ import type { Printer, Settings, TraySpec } from "../model/types";
 
 export type Filament =
   | { status: "counting" }
-  | { status: "ready"; grams: number }
+  /** `parts` is each part's grams, in the order of the specs asked for; `grams` is their sum. */
+  | { status: "ready"; grams: number; parts: readonly number[] }
   /** A part could not be built (or there is no mesh source): there is no figure to give. */
   | { status: "unavailable" };
 
@@ -74,10 +75,10 @@ export function useFilament(
     })();
     return () => controller.abort();
   }, [meshes, key, stale, retry]);
-  const grams = useMemo(
+  const perPart = useMemo(
     () =>
       measured !== null && measured.key === key
-        ? measured.parts.reduce((sum, m) => sum + partGrams(m, settings, printer.layerHeight), 0)
+        ? measured.parts.map((m) => partGrams(m, settings, printer.layerHeight))
         : null,
     [measured, key, settings, printer.layerHeight],
   );
@@ -88,8 +89,8 @@ export function useFilament(
     return { status: "counting" };
   }
   // a count that finished wins over a failure before it (a retry succeeded)
-  if (grams !== null) {
-    return { status: "ready", grams };
+  if (perPart !== null) {
+    return { status: "ready", grams: perPart.reduce((sum, g) => sum + g, 0), parts: perPart };
   }
   return failed === key ? { status: "unavailable" } : { status: "counting" };
 }
