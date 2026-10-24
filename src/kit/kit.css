@@ -823,6 +823,18 @@
   gap: var(--s-8);
 }
 
+/* A closable notice: the × sits at the top right whatever the width, the words keep clear of it. */
+.k-notice[data-closable="true"] {
+  position: relative;
+  padding-inline-end: 56px;
+}
+
+.k-notice__close {
+  position: absolute;
+  inset-block-start: var(--s-4);
+  inset-inline-end: var(--s-8);
+}
+
 .k-notice .k-btn--secondary {
   --k-edge: var(--line-strong);
 }

@@ -38,4 +38,21 @@ describe("Notice", () => {
     expect(root?.getAttribute("data-tone")).toBe("warn");
     expect(root?.hasAttribute("role")).toBe(false);
   });
+
+  it("has a × named Hide this note only when it can be closed", () => {
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <Notice tone="info" title="Note:">
+        Spacers were cut.
+      </Notice>,
+    );
+    expect(screen.queryByRole("button", { name: "Hide this note" })).toBeNull();
+    rerender(
+      <Notice tone="info" title="Note:" onClose={onClose}>
+        Spacers were cut.
+      </Notice>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Hide this note" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

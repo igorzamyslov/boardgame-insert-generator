@@ -37,6 +37,7 @@ const PICKER = "Add opens a kind picker";
 const SUMMARY = "A row's line under the name is short";
 const CHIPS = "The rail's rule chips are one per rule";
 const CLEAR = "Clear all my choices lifts every pin";
+const HIDE = "A note under the plan can be hidden";
 const UPRIGHT = "A figure may lie on any side";
 const MINIS_STATES = [
   "editor-minis",
@@ -999,6 +1000,9 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     NO_GRIP_TAG,
     NO_GRIP_TEMPLATE,
   ].map((text) => ({ text, states: GUIDE_STATES, ruling: GUIDE_LIFT })),
+  // 0.21.0: a note under the plan closes with a ×, and the hidden ones are one quiet button.
+  { text: "Hide this note", states: "all", ruling: HIDE },
+  { text: "Show {n} hidden", states: "all", ruling: HIDE },
 ];
 
 /**
