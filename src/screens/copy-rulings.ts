@@ -125,6 +125,7 @@ const HOMES = "The Summary's jobs have new homes";
 const NOFIT = "The no-fit heading names the tray";
 const PINS =
   "Pins in the way: the first conflict names the heading, the engine's reasons are its line, and each conflict is a card";
+const TRY_BUTTON = "Try another arrangement is a quiet button beside the Top / 3D switch";
 const FIT_STRIP = "No fit is a pinned strip over the normal stage";
 const FIT_LIMIT = "The no-fit line names the real limit";
 const NOFIT_FIGURE = "The no-fit line gives the closest plan's shortfall";
@@ -678,6 +679,21 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: FIT_LIMIT,
   },
   { text: "Try another arrangement", states: NO_FIT, ruling: FIT_STRIP },
+  // 0.25.1: the stage row's own button (a phone's is an icon with this name)
+  {
+    text: "Try another arrangement",
+    states: [
+      "workspace",
+      "workspace-searching",
+      "workspace-banner",
+      "workspace-making",
+      "workspace-noplan",
+      "workspace-failed",
+      "workspace-error",
+      "workspace-box-error",
+    ],
+    ruling: TRY_BUTTON,
+  },
   // the strip is the status row: it has the stage's own switches, and says where 3D cannot be drawn
   { text: "Top", states: NO_FIT, ruling: FIT_STRIP },
   { text: "3D", states: NO_FIT, ruling: FIT_STRIP },

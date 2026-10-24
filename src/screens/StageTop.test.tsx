@@ -62,11 +62,9 @@ function props(over: Partial<StageTopProps> = {}): StageTopProps {
   };
 }
 
-const more = (): HTMLElement => screen.getByRole("button", { name: "Plan options" });
-/** Opens the ⋯ menu and presses "Try another arrangement" in it. */
+const more = (): HTMLElement => screen.getByRole("button", { name: "Try another arrangement" });
 const tryAnother = (): void => {
   fireEvent.click(more());
-  fireEvent.click(screen.getByRole("button", { name: /^Try another arrangement/ }));
 };
 const h1 = (): HTMLElement => screen.getByRole("heading", { level: 1 });
 const line = (): string => document.querySelector(".k-status__line")?.textContent ?? "";
@@ -85,17 +83,18 @@ describe("StageTop", () => {
     expect(line()).toBe("1 tray · 1 layer · 40 of 40 mm");
   });
 
-  it("calls Try another arrangement from the ⋯ menu, and blocks it for a plan from older geometry", () => {
+  it("calls Try another arrangement from a quiet button with a refresh icon, and blocks it for a plan from older geometry", () => {
     const p = props();
     const view = render(<StageTop {...p} />);
-    // not on the toolbar: one tap deep
-    expect(screen.queryByRole("button", { name: /^Try another arrangement/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
+    expect(more().classList.contains("k-btn--quiet")).toBe(true);
+    expect(more().querySelector("svg")).not.toBeNull();
+    expect(more().getAttribute("title")).toBe("Searches for longer");
     tryAnother();
     expect(p.onKeepSearching).toHaveBeenCalledTimes(1);
     view.rerender(<StageTop {...props({ canSearchMore: false })} />);
-    fireEvent.click(more());
-    const item = screen.getByRole("button", { name: /^Try another arrangement/ });
-    expect(item.getAttribute("aria-disabled")).toBe("true");
+    expect(more().getAttribute("aria-disabled")).toBe("true");
+    expect(more().getAttribute("title")).toBe("Nothing to try yet");
     expect(h1().textContent).toBe("Everything fits");
   });
 
@@ -115,14 +114,9 @@ describe("StageTop", () => {
     expect(h1().textContent).toBe("Searching…");
     // "Searching… Stop": Stop is on the title's line
     expect(h1().parentElement?.contains(screen.getByRole("button", { name: "Stop" }))).toBe(true);
-    // the menu item is blocked while it runs
-    fireEvent.click(more());
-    expect(
-      screen
-        .getByRole("button", { name: /^Try another arrangement/ })
-        .getAttribute("aria-disabled"),
-    ).toBe("true");
-    fireEvent.click(more());
+    // the button is blocked while it runs, and says why
+    expect(more().getAttribute("aria-disabled")).toBe("true");
+    expect(more().getAttribute("title")).toBe("Already searching");
     expect(line()).toBe("This plan stays unless a better one turns up.");
     // no progress bar: Main shows none
     expect(screen.queryByRole("progressbar")).toBeNull();
@@ -326,21 +320,20 @@ describe("StageTop", () => {
       expect(buttons[0]?.classList.contains("k-btn--primary")).toBe(true);
     });
 
-    it("has no ⋯ menu: its one entry, Try another arrangement, is a button in the strip", () => {
+    it("has Try another arrangement as the strip's button, once", () => {
       render(<StageTop {...noFit()} />);
       expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
-      expect(screen.getByRole("button", { name: "Try another arrangement" })).toBeTruthy();
+      expect(screen.getAllByRole("button", { name: "Try another arrangement" })).toHaveLength(1);
     });
 
-    it("never draws a menu whose entries are all on screen already", () => {
-      // every state that has a strip, and the ones that have none keep the menu for what is only there
+    it("never draws the toolbar's button beside the strip's", () => {
       for (const state of [noFit(), noFit({ noFit: { misfit: null } })]) {
         const { unmount } = render(<StageTop {...state} />);
-        expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
+        expect(document.querySelector("[data-toggle='again']")).toBeNull();
         unmount();
       }
       render(<StageTop {...props()} />);
-      expect(screen.getByRole("button", { name: "Plan options" })).toBeTruthy();
+      expect(document.querySelector("[data-toggle='again']")).not.toBeNull();
     });
 
     it("keeps no strip for a plan that fits", () => {
@@ -587,7 +580,7 @@ describe("StageTop", () => {
       expect(p.onViewChange).toHaveBeenCalledWith("plan");
     });
 
-    it("keeps the ⋯ menu beside the heading, with Try another arrangement in it", () => {
+    it("keeps Try another arrangement beside the heading as its icon alone", () => {
       const p = props({ phone: true });
       const { container } = render(
         <>
@@ -597,6 +590,7 @@ describe("StageTop", () => {
       );
       expect(more().closest(".k-status")).not.toBeNull();
       expect(container.querySelector(".stage-segs")?.contains(more())).toBe(false);
+      expect(more().textContent).toBe("");
       tryAnother();
       expect(p.onKeepSearching).toHaveBeenCalledTimes(1);
     });

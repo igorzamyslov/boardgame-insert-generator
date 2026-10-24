@@ -187,14 +187,14 @@ describe("when it doesn't fit (the strip)", () => {
     expect(strip().querySelector(":scope > .fit-strip__volume > .fit-strip__line")).toBeNull();
   });
 
-  it("has no ⋯ menu in the strip: its one entry is a button there", () => {
+  it("has one Try another arrangement in the strip, and none in the row", () => {
     fitProblem("harbour-kings-nofit");
-    expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Try another arrangement" })).toHaveLength(1);
     cleanup();
-    // the normal plan keeps it
+    // the normal plan has the row's own
     const { project } = loadSeed("harbour-kings");
     renderApp({ project });
-    expect(screen.getByRole("button", { name: "Plan options" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try another arrangement" })).toBeTruthy();
   });
 
   it("does not repeat the engine's no-fit paragraph, and keeps the other notices", () => {

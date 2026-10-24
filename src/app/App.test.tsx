@@ -1123,7 +1123,9 @@ describe("App", () => {
     });
     expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Try another arrangement" }).getAttribute("aria-disabled"),
+    ).toBe("true");
     const banner = document.querySelector('.k-notice[data-tone="warn"]');
     expect(banner?.textContent).toContain(
       "Made with an older version of the app. Trays printed from it won't stack with trays you print now.",
@@ -1167,10 +1169,9 @@ describe("App", () => {
     const status = (): HTMLElement =>
       document.querySelector('[data-region="status"]') as HTMLElement;
     const heading = (): string => screen.getByRole("heading", { level: 1 }).textContent ?? "";
-    /** Opens the ⋯ menu of the stage and presses "Try another arrangement". */
+    /** Presses the stage's "Try another arrangement". */
     const tryAnother = (): void => {
-      fireEvent.click(screen.getByRole("button", { name: "Plan options" }));
-      fireEvent.click(screen.getByRole("button", { name: /^Try another arrangement/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Try another arrangement" }));
     };
 
     it("says everything fits, with the trays, the layers and the height", () => {
@@ -1194,7 +1195,7 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "Stop" }));
       expect(stub.cancelCount()).toBeGreaterThan(0);
       await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
-      expect(screen.getByRole("button", { name: "Plan options" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Try another arrangement" })).toBeTruthy();
     });
 
     it("keeps the focus moving across Try another arrangement and Stop", async () => {
@@ -1203,7 +1204,7 @@ describe("App", () => {
       const stop = await screen.findByRole("button", { name: "Stop" });
       expect(document.activeElement).toBe(stop);
       fireEvent.click(stop);
-      const again = await screen.findByRole("button", { name: "Plan options" });
+      const again = await screen.findByRole("button", { name: "Try another arrangement" });
       expect(document.activeElement).toBe(again);
     });
 

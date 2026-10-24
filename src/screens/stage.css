@@ -53,20 +53,6 @@
   margin-block: calc((var(--h1) * 1.2 - var(--control-h)) / 2);
 }
 
-/* The ⋯ menu's "Try another arrangement": its name, and under it what it does. */
-.stage-menu__item {
-  flex-direction: column;
-  gap: 0;
-  align-items: flex-start;
-  justify-content: center;
-  padding-block: var(--s-6);
-}
-
-.stage-menu__line {
-  color: var(--muted);
-  font-size: var(--text-xs);
-}
-
 /*
  * Try another arrangement (or Stop) stands beside the heading on the same line at every width from a
  * tablet's: the heading's text gives way (its muted line and its title are cut with an ellipsis), the

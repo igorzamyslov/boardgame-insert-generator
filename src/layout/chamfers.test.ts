@@ -335,8 +335,8 @@ describe("a merged part", () => {
     for (const { part: member, chamfer } of found) {
       expect(member.part).toBe("leftover");
       expect(chamfer.side).toBe("left");
-      // the bridge to the next strip reaches 3 mm into this one, so the chamfer stops short of it
-      expect([chamfer.from, chamfer.to]).toEqual([0, 57]);
+      // the whole face, through the 3 mm the bridge to the next strip reaches into this one
+      expect([chamfer.from, chamfer.to]).toEqual([0, 60]);
     }
     // the strip behind touches no tray
     expect(found.map((f) => f.part.key)).toEqual(["leftover:0"]);
@@ -362,7 +362,6 @@ describe("a merged part", () => {
 
 describe("a merged part, whole member by member", () => {
   const NO_LIP: Settings = { ...S, lip: { ...S.lip, joint: "off" as const } };
-  const BRIDGE_IN = 3; // how far a bridge reaches into each member (merge.ts)
   const strips = (): TraySpec[] => [
     filler({ key: "leftover:0", x: 60 + GAP, y: 0, w: 40, d: 60 }),
     filler({ key: "leftover:1", x: 60 + GAP, y: 60 + GAP, w: 40, d: 60, stack: 8 }),
@@ -380,25 +379,55 @@ describe("a merged part, whole member by member", () => {
     // a tray along the first 20 mm of the first strip; the second strip has nothing beside it
     const part = placed([tray({ d: 20 }), ...strips()]);
     expect(part.merged?.bridges.length).toBeGreaterThan(0);
-    // the member's whole face, less the 3 mm the bridge to the next member would fill
-    expect(of(part, "leftover:0")).toEqual([["left", 0, 60 - BRIDGE_IN]]);
+    // the member's whole face, through the 3 mm the bridge to the next member reaches into it
+    expect(of(part, "leftover:0")).toEqual([["left", 0, 60]]);
     expect(of(part, "leftover:1")).toEqual([]);
   });
 
-  it("chamfers each member that has a tray beside it, and never into the bridge between them", () => {
+  it("chamfers each member that has a tray beside it along its whole face, the bridge between them included", () => {
     const part = placed([
       tray({ key: "a", d: 60 }),
       tray({ key: "b", y: 60 + GAP, d: 30 }),
       ...strips(),
     ]);
-    expect(of(part, "leftover:0")).toEqual([["left", 0, 60 - BRIDGE_IN]]);
-    expect(of(part, "leftover:1")).toEqual([["left", BRIDGE_IN, 60]]);
+    expect(of(part, "leftover:0")).toEqual([["left", 0, 60]]);
+    expect(of(part, "leftover:1")).toEqual([["left", 0, 60]]);
   });
 
   it("leaves the face of a member that no tray stands against square", () => {
     // the tray is beside the first strip only; the second keeps its left face square
     const part = placed([tray({ d: 60 }), ...strips()]);
     expect(of(part, "leftover:1")).toEqual([]);
+  });
+});
+
+describe("an L of two spacers (owner, 2026-10-24: the chamfer stopped short at the corner and left a step)", () => {
+  const NO_LIP: Settings = { ...S, lip: { ...S.lip, joint: "off" as const } };
+  // a spacer across the foot of a tray, and a strip up the tray's side that reaches the spacer's end
+  const trays = (): TraySpec[] => [
+    tray({ key: "a", x: 0, y: 0, w: 60, d: 60 }),
+    filler({ key: "leftover:0", x: 0, y: 60 + GAP, w: 60, d: 20 }),
+    filler({ key: "leftover:1", x: 60 + GAP, y: 0, w: 10, d: 60 + GAP + 20 }),
+  ];
+  const sides = (part: TraySpec, key: string) =>
+    topChamfersOf(part)
+      .filter((c) => c.part.key === key)
+      .map(({ chamfer }) => [chamfer.side, chamfer.from, chamfer.to]);
+
+  it("runs the spacer's chamfer to its end, over the bridge that reaches into it", () => {
+    const joined = mergeParts(trays(), { settings: NO_LIP, printer: TEST_PRINTER });
+    const part = addTopChamfers(joined, { settings: NO_LIP }).find((p) => p.merged) as TraySpec;
+    expect(part.merged?.bridges.length).toBeGreaterThan(0);
+    // the whole 60 mm of its face toward the tray, not 57 (the bridge reaches 3 mm into it)
+    expect(sides(part, "leftover:0")).toEqual([["front", 0, 60]]);
+  });
+
+  it("stops the strip's chamfer only where the spacer stands against it, so no trench opens between them", () => {
+    const joined = mergeParts(trays(), { settings: NO_LIP, printer: TEST_PRINTER });
+    const part = addTopChamfers(joined, { settings: NO_LIP }).find((p) => p.merged) as TraySpec;
+    expect(sides(part, "leftover:1").filter(([side]) => side === "left")).toEqual([
+      ["left", 0, 60 + GAP],
+    ]);
   });
 });
 

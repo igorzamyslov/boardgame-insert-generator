@@ -101,13 +101,17 @@ describe("the editor on the normal stage", () => {
     ).toEqual(["Top"]);
   });
 
-  it("has no plan menu (Try another arrangement) while an item is edited, and has it again after Done", () => {
+  it("has no Try another arrangement while an item is edited, and has it again after Done", () => {
     renderApp({ project: loadSeed("harbour-kings").project });
-    expect(within(stage()).queryByRole("button", { name: "Plan options" })).not.toBeNull();
+    expect(
+      within(stage()).queryByRole("button", { name: "Try another arrangement" }),
+    ).not.toBeNull();
     editMarket();
-    expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
-    expect(within(stage()).queryByRole("button", { name: "Plan options" })).not.toBeNull();
+    expect(
+      within(stage()).queryByRole("button", { name: "Try another arrangement" }),
+    ).not.toBeNull();
   });
 
   it("leaves the tray bar's slot as an empty band, in the top view and in 3D", async () => {

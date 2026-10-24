@@ -292,8 +292,16 @@ import type { Semver } from "../model/version";
  * rules for a strip or a low part, only a size changed and a face that was left square cut. A
  * mesh-only change on a derived filler (planTray accepts what it did); outer size, footprint, fit
  * and every tray are as before, so printed parts still mate. A PATCH.
+ *
+ * 0.9.13 runs a spacer's top chamfer to the end of its edge where it meets another spacer of the
+ * same merged part (owner, 2026-10-24: it "stops before the end and leaves a rectangular step"). A
+ * bridge or member that reaches into the spacer's own footprint (the few mm where two spacers
+ * meet in an L or a T) no longer shortens the slope; only a part that stands against the face
+ * does, as before, so no trench opens between two parts. The slope is cut through the joint in the
+ * merged solid. A mesh-only change on a derived filler; outer size, footprint, fit and every tray
+ * are as before, so printed parts still mate. A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.12";
+export const GEOMETRY_VERSION = "0.9.13";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

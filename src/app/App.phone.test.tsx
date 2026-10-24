@@ -328,7 +328,6 @@ describe("the phone layout", () => {
   it("offers Try another arrangement in the pinned strip when the trays do not fit", async () => {
     phone();
     const { store, stub } = renderApp({ project: project() });
-    expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Add" })).toBeTruthy();
     act(() => {
       store.state.lastResult.value = makeResult(null, {
@@ -339,12 +338,16 @@ describe("the phone layout", () => {
     // the sheet stays the list (no card of its own); the strip over the plan has the button
     expect(screen.queryByRole("region", { name: "Ways to make it fit" })).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Add" })).toBeTruthy();
+    // one button, the strip's: the row's own icon is gone
     const keep = screen.getByRole("button", { name: "Try another arrangement" });
     expect(keep.closest(".stage-fit")).not.toBeNull();
     expect(keep.closest("[inert]")).toBeNull();
     fireEvent.click(keep);
     await waitFor(() => expect(stub.calls).toHaveLength(1));
-    expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
+    // the strip went with the search; the row's icon is blocked while it runs
+    expect(
+      screen.getByRole("button", { name: "Try another arrangement" }).getAttribute("aria-disabled"),
+    ).toBe("true");
     // the button went with the search: Stop, which took its place, has the focus
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Stop" }));
   });

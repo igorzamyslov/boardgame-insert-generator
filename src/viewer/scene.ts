@@ -27,10 +27,12 @@ import type { TraySpec } from "../model/types";
 import { SPACER_SHADE } from "../ui/identity";
 import {
   DIM_TOWARD_HEX,
+  GHOST_BLEND,
   PAGE_HEX,
   anchorOf,
   emissiveOf,
   fadeOf,
+  isGhost,
   isVisible,
   opacityOf,
   outlineCenter,
@@ -206,15 +208,17 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       const lift = t.spec.key === misfit ? MISFIT_LIFT_MM : 0;
       t.object.position.set(x, y, z - t.below + lift);
       t.object.visible = isVisible(t.spec, maxLevel);
+      const ghost = isGhost(t.spec, maxLevel);
       const glow = emissiveOf(t.spec.key, selected, lit, edited);
-      const fade = fadeOf(t.spec.key, selected, lit, edited);
+      const fade = ghost ? GHOST_BLEND : fadeOf(t.spec.key, selected, lit, edited);
       // The faded trays of an edited item are drawn through, so the item's own show behind them.
       const opacity = opacityOf(t.spec.key, selected, lit, edited);
       t.materials.forEach((material, i) => {
         material.emissive.setHex(glow);
-        const base = t.bases[i] ?? t.bases[0] ?? pageColor;
+        // a ghost is one colour, wells and all, as the plan draws it
+        const base = (ghost ? t.bases[0] : t.bases[i]) ?? t.bases[0] ?? pageColor;
         // a dimmed tray goes the way the plan's does (toward the box it stands in); the edited item's others are drawn through over the page
-        fadedColor(material.color, base, edited ? pageColor : dimColor, fade);
+        fadedColor(material.color, base, edited && !ghost ? pageColor : dimColor, fade);
         if (t.spec.key === misfit) {
           // The tray that does not fit is tinted in the warn colour, wells and all.
           material.color.copy(base).lerp(warnColor, MISFIT_TINT);

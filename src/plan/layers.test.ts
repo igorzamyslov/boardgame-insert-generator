@@ -111,6 +111,26 @@ describe("plan geometry", () => {
       expect(levelsOf(trays)).toEqual([0, 1]);
     });
 
+    it("is no tile where its members are risers alone: it would cover the tray it stands under", () => {
+      const risers = makeTray({
+        key: "merged:1",
+        part: "leftover",
+        x: 0,
+        y: 0,
+        w: 90,
+        d: 40,
+        level: 0,
+        compartments: [],
+        merged: {
+          members: [riser, { ...riser, key: "b:riser", y: 40 }],
+          bridges: [],
+          flipped: false,
+        },
+      });
+      const trays = [makeTray({ key: "t", level: 0 }), risers];
+      expect(traysAt(trays, 0).map((t) => t.key)).toEqual(["t"]);
+    });
+
     it("is drawn as its members of the layer, not its bounding box, and not the riser under a tray", () => {
       expect(footprintsAt(merged, 0).map((f) => f.y)).toEqual([50]);
       expect(footprintsAt(merged, 1).map((f) => f.y)).toEqual([40]);

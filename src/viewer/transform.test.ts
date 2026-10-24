@@ -4,6 +4,7 @@ import tokens from "../styles/tokens.css?raw";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import type { TraySpec } from "../model/types";
 import {
   EDITED_EMISSIVE,
   EDITED_FADE,
@@ -17,6 +18,7 @@ import {
   boxOutline,
   emissiveOf,
   fadeOf,
+  isGhost,
   isVisible,
   opacityOf,
   reservedSlabs,
@@ -248,5 +250,21 @@ describe("the dimming of the other trays", () => {
   it("is the plan's: its tile at opacity 0.6 over the box's colour, not over the page", () => {
     expect(tokens).toContain(`--box: ${DIM_TOWARD_HEX};`);
     expect(DIM_TOWARD_HEX).not.toBe(PAGE_HEX);
+  });
+});
+
+describe("isGhost", () => {
+  const at = (level: number, over: Partial<TraySpec> = {}): TraySpec =>
+    ({ key: "t", level, ...over }) as TraySpec;
+  it("is a part of a layer below the lit one, and nothing when all layers show", () => {
+    expect(isGhost(at(1), 3)).toBe(true);
+    expect(isGhost(at(3), 3)).toBe(false);
+    expect(isGhost(at(1), null)).toBe(false);
+    expect(isGhost(at(1), 1)).toBe(false);
+  });
+  it("is not a merged part that also stands in the lit layer", () => {
+    const merged = { members: [{ level: 1 }, { level: 2 }] } as unknown as TraySpec["merged"];
+    expect(isGhost(at(1, { merged }), 2)).toBe(false);
+    expect(isGhost(at(1, { merged }), 3)).toBe(true);
   });
 });
