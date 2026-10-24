@@ -8,6 +8,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { Manifold, ManifoldToplevel } from "manifold-3d";
 import { printMesh } from "../app/exportBuild";
+import { addTopChamfers } from "../layout/chamfers";
 import { mergeParts } from "../layout/merge";
 import { printableParts } from "../layout/printable";
 import { TEST_PRINTER, traySpec } from "../layout/test-utils";
@@ -173,6 +174,108 @@ describe("a top chamfer on a plain filler", () => {
   });
 });
 
+describe("two chamfered faces that meet at a corner", () => {
+  // Owner, 2026-10-24: a face with a tray against it is chamfered end to end, so two such faces
+  // run into each other at the corner. Each cuts a plane; what is left is below both, a mitre.
+  const W = 60;
+  const D = 40;
+  const H = 35;
+  const spec = filler({ features: [chamfer("front", 0, W), chamfer("left", 0, D)] });
+  const plain = (): Mesh => buildTray(m, filler(), NO_LIP).mesh;
+
+  it("builds closed, genus 0, printable, of the part's size", () => {
+    expect(problemsOf(m, spec, NO_LIP)).toEqual([]);
+    const { mesh, volumeMm3 } = buildTray(m, spec, NO_LIP);
+    expect(topology(mesh)).toMatchObject({ closed: true, genus: 0 });
+    expect(checkPrintability(mesh)).toMatchObject({ ok: true, overhangTriangles: 0 });
+    const b = bounds(mesh);
+    expect([b.max[0], b.max[1], b.max[2]].map((v) => Math.round((v ?? 0) * 100) / 100)).toEqual([
+      W,
+      D,
+      H,
+    ]);
+    expect(Math.abs(signedVolume(mesh) - volumeMm3)).toBeLessThan(1);
+  });
+
+  it("is a clean mitre: the top stays a rectangle inset by the slope, with no notch or spike", () => {
+    const { mesh } = buildTray(m, spec, NO_LIP);
+    // just under the top, what is left is the part's top less a band of `size - 0.05` along the
+    // front and left faces; a notch at the corner would take more, a spike or ridge would leave more
+    for (const z of [H - 0.05, H - 1, H - 2.5, H - 4.5]) {
+      const r = reach(5, z, H);
+      const expected = (W - r) * (D - r);
+      expect(sliceArea(mesh, z) / expected, `z ${z}`).toBeGreaterThan(0.99);
+      expect(sliceArea(mesh, z) / expected, `z ${z}`).toBeLessThan(1.01);
+    }
+    // the same as two single chamfers cut separately, less their overlap at the corner
+    const front = buildTray(m, filler({ features: [chamfer("front", 0, W)] }), NO_LIP).mesh;
+    const left = buildTray(m, filler({ features: [chamfer("left", 0, D)] }), NO_LIP).mesh;
+    const z = H - 2;
+    const r = reach(5, z, H);
+    const both =
+      sliceArea(plain(), z) -
+      (sliceArea(plain(), z) - sliceArea(front, z)) -
+      (sliceArea(plain(), z) - sliceArea(left, z)) +
+      r * r;
+    expect(sliceArea(mesh, z) / both).toBeGreaterThan(0.99);
+    expect(sliceArea(mesh, z) / both).toBeLessThan(1.01);
+  });
+
+  it("is clean at the other three corners, and with all four faces chamfered", () => {
+    const all = filler({
+      features: [
+        chamfer("front", 0, W),
+        chamfer("back", 0, W),
+        chamfer("left", 0, D),
+        chamfer("right", 0, D),
+      ],
+    });
+    expect(problemsOf(m, all, NO_LIP)).toEqual([]);
+    const { mesh } = buildTray(m, all, NO_LIP);
+    expect(topology(mesh)).toMatchObject({ closed: true, genus: 0 });
+    expect(checkPrintability(mesh)).toMatchObject({ ok: true, overhangTriangles: 0 });
+    for (const z of [H - 0.05, H - 2.5]) {
+      const r = reach(5, z, H);
+      const expected = (W - 2 * r) * (D - 2 * r);
+      expect(sliceArea(mesh, z) / expected, `z ${z}`).toBeGreaterThan(0.99);
+      expect(sliceArea(mesh, z) / expected, `z ${z}`).toBeLessThan(1.01);
+    }
+  });
+
+  it("is clean when the two faces have chamfers of different sizes", () => {
+    const odd = filler({ features: [chamfer("front", 0, W, 5), chamfer("left", 0, D, 3.2)] });
+    expect(problemsOf(m, odd, NO_LIP)).toEqual([]);
+    const { mesh } = buildTray(m, odd, NO_LIP);
+    expect(topology(mesh)).toMatchObject({ closed: true, genus: 0 });
+    expect(checkPrintability(mesh)).toMatchObject({ ok: true, overhangTriangles: 0 });
+  });
+});
+
+describe("a chamfer the layout pass puts on the whole of a face", () => {
+  const GAP = DEFAULT_SETTINGS.trayGap;
+  const tray = (o: Partial<TraySpec> = {}): TraySpec =>
+    traySpec({ key: "t", part: "tray", x: 0, y: 0, z: 0, w: 60, d: 20, h: 35, ...o });
+
+  it("is built along the whole face though the tray's side is a third of it", () => {
+    const parts = addTopChamfers([tray(), filler({ x: 60 + GAP, y: 0, w: 40, d: 60, h: 35 })], {
+      settings: NO_LIP,
+    });
+    const spec = parts[1] as TraySpec;
+    expect(topChamfersOf(spec).map(({ chamfer: c }) => [c.side, c.from, c.to])).toEqual([
+      ["left", 0, 60],
+    ]);
+    expect(problemsOf(m, spec, NO_LIP)).toEqual([]);
+    const { mesh } = buildTray(m, spec, NO_LIP);
+    expect(topology(mesh)).toMatchObject({ closed: true, genus: 0 });
+    expect(checkPrintability(mesh)).toMatchObject({ ok: true, overhangTriangles: 0 });
+    const plain = buildTray(m, filler({ w: 40, d: 60, h: 35 }), NO_LIP).mesh;
+    const z = 34.5;
+    const taken = sliceArea(plain, z) - sliceArea(mesh, z);
+    expect(taken / (reach(5, z, 35) * 60)).toBeGreaterThan(0.97);
+    expect(taken / (reach(5, z, 35) * 60)).toBeLessThan(1.03);
+  });
+});
+
 describe("top chamfers on a thin strip", () => {
   const spec = filler({
     w: 90,
@@ -302,6 +405,19 @@ describe("the engraved name keeps clear of a chamfer on its face", () => {
   });
 });
 
+describe("the engraved name on a face that is chamfered end to end", () => {
+  it("stays on a tall face, below the chamfer's foot, clear of the slope", () => {
+    const tall = filler({ h: 35, features: [chamfer("front", 0, 60)] });
+    const planned = planEngravings(planTray(tall, NO_LIP), "TRADE");
+    expect(planned.walls.map((e) => e.face)).toContain("front");
+    // the text is under the foot of the 5 mm slope, so cutting it leaves a closed solid
+    const spec = { ...tall, partName: "TRADE" };
+    const named = buildTray(m, spec, NO_LIP);
+    expect(topology(named.mesh)).toMatchObject({ closed: true, genus: 0 });
+    expect(named.volumeMm3).toBeLessThan(buildTray(m, tall, NO_LIP).volumeMm3);
+  });
+});
+
 describe("a top chamfer in a merged part", () => {
   const GAP = DEFAULT_SETTINGS.trayGap;
   // Two strips one behind the other, a tray gap apart: one merged part, a bridge between them.
@@ -347,6 +463,43 @@ describe("a top chamfer in a merged part", () => {
     // 57 mm of the 60: the bridge to the next strip is not cut
     expect(taken / (reach(5, z, 35) * 57)).toBeGreaterThan(0.95);
     expect(taken / (reach(5, z, 35) * 57)).toBeLessThan(1.05);
+  });
+});
+
+describe("a top chamfer along each member of a merged part", () => {
+  const GAP = DEFAULT_SETTINGS.trayGap;
+  const tray = (o: Partial<TraySpec> = {}): TraySpec =>
+    traySpec({ key: "t", part: "tray", x: 0, y: 0, z: 0, w: 60, d: 30, h: 35, ...o });
+  const strips = (): TraySpec[] => [
+    filler({ key: "leftover:0", x: 60 + GAP, y: 0, w: 40, d: 60 }),
+    filler({ key: "leftover:1", x: 60 + GAP, y: 60 + GAP, w: 40, d: 60, stack: 6 }),
+  ];
+
+  it("runs the whole member, less the bridge, and builds closed, genus 0 and printable", () => {
+    // a tray beside the first 30 mm of the first member and 30 mm of the second
+    const joined = mergeParts([tray({ key: "a" }), tray({ key: "b", y: 60 + GAP }), ...strips()], {
+      settings: NO_LIP,
+      printer: TEST_PRINTER,
+    });
+    const part = addTopChamfers(joined, { settings: NO_LIP }).find((p) => p.merged) as TraySpec;
+    expect(part.merged?.bridges.length).toBeGreaterThan(0);
+    expect(
+      topChamfersOf(part).map(({ part: p, chamfer: c }) => [p.key, c.side, c.from, c.to]),
+    ).toEqual([
+      ["leftover:0", "left", 0, 57],
+      ["leftover:1", "left", 3, 60],
+    ]);
+    const built = buildTray(m, part, NO_LIP);
+    const plain = buildTray(m, joined.find((p) => p.merged) as TraySpec, NO_LIP);
+    expect(topology(built.mesh)).toMatchObject({ closed: true, genus: 0 });
+    expect(checkPrintability(printMesh(part, built.mesh))).toMatchObject({
+      ok: true,
+      overhangTriangles: 0,
+    });
+    const z = 34.5;
+    const taken = sliceArea(plain.mesh, z) - sliceArea(built.mesh, z);
+    expect(taken / (reach(5, z, 35) * 114)).toBeGreaterThan(0.95);
+    expect(taken / (reach(5, z, 35) * 114)).toBeLessThan(1.05);
   });
 });
 

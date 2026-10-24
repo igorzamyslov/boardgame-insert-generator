@@ -266,8 +266,20 @@ import type { Semver } from "../model/version";
  * is left off. A mesh-only change on every named part: outer size, wells, lip, groove, fit and every
  * tray are as before, so a saved plan keeps mating (README: a change that breaks fit is a MINOR).
  * A PATCH.
+ *
+ * 0.9.11 runs a spacer's top chamfer along the whole of a face that has a tray against it (owner,
+ * 2026-10-24: "if spacer has any component on one of its sides, the edge of this side should be
+ * chamfered"). 0.9.8 cut it only over the stretch the tray's side shared with the spacer, which left
+ * square steps between and beyond trays on a long spacer. Now a face with a tray against it is
+ * chamfered end to end, and a face with none stays square. Two chamfered faces that meet make a
+ * mitre (each is a plane cut, so what is left lies under both); a merged part's member is chamfered
+ * the whole member, less what a bridge or another member fills; a thin strip's far edge is
+ * chamfered as long as the near one. The same wedge, the same size rules (the groove or step, the
+ * flat left on a strip), still a 45° slope facing up and out, so no overhang. A mesh-only change on
+ * a derived filler (planTray accepts what it did, a chamfer simply spans more of a face): outer
+ * size, footprint, fit and every tray are as before, so printed parts still mate. A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.9";
+export const GEOMETRY_VERSION = "0.9.11";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {
