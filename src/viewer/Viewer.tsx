@@ -9,12 +9,10 @@ import type { Box, Component, Group, ReservedSpec, Settings, TraySpec } from "..
 import { levelsOf } from "../plan/layers";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
-import { Segmented } from "../kit";
 import { pageScheme, shadeColorOf, wellColorsOf } from "./shades";
 import { boxOutline, reservedSlabs } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
-import { loadProjection, saveProjection, viewMemory } from "./view";
-import type { Projection } from "./view";
+import { projectionPref, viewMemory } from "./view";
 import { WebGLUnavailableError, hasWebGL } from "./webgl";
 
 export interface ViewerProps {
@@ -62,11 +60,6 @@ export interface ViewerProps {
   loadScene?: () => Promise<SceneFactory>;
 }
 
-const PROJECTIONS = [
-  { value: "perspective", label: "Perspective" },
-  { value: "orthographic", label: "Orthographic" },
-] as const;
-
 type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
 
 async function defaultLoadScene(): Promise<SceneFactory> {
@@ -83,7 +76,8 @@ export function Viewer(p: ViewerProps) {
     (p.webgl ?? hasWebGL)() ? "loading" : "nowebgl",
   );
   const [explode, setExplode] = useState(0);
-  const [projection, setProjection] = useState<Projection>(() => loadProjection());
+  // The projection is this browser's choice (Settings); a restored view brings its own along.
+  const projection = projectionPref.value;
   // The project the camera was last put back for on the scene now (a new scene starts again).
   const restoredFor = useRef<string | undefined | null>(null);
   const [build, setBuild] = useState({ done: 0, total: 0, failed: 0 });
@@ -166,8 +160,11 @@ export function Viewer(p: ViewerProps) {
       if (restoredFor.current !== p.projectId) {
         restoredFor.current = p.projectId;
         const saved = viewMemory.get(p.projectId);
-        if (saved !== undefined && h.setView?.(saved) === true) {
-          setProjection(saved.projection);
+        // the camera comes back; the projection is the browser's choice as it is now
+        if (
+          saved !== undefined &&
+          h.setView?.({ ...saved, projection: projectionPref.peek() }) === true
+        ) {
           setExplode(saved.explode);
         }
       }
@@ -460,15 +457,6 @@ export function Viewer(p: ViewerProps) {
           <button type="button" class="view-reset" onClick={() => handleRef.current?.resetView?.()}>
             Reset view
           </button>
-          <Segmented
-            label="Projection"
-            options={PROJECTIONS}
-            value={projection}
-            onChange={(next) => {
-              setProjection(next);
-              saveProjection(next);
-            }}
-          />
           <label class="range-field">
             Spread apart
             <input

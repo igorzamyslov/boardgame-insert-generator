@@ -366,20 +366,13 @@
   min-height: 24px;
 }
 
-/* The 3D view's controls, at the right end of the caption row: Reset view, the projection, Spread apart. */
+/* The 3D view's controls, at the right end of the caption row: Reset view and Spread apart. */
 .plan-caption__controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--s-4) var(--s-16);
-}
-
-/* Small, so the row keeps the height it has in Top: the same 24 px as its slider. */
-.plan-caption--3d .k-seg__item {
-  height: 24px;
-  padding: 0 var(--s-12);
-  font-size: var(--text-xs);
 }
 
 .view-reset {

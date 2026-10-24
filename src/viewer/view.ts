@@ -2,6 +2,7 @@
 // What the 3D view remembers: the projection a person chose (per browser) and where the camera
 // stood in the project being worked on (for this visit), so Top and 3D can be switched without losing the view.
 // Pure, apart from the storage calls, so it is tested without a renderer.
+import { signal } from "@preact/signals";
 import { STORAGE_PREFIX, defaultStorage } from "../share/store";
 import type { Vec3 } from "./fit";
 
@@ -81,3 +82,15 @@ export const viewMemory = {
     remembered = undefined;
   },
 };
+
+/**
+ * The projection the 3D view shows now: this browser's choice (Settings, "My printer"), read when
+ * the page opens. A signal, so a view that is open follows the choice made in the Settings drawer.
+ */
+export const projectionPref = signal<Projection>(loadProjection());
+
+/** Chooses the projection for this browser: the open view follows, and the choice is kept. */
+export function chooseProjection(projection: Projection): void {
+  projectionPref.value = projection;
+  saveProjection(projection);
+}

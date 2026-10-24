@@ -5,6 +5,7 @@
 // the browser's printer and the printing options. DESIGN §5 and §7.
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { Button, CloseButton, Drawer, Segmented } from "../kit";
+import { chooseProjection, projectionPref } from "../viewer/view";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Notice, Printer, Settings } from "../model/types";
 import { printerProblems } from "../share";
@@ -98,6 +99,20 @@ function PrinterTab(p: SettingsSheetProps) {
         onChange={p.onSettingsChange}
         nameExample={p.nameExample}
       />
+      <section class="st-sec" aria-labelledby="settings-3d-title">
+        <h2 class="st-h2" id="settings-3d-title">
+          3D view
+        </h2>
+        <Segmented
+          label="3D view"
+          options={[
+            { value: "perspective", label: "Perspective" },
+            { value: "orthographic", label: "Orthographic" },
+          ]}
+          value={projectionPref.value}
+          onChange={chooseProjection}
+        />
+      </section>
     </>
   );
 }
