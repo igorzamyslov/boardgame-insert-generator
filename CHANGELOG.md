@@ -16,12 +16,15 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ### Fixed
 
+- **Hidden notes stay hidden.** When two notes of the same kind were under the plan (for example
+  two stacks that only fit in one order), hiding the second brought the first one back. Each note
+  you hide now stays hidden until its own words change.
 - **Copies face the same way, so the spare room is one spacer.** In a group with several copies
   (like Faction in the Scythe box), one copy could stand turned a quarter turn from the others.
   It left a thin sliver of room beside it as a spacer of its own, and the room at the end of the
   row became a second one. Copies are now turned together, so the room gathers in one thicker
-  spacer. Pressing Try another arrangement fixes a plan you already have. Turning a tray that has
-  copies turns them all, unless one of them is pinned.
+  spacer. Pressing Try another arrangement fixes a plan you already have. Turning one copy now turns
+  the others with it, where they can follow.
 
 ## [0.21.0] - 2026-10-24
 
