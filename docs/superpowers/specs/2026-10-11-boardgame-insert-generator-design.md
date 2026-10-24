@@ -154,8 +154,14 @@ Notes for adding them later without reworking the layout engine:
    its surplus height among them in whole layers. Best-effort, while the
    stack can afford them: the top copy's rim and the riser, with the groove,
    under the bottom copy (rule 2); the stack drops the rim first, then the
-   riser, and a notice says so. Checked by `checkHardRules`
-   (`test-hard-rules.ts`) after `splitRisers`.
+   riser, and a notice says so. The wells' arrangement counts, not only their
+   sizes: the copies hold them in the same places in the tray's own frame.
+   Checked by `checkHardRules` (`test-hard-rules.ts`) after `splitRisers`.
+   The way a copy faces is a preference, not part of the rule (owner,
+   2026-10-24): the copies of a set face the same way wherever everything
+   still fits (the score's `unturned` term, set-wide turns in the search and a
+   last pass over every set), so the room beside them is one thicker spacer
+   at the row's end, not a sliver beside the odd one out.
 
 ## 4. Architecture
 

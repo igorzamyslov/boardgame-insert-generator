@@ -175,6 +175,14 @@ it only with a written reason in the code or the PR.
   and wells: go through `Level.plug` and `RealizeOptions.fixedDepth`, not around them. Run
   `checkHardRules` (`layout/test-hard-rules.ts`) on a layout with copies when you add such a
   thing; it compares the printed trays of every set.
+- SHOULD keep the copies of a set facing the same way (owner, 2026-10-24, DESIGN.md decision log):
+  a copy turned on its own leaves a sliver of room that becomes a spacer beside the odd one out. A
+  move that turns a tray with copies turns the set (`turnSet`, `layout/moves.ts`; a pin or turn lock
+  on one copy holds that copy and the rest follow it), a producer of rotations picks one turn per
+  set, `unturned` in the score counts the unlike trays within a set, and `polish` in
+  `layout/anneal.ts` ends the search by trying both turns of every set. It is a preference, not a
+  hard rule: a copy that fits only turned stays turned. `checkHardRules` does compare where the
+  wells stand in a copy's own frame.
 - MUST give the split parts of one item (`Ctx.kinOf`) the joint through `Level.joint`, not
   `Level.plug`: with two or more of them in a stack all carry the rim and the groove's wall (owner,
   2026-10-24), but they are not alike (own size, height and deepening wells). `plug` implies `joint`.
