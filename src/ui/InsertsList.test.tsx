@@ -33,7 +33,7 @@ describe("InsertsList", () => {
   it("deletes an insert after confirming", () => {
     const p = props();
     render(<InsertsList {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Delete… .*Ark Nova/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Ark Nova…" }));
     // nothing is gone until the question is answered
     expect(p.onDelete).not.toHaveBeenCalled();
     const question = screen.getByRole("group", { name: "Delete “Ark Nova”?" });
@@ -44,7 +44,7 @@ describe("InsertsList", () => {
 
   it("focuses Cancel when the question opens and goes back to Delete… when it is kept", () => {
     render(<InsertsList {...props()} />);
-    const ask = screen.getByRole("button", { name: /^Delete… .*Ark Nova/ });
+    const ask = screen.getByRole("button", { name: "Delete Ark Nova…" });
     fireEvent.click(ask);
     const keep = screen.getByRole("button", { name: "Cancel" });
     expect(document.activeElement).toBe(keep);
@@ -55,18 +55,16 @@ describe("InsertsList", () => {
   it("puts the focus on the list's first item once a deleted insert is gone", () => {
     const p = props();
     const { rerender } = render(<InsertsList {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Delete… .*Ark Nova/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Ark Nova…" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     rerender(<InsertsList {...p} projects={[{ id: "a", name: "Wingspan", updatedAt: 2 }]} />);
-    expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: /^Delete… .*Wingspan/ }),
-    );
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Delete Wingspan…" }));
   });
 
   it("keeps an insert when the question is cancelled", () => {
     const p = props();
     render(<InsertsList {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Delete… .*Wingspan/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Wingspan…" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(p.onDelete).not.toHaveBeenCalled();
     expect(screen.queryByRole("group", { name: /^Delete/ })).toBeNull();
@@ -79,5 +77,36 @@ describe("InsertsList", () => {
     expect(screen.getAllByText("(unnamed)").length).toBeGreaterThan(0);
     rerender(<InsertsList {...props({ projects: [], currentId: "z" })} />);
     expect(screen.getByText("Nothing saved yet.")).toBeTruthy();
+  });
+});
+
+describe("InsertsList rows", () => {
+  it("shows when each of two same-named inserts was edited, and only for them", () => {
+    const day = 86_400_000;
+    render(
+      <InsertsList
+        {...props({
+          projects: [
+            { id: "a", name: "Wingspan", updatedAt: 2 * day },
+            { id: "b", name: "Untitled insert", updatedAt: 8 * day },
+            { id: "c", name: "Untitled insert", updatedAt: 10 * day },
+          ],
+          now: 10 * day,
+        })}
+      />,
+    );
+    expect(screen.getByText("Edited 2 days ago")).toBeTruthy();
+    expect(screen.getByText("Edited just now")).toBeTruthy();
+    expect(screen.queryAllByText(/Edited/).length).toBe(2);
+  });
+
+  it("names the delete button after the insert and titles the full name", () => {
+    render(
+      <InsertsList
+        {...props({ projects: [{ id: "b", name: "A very long name", updatedAt: 1 }] })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Delete A very long name…" })).toBeTruthy();
+    expect(screen.getByTitle("A very long name")).toBeTruthy();
   });
 });

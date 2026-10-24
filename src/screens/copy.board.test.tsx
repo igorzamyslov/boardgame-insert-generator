@@ -1141,7 +1141,7 @@ const CASES: readonly Case[] = [
     steps: () => {
       openMenu();
       fireEvent.click(screen.getByRole("button", { name: /^Your inserts/ }));
-      fireEvent.click(screen.getAllByRole("button", { name: /^Delete…/ })[0] as HTMLElement);
+      fireEvent.click(screen.getAllByRole("button", { name: /^Delete .*…$/ })[0] as HTMLElement);
     },
   },
   {
