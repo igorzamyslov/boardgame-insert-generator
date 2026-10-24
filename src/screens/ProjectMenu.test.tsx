@@ -62,7 +62,7 @@ describe("ProjectMenu", () => {
     const p = props();
     render(<ProjectMenu {...p} />);
     fireEvent.click(button(/^Your inserts/));
-    fireEvent.click(button(/^Delete… .*Ark Nova/));
+    fireEvent.click(button("Delete Ark Nova…"));
     expect(p.onDelete).not.toHaveBeenCalled();
     fireEvent.click(button("Delete"));
     expect(p.onDelete).toHaveBeenCalledWith("b");
@@ -139,7 +139,7 @@ describe("ProjectMenu", () => {
   it("puts the focus on Cancel when the delete question opens, and back on Delete… when kept", () => {
     render(<ProjectMenu {...props()} />);
     fireEvent.click(button(/^Your inserts/));
-    const ask = button(/^Delete… .*Ark Nova/);
+    const ask = button("Delete Ark Nova…");
     fireEvent.click(ask);
     expect(document.activeElement).toBe(button("Cancel"));
     fireEvent.click(button("Cancel"));
