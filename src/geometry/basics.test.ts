@@ -48,8 +48,8 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
     expect(err.message).toMatch(/"magnet".*newer app version/);
   });
 
-  it("is at 0.9.11: 0.8.0 stacks flush (a new line); 0.8.1 engraves names, 0.8.2 rounds a merged part once, 0.8.3 lets a group member's Max fill its tray, 0.8.4 adds columns and 0.8.5 prints risers from 3 mm, all PATCHes; 0.9.0 gives a riser the lip (a new line); 0.9.1 closes the slit in a merged part, 0.9.2 adds the stepped base 0.9.3 gives flat custom items and short minis the notched cut 0.9.4 cuts finger dips in fillers, 0.9.5 keeps small chits from standing upright 0.9.6 builds a folded part with a lipped riser as one shape and 0.9.7 gives a flat deck its dividers as plates between groups and 0.9.8 swaps the finger dip for a top chamfer and 0.9.9 engraves a name on a well's floor and sets names in Overpass Bold outlines and 0.9.10 chamfers a spacer's face with a tray against it end to end and 0.9.11 rounds the rim beside a finger cut (PATCHes)", () => {
-    expect(GEOMETRY_VERSION).toBe("0.9.11");
+  it("is at 0.9.12: 0.8.0 stacks flush (a new line); 0.8.1 engraves names, 0.8.2 rounds a merged part once, 0.8.3 lets a group member's Max fill its tray, 0.8.4 adds columns and 0.8.5 prints risers from 3 mm, all PATCHes; 0.9.0 gives a riser the lip (a new line); 0.9.1 closes the slit in a merged part, 0.9.2 adds the stepped base 0.9.3 gives flat custom items and short minis the notched cut 0.9.4 cuts finger dips in fillers, 0.9.5 keeps small chits from standing upright 0.9.6 builds a folded part with a lipped riser as one shape and 0.9.7 gives a flat deck its dividers as plates between groups and 0.9.8 swaps the finger dip for a top chamfer and 0.9.9 engraves a name on a well's floor and sets names in Overpass Bold outlines and 0.9.10 chamfers a spacer's face with a tray against it end to end and 0.9.11 rounds the rim beside a finger cut and 0.9.12 gives every top chamfer of a layout one size (PATCHes)", () => {
+    expect(GEOMETRY_VERSION).toBe("0.9.12");
   });
 });
 

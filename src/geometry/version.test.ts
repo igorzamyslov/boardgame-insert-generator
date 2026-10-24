@@ -4,7 +4,7 @@ import source from "./version.ts?raw";
 
 describe("isOlderGeometryLine", () => {
   it("pre-1.0, treats each 0.MINOR as a major line (spec §9)", () => {
-    expect(GEOMETRY_VERSION).toBe("0.9.11");
+    expect(GEOMETRY_VERSION).toBe("0.9.12");
     expect(isOlderGeometryLine("0.0.9")).toBe(true);
     expect(isOlderGeometryLine("0.1.1")).toBe(true); // finger pockets: refused now, reprint
     expect(isOlderGeometryLine("0.2.0")).toBe(true); // finger-cut minis and scoop walls: reprint
@@ -27,7 +27,8 @@ describe("isOlderGeometryLine", () => {
     expect(isOlderGeometryLine("0.9.8")).toBe(false); // the top chamfer, a PATCH of this line
     expect(isOlderGeometryLine("0.9.9")).toBe(false); // the name on a well's floor and Overpass outlines
     expect(isOlderGeometryLine("0.9.10")).toBe(false); // a chamfer end to end
-    expect(isOlderGeometryLine("0.9.11")).toBe(false); // the current version: rounded rim beside a cut
+    expect(isOlderGeometryLine("0.9.11")).toBe(false); // rounded rim beside a cut
+    expect(isOlderGeometryLine("0.9.12")).toBe(false); // the current version: one chamfer size
     expect(isOlderGeometryLine("0.9.12")).toBe(false); // a PATCH ahead is the same line
     expect(isOlderGeometryLine("1.0.0")).toBe(false);
     expect(isOlderGeometryLine("0.4.1", "0.5.0")).toBe(true);
@@ -70,6 +71,7 @@ describe("the version history", () => {
     expect(at("0.9.9")).toBeGreaterThan(at("0.9.8"));
     expect(at("0.9.10")).toBeGreaterThan(at("0.9.9"));
     expect(at("0.9.11")).toBeGreaterThan(at("0.9.10"));
+    expect(at("0.9.12")).toBeGreaterThan(at("0.9.11"));
     expect(source).not.toContain(" * 0.7.3 ");
   });
 });

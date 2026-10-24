@@ -146,13 +146,54 @@ describe("where a chamfer goes", () => {
     ]);
   });
 
-  it("is not cut where the tray stands too low to reach into the groove", () => {
-    // the filler is 70 mm high: a 68 mm tray stands 3 mm into the 5 mm groove, a 66 mm one 1 mm
+  it("is not cut where the tray stands too low to reach into the groove at all", () => {
     const beside = (h: number) =>
       chamfersOf(addTopChamfers([tray({ h }), filler({ h: 70 })], { settings: S }), "leftover:0");
     expect(beside(68)).toHaveLength(1);
-    expect(beside(66)).toEqual([]);
+    expect(beside(66)).toHaveLength(1);
+    expect(beside(64)).toEqual([]);
     expect(beside(12)).toEqual([]);
+  });
+
+  it("is cut, but offered as no grip, where the tray's wall stands under CHAMFER_MIN_GRIP_MM in it", () => {
+    // 70 mm filler, 68 mm tray: 3 mm into the 5 mm groove is a grip; a 66 mm tray's 1 mm is not
+    // (a spacer a little taller than the stack beside it looks like its neighbours)
+    const lift = (h: number) => {
+      const parts = addTopChamfers([tray({ h }), filler({ h: 70 })], { settings: S });
+      return chamfersFacingTrays(parts, { settings: S }).get("t") ?? [];
+    };
+    expect(lift(68)).toHaveLength(1);
+    expect(lift(66)).toEqual([]);
+  });
+});
+
+describe("one size for every chamfer of a layout", () => {
+  const layout = (d: number): TraySpec[] => [
+    tray({ w: 60, d: 60 }),
+    filler({ key: "leftover:0" }),
+    // a second filler, a strip `d` thick across the way, beside a tray of its own
+    tray({ key: "u", x: 200, y: 0, w: 60, d: 60 }),
+    filler({ key: "leftover:1", x: 200 + 60 + GAP, y: 0, w: d, d: 60 }),
+  ];
+  const sizes = (parts: readonly TraySpec[]) =>
+    ["leftover:0", "leftover:1"].map((k) => chamfersOf(parts, k).map((c) => c.size));
+
+  it("is CHAMFER_MM when every filler can take it", () => {
+    expect(sizes(addTopChamfers(layout(40), { settings: S }))).toEqual([
+      [CHAMFER_MM],
+      [CHAMFER_MM],
+    ]);
+  });
+
+  it("is the smallest any filler can take, on all of them, never one square beside one cut", () => {
+    // a 4.72 mm strip: 4.72 less CHAMFER_LAND_MM is 3.12, and it is what every filler gets
+    const out = addTopChamfers(layout(4.72), { settings: S });
+    expect(sizes(out)).toEqual([[3.12], [3.12]]);
+  });
+
+  it("leaves a filler square that cannot take CHAMFER_MIN_MM, without shrinking the others", () => {
+    const out = addTopChamfers(layout(4), { settings: S });
+    expect(sizes(out)).toEqual([[CHAMFER_MM], []]);
   });
 });
 
