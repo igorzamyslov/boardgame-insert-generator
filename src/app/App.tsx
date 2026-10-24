@@ -4,7 +4,7 @@ import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Access, ComponentKind, Lock, Project } from "../model/types";
 import { groupById, requirementKeyOf } from "../model/groups";
-import { engineProject } from "../model/lip";
+import { engineProject, jointOf } from "../model/lip";
 import { lidPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
@@ -134,6 +134,12 @@ export function App(props: AppProps) {
   const noFitJoint = s.noFitAttempt.value ?? undefined;
   const project = useMemo(() => engineProject(saved, noFitJoint), [saved, noFitJoint]);
   const layout = project.layout;
+  // What the no-fit stage draws is the closest attempt, built with the joint that attempt was
+  // planned with, not the one an older plan still in the project used (they can differ under Auto).
+  const noFitSettings = useMemo(
+    () => jointOf(saved.settings, s.noFitAttempt.value ?? layout),
+    [saved.settings, s.noFitAttempt.value, layout],
+  );
   // The parts to print: the stored trays, with the height a stack doesn't need split off as a
   // riser under it (spec §3 rule 2) and each stretch spacer split into its component's plates
   // (spec §6.2), then each spacer or plate opened into a walled box where the `leftover` style and
@@ -603,7 +609,7 @@ export function App(props: AppProps) {
     return budget === null ? null : volumeNote(budget, project.box.headroom > 0);
   }, [noFit, project]);
   const closest = noFit
-    ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components, project.groups)
+    ? misfitOf(s.noFitAttempt.value, project.box, noFitSettings, project.components, project.groups)
     : null;
   // Needing more room than the box has is no one tray's fault: none is blamed, unless the bed is the cause.
   const misfit = volume?.verdict === "over" && closest?.reason !== "bed" ? null : closest;
@@ -1264,7 +1270,7 @@ export function App(props: AppProps) {
                   misfitKey={misfit?.trayKey ?? null}
                   trays={noFitTrays}
                   box={project.box}
-                  settings={projSettings}
+                  settings={noFitSettings}
                   reserved={noFitReserved}
                   components={project.components}
                   groups={project.groups}
@@ -1314,7 +1320,7 @@ export function App(props: AppProps) {
                     viewer: {
                       trays: noFitTrays,
                       box: project.box,
-                      settings: project.settings,
+                      settings: noFitSettings,
                       reserved: noFitReserved,
                       components: project.components,
                       groups: project.groups,

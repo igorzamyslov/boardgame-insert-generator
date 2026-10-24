@@ -17,6 +17,7 @@ import { canOptimize } from "./runner";
 import { CONFLICT_CODE, OPEN_FAILED_CODE } from "./persistence";
 import {
   EMPTY_FOREIGN,
+  cubeMesh,
   fixtureProject,
   flush,
   makeLayout,
@@ -1247,6 +1248,61 @@ describe("App", () => {
       // leaving the editor does not bring it back
       fireEvent.click(screen.getByRole("button", { name: "Done" }));
       expect(screen.queryByRole("heading", { level: 2, name: "Market" })).toBeNull();
+    });
+
+    it("builds the no-fit picture with the joint of the closest attempt, not of an older plan (Auto)", async () => {
+      const base = withLayoutProject();
+      const auto = { ...base.settings, lip: { ...base.settings.lip, joint: "auto" as const } };
+      const withAuto: Project = { ...base, settings: auto };
+      // the plan that is kept was made with the rim and groove
+      withAuto.layout = makeLayout(inputsHash(withAuto), base.layout?.trays ?? [], {
+        joint: "rim",
+      });
+      const get = vi.fn<MeshSource["get"]>(() =>
+        Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1 }),
+      );
+      const { store } = renderApp({
+        project: withAuto,
+        overrides: {
+          ...withWebGL(),
+          meshes: { get, reset: vi.fn(), forget: vi.fn(), dispose: vi.fn() },
+        },
+      });
+      const market = store.state.project.value.components[1];
+      const tray = makeTray({
+        key: "m:p0:0",
+        x: 200,
+        w: 120,
+        compartments: [
+          {
+            x: 1.6,
+            y: 1.6,
+            w: 100,
+            d: 70,
+            floorZ: 1.2,
+            kind: "well",
+            contents: "Market",
+            componentId: market?.id,
+            features: [],
+          },
+        ],
+      });
+      act(() => {
+        // the search that found no fit planned its closest attempt with the stepped base
+        store.state.lastResult.value = makeResult(null, {
+          bestAttempt: { trays: [tray], shortfall: { x: 30, y: 0, z: 0 }, joint: "step" },
+        });
+        store.state.lastResultHash.value = store.state.currentHash.value;
+      });
+      expect(heading()).toBe("The Market tray doesn't fit yet");
+      get.mockClear();
+      openView("3D");
+      await waitFor(() => expect(get).toHaveBeenCalled());
+      const asked = get.mock.calls.filter(([spec]) => spec.key === "m:p0:0");
+      expect(asked.length).toBeGreaterThan(0);
+      for (const [, settings] of asked) {
+        expect(settings.lip.joint).toBe("step");
+      }
     });
 
     it("tells the no-fit fact in one line on every stage: the engine's paragraph is drawn on none", async () => {
