@@ -6,6 +6,11 @@
 // Fails unless "version" in package.json is a higher semver than the one in the base
 // package.json (main's), because every merge to main is a release: the footer and every
 // saved project's `createdWith` read that version.
+//
+// One exception: a Renovate pull request that changes nothing but package-lock.json (lock
+// file maintenance) passes without a bump. Renovate's `bumpVersion` only acts when it edits
+// package.json, and such a release changes no dependency the app declares. CI passes the
+// author in PR_AUTHOR and the changed paths, one per line, in CHANGED_FILES.
 import { readFileSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -59,6 +64,17 @@ export function checkBump(base, next) {
   return `package.json version ${next} must be greater than ${base} on main; bump it before merging`;
 }
 
+const RENOVATE = "renovate[bot]";
+
+/** True for a Renovate pull request whose only change is package-lock.json. */
+export function isLockfileOnlyRenovate(author, changedFiles) {
+  return (
+    author === RENOVATE &&
+    changedFiles.length > 0 &&
+    changedFiles.every((path) => path === "package-lock.json")
+  );
+}
+
 const readVersion = (path) => JSON.parse(readFileSync(path, "utf8")).version;
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -66,6 +82,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!basePath) {
     process.stderr.write("usage: check-version-bump.mjs <base-package.json> [package.json]\n");
     process.exit(2);
+  }
+  const author = process.env.PR_AUTHOR ?? "";
+  const changed = (process.env.CHANGED_FILES ?? "").split("\n").filter(Boolean);
+  if (isLockfileOnlyRenovate(author, changed)) {
+    process.stdout.write(
+      "check-version-bump: OK (Renovate lock-file-only update, no bump needed)\n",
+    );
+    process.exit(0);
   }
   const base = readVersion(basePath);
   const next = readVersion(nextPath);
