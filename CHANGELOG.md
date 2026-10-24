@@ -10,12 +10,25 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.23.2] - 2026-10-24
+
 ### Fixed
 
 - **Copies that grow no longer leave a crack between trays.** When identical copies took the
   spare room into their wells, a plan could end up with a sliver of room too thin for a spacer
   between two trays instead of at the end of the row, so the trays no longer sat flush. That
   sliver now stays at the end of the row.
+
+## [0.23.1] - 2026-10-24
+
+### Fixed
+
+- **Copies face the same way, so the spare room is one spacer.** In a group with several copies
+  (like Faction in the Scythe box), one copy could stand turned a quarter turn from the others.
+  It left a thin sliver of room beside it as a spacer of its own, and the room at the end of the
+  row became a second one. Copies are now turned together, so the room gathers in one thicker
+  spacer. Pressing Try another arrangement fixes a plan you already have. Turning one copy now turns
+  the others with it, where they can follow.
 
 ## [0.23.0] - 2026-10-24
 

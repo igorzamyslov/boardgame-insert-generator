@@ -554,7 +554,12 @@ export function checkHardRules(
       }
     }
     for (const list of bySet.values()) {
-      // in the tray's own frame: a tray turned a quarter turn has its sides swapped
+      // In the tray's own frame: a tray turned a quarter turn has its sides swapped, and a well
+      // that stands at (x, y) in the turned tray stood at (y, depth − x − w) in its own (sizing's
+      // `rotateRealized`). The wells' places count, not only their sizes: two copies that hold the
+      // same wells in another arrangement are not alike (owner, 2026-10-24). Places are compared to
+      // 0.1 mm, as the 0.01 mm rounding of a turn differs by a hair.
+      const tenth = (n: number): number => Math.round(n * 10) / 10;
       const shape = (t: TraySpec): string =>
         JSON.stringify([
           t.rotated ? [t.d, t.w] : [t.w, t.d],
@@ -562,7 +567,13 @@ export function checkHardRules(
           jointDropped ? null : t.lip,
           jointDropped ? null : builtLevel(t) > 0,
           t.compartments
-            .map((c) => [...(t.rotated ? [c.d, c.w] : [c.w, c.d]), c.floorZ, c.kind])
+            .map((c) => [
+              ...(t.rotated
+                ? [tenth(c.y), tenth(t.w - c.x - c.w), c.d, c.w]
+                : [tenth(c.x), tenth(c.y), c.w, c.d]),
+              c.floorZ,
+              c.kind,
+            ])
             .sort(),
         ]);
       const first = list[0];
