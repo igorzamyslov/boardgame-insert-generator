@@ -12,7 +12,6 @@ import type { Component, TraySpec } from "../model/types";
 import { minOuter, realizeTray } from "../sizing";
 import { custom, minis, partOf } from "../sizing/test-helpers";
 import { planUnderside } from "./engrave";
-import { GLYPH_ROWS, textWidth } from "./glyphs";
 import { loadManifold } from "./load";
 import { planTray } from "./plan";
 import { notchFloorBox } from "./plan-cuts";
@@ -126,8 +125,8 @@ describe("the underside name keeps clear of the notches", () => {
       const plan = planTray(spec, GEO);
       const under = planUnderside(plan, "Dial");
       if (under !== null) {
-        const [hx, hy] = [(under.stroke * textWidth("Dial")) / 2, (under.stroke * GLYPH_ROWS) / 2];
-        const [half, across] = under.along === "x" ? [hx, hy] : [hy, hx];
+        const half = (under.box.x1 - under.box.x0) / 2;
+        const across = (under.box.y1 - under.box.y0) / 2;
         for (const p of plan.compartments) {
           for (const cut of p.cuts) {
             if (cut.notch <= 0) {

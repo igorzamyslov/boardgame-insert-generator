@@ -193,8 +193,14 @@ describe("checkPrintability", () => {
       expect(checkPrintability(downTriangle(0.0005)).overhangTriangles).toBe(0);
     });
 
-    it("treats a face at z = 0.002 as an overhang", () => {
-      expect(checkPrintability(downTriangle(0.002)).overhangTriangles).toBe(1);
+    it("lets a flat face up to 0.4 mm over the bed through: the ceiling of the underside name's recess", () => {
+      expect(checkPrintability(downTriangle(0.002)).overhangTriangles).toBe(0);
+      expect(checkPrintability(downTriangle(0.4)).overhangTriangles).toBe(0);
+    });
+
+    it("treats a flat face higher than that as an overhang", () => {
+      expect(checkPrintability(downTriangle(0.41)).overhangTriangles).toBe(1);
+      expect(checkPrintability(downTriangle(2)).overhangTriangles).toBe(1);
     });
 
     it("ignores a down-facing sliver below the minimum area", () => {

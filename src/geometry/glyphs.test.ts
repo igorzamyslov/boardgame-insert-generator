@@ -1,109 +1,102 @@
 import { describe, expect, it } from "vitest";
-import {
-  GLYPH_COLS,
-  GLYPH_GAP,
-  GLYPH_ROWS,
-  glyphRects,
-  isEngravable,
-  textRects,
-  textWidth,
-} from "./glyphs";
+import { CAP_SIZES_MM, isEngravable, layoutText } from "./glyphs";
+import { FONT_GLYPHS } from "./name-font-data";
 
 const LETTERS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 const DIGITS = [..."0123456789"];
 
-describe("the block font", () => {
-  it("draws every letter within the 3x5 grid", () => {
-    for (const ch of [...LETTERS, ...DIGITS, "-"]) {
-      const rects = glyphRects(ch);
-      expect(rects.length, ch).toBeGreaterThan(0);
-      for (const r of rects) {
-        expect(r.x0, ch).toBeGreaterThanOrEqual(0);
-        expect(r.z0, ch).toBeGreaterThanOrEqual(0);
-        expect(r.x1, ch).toBeLessThanOrEqual(GLYPH_COLS);
-        expect(r.z1, ch).toBeLessThanOrEqual(GLYPH_ROWS);
-        expect(r.x1 - r.x0, ch).toBeGreaterThanOrEqual(1);
-        expect(r.z1 - r.z0, ch).toBeGreaterThanOrEqual(1);
-        // strokes lie on whole cells
-        expect([r.x0, r.x1, r.z0, r.z1].every(Number.isInteger), ch).toBe(true);
-      }
+describe("the name font (Overpass Bold, subset)", () => {
+  it("has A-Z, 0-9, hyphen and space, and folds case", () => {
+    for (const ch of [...LETTERS, ...DIGITS, "-", " "]) {
+      expect(FONT_GLYPHS[ch], ch).toBeDefined();
     }
-  });
-
-  it("tells the letters and digits apart", () => {
-    const shapes = [...LETTERS, ...DIGITS].map((ch) => JSON.stringify(glyphRects(ch)));
-    expect(new Set(shapes).size).toBe(shapes.length);
-  });
-
-  it("draws a space as no stroke, narrower than a letter", () => {
-    expect(glyphRects(" ")).toEqual([]);
-    expect(textWidth(" ")).toBeLessThan(textWidth("A"));
-  });
-
-  it("leaves a stroke between separate strokes and no bare edge between joined ones", () => {
-    for (const ch of [...LETTERS, ...DIGITS, "-"]) {
-      const rects = glyphRects(ch);
-      for (const a of rects) {
-        for (const b of rects) {
-          if (a === b) {
-            continue;
-          }
-          const gapX = Math.max(a.x0 - b.x1, b.x0 - a.x1);
-          const gapZ = Math.max(a.z0 - b.z1, b.z0 - a.z1);
-          // overlapping or touching: one stroke joined to another; else a whole stroke apart
-          expect(gapX <= 0 && gapZ <= 0 ? 0 : Math.max(gapX, gapZ), ch).not.toBeLessThan(
-            gapX <= 0 && gapZ <= 0 ? 0 : 1,
-          );
-        }
-      }
-      // where two strokes meet along an edge, a third crosses that edge over its whole length, so
-      // no sliver of wall is left standing between them
-      for (const a of rects) {
-        for (const b of rects) {
-          if (a === b) {
-            continue;
-          }
-          const edges: { across: "x" | "z"; at: number; lo: number; hi: number }[] = [];
-          const zLo = Math.max(a.z0, b.z0);
-          const zHi = Math.min(a.z1, b.z1);
-          const xLo = Math.max(a.x0, b.x0);
-          const xHi = Math.min(a.x1, b.x1);
-          if ((a.x1 === b.x0 || b.x1 === a.x0) && zHi > zLo) {
-            edges.push({ across: "x", at: a.x1 === b.x0 ? a.x1 : b.x1, lo: zLo, hi: zHi });
-          }
-          if ((a.z1 === b.z0 || b.z1 === a.z0) && xHi > xLo) {
-            edges.push({ across: "z", at: a.z1 === b.z0 ? a.z1 : b.z1, lo: xLo, hi: xHi });
-          }
-          for (const e of edges) {
-            for (let c = e.lo + 0.5; c < e.hi; c += 1) {
-              const crossed = rects.some((r) =>
-                e.across === "x"
-                  ? r.x0 < e.at && r.x1 > e.at && r.z0 < c && r.z1 > c
-                  : r.z0 < e.at && r.z1 > e.at && r.x0 < c && r.x1 > c,
-              );
-              expect(crossed, `${ch}: a bare edge between two strokes`).toBe(true);
-            }
-          }
-        }
-      }
-    }
-  });
-
-  it("lays characters side by side", () => {
-    expect(textWidth("A")).toBe(3);
-    expect(textWidth("AB")).toBe(3 + GLYPH_GAP + 3);
-    expect(textWidth("A B")).toBe(3 + GLYPH_GAP + 1 + GLYPH_GAP + 3);
-    expect(textWidth("")).toBe(0);
-    expect(Math.max(...textRects("AB").map((r) => r.x1))).toBe(textWidth("AB"));
-    expect(Math.min(...textRects("A B").map((r) => r.x0))).toBe(0);
-  });
-
-  it("folds case and refuses what it cannot draw", () => {
-    expect(textRects("dice")).toEqual(textRects("DICE"));
-    expect(isEngravable("Wooden meeples 12-B")).toBe(true);
+    expect(isEngravable("Cards 12-B")).toBe(true);
+    expect(isEngravable("cards")).toBe(true);
     expect(isEngravable("Dice!")).toBe(false);
-    expect(isEngravable("Карты")).toBe(false);
-    expect(() => textRects("Dice!")).toThrow(RangeError);
-    expect(() => textWidth("é")).toThrow(RangeError);
+    expect(isEngravable("Ä")).toBe(false);
+    expect(layoutText("Cards", 8)).toEqual(layoutText("CARDS", 8));
+  });
+
+  it("sets every letter and digit one capital high, as sharp outlines with no stray points", () => {
+    for (const ch of [...LETTERS, ...DIGITS, "-"]) {
+      const l = layoutText(ch, 8);
+      expect(l, ch).not.toBeNull();
+      expect(l?.polygons.length, ch).toBeGreaterThan(0);
+      for (const poly of l?.polygons ?? []) {
+        expect(poly.length, ch).toBeGreaterThanOrEqual(3);
+        for (const [x, y] of poly) {
+          expect(Number.isFinite(x) && Number.isFinite(y), ch).toBe(true);
+        }
+      }
+    }
+    // a capital is 8 mm tall, a round one overshoots by a few percent, the Q's tail hangs a little
+    for (const ch of LETTERS) {
+      const h = layoutText(ch, 8)?.height ?? 0;
+      expect(h, ch).toBeGreaterThanOrEqual(7.9);
+      expect(h, ch).toBeLessThan(9.5);
+    }
+  });
+
+  it("starts the ink at the origin and measures it", () => {
+    for (const text of ["T", "Cards", "Wooden Mee"]) {
+      const l = layoutText(text, 6);
+      const xs = (l?.polygons ?? []).flatMap((c) => c.map((p) => p[0]));
+      const ys = (l?.polygons ?? []).flatMap((c) => c.map((p) => p[1]));
+      expect(Math.min(...xs)).toBeCloseTo(0, 9);
+      expect(Math.min(...ys)).toBeCloseTo(0, 9);
+      expect(Math.max(...xs)).toBeCloseTo(l?.width ?? NaN, 9);
+      expect(Math.max(...ys)).toBeCloseTo(l?.height ?? NaN, 9);
+    }
+  });
+
+  it("scales with the size: 6 mm is three quarters of 8 mm", () => {
+    const a = layoutText("Cards", 8);
+    const b = layoutText("Cards", 6);
+    expect((b?.width ?? 0) / (a?.width ?? 1)).toBeCloseTo(0.75, 6);
+    expect((b?.height ?? 0) / (a?.height ?? 1)).toBeCloseTo(0.75, 6);
+  });
+
+  it("leaves a letter's counter as a contour of its own (O, A, B, 8, 0)", () => {
+    for (const [ch, n] of [
+      ["O", 2],
+      ["A", 2],
+      ["B", 3],
+      ["8", 3],
+      ["0", 2],
+      ["I", 1],
+      ["L", 1],
+    ] as const) {
+      expect(layoutText(ch, 8)?.polygons.length, ch).toBe(n);
+    }
+  });
+
+  it("kerns pairs: AV sets closer than A and V apart", () => {
+    const av = layoutText("AV", 8)?.width ?? 0;
+    const a = layoutText("A", 8)?.width ?? 0;
+    const v = layoutText("V", 8)?.width ?? 0;
+    expect(av).toBeLessThan(a + v);
+  });
+
+  it("sets a space with no ink and a space between words", () => {
+    expect(layoutText("", 8)).toBeNull();
+    expect(layoutText("   ", 8)).toBeNull();
+    const joined = layoutText("AB", 8)?.width ?? 0;
+    const spaced = layoutText("A B", 8)?.width ?? 0;
+    expect(spaced).toBeGreaterThan(joined + 1);
+  });
+
+  it("keeps the thinnest stem at 4 mm under the thinnest feature: the owner's printed size", () => {
+    // the I is one stem: 0.74 mm at 4 mm, which the owner accepted after printing it; 0.9 at 5 mm
+    expect(layoutText("I", 4)?.width).toBeGreaterThan(0.6);
+    expect(layoutText("I", 4)?.width).toBeLessThan(0.8);
+    expect(layoutText("I", 5)?.width).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it("offers 8, 6, 5 and 4 mm, largest first", () => {
+    expect([...CAP_SIZES_MM]).toEqual([8, 6, 5, 4]);
+  });
+
+  it("throws for a character it lacks", () => {
+    expect(() => layoutText("A!", 8)).toThrow(RangeError);
   });
 });

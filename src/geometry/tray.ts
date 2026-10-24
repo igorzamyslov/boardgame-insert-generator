@@ -4,7 +4,13 @@ import type { BoxMm, MergedPart, Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
 import { carriesName } from "../model/part-name";
-import { buildEngravings, hasEngraving, planEngravings, planMergedEngraving } from "./engrave";
+import {
+  buildEngravings,
+  hasEngraving,
+  planEngravings,
+  planMergedEngraving,
+  planMergedInside,
+} from "./engrave";
 import type { Engravings } from "./engrave";
 import { cutFace, filletStrip } from "./plan-cuts";
 import { mergedBody, mergedOutline } from "./merged-outline";
@@ -501,9 +507,9 @@ function buildSolid(
 }
 
 // The name engraved on a part (spec.partName, set by the app on the copy it asks to build when
-// the engraving setting is on) and where: two opposite outer walls and the underside, each that
-// has room; null for a part that carries none (a plate: a spacer or divider), or that has no face
-// with room (planEngravings).
+// the engraving setting is on) and where: two opposite outer walls, the underside and the floor of
+// a well, each that has room; null for a part that carries none (a plate: a spacer or divider), or
+// that has no face with room (planEngravings).
 function engravingsOf(plan: TrayPlan, spec: TraySpec): Engravings | null {
   const name = spec.partName;
   if (name === undefined || !carriesName(spec.part)) {
@@ -558,23 +564,27 @@ function buildMerged(
       ? planMergedEngraving(spec, merged, plans, spec.partName)
       : null;
   const onMember = found?.member ?? -1;
-  const engravings: Engravings | null = found ? { walls: found.engravings, underside: null } : null;
-  const once = buildMergedOnce(m, scope, spec, merged, plans, (i) =>
-    i === onMember ? engravings : null,
-  );
+  // ... and the floor of a well of one member (a riser's pocket): the member where it is largest.
+  const floor =
+    spec.partName !== undefined && carriesName(spec.part)
+      ? planMergedInside(merged, plans, spec.partName)
+      : null;
+  const engravingsFor = (i: number): Engravings | null => {
+    const walls = i === onMember ? (found?.engravings ?? []) : [];
+    const inside = i === floor?.member ? floor.inside : null;
+    return walls.length > 0 || inside !== null ? { walls, underside: null, inside } : null;
+  };
+  const once = buildMergedOnce(m, scope, spec, merged, plans, engravingsFor);
   if (once) {
     return once;
   }
   const pieces: Manifold[] = merged.members.map((member, i) =>
     scope.track(
-      buildSolid(
-        m,
-        scope,
-        member,
-        settings,
-        plans[i],
-        i === onMember ? engravings : null,
-      ).translate([member.x - spec.x, member.y - spec.y, member.z - spec.z]),
+      buildSolid(m, scope, member, settings, plans[i], engravingsFor(i)).translate([
+        member.x - spec.x,
+        member.y - spec.y,
+        member.z - spec.z,
+      ]),
     ),
   );
   for (const b of merged.bridges) {

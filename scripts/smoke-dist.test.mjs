@@ -38,7 +38,7 @@ function goodFiles() {
     "assets/manifold-m3.wasm": "\u0000asm",
     "assets/index-abc.css": "body { margin: 0; }",
     "third-party-licenses.txt":
-      "manifold-3d Clipper2 three preact @preact/signals fflate @fontsource/bricolage-grotesque @fontsource/figtree",
+      "manifold-3d Clipper2 three preact @preact/signals fflate @fontsource/bricolage-grotesque @fontsource/figtree Overpass",
   };
 }
 

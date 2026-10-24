@@ -43,6 +43,7 @@ describe("licenses file", () => {
       "fflate",
       "@fontsource/bricolage-grotesque",
       "@fontsource/figtree",
+      "Overpass",
     ]);
   });
 

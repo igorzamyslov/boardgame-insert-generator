@@ -253,8 +253,21 @@ import type { Semver } from "../model/version";
  * as before. A PATCH, though "fingerDip" is no longer a feature planTray accepts: a part is
  * derived at print time and never stored, so no stored spec carries one. The engraved name keeps
  * clear of a chamfer on its face.
+ *
+ * 0.9.9 engraves the name on the floor of a well as well (owner, 2026-10-24: "if I remove the
+ * contents from the tray, I don't want to lift every tray to find the correct one"), and sets every
+ * engraved name in Overpass Bold outlines (SIL OFL 1.1) instead of the 3 by 5 block font, after the
+ * owner printed the research test set. Names are 8, 6, 5 or 4 mm capitals, the largest the room on
+ * a face allows. Walls: 0.4 mm, the outline carried in and down so no roof or floor overhangs.
+ * Floor of a well: 0.4 mm (0.6 on a floor of 2 mm or more) straight down, clear of the well's
+ * walls, scoop fillets, corner reliefs, divider slots and floor notches, over a floor that keeps the
+ * thinnest feature. Underside: a flat recess 0.4 mm deep (it was a V-groove of at most 0.6 mm, which
+ * closed after a layer and a half); it is planned after the floor's name and moves aside from it, or
+ * is left off. A mesh-only change on every named part: outer size, wells, lip, groove, fit and every
+ * tray are as before, so a saved plan keeps mating (README: a change that breaks fit is a MINOR).
+ * A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.8";
+export const GEOMETRY_VERSION = "0.9.9";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {
