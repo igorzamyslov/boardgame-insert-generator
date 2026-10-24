@@ -266,8 +266,15 @@ import type { Semver } from "../model/version";
  * is left off. A mesh-only change on every named part: outer size, wells, lip, groove, fit and every
  * tray are as before, so a saved plan keeps mating (README: a change that breaks fit is a MINOR).
  * A PATCH.
+ *
+ * 0.9.10 rounds the edge a finger cut makes through the layer beside its fillet strip (owner,
+ * 2026-10-24: the rim "protrudes beyond the fillet of the finger slot and you can catch it"): the
+ * ledge beside the lip ring, the floor of the socket beside the wall, each with the wall top's
+ * fillet (`CutPlan.ledgeFillets`). A mesh-only change beside a cut; outer size, footprint, lip,
+ * groove, step, socket and fit are as before, so trays printed before and after still mate and
+ * stack. A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.9";
+export const GEOMETRY_VERSION = "0.9.10";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

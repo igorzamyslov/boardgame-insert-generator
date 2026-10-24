@@ -121,11 +121,14 @@ describe("buildTray per tray type", () => {
     const at = 1.3 + 47.85;
     expect(heightAt(mesh, 0.3, at)).toBeCloseTo(spec.h - 34, 3);
     // The lip's top corners are rounded with its 2 mm height; past them it keeps its full height,
-    // on the end walls and everywhere else. The ledge beside the lip stays square at the rim.
+    // on the end walls and everywhere else. The ledge beside the lip is rounded with 3 mm, as a wall
+    // top is: 0.1 mm beside the side it stands 2.23 mm below the rim, 3 mm beside it at the rim.
     expect(heightAt(mesh, 0.3, at - 11 - 0.1)).toBeLessThan(spec.h + 1);
     expect(heightAt(mesh, 0.3, at - 11 - 2.05)).toBeCloseTo(spec.h + 2, 3);
     expect(heightAt(mesh, 0.3, at + 11 + 2.05)).toBeCloseTo(spec.h + 2, 3);
-    expect(heightAt(mesh, 2, at - 11 - 0.1)).toBeCloseTo(spec.h, 3);
+    const dip = 3 - Math.sqrt(3 * 3 - 2.9 * 2.9);
+    expect(heightAt(mesh, 2, at - 11 - 0.1)).toBeCloseTo(spec.h - dip, 1);
+    expect(heightAt(mesh, 2, at - 11 - 3.05)).toBeCloseTo(spec.h, 3);
     expect(heightAt(mesh, 40, 0.3)).toBeCloseTo(spec.h + 2, 3);
   });
 
