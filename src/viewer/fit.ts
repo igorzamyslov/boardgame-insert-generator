@@ -110,3 +110,18 @@ export function ndcOf(
   const w = clip[2] ?? 1;
   return [(clip[0] ?? 0) / w, (clip[1] ?? 0) / w];
 }
+
+/**
+ * Half the height of the orthographic camera's view at zoom 1, for a sphere of `radius` to be in
+ * frame with `FIT_AIR` to spare: the sphere's radius across the narrower side of the frame, so the
+ * height is that over `aspect` (width over height) when the frame is the taller one. The distance
+ * of an orthographic camera changes nothing of what it sees, so there is no distance to fit.
+ */
+export function orthoHalfHeight(radius: number, aspect: number): number {
+  return (radius * FIT_AIR) / Math.min(1, aspect);
+}
+
+/** The sphere about the box's middle that holds the box alone: what a remembered view is checked against. */
+export function boxRadius(outline: BoxOutline): number {
+  return radiusAbout(cornersOf(outline.min, outline.size), outlineTarget(outline));
+}

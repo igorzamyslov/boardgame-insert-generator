@@ -1246,6 +1246,7 @@ export function App(props: AppProps) {
             reserved: layout?.reserved,
             stale: s.stale.value,
             meshes,
+            projectId: project.id,
             ...props.viewerProps,
           }}
         />
@@ -1282,6 +1283,7 @@ export function App(props: AppProps) {
             reserved: layout?.reserved,
             stale: s.stale.value,
             meshes,
+            projectId: project.id,
             ...props.viewerProps,
           }}
           normal={{
@@ -1370,6 +1372,7 @@ export function App(props: AppProps) {
                       // the attempt is of the inputs as they are: nothing is stale about it
                       stale: false,
                       meshes,
+                      projectId: project.id,
                       selectedKey: null,
                       misfitKey: misfit?.trayKey ?? null,
                       topLayer: stageLayer,

@@ -8,7 +8,7 @@ const window = (emissive: Record<string, number>): ShotsScene => ({
   emissive: () => emissive,
   tints: () => ({
     page: "#f4f3ef",
-    trays: { a: { color: "#101010", base: "#202020", opacity: 1 } },
+    trays: { a: { color: "#101010", base: "#202020", opacity: 1, wells: [] } },
   }),
   framing: () => ({ overflow: 0.5 }),
 });
@@ -34,6 +34,7 @@ describe("exposeShotsScene", () => {
       color: "#101010",
       base: "#202020",
       opacity: 1,
+      wells: [],
     });
     off();
     expect(globalThis.__shotsScene).toBeUndefined();

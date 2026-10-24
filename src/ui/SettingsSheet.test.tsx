@@ -7,6 +7,7 @@ import { DEFAULT_PRINTER } from "../model/defaults";
 import { DEFAULT_SETTINGS, applyFingerRoom, applyWallChoice } from "../model/settings";
 import type { Notice, Printer, Settings } from "../model/types";
 import { SETTING_RANGES } from "../model/validate";
+import { projectionPref } from "../viewer/view";
 import { SettingsSheet, settingsTabFor } from "./SettingsSheet";
 import type { SettingsSheetProps } from "./SettingsSheet";
 import { ValidationContext } from "./validation";
@@ -66,20 +67,38 @@ describe("SettingsSheet", () => {
     expect(document.activeElement).toBe(h1);
   });
 
-  it("has two tabs, This insert and My printer, as a quiet segment named Settings for", () => {
+  it("has three tabs, This insert, My printer and Display, as a quiet segment named Settings for", () => {
     sheet();
     const group = screen.getByRole("group", { name: "Settings for" });
     expect(
       within(group)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["This insert", "My printer"]);
+    ).toEqual(["This insert", "My printer", "Display"]);
     expect(group.getAttribute("data-tone")).toBe("quiet");
     expect(pressed()).toEqual(["This insert"]);
     fireEvent.click(tab(/^My printer/));
     expect(pressed()).toEqual(["My printer"]);
     fireEvent.click(tab("This insert"));
     expect(pressed()).toEqual(["This insert"]);
+  });
+
+  it("chooses the 3D view's projection on the Display tab, for this browser", () => {
+    localStorage.clear();
+    projectionPref.value = "perspective";
+    sheet();
+    fireEvent.click(tab("Display"));
+    expect(screen.getByRole("heading", { name: "3D view" })).toBeTruthy();
+    const projection = screen.getByRole("group", { name: "3D view" });
+    expect(
+      within(projection).getByRole("button", { name: "Perspective" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    fireEvent.click(within(projection).getByRole("button", { name: "Orthographic" }));
+    expect(projectionPref.value).toBe("orthographic");
+    expect(localStorage.getItem("insert-generator:view-projection")).toBe("orthographic");
+    // nothing of it is in the printer tab
+    fireEvent.click(tab(/^My printer/));
+    expect(screen.queryByRole("group", { name: "3D view" })).toBeNull();
   });
 
   it("starts on the tab the person asked for", () => {

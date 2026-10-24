@@ -118,6 +118,8 @@ const PLAN_STATES = [
 const LAYERS = "The layer switch uses DESIGN's names";
 const LAYERS_3D = "In 3D the Layer switch peels the model";
 const THREE_D = ["workspace-3d", "workspace-3d-selected"] as const;
+// 0.23.0: the 3D view's own controls, in its caption row
+const VIEW_3D = "The 3D view shows the plan's colours";
 const EDITOR_LAYERS = "The editor's stage has the Layer switch";
 const HOMES = "The Summary's jobs have new homes";
 const NOFIT = "The no-fit heading names the tray";
@@ -623,6 +625,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Layer {n} (bottom)", states: SWITCHED, ruling: LAYERS },
   { text: "Layer {n} (top)", states: SWITCHED, ruling: LAYERS },
   { text: "Layer {n}", states: SWITCHED, ruling: LAYERS },
+  // The 3D caption row's Reset view and projection switch (the board draws Spread apart only)
+  { text: "Reset view", states: THREE_D, ruling: VIEW_3D },
+  // the projection is a browser choice in Settings, on the Display tab
+  ...["Display", "3D view", "Perspective", "Orthographic"].map((text) => ({
+    text,
+    states: SETTINGS_STATES,
+    ruling: VIEW_3D,
+  })),
   // In 3D the switch starts with "All": layers 1 to n, nothing cut away
   { text: "All", states: THREE_D, ruling: LAYERS_3D },
   // the editor's stage has the same switch (it opens on the item's own layer)
