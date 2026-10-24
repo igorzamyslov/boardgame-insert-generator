@@ -621,8 +621,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Layer {n}", states: SWITCHED, ruling: LAYERS },
   // The 3D caption row's Reset view and projection switch (the board draws Spread apart only)
   { text: "Reset view", states: THREE_D, ruling: VIEW_3D },
-  // the projection is a browser choice in Settings, "My printer"
-  ...["3D view", "Perspective", "Orthographic"].map((text) => ({
+  // the projection is a browser choice in Settings, on the Display tab
+  ...["Display", "3D view", "Perspective", "Orthographic"].map((text) => ({
     text,
     states: SETTINGS_STATES,
     ruling: VIEW_3D,
