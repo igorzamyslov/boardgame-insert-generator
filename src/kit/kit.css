@@ -749,6 +749,17 @@
   --status-fg: var(--focus);
 }
 
+/* The arc of a search under way turns, so a long search does not look like a stuck page. */
+.k-status[data-tone="info"] .k-status__icon > svg {
+  animation: k-spin 0.9s linear infinite;
+}
+
+@keyframes k-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .k-status[data-tone="warn"] .k-status__icon {
   --status-bg: var(--warn-bg);
   --status-fg: var(--warn-icon);
@@ -1423,6 +1434,11 @@ html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* slower, not stopped: it is the one sign that work is going on */
+  .k-status[data-tone="info"] .k-status__icon > svg {
+    animation-duration: 3s;
+  }
+
   .k-sheet,
   .k-sheet__chevron,
   .k-sheet[data-expanded="false"]:not([data-peek="true"]) .k-sheet__body,
