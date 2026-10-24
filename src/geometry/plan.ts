@@ -349,6 +349,15 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
       }
     : null;
 
+  // The lowest a fillet of the layer beside a cut's strip may reach (planTopFillets): the wall
+  // between its pocket and the groove's roof (rim) or the step's 45° face keeps MIN_FEATURE_MM.
+  const ledgeFloor =
+    groove && lip
+      ? groove.zTop - lip.thickness + MIN_FEATURE_MM
+      : stepPlan
+        ? MIN_FEATURE_MM
+        : Number.NEGATIVE_INFINITY;
+
   return {
     w: spec.w,
     d: spec.d,
@@ -361,7 +370,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     groove,
     step: stepPlan,
     socket: socketPlan,
-    compartments: planTopFillets(compartments, spec, cornerRadius, lip, socketPlan),
+    compartments: planTopFillets(compartments, spec, cornerRadius, lip, socketPlan, ledgeFloor),
     notch: planNotchFillets(notch, spec, cornerRadius),
     dips,
   };

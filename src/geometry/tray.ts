@@ -6,7 +6,7 @@ import { planTray } from "./plan";
 import { carriesName } from "../model/part-name";
 import { buildEngravings, hasEngraving, planEngravings, planMergedEngraving } from "./engrave";
 import type { Engravings } from "./engrave";
-import { cutFace, filletStrip } from "./plan-cuts";
+import { cutFace, filletStrip, ledgeStrip } from "./plan-cuts";
 import { mergedBody, mergedOutline } from "./merged-outline";
 import type { Band } from "./merged-outline";
 import { INNER_CORNER_RADIUS_MM } from "./plan-types";
@@ -277,10 +277,10 @@ function buildTopFillets(
   scope: Scope,
   cut: CutPlan,
   { top, v0, v1 }: { top: number; v0: number; v1: number },
+  [r0, r1]: readonly [number, number] = cut.topFillets,
 ): Manifold[] {
   const along = cut.side === "front" || cut.side === "back";
   const [a, b] = along ? [cut.x0, cut.x1] : [cut.y0, cut.y1];
-  const [r0, r1] = cut.topFillets;
   return [
     { r: r0, from: a - r0, to: a + EPS, centre: a - r0 },
     { r: r1, from: b - EPS, to: b + r1, centre: b + r1 },
@@ -315,6 +315,18 @@ function filletReach(
   };
 }
 
+// The strip the fillets of the layer beside a cut's own (ledgeStrip) are cut across: its outer
+// side stays where the layer ends (against the lip ring or the wall, whose fillets are the strip
+// of filletReach), its inner one reaches INNER_CORNER_RADIUS_MM + EPS into the compartment.
+function ledgeReach(
+  cut: CutPlan,
+  strip: { top: number; v0: number; v1: number },
+): { top: number; v0: number; v1: number } {
+  const outerLow = cut.side === "front" || cut.side === "left";
+  const inner = INNER_CORNER_RADIUS_MM + EPS;
+  return outerLow ? { ...strip, v1: strip.v1 + inner } : { ...strip, v0: strip.v0 - inner };
+}
+
 function buildCutter(
   m: ManifoldToplevel,
   scope: Scope,
@@ -342,6 +354,7 @@ function buildCutter(
           plan.lip !== null || plan.socket !== null,
         ),
       ),
+      ...buildLedgeFillets(m, scope, plan, cut),
     ]),
     // A divider's slot: from the bottom of the slot up into the well, EPS over its floor.
     ...c.slots.map((sl) =>
@@ -355,6 +368,20 @@ function buildCutter(
     cutter = scope.track(m.Manifold.union([cutter, ...extras]));
   }
   return cutter;
+}
+
+// The fillets of the layer a cut through the rim passes through beside its own strip: the ledge
+// beside the lip ring, the floor of the socket beside the wall.
+function buildLedgeFillets(
+  m: ManifoldToplevel,
+  scope: Scope,
+  plan: TrayPlan,
+  cut: CutPlan,
+): Manifold[] {
+  const strip = ledgeStrip(cut, plan, plan.lip, plan.socket);
+  return strip === null
+    ? []
+    : buildTopFillets(m, scope, cut, ledgeReach(cut, strip), cut.ledgeFillets);
 }
 
 // A finger dip: the U of a cut, run in from its face and, across the whole part when `through`, out

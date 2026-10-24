@@ -239,8 +239,15 @@ import type { Semver } from "../model/version";
  * of the stack (FeatureSpec "separatorPlate", derived into parts by splitDividers): the well is a
  * plate taller for each, and the tray itself is otherwise as before. A new optional feature, so a
  * PATCH (planTray only checks it); a stored layout without one builds as it did.
+ *
+ * 0.9.9 rounds the edge a finger cut makes through the layer beside its fillet strip (owner,
+ * 2026-10-24: the rim "protrudes beyond the fillet of the finger slot and you can catch it"): the
+ * ledge beside the lip ring, the floor of the socket beside the wall, each with the wall top's
+ * fillet (`CutPlan.ledgeFillets`). A mesh-only change beside a cut; outer size, footprint, lip,
+ * groove, step, socket and fit are as before, so trays printed before and after still mate and
+ * stack. A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.7";
+export const GEOMETRY_VERSION = "0.9.9";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

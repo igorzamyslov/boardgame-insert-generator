@@ -164,6 +164,7 @@ export function planCut(
     into: next?.index ?? null,
     notch: n,
     topFillets: [0, 0],
+    ledgeFillets: [0, 0],
   };
 }
 
@@ -294,6 +295,7 @@ export function planSpacerNotch(
     into: null,
     notch: 0,
     topFillets: [0, 0],
+    ledgeFillets: [0, 0],
   };
 }
 
@@ -340,14 +342,46 @@ export function filletStrip(
   if (cut.into !== null || lip === null) {
     return { top: frame.h, v0, v1 };
   }
-  // Through a lipped wall only the lip ring is rounded, on its top: the ledge the upper tray rests
-  // on stays square.
+  // Through a lipped wall this is the lip ring, on its top; the ledge beside it is rounded by
+  // ledgeStrip.
   const outer = { front: 0, back: frame.d, left: 0, right: frame.w }[cut.side];
   const far = cut.side === "back" || cut.side === "right";
   const top = frame.h + lip.height;
   return far
     ? { top, v0: outer - lip.thickness, v1: outer }
     : { top, v0: outer, v1: outer + lip.thickness };
+}
+
+/**
+ * Where the layer beside a cut's fillet strip is rounded (`ledgeFillets`): a cut through the outer
+ * wall of a part with a rim between layers also passes through what stands behind the strip, up to
+ * the face of its compartment, and its side meets that layer's top in an edge of its own. With the
+ * lip and groove that is the ledge beside the lip ring, at the rim; with the stepped base the floor
+ * of the socket beside the wall, `socket.depth` under it. Null when the cut has no such layer: it
+ * runs through a divider, the part has no rim between layers, or the compartment starts where the
+ * strip ends.
+ */
+export function ledgeStrip(
+  cut: CutPlan,
+  frame: { w: number; d: number; h: number },
+  lip: LipPlan | null,
+  socket: SocketPlan | null = null,
+): { top: number; v0: number; v1: number } | null {
+  const layer =
+    socket !== null
+      ? { top: frame.h - socket.depth, edge: socket.wall }
+      : lip !== null
+        ? { top: frame.h, edge: lip.thickness }
+        : null;
+  if (cut.into !== null || layer === null) {
+    return null;
+  }
+  const { v0, v1 } = axes(cut, cut.side);
+  const outer = { front: 0, back: frame.d, left: 0, right: frame.w }[cut.side];
+  const far = cut.side === "back" || cut.side === "right";
+  const { top, edge } = layer;
+  const strip = far ? { top, v0, v1: outer - edge } : { top, v0: outer + edge, v1 };
+  return strip.v1 - strip.v0 > TOL ? strip : null;
 }
 
 /**
@@ -408,7 +442,9 @@ function reliefAlong(
 /**
  * Every cut's top fillets (topRadii): across its strip, at the rim (or, through a lipped wall, on
  * the lip ring's top), clear of every other compartment lying across the same strip, and of the
- * outer corners of radius `cornerRadius`.
+ * outer corners of radius `cornerRadius`. The layer beside the strip (ledgeStrip) is rounded no
+ * deeper than `ledgeFloor`, where what stands under it (a groove's roof, a step's face) leaves it
+ * thin.
  */
 export function planTopFillets(
   plans: readonly CompartmentPlan[],
@@ -416,42 +452,50 @@ export function planTopFillets(
   cornerRadius: number,
   lip: LipPlan | null,
   socket: SocketPlan | null = null,
+  ledgeFloor = Number.NEGATIVE_INFINITY,
 ): CompartmentPlan[] {
   return plans.map((plan) => ({
     ...plan,
     cuts: plan.cuts.map((cut) => {
-      const strip = filletStrip(cut, frame, lip, socket);
-      const across = (r: Rect): boolean => {
-        const o = axes(r, cut.side);
-        return o.v0 < strip.v1 - TOL && o.v1 > strip.v0 + TOL;
+      // The radii of the fillets across one strip; `cap` is the most the strip's layer allows above
+      // the straight side's top (a lip ring is as high as the lip).
+      const radiiAt = (
+        strip: { top: number; v0: number; v1: number },
+        cap: number,
+      ): [number, number] => {
+        const across = (r: Rect): boolean => {
+          const o = axes(r, cut.side);
+          return o.v0 < strip.v1 - TOL && o.v1 > strip.v0 + TOL;
+        };
+        // Another compartment across the strip (another cut lies inside or beside its own
+        // compartment, which comes first along the side), and every corner relief the fillet's
+        // cutter would come near: a relief takes precedence over a top fillet (review 3, M1).
+        const voids = [
+          ...plans.flatMap((p) =>
+            p === plan || p.index === cut.into || !across(p.rect) ? [] : [axes(p.rect, cut.side)],
+          ),
+          ...plans.flatMap((p) => p.reliefs.flatMap((r) => reliefAlong(r, cut.side, strip))),
+        ];
+        const { u0, u1 } = axes(cut, cut.side);
+        const span = alongX(cut.side) ? frame.w : frame.d;
+        // The outer corners' arcs lie within cornerRadius of the faces across the strip too: a strip
+        // through an interior divider is clear of them (review 3, M2).
+        const depth = alongX(cut.side) ? frame.d : frame.w;
+        const nearCorner = strip.v0 < cornerRadius - TOL || strip.v1 > depth - cornerRadius + TOL;
+        // No longer than the U's straight side; above the floors of the compartments at the strip's
+        // ends (its cutter reaches into them, past their rounded corners).
+        const straight = cut.notch > 0 ? strip.top : strip.top - cut.bottomZ - cut.radius;
+        const floors = plans.filter((p) => p === plan || p.index === cut.into).map((p) => p.floorZ);
+        const side = Math.min(straight, strip.top - Math.max(...floors), cap);
+        return topRadii([u0, u1], span, nearCorner ? cornerRadius : 0, side, voids);
       };
-      // Another compartment across the strip (another cut lies inside or beside its own
-      // compartment, which comes first along the side), and every corner relief the fillet's
-      // cutter would come near: a relief takes precedence over a top fillet (review 3, M1).
-      const voids = [
-        ...plans.flatMap((p) =>
-          p === plan || p.index === cut.into || !across(p.rect) ? [] : [axes(p.rect, cut.side)],
-        ),
-        ...plans.flatMap((p) => p.reliefs.flatMap((r) => reliefAlong(r, cut.side, strip))),
-      ];
-      const { u0, u1 } = axes(cut, cut.side);
-      const span = alongX(cut.side) ? frame.w : frame.d;
-      // The outer corners' arcs lie within cornerRadius of the faces across the strip too: a strip
-      // through an interior divider is clear of them (review 3, M2).
-      const depth = alongX(cut.side) ? frame.d : frame.w;
-      const nearCorner = strip.v0 < cornerRadius - TOL || strip.v1 > depth - cornerRadius + TOL;
-      // No longer than the U's straight side; above the floors of the compartments at the strip's
-      // ends (its cutter reaches into them, past their rounded corners); through a lipped wall,
-      // in the lip, above the ledge.
-      const straight = cut.notch > 0 ? strip.top : strip.top - cut.bottomZ - cut.radius;
-      const floors = plans.filter((p) => p === plan || p.index === cut.into).map((p) => p.floorZ);
-      const side = Math.min(
-        straight,
-        strip.top - Math.max(...floors),
-        lip !== null && cut.into === null ? lip.height : straight,
-      );
-      const radius = nearCorner ? cornerRadius : 0;
-      return { ...cut, topFillets: topRadii([u0, u1], span, radius, side, voids) };
+      // Through a lipped wall, in the lip, above the ledge.
+      const main = filletStrip(cut, frame, lip, socket);
+      const topFillets = radiiAt(main, lip !== null && cut.into === null ? lip.height : Infinity);
+      const ledge = ledgeStrip(cut, frame, lip, socket);
+      const ledgeFillets =
+        ledge === null ? ([0, 0] as const) : radiiAt(ledge, ledge.top - ledgeFloor);
+      return { ...cut, topFillets, ledgeFillets };
     }),
   }));
 }
