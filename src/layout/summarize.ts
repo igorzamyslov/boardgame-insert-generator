@@ -1,5 +1,5 @@
 import { builtLevel, rimOn, stepOf } from "../model/lip";
-import { effective, topPlane } from "../model/settings";
+import { effective, usableMm3 } from "../model/settings";
 import type { BoxMm, TraySpec } from "../model/types";
 import { splitDividers } from "./dividers";
 import { maxCrossing, rowPlayU } from "./fill";
@@ -71,10 +71,12 @@ export function summarize(
 ): LayoutSummary {
   const { box, settings } = input;
   const eff = effective(settings);
-  const usable =
-    (box.innerWidth - 2 * eff.boxClearance) *
-    (box.innerDepth - 2 * eff.boxClearance) *
-    topPlane(box, settings);
+  const usable = usableMm3(
+    box,
+    settings,
+    box.innerWidth - 2 * eff.boxClearance,
+    box.innerDepth - 2 * eff.boxClearance,
+  );
   const printed = trays.filter((t) => t.part !== "spacer");
   const outerVolume = printed.reduce((s, t) => s + t.w * t.d * t.h, 0);
   let filament = 0;

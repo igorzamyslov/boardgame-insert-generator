@@ -120,6 +120,57 @@ export function checkHardRules(
   const printed = trays.filter((t) => t.part !== "spacer");
   const eps = 1e-6;
 
+  // The kept-free areas (box.headroomAreas with a size, "Part of it"): the paper lies in a corner of
+  // the floor, and every stack that stands under it stops at the low plane, filled to it, so the
+  // paper has one level top; every other stack reaches the lid.
+  const papers = (layout.reserved ?? []).map((r) => ({
+    x: toU(r.x),
+    y: toU(r.y),
+    w: toU(r.w),
+    d: toU(r.d),
+  }));
+  const touchesPaper = (t: TraySpec): boolean =>
+    papers.some((p) => {
+      const x = toU(t.x);
+      const y = toU(t.y);
+      return x < p.x + p.w && p.x < x + toU(t.w) && y < p.y + p.d && p.y < y + toU(t.d);
+    });
+  const underPaper = (parts: readonly TraySpec[]): boolean => parts.some(touchesPaper);
+  const planeOf = (parts: readonly TraySpec[]): U =>
+    underPaper(parts) ? ctx.lowPlane : ctx.topPlane;
+  const stacksOf = new Map<string, TraySpec[]>();
+  for (const t of trays.filter((x) => x.part !== "spacer")) {
+    stacksOf.set(t.path, [...(stacksOf.get(t.path) ?? []), t]);
+  }
+  const planeOfTray = (t: TraySpec): U => planeOf(stacksOf.get(t.path) ?? [t]);
+  if (papers.length !== ctx.areas.length) {
+    v.push(`the plan stores ${papers.length} kept-free areas, the box has ${ctx.areas.length}`);
+  }
+  papers.forEach((p, i) => {
+    const turned = ctx.areas[i] && p.w === ctx.areas[i]?.d && p.d === ctx.areas[i]?.w;
+    const as = ctx.areas[i];
+    if (as && !(turned || (p.w === as.w && p.d === as.d))) {
+      v.push(`kept-free area ${i}: ${p.w} × ${p.d} is not the size the box gives`);
+    }
+    const nearX = p.x === 0 || p.x + p.w === ctx.floorW;
+    const nearY = p.y === 0 || p.y + p.d === ctx.floorD;
+    if (!nearX || !nearY) {
+      v.push(`kept-free area ${i} does not lie in a corner of the floor`);
+    }
+    papers.slice(i + 1).forEach((q) => {
+      if (p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.d && q.y < p.y + p.d) {
+        v.push(`kept-free area ${i} overlaps another`);
+      }
+    });
+    // the paper is fully supported: whatever stands under it ends at the low plane exactly
+    for (const t of printed.filter((x) => x.level === 0 && touchesPaper(x))) {
+      const tops = (stacksOf.get(t.path) ?? [t]).reduce((m, x) => Math.max(m, toU(x.z + x.h)), 0);
+      if (tops !== ctx.lowPlane && !(t.part === "tray" && t.lip)) {
+        v.push(`${t.key}: under the paper, but its stack ends at ${tops}, not at ${ctx.lowPlane}`);
+      }
+    }
+  });
+
   // 0.01 mm precision
   for (const t of trays) {
     for (const n of [t.x, t.y, t.z, t.w, t.d, t.h]) {
@@ -214,21 +265,22 @@ export function checkHardRules(
     // share the surplus in whole layers, so a stack of them only is up to a layer each short of it.
     const sum = stack.reduce((s, t) => s + toU(t.h), 0);
     const topTray = stack[stack.length - 1];
-    const limit =
-      ctx.topPlane - (topTray?.lip && plug(topTray) ? toU(lipAbove(settings, true)) : 0);
+    const paper = underPaper(list);
+    const plane = paper ? ctx.lowPlane : ctx.topPlane;
+    const limit = plane - (topTray?.lip && plug(topTray) ? toU(lipAbove(settings, true)) : 0);
     const plugs = stack.filter((t) => plug(t) && !sizeLocked.has(t.key));
     const restFree = stack.some((t) => !plug(t) && !sizeLocked.has(t.key));
     // a stack that went without its rim or riser (best-effort, with the notice that says so) stops
     // short by whatever it did not pad
     const exact = plugs.length === 0 || restFree;
     if (
-      settings.fillToTop
+      settings.fillToTop || paper
         ? exact
           ? sum !== limit
           : sum > limit || (!jointDropped && limit - sum >= plugs.length * ctx.layer)
         : sum > limit
     ) {
-      v.push(`stack ${path}: Σh = ${sum} ≠ topPlane ${ctx.topPlane}`);
+      v.push(`stack ${path}: Σh = ${sum} ≠ topPlane ${plane}`);
     }
     let z = 0;
     stack.forEach((t, k) => {
@@ -282,7 +334,7 @@ export function checkHardRules(
           if (bearing < settings.lip.ledge - 2 * play - chamfer - eps || bearing <= 0) {
             v.push(`${t.key}: bearing ${bearing} too small`);
           }
-          if (toU(lower.z + lower.h + settings.lip.height) > ctx.topPlane) {
+          if (toU(lower.z + lower.h + settings.lip.height) > plane) {
             v.push(`${lower.key}: lip rises above the top plane`);
           }
         }
@@ -295,7 +347,7 @@ export function checkHardRules(
   for (const l of trays.filter((t) => t.part === "leftover")) {
     if (l.level === 0) {
       // beside a whole stack (or alone): as tall as the box, on the floor
-      if (toU(l.h) !== Math.max(0, ctx.topPlane)) {
+      if (toU(l.h) !== Math.max(0, planeOfTray(l))) {
         v.push(`${l.key}: leftover not at full stack height`);
       }
       if (toU(l.z) !== 0) {
@@ -333,10 +385,10 @@ export function checkHardRules(
     }
   }
   for (const t of printed) {
-    if (toU(t.z) + toU(t.h) > ctx.topPlane) {
+    if (toU(t.z) + toU(t.h) > planeOfTray(t)) {
       v.push(`${t.key}: rises above the top plane`);
     }
-    if (t.part === "tray" && toU(t.z + t.h + lipAbove(settings, t.lip)) > ctx.topPlane) {
+    if (t.part === "tray" && toU(t.z + t.h + lipAbove(settings, t.lip)) > planeOfTray(t)) {
       v.push(`${t.key}: its lip rises above the top plane`);
     }
   }
@@ -345,7 +397,9 @@ export function checkHardRules(
   const coverageNeeded =
     (input.box.headroom > 0 && input.box.headroomCoverage === "partial") || input.box.storedOnSide;
   const exposedLoose = real.some((t) => {
-    const covered = real.some((o) => o.path === t.path && o.level > t.level);
+    const covered =
+      real.some((o) => o.path === t.path && o.level > t.level) ||
+      underPaper(stacksOf.get(t.path) ?? [t]);
     const r = input.requirements[ctx.refsOfKey(t.key)[0]?.req ?? -1];
     return !covered && r?.loose === true;
   });
@@ -366,10 +420,12 @@ export function checkHardRules(
 
   // Rule 2 opt-out: the note says some stack stops short, exactly when one does.
   const heights = new Map<number, number>();
+  const planes = new Map<number, U>();
   for (const t of real) {
     heights.set(t.stack, (heights.get(t.stack) ?? 0) + toU(t.h));
+    planes.set(t.stack, planeOfTray(t));
   }
-  const stopsShort = [...heights.values()].some((h) => h < ctx.topPlane);
+  const stopsShort = [...heights].some(([stack, h]) => h < (planes.get(stack) ?? ctx.topPlane));
   if (!settings.fillToTop && stopsShort && !has("layout.stopsShort")) {
     v.push("a stack stops short of the top plane but there is no layout.stopsShort notice");
   }

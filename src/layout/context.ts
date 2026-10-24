@@ -1,4 +1,11 @@
-import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
+import {
+  MIN_FEATURE_MM,
+  chamferMinimums,
+  effective,
+  lidPlane,
+  topAreasOf,
+  topPlane,
+} from "../model/settings";
 import { bottomMinimums, leastRiser, lipAbove, stepBelow, upperTrayMinH } from "../model/lip";
 import type { Settings } from "../model/types";
 import { minOuter, outerCutSides, wallFor, type OuterCutSides } from "../sizing";
@@ -59,7 +66,26 @@ export interface Ctx {
   /** Box floor minus 2·boxClearance. */
   readonly floorW: U;
   readonly floorD: U;
+  /**
+   * Height a stack reaches where nothing is kept free on top: the lid (`lidPlane`), which is the
+   * height under the space kept free when the whole top is kept (no areas).
+   */
   readonly topPlane: U;
+  /**
+   * Height the stacks under a kept-free area reach (`topPlane` in model/settings); `topPlane` itself
+   * when there is no area. `placeStack` is given a context with this as its `topPlane` for them.
+   */
+  readonly lowPlane: U;
+  /**
+   * The areas kept free on top that this box has and its floor can hold, as the person gave them
+   * (width × length, units), in the order of `box.headroomAreas` (`area` is the index there). Empty:
+   * the whole top is kept free, or none of it.
+   */
+  readonly areas: readonly { readonly area: number; readonly w: U; readonly d: U }[];
+  /** Stacks are filled to their plane (settings.fillToTop); a stack under an area is, whatever it says. */
+  readonly fillToTop: boolean;
+  /** `riserMin` as it is when stacks are filled to the top (what a stack under an area needs). */
+  readonly riserMinFilled: U;
   readonly boxClearance: U;
   /**
    * What `oneWall` lets one wall take per axis (0 when off), already part of every part's capW /
@@ -278,12 +304,20 @@ export function createCtx(
       return out;
     }),
   );
+  const floorW = toUFloor(box.innerWidth) - 2 * boxClearance;
+  const floorD = toUFloor(box.innerDepth) - 2 * boxClearance;
   const ctx: Ctx = {
     input,
     growing,
-    floorW: toUFloor(box.innerWidth) - 2 * boxClearance,
-    floorD: toUFloor(box.innerDepth) - 2 * boxClearance,
-    topPlane: toUFloor(topPlane(box, settings)),
+    floorW,
+    floorD,
+    topPlane: toUFloor(lidPlane(box, settings)),
+    lowPlane: toUFloor(topPlane(box, settings)),
+    areas: areasOf(box, floorW, floorD),
+    fillToTop: settings.fillToTop,
+    riserMinFilled: settings.lip.enabled
+      ? roundUpTo(toUCeil(leastRiser(settings)), Math.max(1, toU(printer.layerHeight)))
+      : 0,
     boxClearance,
     oneWallCap: settings.oneWall ? toUFloor(ONE_WALL_MAX_MM) : 0,
     gap: toU(eff.trayGap),
@@ -381,6 +415,16 @@ function wholeFitsOf(ctx: Ctx, req: number): boolean {
         return onFloor && m.h <= ctx.topPlane && fitsBed(ctx.bed, m.w, m.d, m.h);
       }),
   );
+}
+
+/** The kept-free areas the floor can hold, either way round (the validation reports the rest). */
+function areasOf(box: LayoutInput["box"], floorW: U, floorD: U): Ctx["areas"] {
+  return (box.headroomAreas ?? []).flatMap((a, area) => {
+    const w = toUCeil(a.w);
+    const d = toUCeil(a.d);
+    const fits = (w <= floorW && d <= floorD) || (d <= floorW && w <= floorD);
+    return topAreasOf(box).includes(a) && fits ? [{ area, w, d }] : [];
+  });
 }
 
 export function withSizeLocks(ctx: Ctx, sizeLocks: ReadonlyMap<number, FixedSize>): Ctx {

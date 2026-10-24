@@ -45,7 +45,21 @@ export interface Box {
   innerHeight: number;
   headroom: number;
   headroomCoverage: "full" | "partial";
+  /**
+   * With "partial" coverage: where the kept space is, as the flat things that lie there (the
+   * rulebook, a board, a stack of player mats), each a width and length in mm; `headroom` is their
+   * thickness. The layout picks where each lies and keeps the stacks under it that much lower.
+   * Absent or empty (or coverage "full"): no area, the whole top is kept, as before schema 0.3.1.
+   */
+  headroomAreas?: TopArea[];
   storedOnSide: boolean;
+}
+
+/** One flat thing that lies on the trays, in mm. `name` shows on the plan; absent: "Rulebook". */
+export interface TopArea {
+  name?: string;
+  w: number;
+  d: number;
 }
 
 export interface Printer {
@@ -309,6 +323,24 @@ export interface StoredLayout {
   iterations: number;
   capped: boolean;
   trays: TraySpec[];
+  /** Where each of the box's `headroomAreas` lies in this plan; absent when it has none. */
+  reserved?: ReservedSpec[];
+}
+
+/**
+ * The place the layout chose for one kept-free area, in the trays' frame (x, y from the floor's
+ * corner, like `TraySpec`): its rectangle as the person's width and length (turned 90° or not),
+ * and `z`, the height it lies at (the tops of the stacks under it).
+ */
+export interface ReservedSpec {
+  /** Index into `box.headroomAreas`. */
+  area: number;
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  d: number;
+  z: number;
 }
 
 export type FeatureSpec =

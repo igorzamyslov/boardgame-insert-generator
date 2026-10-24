@@ -191,7 +191,7 @@ export function stackHeights(ctx: Ctx, levels: readonly Level[]): StackHeights {
     return k < n - 1 || l.plug ? roundUpTo(l.minH, ctx.layer) : l.minH;
   });
   const sum = base.reduce((s, v) => s + v, 0);
-  const fill = ctx.input.settings.fillToTop;
+  const fill = ctx.fillToTop;
   // The alike trays of a stack share the surplus in whole layers, each the same, so they are one
   // height, and the riser splitRisers makes takes it all and leaves them as they were. What is left
   // is a tray of another kind's.

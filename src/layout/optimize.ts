@@ -17,6 +17,7 @@ import {
   type ResolvedLocks,
 } from "./locks";
 import { materialize, type Realize } from "./materialize";
+import { reservedSpecs, storedAnchors } from "./reserve";
 import { createRng } from "./prng";
 import { scorePlan, type PrevPos } from "./score";
 import { summarize } from "./summarize";
@@ -124,6 +125,9 @@ function startPhase(
     return { tree, plan, score: scorePlan(ctx, plan, prev) };
   };
   const starts: Tree[] = [];
+  // The areas a warm start had stay where they were (and the first anchors without one).
+  const reserve = ctx.areas.length > 0 ? storedAnchors(ctx, opts.warmStart?.reserved) : undefined;
+  const placed = (t: Tree): Tree => (reserve === undefined ? t : { ...t, reserve });
   if (opts.warmStart) {
     const wt = warmTree(ctx, opts.warmStart.trays, resolved.pinnedVariant, hints, resolved.turns);
     if (wt) {
@@ -133,11 +137,11 @@ function startPhase(
   starts.push(greedyTree(ctx, resolved, "x"), greedyTree(ctx, resolved, "y"));
   let best: Candidate | null = null;
   for (const s of starts) {
-    const t = applyLocks(s, resolved, env, rng, hints.axisOf);
-    if (t === null) {
+    const t0 = applyLocks(s, resolved, env, rng, hints.axisOf);
+    if (t0 === null) {
       continue;
     }
-    const c = evalTree(t);
+    const c = evalTree(placed(t0));
     if (best === null || c.score.total < best.score.total) {
       best = c;
     }
@@ -146,11 +150,11 @@ function startPhase(
   // over a few stacks to the same heights (the common case, a greedy start that fits, skips this).
   if (best === null || best.score.overflow > 0) {
     for (const s of partitionTrees(ctx, resolved)) {
-      const t = applyLocks(s, resolved, env, rng, hints.axisOf);
-      if (t === null) {
+      const t0 = applyLocks(s, resolved, env, rng, hints.axisOf);
+      if (t0 === null) {
         continue;
       }
-      const c = evalTree(t);
+      const c = evalTree(placed(t0));
       if (best === null || c.score.total < best.score.total) {
         best = c;
       }
@@ -160,7 +164,7 @@ function startPhase(
   // stands in, with the turned trays still turned (the moves can't undo a turn lock).
   const startIgnoredLocks = best === null && resolved.kept.length > 0;
   const start =
-    best ?? evalTree(withTurns(greedyTree(ctx, noLocks(ctx), "x"), ctx, resolved.turns));
+    best ?? evalTree(placed(withTurns(greedyTree(ctx, noLocks(ctx), "x"), ctx, resolved.turns)));
   return {
     ctx,
     resolved,
@@ -262,7 +266,8 @@ export function createRun(
         }
       }
       const summary = summarize(trays, input);
-      notices.push(...layoutWarnings(last.ctx, trays, summary));
+      const reserved = reservedSpecs(last.ctx, last.plan.reserved);
+      notices.push(...layoutWarnings(last.ctx, trays, summary, reserved));
       if (stop) {
         notices.push(cappedNotice(stop));
       }
@@ -276,6 +281,9 @@ export function createRun(
           iterations: carried + phase.annealer.done,
           capped,
           trays,
+          ...(last.plan.reserved.length > 0
+            ? { reserved: reservedSpecs(last.ctx, last.plan.reserved) }
+            : {}),
         },
         bestAttempt: null,
         summary,
@@ -305,6 +313,9 @@ export function createRun(
         trays: attemptTrays,
         shortfall,
         overBedKeys: overBed.filter((o) => !o.filler).map((o) => o.key),
+        ...(attempt.plan.reserved.length > 0
+          ? { reserved: reservedSpecs(closest.ctx, attempt.plan.reserved) }
+          : {}),
       },
       summary: null,
       notices,
