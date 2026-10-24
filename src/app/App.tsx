@@ -48,6 +48,8 @@ import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
 import { componentIdsOfTray, mm } from "../ui/identity";
 import { misfitOf, namedConflicts } from "../ui/noFit";
+import { volumeNote } from "../ui/volumeFit";
+import { projectVolume } from "./volume";
 import {
   SettingsContext,
   SizingContext,
@@ -74,6 +76,8 @@ import {
   setGroupAccess,
   setGroupCopies,
   setSettings,
+  putTrayOn,
+  takeOff,
   swapTrays,
   sizeLockedKeys,
   takeOutOfGroup,
@@ -83,6 +87,9 @@ import {
   updateComponent,
 } from "./actions";
 import type { EditResult } from "./actions";
+import { trayNames } from "../instructions/naming";
+import { numberParts } from "../instructions/numbering";
+import { canPutOn } from "./dryRun";
 import { downloadBlob } from "./download";
 import { useGuideHistory } from "./guideHistory";
 import type { MeshSource } from "./meshes";
@@ -199,6 +206,10 @@ export function App(props: AppProps) {
   }, [boxOpen]);
   // The View segment's choice is a signal of the stage (`stageView`), reset when the app goes.
   const view = stageView.value;
+  // The Layer switch is one pick for both views; until the person makes it the top view shows the
+  // bottom layer and 3D shows every layer.
+  const pickedLayer = s.viewLayer.value;
+  const layerNow = pickedLayer !== undefined ? pickedLayer : view === "plan" ? 0 : null;
   useEffect(() => {
     return () => {
       stageView.value = "plan";
@@ -210,10 +221,6 @@ export function App(props: AppProps) {
   function showView(next: StageView): void {
     if (next !== "plan") {
       s.swapFrom.value = null;
-    }
-    if (next === "3d") {
-      // 3D opens on every layer; the cut is a look at the model, not a choice to carry back
-      s.viewCut.value = null;
     }
     stageView.value = next;
   }
@@ -234,9 +241,9 @@ export function App(props: AppProps) {
   // The older plan the person chose to keep (project and geometry line), so its banner stays away.
   const [geometryKept, setGeometryKept] = useState<string | null>(null);
   const run = s.run.value;
-  // A fit problem's cards and the heading's Stop trade places as Keep searching and Stop do in the
+  // A fit problem's cards and the heading's Stop trade places as Try another arrangement and Stop do in the
   // heading (StageTop): the button pressed goes with its screen, so the focus is handed on, and only
-  // when it fell to the page. Keep searching on the cards hands it to Stop; a run that ends on a fit
+  // when it fell to the page. Try another arrangement on the cards hands it to Stop; a run that ends on a fit
   // problem hands it to the first card, and one that ends with the problem gone (an Unpin that
   // resolved it) to Download, the next step.
   const working = run.status === "running" || s.runPending.value;
@@ -258,7 +265,8 @@ export function App(props: AppProps) {
       keptFromFit.current = false;
       const card = document.querySelector<HTMLElement>("[data-fit-first]");
       if (card !== null) {
-        card.focus();
+        // not into view: a card under the picture would scroll the stage and cut off the heading and the plan's top
+        card.focus({ preventScroll: true });
       } else if (fitSeen.current) {
         downloadButtonRef.current?.focus();
       }
@@ -558,7 +566,8 @@ export function App(props: AppProps) {
     onSelect: (key: string | null) => {
       s.selection.value = key;
     },
-    onSwapFromChange: (key: string | null) => {
+    onSwapFromChange: (key: string | null, mode: "swap" | "putOn" = "swap") => {
+      s.pickMode.value = mode;
       s.swapFrom.value = key;
     },
     onEditComponent: editComponent,
@@ -572,9 +581,15 @@ export function App(props: AppProps) {
   const selectedIds =
     selectedTray === undefined ? [] : componentIdsOfTray(selectedTray, project.components);
   // The tray the closest attempt could not fit, for the status and for the picture that marks it.
-  const misfit = noFit
+  const volume = useMemo(() => {
+    const budget = noFit ? projectVolume(project) : null;
+    return budget === null ? null : volumeNote(budget, project.box.headroom > 0);
+  }, [noFit, project]);
+  const closest = noFit
     ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components, project.groups)
     : null;
+  // Needing more room than the box has is no one tray's fault: none is blamed, unless the bed is the cause.
+  const misfit = volume?.verdict === "over" && closest?.reason !== "bed" ? null : closest;
   // What the status says (the heading; and, while an editor is open, the problems it still tells).
   const statusInput: StatusInput = {
     run,
@@ -584,7 +599,7 @@ export function App(props: AppProps) {
     hasLayout: layout !== undefined,
     fits,
     canSearchMore: !s.geometryOld.value,
-    noFit: noFit ? { misfit, shortfall: s.noFitAttempt.value?.shortfall ?? null } : null,
+    noFit: noFit ? { misfit, shortfall: s.noFitAttempt.value?.shortfall ?? null, volume } : null,
     conflicts,
     hiddenErrors: errorsWithoutField(validation),
     problems,
@@ -627,6 +642,7 @@ export function App(props: AppProps) {
   const fixes = {
     kind: fitKind ?? "noFit",
     actions: status.actions,
+    volume: fitKind === "noFit" ? volume : null,
     onShow: showSection,
     onKeepSearching: () => {
       store.refit();
@@ -772,6 +788,7 @@ export function App(props: AppProps) {
       onUnlockSize={(keys) =>
         store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
       }
+      onTakeOff={(keys) => store.edit((q) => keys.reduce(takeOff, q))}
       onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
       onNote={(text) => {
         noteSeq.current += 1;
@@ -942,6 +959,7 @@ export function App(props: AppProps) {
         phone
         inPlan={view === "plan"}
         swapFrom={view === "plan" ? s.swapFrom.value : null}
+        pickMode={s.pickMode.value}
       />
     ) : null;
   // What every stage has: the app's notices and live regions (always mounted, so a region is there
@@ -1010,8 +1028,20 @@ export function App(props: AppProps) {
         stale: s.stale.value,
         searching: run.status === "running",
         swapFrom: s.swapFrom.value,
-        onSwapFromChange: (key: string | null) => {
+        onSwapFromChange: (key: string | null, mode: "swap" | "putOn" = "swap") => {
+          s.pickMode.value = mode;
           s.swapFrom.value = key;
+        },
+        pick: s.pickMode.value,
+        onPutOn: (trayKey: string, baseKey: string): string | null => {
+          const names = trayNames(numberParts(printable), project.components, project.groups);
+          const name = (key: string): string => names.get(key)?.full ?? "This tray";
+          const check = canPutOn(project, trayKey, baseKey, name, s.foreign.value);
+          if (!check.ok) {
+            return check.reason ?? "That doesn't work.";
+          }
+          store.edit((q) => putTrayOn(q, trayKey, baseKey));
+          return null;
         },
         onSwap: (a: string, b: string) => store.edit((q) => swapTrays(q, a, b)),
         sizeLockedKeys: sizeLocked,
@@ -1125,13 +1155,9 @@ export function App(props: AppProps) {
                 {...statusInput}
                 trays={layout?.trays}
                 levels={planLevels}
-                level={s.viewLevel.value}
-                onLevelChange={(l) => {
-                  s.viewLevel.value = l;
-                }}
-                cut={s.viewCut.value}
-                onCutChange={(c) => {
-                  s.viewCut.value = c;
+                layer={layerNow}
+                onLayerChange={(l) => {
+                  s.viewLayer.value = l;
                 }}
                 view={view}
                 onViewChange={showView}
@@ -1147,10 +1173,12 @@ export function App(props: AppProps) {
               planProps !== null ? (
                 <PlanView
                   {...planProps}
+                  tapHint
                   selectedKey={s.selection.value}
-                  level={s.viewLevel.value}
+                  level={layerNow ?? 0}
+                  layerAll={layerNow === null}
                   onLevelChange={(l) => {
-                    s.viewLevel.value = l;
+                    s.viewLayer.value = l;
                   }}
                   onSelect={(key) => {
                     s.selection.value = key;
@@ -1162,6 +1190,7 @@ export function App(props: AppProps) {
                         phone={false}
                         inPlan
                         swapFrom={s.swapFrom.value}
+                        pickMode={s.pickMode.value}
                       />
                     ) : phone ? undefined : (
                       (removedToast ?? undefined)
@@ -1170,7 +1199,7 @@ export function App(props: AppProps) {
                 />
               ) : (
                 <>
-                  <StageSlot quiet idle={phone}>
+                  <StageSlot idle={phone}>
                     {phone ? undefined : (removedToast ?? undefined)}
                   </StageSlot>
                   {workingOnIt}
@@ -1202,8 +1231,9 @@ export function App(props: AppProps) {
                       stale: s.stale.value,
                       meshes,
                       selectedKey: s.selection.value,
-                      topLayer: s.viewCut.value,
+                      topLayer: layerNow,
                       levels: planLevels,
+                      tapHint: true,
                       onSelect: (key) => {
                         s.selection.value = key;
                       },

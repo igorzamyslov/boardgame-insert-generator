@@ -22,6 +22,8 @@ export interface GroupMemberView {
 
 export interface GroupCardProps {
   group: Group;
+  /** The group's own hue, as custom properties (`shadeVars("group", …)`): its tile and its swatch. */
+  shade?: Record<string, string>;
   /** The group's items, in the group's own order. */
   members: readonly GroupMemberView[];
   /** The group's trays in the plan, every copy; absent while there is no current plan. */
@@ -102,6 +104,7 @@ export function groupLabel(group: Group, itemCount: number): string {
  */
 export function GroupCard({
   group,
+  shade,
   members,
   trays: groupTrays,
   layer,
@@ -168,6 +171,7 @@ export function GroupCard({
           data-lit={lit && !compact ? "true" : undefined}
           data-misfit={misfit ? "true" : undefined}
           data-group-head={group.id}
+          style={shade}
           onClick={() => onEdit?.()}
           onMouseEnter={enter(null)}
           onMouseLeave={leave}

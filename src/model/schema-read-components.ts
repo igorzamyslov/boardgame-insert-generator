@@ -1,6 +1,7 @@
 import { COMPONENT_DEFAULTS, KIND_NAMES } from "./defaults";
 import { newId } from "./ids";
 import { isRecord, quote } from "./json";
+import type { Room } from "./room";
 import type { Ctx } from "./schema-reader";
 import {
   absorbErrors,
@@ -18,9 +19,6 @@ import type {
   ComponentBase,
   ComponentKind,
   ForeignData,
-  Growth,
-  GrowthAxis,
-  GrowthMode,
   Sleeve,
   TileShape,
 } from "./types";
@@ -28,12 +26,12 @@ import type {
 const COMPONENT_KINDS = ["cards", "bulk", "tiles", "minis", "custom"] as const;
 const SLEEVE_NAMES = ["none", "standard", "premium"] as const;
 
-const GROWTH_AXES: readonly GrowthAxis[] = ["w", "d", "h", "stack"];
-const GROWTH_WORDS = ["off", "auto", "max"] as const;
-
-/** A growth mode: a word, or a number of mm (null is a half-edited number, left for validation). */
-export function readGrowthMode(g: Reader, axis: GrowthAxis): GrowthMode | undefined {
-  const v = g.take(axis);
+/**
+ * The item's `room` (schema 0.3.0): "max", or a number of cards, tiles or percent (null is a
+ * half-edited number, left for validation). Absent: none.
+ */
+function readRoom(r: Reader): Room | undefined {
+  const v = r.take("room");
   if (v === undefined) {
     return undefined;
   }
@@ -43,34 +41,7 @@ export function readGrowthMode(g: Reader, axis: GrowthAxis): GrowthMode | undefi
   if (typeof v === "number") {
     return v;
   }
-  return readEnum(v, GROWTH_WORDS, g.at(axis), g.ctx);
-}
-
-/**
- * The component's `growth`. A file from before schema 0.1.12 says `stretch` instead: a deck or stack
- * of tiles that stretched now grows by `auto`, which upright storage does by default, so
- * `stretch: true` is simply the default (a flat deck, which never stretched, stays off); and
- * `stretch: false`, which was the default then, switches growth off on the stack, as it was. It
- * never becomes `max` (the old stretch took the whole leaf; `auto` is the bounded form). The old
- * key is read but never written back, and `growth` wins when a file has both.
- */
-function readGrowth(r: Reader, kind: ComponentKind): Growth | undefined {
-  const legacy = r.optBool("stretch");
-  const g = r.optChild("growth");
-  const growth: Growth = {};
-  if (g) {
-    for (const axis of GROWTH_AXES) {
-      const mode = readGrowthMode(g, axis);
-      if (mode !== undefined) {
-        growth[axis] = mode;
-      }
-    }
-    g.finish({});
-  }
-  if (legacy === false && (kind === "cards" || kind === "tiles") && growth.stack === undefined) {
-    growth.stack = "off";
-  }
-  return Object.keys(growth).length > 0 ? growth : undefined;
+  return readEnum(v, ["max"] as const, r.at("room"), r.ctx);
 }
 
 function readBase(r: Reader, kind: ComponentKind): ComponentBase {
@@ -99,9 +70,9 @@ function readBase(r: Reader, kind: ComponentKind): ComponentBase {
   if (cornerReliefs !== undefined) {
     base.cornerReliefs = cornerReliefs;
   }
-  const growth = readGrowth(r, kind);
-  if (growth !== undefined) {
-    base.growth = growth;
+  const room = readRoom(r);
+  if (room !== undefined) {
+    base.room = room;
   }
   const separators = r.optNum("separators");
   if (separators !== undefined) {
@@ -209,13 +180,24 @@ function readTileShape(r: Reader): TileShape {
   return s.finish({ type, w: s.num("w"), d: s.num("d") });
 }
 
+/** `packing` on a bulk or minis item, when the file has one (absent stays absent: it is hashed only when set). */
+function optionalPacking(r: Reader): { packing?: number } {
+  const packing = r.optNum("packing");
+  return packing === undefined ? {} : { packing };
+}
+
 function readKnownComponent(r: Reader, kind: ComponentKind): Component {
   const base = readBase(r, kind);
   switch (kind) {
     case "cards":
       return readCards(r, base);
     case "bulk":
-      return r.finish({ ...base, kind, items: r.objects("items").map(readBulkItem) });
+      return r.finish({
+        ...base,
+        kind,
+        items: r.objects("items").map(readBulkItem),
+        ...optionalPacking(r),
+      });
     case "tiles":
       return r.finish({
         ...base,
@@ -229,16 +211,20 @@ function readKnownComponent(r: Reader, kind: ComponentKind): Component {
       return r.finish({
         ...base,
         kind,
-        figures: r.objects("figures").map((f) =>
-          f.finish({
+        figures: r.objects("figures").map((f) => {
+          const keepUpright = f.optBool("keepUpright");
+          return f.finish({
             name: f.str("name", ""),
             w: f.num("w"),
             d: f.num("d"),
             h: f.num("h"),
             count: f.num("count"),
-          }),
-        ),
+            // Only when set, so a figure that may lie reads (and saves) as it did before 0.2.3.
+            ...(keepUpright === true ? { keepUpright } : {}),
+          });
+        }),
         storage: r.oneOf("storage", ["pockets", "bulk"], COMPONENT_DEFAULTS.minis.storage),
+        ...optionalPacking(r),
       });
     case "custom":
       return r.finish({

@@ -10,7 +10,7 @@ export interface PrevPos {
 }
 
 export interface ScoreTerms {
-  /** Leftover parts + slack trays can't absorb, in 1/100 000 of the usable box volume. */
+  /** Leftover parts + slack trays can't absorb + room beside alike trays too thin to fill, in 1/100 000 of the usable box volume. */
   readonly leftover: number;
   /** Loose trays (bulk, minis-bulk, tiles) in the top layer when coverage applies. */
   readonly coverage: number;
@@ -387,18 +387,24 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
       split += ctx.extraParts(req, kin.variant);
     }
   }
+  // Room beside an alike tray that is too thin for a filler stays empty, which is left over too.
+  for (const a of plan.air) {
+    leftoverMm3 += volMm3(a.w, a.d, a.h);
+  }
   for (const l of plan.leftovers) {
     leftoverMm3 += volMm3(l.w, l.d, l.h);
     filamentMm3 += l.solid ? volMm3(l.w, l.d, l.h) : shell(ctx, l.w, l.d, l.h);
   }
-  const playExcess = (crossed: number): number =>
-    Math.max(0, nominalPlayU(ctx.boxClearance, ctx.gap, crossed) - ctx.playLimit);
+  // The play along a row is the nominal one (clearance and gaps) unless something is left empty
+  // in it (room beside an alike tray too thin for a filler): then it is what the row leaves.
+  const playExcess = (crossed: number, shift: number): number =>
+    Math.max(0, Math.max(nominalPlayU(ctx.boxClearance, ctx.gap, crossed), shift) - ctx.playLimit);
   const terms: ScoreTerms = {
     leftover: share(leftoverMm3, boxMm3),
     coverage,
     access,
     setup,
-    play: playExcess(plan.crossX) + playExcess(plan.crossY),
+    play: playExcess(plan.crossX, plan.playX) + playExcess(plan.crossY, plan.playY),
     stacked,
     trays: plan.trays.length + plan.leftovers.length,
     filament: share(filamentMm3, boxMm3),

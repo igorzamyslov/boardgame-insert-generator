@@ -49,7 +49,7 @@
 }
 
 /*
- * A group's swatch is a tiny tray (G1): the neutral tile (the sheet, a 2 px strong line) with a cell
+ * A group's swatch is a tiny tray (G1): the group's own tile (its hue, a 2 px line) with a cell
  * per member in the member's kind fill and a 1 px kind line inside it, widths set per member.
  */
 .tray-bar__swatch--group {

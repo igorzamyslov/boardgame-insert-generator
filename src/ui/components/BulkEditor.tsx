@@ -4,7 +4,7 @@ import type { BulkComponent, BulkItem } from "../../model/types";
 import { COUNT, LENGTH, VOLUME_ML } from "../limits";
 import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { NumField, TextBox } from "./controls";
-import { GrowthOptions } from "./GrowthOptions";
+import { RoomOptions } from "./RoomOptions";
 import { MoreOptions } from "./MoreOptions";
 import { RowRemove } from "./RowRemove";
 import { BinNotes, TrayShape } from "./ToggleOptions";
@@ -144,7 +144,7 @@ export function BulkEditor({ component: c, index, onChange }: EditorProps<BulkCo
       ) : null}
       <BinNotes component={c} index={index} />
       <MoreOptions component={c} errorPaths={commonOptionPaths(index)}>
-        <GrowthOptions component={c} index={index} onChange={onChange} />
+        <RoomOptions component={c} index={index} onChange={onChange} />
         <AccessChoice component={c} index={index} onChange={onChange} />
         <TrayShape component={c} index={index} onChange={onChange} />
         <CommonRows component={c} index={index} onChange={onChange} />

@@ -26,17 +26,19 @@ export interface SelectedTrayBarProps {
   /** The parts as they print (what the plan and the 3D view draw). */
   trays: readonly TraySpec[];
   selectedKey: string | null;
-  /** The plan's: a swap is made there only, so the 3D view's bar has no Swap with…. */
+  /** The plan's: a swap or a put-on is made there only, so the 3D view's bar has neither. */
   inPlan: boolean;
   /** A phone: the bar is a modal sheet (MobileTray), which gives way to the plan while a swap is chosen. */
   phone: boolean;
   /** The plan is out of date: the bar builds nothing for its filament line. */
   stale?: boolean;
-  /** The tray a swap is under way from, or null. */
+  /** The tray a swap, or a put-on, is under way from, or null. */
   swapFrom: string | null;
+  /** Which of the two `swapFrom` is. */
+  pickMode?: "swap" | "putOn";
   edit: (fn: (p: Project) => Project) => void;
   onSelect: (key: string | null) => void;
-  onSwapFromChange: (key: string | null) => void;
+  onSwapFromChange: (key: string | null, mode?: "swap" | "putOn") => void;
   /** Opens a component's editor. */
   onEditComponent: (id: string) => void;
   /** Opens a group's editor: Edit on a group's tray goes there, not to one of its members. */
@@ -61,7 +63,7 @@ function focusTray(key: string, inPlan: boolean): void {
 /**
  * The tray bar of the selected tray, wired to the project: what it is called, which layer it is
  * on, and the edits Pin, Turn, Swap and Lock size make. Nothing while no tray is selected, and,
- * on a phone, nothing while a swap is being chosen: the sheet is modal, and the other tray is
+ * on a phone, nothing while a swap or a put-on is being chosen: the sheet is modal, and the other tray is
  * picked on the plan behind it.
  */
 export function SelectedTrayBar(p: SelectedTrayBarProps) {
@@ -125,10 +127,22 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
           : `${compartmentCount} ${compartmentCount === 1 ? "compartment" : "compartments"}`
       }
       phone={p.phone}
-      swapping={p.swapFrom === key}
+      swapping={p.swapFrom === key && p.pickMode !== "putOn"}
+      puttingOn={p.swapFrom === key && p.pickMode === "putOn"}
       onPin={() => withStored((stored) => (q) => toggleLock(q, stored))}
       onTurn={() => withStored((stored) => (q) => turnTray(q, stored))}
-      onSwap={p.inPlan ? () => p.onSwapFromChange(p.swapFrom === key ? null : key) : undefined}
+      onSwap={
+        p.inPlan
+          ? () =>
+              p.onSwapFromChange(p.swapFrom === key && p.pickMode !== "putOn" ? null : key, "swap")
+          : undefined
+      }
+      onPutOn={
+        p.inPlan
+          ? () =>
+              p.onSwapFromChange(p.swapFrom === key && p.pickMode === "putOn" ? null : key, "putOn")
+          : undefined
+      }
       onToggleSizeLock={() => withStored((stored) => (q) => toggleSizeLock(q, stored))}
       onEdit={
         // G1 draws Edit on a group's tray; the group's editor is wired by the app (a no-op until it is)

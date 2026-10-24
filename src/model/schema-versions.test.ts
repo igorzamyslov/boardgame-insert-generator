@@ -382,6 +382,14 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
   const migrated = (result: ParseResult) =>
     result.ok ? result.notices.filter((n) => n.code === SCHEMA_NOTICE_CODES.migrated) : [];
   const old = Object.keys(HISTORY).filter((k) => /\/0\.1\.\d+\.json$/.test(k));
+  /** What a file says besides its upgrade: every file of an older line gets one migrated notice. */
+  const otherNotices = (result: ParseResult) =>
+    result.ok ? result.notices.filter((n) => n.code !== SCHEMA_NOTICE_CODES.migrated) : [];
+  /** The 0.2.0 fixture as this app writes it today (schema 0.3.0): groups and all, no upgrade left. */
+  const current = (): Json => {
+    const first = expectOk(parseProject(fixture("0.2.0")));
+    return JSON.parse(serializeProject(first.project, first.foreign)) as Json;
+  };
 
   it("migrates every history fixture, with one migrated notice", () => {
     expect(old.length).toBeGreaterThan(10);
@@ -408,14 +416,18 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
 
   it("reads the 0.2.0 fixture with no notices, and it round-trips", () => {
     const first = expectOk(parseProject(fixture("0.2.0")));
-    expect(first.notices).toEqual([]);
+    // The one thing it says is that it was upgraded, from 0.2.0 to the schema of this app.
+    expect(first.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.migrated]);
+    expect(first.notices[0]?.message).toContain(`0.2.0 to ${SCHEMA_VERSION}`);
     expect(first.foreign.components).toEqual([]);
     const { project } = first;
     expect(project.groups?.map((g) => [g.id, g.copies, g.memberIds])).toEqual([
       ["kit1", 4, ["minis001", "cards002", "custom01"]],
       ["spare01", undefined, []],
     ]);
-    expect(project.groups?.[0]?.growth).toEqual({ w: 2, h: "auto" });
+    // A group's growth, which sizing never read, is dropped by the 0.3.0 migration (the fixture's
+    // first group had one).
+    expect(project.groups?.[0] && "growth" in project.groups[0]).toBe(false);
     // a member order that is not the list order, kept
     expect(project.components.map((c) => c.id).indexOf("cards002")).toBeLessThan(
       project.components.map((c) => c.id).indexOf("minis001"),
@@ -445,8 +457,9 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
     expect(result.project.groups?.[0]?.id).toBe("setup");
   });
 
-  it("keeps the unknown fields of a group in a newer 0.2.x file, and writes them back", () => {
-    const raw: Json = { ...fixture("0.2.0"), schemaVersion: "0.2.7" };
+  it("keeps the unknown fields of a group in a newer 0.3.x file, and writes them back", () => {
+    // 0.2.x files are older than this app's line now, so a "newer minor" has to be a 0.3.x one.
+    const raw: Json = { ...current(), schemaVersion: "0.3.7" };
     (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], future: 1 };
     const result = expectOk(parseProject(raw));
     expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.newerMinor]);
@@ -455,7 +468,7 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
   });
 
   it("drops an unknown field of a group with one notice in a file of this version", () => {
-    const raw = fixture("0.2.0");
+    const raw = current();
     (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], future: 1 };
     const result = expectOk(parseProject(raw));
     expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.unknownFields]);
@@ -463,7 +476,7 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
   });
 
   it("refuses a group that uses a value this app doesn't know, rather than lose it", () => {
-    const raw: Json = { ...fixture("0.2.0"), schemaVersion: "0.2.7" };
+    const raw: Json = { ...current(), schemaVersion: "0.3.7" };
     (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], access: "never" };
     expect(expectError(parseProject(raw))).toMatch(/groups\/0\/access/);
   });
@@ -482,14 +495,18 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
   describe("a 0.6 project with a stored plan", () => {
     const open = (raw: unknown) => expectOk(parseProject(structuredClone(raw)));
 
-    it("keeps the plan of a plain or per-player project current: its inputsHash is unchanged", () => {
+    it("keeps the stored plan of a plain or per-player project, but it is stale once: its inputsHash is new", () => {
+      // Schema 0.3.0 made growth the last step of planning, and hash.ts's PLANNING_MODEL went into
+      // every hash on purpose: before that, these two kept their hash through every migration.
+      // hashes.json still holds the old values, for documentation.
       for (const [name, raw] of [
         ["plain", plainLegacy],
         ["per-player", perPlayerLegacy],
       ] as const) {
         const { project } = open(raw);
-        expect(inputsHash(project), name).toBe(hashes[name]);
         expect(project.layout?.inputsHash, name).toBe(hashes[name]);
+        expect(inputsHash(project), name).not.toBe(hashes[name]);
+        expect(project.layout?.inputsHash, name).not.toBe(inputsHash(project));
       }
     });
 
@@ -522,6 +539,44 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
     locks.push({ kind: "turn", rotated: false });
     const result = expectOk(parseProject(raw));
     expect(result.project.locks.filter((l) => l.kind === "turn")).toHaveLength(1);
-    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.lockDropped]);
+    expect(otherNotices(result).map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.lockDropped]);
+  });
+});
+
+describe("schema 0.3.0: room for more replaces growth and stretch", () => {
+  const HISTORY = import.meta.glob<unknown>("../../test/fixtures/schema/*.json", {
+    eager: true,
+    import: "default",
+  });
+  const fixture = (version: string): Json =>
+    structuredClone(HISTORY[`../../test/fixtures/schema/${version}.json`]) as Json;
+
+  it("opens the 0.2.4 fixture at the current schema, with one migrated notice", () => {
+    const result = expectOk(parseProject(fixture("0.2.4")));
+    expect(result.project.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.migrated]);
+    expect(result.notices[0]?.message).toContain(`0.2.4 to ${SCHEMA_VERSION}`);
+    expect(result.foreign.components).toEqual([]);
+  });
+
+  it("writes no growth, stretch or group growth back after the upgrade", () => {
+    const first = expectOk(parseProject(fixture("0.2.4")));
+    const text = serializeProject(first.project, first.foreign);
+    expect(text).not.toContain('"growth"');
+    expect(text).not.toContain('"stretch"');
+    const again = expectOk(parseProject(JSON.parse(text)));
+    expect(again.notices).toEqual([]);
+    expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
+  });
+
+  it("reads the 0.3.0 fixture with no notices, and it round-trips", () => {
+    const first = expectOk(parseProject(fixture("0.3.0")));
+    expect(first.notices).toEqual([]);
+    expect(first.foreign.components).toEqual([]);
+    const again = expectOk(
+      parseProject(JSON.parse(serializeProject(first.project, first.foreign))),
+    );
+    expect(again.notices).toEqual([]);
+    expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
   });
 });

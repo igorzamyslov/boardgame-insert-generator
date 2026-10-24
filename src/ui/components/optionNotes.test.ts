@@ -1,6 +1,7 @@
 // src/ui/components/optionNotes.test.ts
 import { describe, expect, it } from "vitest";
-import { withGrowth, withSeparators } from "../../model/defaults";
+import { withSeparators } from "../../model/defaults";
+import { withRoom } from "../../model/room";
 import { newComponent } from "../../model/defaults";
 import type { CardsComponent, Component, MinisComponent, TilesComponent } from "../../model/types";
 import { OPTION_NOTE_TEXTS, describeOptionChange } from "./optionNotes";
@@ -9,35 +10,33 @@ const cards = (): CardsComponent => ({ ...(newComponent("cards") as CardsCompone
 
 describe("describeOptionChange", () => {
   it("says a deck that grows stands in a wider well", () => {
-    const prev = withGrowth(cards(), "stack", "off");
-    expect(describeOptionChange(prev, withGrowth(prev, "stack", "auto"))).toBe(
+    const prev = cards();
+    expect(describeOptionChange(prev, withRoom(prev, "max"))).toBe(
       "Leaves room to grow. The deck stands in a wider well.",
     );
-    expect(describeOptionChange(prev, withGrowth(prev, "stack", 8))).toBe(
+    expect(describeOptionChange(prev, withRoom(prev, 8))).toBe(
       "Leaves room to grow. The deck stands in a wider well.",
     );
   });
 
   it("names a stack of tiles, and a bin, for room to grow", () => {
     const tiles = newComponent("tiles") as TilesComponent;
-    const off = withGrowth(tiles, "stack", "off");
-    expect(describeOptionChange(off, withGrowth(off, "stack", "max"))).toBe(
+    expect(describeOptionChange(tiles, withRoom(tiles, "max"))).toBe(
       "Leaves room to grow. The tiles stand in a wider well.",
     );
-    const custom = newComponent("custom");
-    expect(describeOptionChange(custom, withGrowth(custom, "h", "auto"))).toBe(
-      "Leaves room to grow.",
-    );
+    const bulk = newComponent("bulk");
+    expect(describeOptionChange(bulk, withRoom(bulk, 25))).toBe("Leaves room to grow.");
   });
 
   it("says when room to grow is turned off", () => {
-    const next = withGrowth(cards(), "stack", "off");
-    expect(describeOptionChange(cards(), next)).toBe("No room is kept to grow.");
+    const prev = withRoom(cards(), 20);
+    expect(describeOptionChange(prev, withRoom(prev, undefined))).toBe("No room is kept to grow.");
   });
 
   it("says nothing when the room only changes amount", () => {
-    const a = withGrowth(cards(), "stack", 5);
-    expect(describeOptionChange(a, withGrowth(a, "stack", 9))).toBeNull();
+    const a = withRoom(cards(), 5);
+    expect(describeOptionChange(a, withRoom(a, 9))).toBeNull();
+    expect(describeOptionChange(a, withRoom(a, "max"))).toBeNull();
   });
 
   it("explains a removable spacer when separators go from 0 to 1", () => {
@@ -55,16 +54,16 @@ describe("describeOptionChange", () => {
   });
 
   it("explains dividers", () => {
-    expect(describeOptionChange(cards(), { ...cards(), dividers: 2 })).toBe(
-      "2 removable dividers split the well into 3 sections.",
-    );
-    expect(describeOptionChange({ ...cards(), dividers: 1 }, cards())).toBe(
-      "No dividers in the well.",
-    );
+    expect(
+      describeOptionChange(withRoom(cards(), 20), { ...withRoom(cards(), 20), dividers: 2 }),
+    ).toBe("2 removable dividers split the well into 3 sections.");
+    expect(
+      describeOptionChange({ ...withRoom(cards(), 20), dividers: 1 }, withRoom(cards(), 20)),
+    ).toBe("No dividers in the well.");
   });
 
   it("explains how often you reach for it", () => {
-    const c: Component = { ...cards(), access: "sometimes" };
+    const c: Component = { ...withRoom(cards(), 20), access: "sometimes" };
     expect(describeOptionChange(c, { ...c, access: "often" })).toBe(
       "Kept where it is easy to reach.",
     );

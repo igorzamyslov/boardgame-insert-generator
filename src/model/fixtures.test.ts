@@ -97,15 +97,16 @@ describe("schema history", () => {
     ]);
   });
 
-  it("reads the 0.1.2 file, which has no stretch, so every component takes its kind's growth defaults", () => {
+  it("reads the 0.1.2 file, which has no stretch or growth, so no item has a room", () => {
     const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.1.2.json"]);
     expect(notices).toEqual([]);
-    expect(project.components.map((c) => c.growth)).toEqual(
-      project.components.map(() => undefined),
-    );
+    expect(project.components.map((c) => c.room)).toEqual(project.components.map(() => undefined));
   });
 
-  describe("the stretch toggle, which growth replaced (schema 0.1.12)", () => {
+  // `stretch` (before schema 0.1.12) and then per-axis `growth` became one `room` per item in schema
+  // 0.3.0 (migrate-0.3.ts); neither key is read or written any more, and what they said off or auto
+  // is now none: a tray does not grow unless asked.
+  describe("the stretch toggle, which growth replaced (schema 0.1.12) and room replaced (0.3.0)", () => {
     const withStretch = (index: number, stretch: boolean, storage?: string): unknown => {
       const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.3.json"]) as {
         components: Record<string, unknown>[];
@@ -121,18 +122,18 @@ describe("schema history", () => {
       return raw;
     };
 
-    it("reads `stretch: true` of the 0.1.3 file as `auto`, without notices and without the old key", () => {
+    it("reads `stretch: true` of the 0.1.3 file as no room, without notices and without the old key", () => {
       const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.1.3.json"]);
       expect(notices).toEqual([]);
       const first = project.components[0];
       if (first?.kind !== "cards") {
         throw new Error("expected a deck first");
       }
-      // an upright deck grows by `auto` by default, which is what a stretched one now does
-      expect(growthOf(first, "stack")).toBe("auto");
-      expect(growthOf(first, "stack")).not.toBe("max");
+      // a stretched deck grew by `auto`, which is now growth only under "bigger wells"
+      expect(growthOf(first, "stack")).toBe("off");
+      expect(growthOf(first, "stack", false, true)).toBe("auto");
       expect("stretch" in first).toBe(false);
-      expect(first.growth).toBeUndefined();
+      expect(first.room).toBeUndefined();
       expect(serializeProject(project, noForeign())).not.toContain("stretch");
     });
 
@@ -140,17 +141,19 @@ describe("schema history", () => {
       const { project } = loadOld(withStretch(0, true, "flat"));
       const first = project.components[0];
       expect(first && growthOf(first, "stack", true)).toBe("off");
+      expect(first && growthOf(first, "stack", true, true)).toBe("off");
     });
 
-    it("reads `stretch: false` as growth off along the stack, as it was", () => {
+    it("reads `stretch: false` as no room, as it was", () => {
       const { project, notices } = loadOld(withStretch(0, false));
       expect(notices).toEqual([]);
       const first = project.components[0];
-      expect(first?.growth).toEqual({ stack: "off" });
+      expect(first?.room).toBeUndefined();
+      expect(first && "growth" in first).toBe(false);
       expect(first && growthOf(first, "stack")).toBe("off");
     });
 
-    it("lets `growth` win over `stretch` when a file has both", () => {
+    it("lets `growth` win over `stretch` when a file has both, as a room in whole cards", () => {
       const raw = withStretch(0, false) as { components: Record<string, unknown>[] };
       const c = raw.components[0];
       if (c === undefined) {
@@ -158,7 +161,10 @@ describe("schema history", () => {
       }
       c.growth = { stack: 9 };
       const { project } = loadOld(raw);
-      expect(project.components[0]?.growth).toEqual({ stack: 9 });
+      const room = project.components[0]?.room;
+      expect(typeof room).toBe("number");
+      expect(room).toBeGreaterThanOrEqual(1);
+      expect(project.components[0] && "growth" in project.components[0]).toBe(false);
     });
 
     it("ignores `stretch` on a kind that has no stack", () => {
@@ -170,26 +176,28 @@ describe("schema history", () => {
       }
       const { project, notices } = loadOld(raw);
       expect(notices).toEqual([]);
-      expect(project.components.map((c) => [c.kind, c.growth])).toEqual(
-        project.components.map((c) => [
-          c.kind,
-          c.kind === "cards" || c.kind === "tiles" ? { stack: "off" } : undefined,
-        ]),
+      expect(project.components.map((c) => [c.kind, c.room])).toEqual(
+        project.components.map((c) => [c.kind, undefined]),
       );
     });
   });
 
-  it("reads the growth settings of the 0.1.12 file, a word or a number per axis", () => {
+  it("reads the growth settings of the 0.1.12 file as a room per item, a number or max", () => {
     const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.1.12.json"]);
     expect(notices).toEqual([]);
-    expect(project.components.map((c) => c.growth)).toEqual([
-      { stack: 12 },
-      { stack: "max" },
-      { w: "off", d: 8, h: "max" },
-      { stack: "auto" },
-      { w: 3, d: "auto" },
-      { h: 2 },
+    // Was: { stack: 12 }, { stack: "max" }, { w: "off", d: 8, h: "max" }, { stack: "auto" },
+    // { w: 3, d: "auto" }, { h: 2 }. A deck's 12 mm is 25 of its (sleeved, scaled) cards, `max`
+    // stays `max`, bulk's `max` on any axis is `max`, `auto` is none, and minis and custom items
+    // have no room row (migrate-0.3.ts).
+    expect(project.components.map((c) => [c.kind, c.room])).toEqual([
+      ["cards", 25],
+      ["cards", "max"],
+      ["bulk", "max"],
+      ["tiles", undefined],
+      ["minis", undefined],
+      ["custom", undefined],
     ]);
+    expect(project.components.some((c) => "growth" in c)).toBe(false);
     expect(validateProject(project).filter((n) => n.level === "error")).toEqual([]);
     const again = loadOld(JSON.parse(serializeProject(project, noForeign())));
     // Saving stamps the running app's version, which is not what the old file says.
@@ -215,7 +223,19 @@ describe("schema history", () => {
     expect(decoded.ok && { ...decoded.project, createdWith: project.createdWith }).toEqual(project);
   });
 
-  it("refuses a growth that is neither a word nor a number", () => {
+  it("refuses a room that is neither max nor a number", () => {
+    const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.3.0.json"]) as {
+      components: { room?: unknown }[];
+    };
+    const c = raw.components[0];
+    if (c === undefined) {
+      throw new Error("no component");
+    }
+    c.room = "lots";
+    expect(parseProject(raw).ok).toBe(false);
+  });
+
+  it("drops an old growth that is neither a word nor a number on the way in, as it never counted", () => {
     const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.12.json"]) as {
       components: { growth: Record<string, unknown> }[];
     };
@@ -224,7 +244,8 @@ describe("schema history", () => {
       throw new Error("no component");
     }
     c.growth = { stack: "lots" };
-    expect(parseProject(raw).ok).toBe(false);
+    const { project } = loadOld(raw);
+    expect(project.components[0]?.room).toBeUndefined();
   });
 
   it("reads the fillToTop setting of the 0.1.4 file, and defaults it on for older files", () => {
@@ -280,6 +301,36 @@ describe("schema history", () => {
     expect(
       loadOld(HISTORY["../../test/fixtures/schema/0.1.8.json"]).project.settings.mergeRisers,
     ).toBe(true);
+  });
+
+  it("reads a figure's keepUpright from the 0.2.3 file, and leaves it absent for older files", () => {
+    const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.2.3.json"]);
+    expect(notices).toEqual([]);
+    const minis = project.components.find((c) => c.kind === "minis");
+    expect(minis?.kind === "minis" && minis.figures[0]?.keepUpright).toBe(true);
+    expect(minis?.kind === "minis" && minis.figures[1]).not.toHaveProperty("keepUpright");
+    const older = loadOld(HISTORY["../../test/fixtures/schema/0.2.2.json"]);
+    expect(older.notices).toEqual([]);
+    for (const c of older.project.components) {
+      if (c.kind === "minis") {
+        for (const f of c.figures) {
+          expect(f).not.toHaveProperty("keepUpright");
+        }
+      }
+    }
+  });
+
+  it("reads an item's own packing from the 0.2.4 file, and leaves it absent for older files", () => {
+    const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.2.4.json"]);
+    expect(notices).toEqual([]);
+    const own = project.components.filter(
+      (c) => (c.kind === "bulk" || c.kind === "minis") && c.packing !== undefined,
+    );
+    expect(own.length).toBeGreaterThan(0);
+    expect(own.some((c) => c.kind === "bulk" && c.packing === 0.65)).toBe(true);
+    const older = loadOld(HISTORY["../../test/fixtures/schema/0.2.3.json"]);
+    expect(older.notices).toEqual([]);
+    expect(older.project.components.some((c) => "packing" in c)).toBe(false);
   });
 
   it("reads the engraving switch from the 0.1.14 file, and defaults it on for older files", () => {

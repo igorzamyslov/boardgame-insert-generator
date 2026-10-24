@@ -317,15 +317,16 @@ describe("on real plans", () => {
     return packingGuide({ ...(project.layout as StoredLayout), trays }, project);
   };
 
-  it("lifts the two strips of Harbour Kings by their finger dips, so none is flagged", () => {
-    const layers = guideOf(loadSeed("harbour-kings").project);
-    expect(layers.flatMap((l) => l.rows.filter((r) => r.noGrip))).toEqual([]);
-    const strips = layers
-      .flatMap((l) => l.rows)
-      .filter((r) => r.name === "Spacer by Event cards" || r.name === "Spacer by Starter decks 1");
+  it("lifts the strip beside the Event cards by its finger dip, and flags only the spacer with no room for one", () => {
+    const layers = guideOf(loadSeed("harbour-kings", true).project);
+    // the spacer by Starter decks 1 is 7.4 mm of filler where no side can take a dip: it is the
+    // one part told to wait for its neighbour
+    expect(layers.flatMap((l) => l.rows.filter((r) => r.noGrip)).map((r) => r.name)).toEqual([
+      "Spacer by Starter decks 1",
+    ]);
+    const strips = layers.flatMap((l) => l.rows).filter((r) => r.name === "Spacer by Event cards");
     expect(strips.map((r) => [r.name, r.lift])).toEqual([
       ["Spacer by Event cards", "Lift it by the finger dip"],
-      ["Spacer by Starter decks 1", "Lift it by the finger dip"],
     ]);
   });
 

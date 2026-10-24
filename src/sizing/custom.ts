@@ -24,9 +24,9 @@ export function customOptions(c: CustomComponent, s: Settings): OptionsResult {
       h: c.h + clearance,
       // Tolerance only, so only when asked.
       grow: {
-        w: growthMm(growthOf(c, "w"), c.w),
-        d: growthMm(growthOf(c, "d"), c.d),
-        h: growthMm(growthOf(c, "h"), c.h),
+        w: growthMm(growthOf(c, "w", false, s.biggerWells), c.w),
+        d: growthMm(growthOf(c, "d", false, s.biggerWells), c.d),
+        h: growthMm(growthOf(c, "h", false, s.biggerWells), c.h),
       },
       // A centred cut through the front wall (spec §6.1): half the well deep, but down to the floor
       // with a floor notch for a short item, which a half-deep cut would leave below it.

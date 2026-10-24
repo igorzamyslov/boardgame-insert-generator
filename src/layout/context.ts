@@ -1,5 +1,5 @@
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
-import { bottomMinimums, lipAbove, stepBelow, upperTrayMinH } from "../model/lip";
+import { bottomMinimums, leastRiser, lipAbove, stepBelow, upperTrayMinH } from "../model/lip";
 import type { Settings } from "../model/types";
 import { minOuter, outerCutSides, wallFor, type OuterCutSides } from "../sizing";
 import { growthCapU, partGrowthCapOf } from "../sizing/growth";
@@ -7,7 +7,7 @@ import { MIN_GRIP, ONE_WALL_MAX_MM } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import { fitsBed, type Bed } from "./bed";
 import type { LayoutInput } from "./types";
-import { toU, toUCeil, toUFloor, type U } from "./units";
+import { roundUpTo, toU, toUCeil, toUFloor, type U } from "./units";
 
 /** Same signature as sizing's minOuter; injectable so unit tests can use fixed sizes. */
 export type Measure = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => OuterSize;
@@ -54,6 +54,8 @@ export interface FixedSize {
 
 export interface Ctx {
   readonly input: LayoutInput;
+  /** The context sees room for growth (the last step of planning); planning builds it without. */
+  readonly growing: boolean;
   /** Box floor minus 2·boxClearance. */
   readonly floorW: U;
   readonly floorD: U;
@@ -77,6 +79,12 @@ export interface Ctx {
   readonly stepHeight: U;
   /** Minimum h of a tray at level ≥ 1 when the lip is on: what its groove needs (`upperTrayMinH`, 3.65 mm by default). */
   readonly upperMinH: U;
+  /**
+   * The surplus height a stack of alike trays must have beyond its trays, for the riser its bottom
+   * tray stands on (`leastRiser`, in whole layers); 0 without the lip or without fillToTop, when
+   * no riser is made.
+   */
+  readonly riserMin: U;
   /** Base outer wall and floor as sizing writes them: wallFor, floor ≥ MIN_FEATURE_MM, rounded up. */
   readonly wall: U;
   /**
@@ -116,6 +124,12 @@ export interface Ctx {
   extraParts(req: number, variant: number): number;
   /** Which copy of its variant a part belongs to (see `extraParts`): 0, 1, … in order of first part. */
   copyOf(ref: PartRef): number;
+  /**
+   * The set of trays a part is one of: the same tray (its place in its copy) of every copy of its
+   * variant, a number from 0, shared by all of them; -1 for a tray with no copy. Trays of a set are
+   * built the same size and the same way wherever they stand (owner, 2026-10-23).
+   */
+  alikeOf(ref: PartRef): number;
   part(ref: PartRef): TrayPartReq | undefined;
   partId(ref: PartRef): number;
   metrics(ref: PartRef, lipped: boolean, level: number): PartMetrics;
@@ -181,7 +195,18 @@ function extraPartsOf(parts: readonly TrayPartReq[]): number {
   return extra;
 }
 
-export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx {
+/**
+ * `growth` (default on): whether the context sees the room a tray's wells may take beyond their
+ * minimum. Planning builds its context with it off, so every gap is a spacer the score charges and
+ * the layout is chosen on natural sizes; the last step evaluates the chosen tree with it on and the
+ * wells take the room left (owner, 2026-10-23, DESIGN.md decision log).
+ */
+export function createCtx(
+  input: LayoutInput,
+  measure: Measure = minOuter,
+  opts: { growth?: boolean } = {},
+): Ctx {
+  const growing = opts.growth ?? true;
   const { box, printer, settings } = input;
   const eff = effective(settings);
   const boxClearance = toU(eff.boxClearance);
@@ -228,8 +253,34 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
       });
     }),
   );
+  // The sets of alike trays: per requirement, variant and place in the copy, with a copy each
+  let sets = 0;
+  const alike = input.requirements.map((r) =>
+    r.variants.map((v) => {
+      const seen = new Map<string, number>();
+      const place = v.parts.map((p) => {
+        const c = copyKey(p.trayKey);
+        const n = seen.get(c) ?? 0;
+        seen.set(c, n + 1);
+        return n;
+      });
+      const members = new Map<number, number[]>();
+      place.forEach((n, part) => members.set(n, [...(members.get(n) ?? []), part]));
+      const out: number[] = v.parts.map(() => -1);
+      for (const parts of members.values()) {
+        if (parts.length >= 2) {
+          for (const part of parts) {
+            out[part] = sets;
+          }
+          sets++;
+        }
+      }
+      return out;
+    }),
+  );
   const ctx: Ctx = {
     input,
+    growing,
     floorW: toUFloor(box.innerWidth) - 2 * boxClearance,
     floorD: toUFloor(box.innerDepth) - 2 * boxClearance,
     topPlane: toUFloor(topPlane(box, settings)),
@@ -242,6 +293,10 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     lipHeight: toU(lipAbove(settings, true)),
     stepHeight: toU(stepBelow(settings, 1)),
     upperMinH: toUCeil(upperTrayMinH(settings)),
+    riserMin:
+      settings.lip.enabled && settings.fillToTop
+        ? roundUpTo(toUCeil(leastRiser(settings)), Math.max(1, toU(printer.layerHeight)))
+        : 0,
     wall,
     upperWall,
     floor: toUCeil(Math.max(settings.floor, MIN_FEATURE_MM)),
@@ -266,8 +321,8 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
         throw new RangeError(`unknown tray ${ref.req}/${ref.variant}/${ref.part}`);
       }
       const o = measure(p, settings, { lipped, level });
-      const growW = growth(p, "w");
-      const growD = growth(p, "d");
+      const growW = growing ? growth(p, "w") : 0;
+      const growD = growing ? growth(p, "d") : 0;
       const m: PartMetrics = {
         w: toUCeil(o.w),
         d: toUCeil(o.d),
@@ -276,8 +331,8 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
         capD: Math.min(INF_U, growD + wallCap),
         growW,
         growD,
-        elasticH: p.compartments.some((c) => c.elastic.h),
-        growH: growthH(p),
+        elasticH: growing && p.compartments.some((c) => c.elastic.h),
+        growH: growing ? growthH(p) : 0,
       };
       cache.set(key, m);
       return m;
@@ -299,6 +354,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     wholeFits: [],
     extraParts: (req, variant) => extra[req]?.[variant] ?? 0,
     copyOf: (ref) => copies[ref.req]?.[ref.variant]?.[ref.part] ?? 0,
+    alikeOf: (ref) => alike[ref.req]?.[ref.variant]?.[ref.part] ?? -1,
   };
   return { ...ctx, wholeFits: input.requirements.map((_, req) => wholeFitsOf(ctx, req)) };
 }

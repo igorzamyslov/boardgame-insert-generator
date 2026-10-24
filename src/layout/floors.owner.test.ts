@@ -74,13 +74,14 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const starter = trays(plan)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
-    // Counter, the 5-card deck (4 mm: 1.2 mm of floor, 2.65 mm of well, to a 0.2 mm layer), Deck 1,
-    // Deck 3 with the stack's padding. The optimizer stacks them in this order since the 5-card
-    // deck may be low: it was Deck 1, 5-card deck, Deck 3 when that deck had to be 5 mm.
+    // Counter, Deck 1, a 5-card deck (4 mm: 1.2 mm of floor, 2.65 mm of well, to a 0.2 mm layer),
+    // the other 5-card deck with the stack's padding. The optimizer stacks them in this order (with
+    // the even splits of 0.14.0 it found Deck 1 below the low deck, where it had the low deck
+    // between the Counter and Deck 1: the stack's order is the search's, not a rule).
     expect(starter.map((t) => [t.h, t.lip])).toEqual([
       [8.2, true],
-      [4, true],
       [7.2, true],
+      [4, true],
       [15.6, false],
     ]);
   });
@@ -89,8 +90,9 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const starter = trays(plan)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
-    // Counter (8.2 = 8.14 rounded up to a layer), Deck 2 (4 = 3.85 rounded up), Deck 1 (7.2 =
-    // 7.15): all on the normal floor. Deck 3 carries the stack's 11.6 mm of padding.
+    // Counter (8.2 = 8.14 rounded up to a layer), Deck 1 (7.2 = 7.15), a 5-card deck (4 = 3.85
+    // rounded up): all on the normal floor. The other 5-card deck carries the stack's 11.6 mm of
+    // padding.
     expect(starter.map(floors)).toEqual([[1.2], [1.2], [1.2], [12.8]]);
     const trade = trays(plan).filter((t) => t.stack === 1);
     // 35 mm for 28.57 mm of contents: 6.4 mm of padding, the 0.03 mm over a layer is headroom
@@ -110,11 +112,11 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const printed = trays(printableParts(plan, inputsOf(p)).trays)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
-    // riser 11.6, then 8.2, 4, 7.2 and 4 = 35 (it was 9.6, 8.2, 7.2, 5 and 5)
+    // riser 11.6, then 8.2, 7.2, 4 and 4 = 35 (it was 9.6, 8.2, 7.2, 5 and 5)
     expect(printed.map((t) => [t.z, t.h])).toEqual([
       [11.6, 8.2],
-      [19.8, 4],
-      [23.8, 7.2],
+      [19.8, 7.2],
+      [27, 4],
       [31, 4],
     ]);
   });
@@ -147,9 +149,9 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
   });
 
   it("gives a tray with headroom a finger cut as deep as its well", () => {
-    // Deck 2 stands 4 mm high on a 1.2 mm floor: 2.8 mm of well for 1.6 mm of cards
-    const deck2 = trays(plan).find((t) => t.key === "70kgton0:p0:1");
-    expect(deck2).toMatchObject({ stack: 0, h: 4 });
+    // a 5-card deck stands 4 mm high on a 1.2 mm floor: 2.8 mm of well for 1.6 mm of cards
+    const deck2 = trays(plan).find((t) => t.stack === 0 && t.h === 4);
+    expect(deck2).toBeDefined();
     expect(deck2?.compartments[0]?.features.filter((f) => f.type === "wallCutout")).not.toEqual([]);
     for (const f of deck2?.compartments[0]?.features ?? []) {
       if (f.type === "wallCutout") {

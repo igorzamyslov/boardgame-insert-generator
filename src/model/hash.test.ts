@@ -91,20 +91,34 @@ describe("inputsHash", () => {
     expect(inputsHash(other)).not.toBe(inputsHash(corrected));
   });
 
-  it("changes with a component's growth: it decides how much room contents take, so the layout", () => {
+  it("changes with a component's room: it sizes the tray, or what the last step gives it, so the layout", () => {
     const base = sample();
-    const grown: Project = {
+    const withRoom = (room?: number | "max"): Project => ({
       ...base,
-      components: base.components.map((c) =>
-        c.kind === "bulk" ? { ...c, growth: { w: "max" as const } } : c,
-      ),
-    };
-    expect(inputsHash(grown)).not.toBe(inputsHash(base));
-    const other: Project = {
-      ...base,
-      components: base.components.map((c) => (c.kind === "bulk" ? { ...c, growth: { w: 12 } } : c)),
-    };
-    expect(inputsHash(other)).not.toBe(inputsHash(grown));
+      components: base.components.map((c) => (c.kind === "bulk" ? { ...c, room } : c)),
+    });
+    expect(inputsHash(withRoom("max"))).not.toBe(inputsHash(base));
+    expect(inputsHash(withRoom(12))).not.toBe(inputsHash(base));
+    expect(inputsHash(withRoom(12))).not.toBe(inputsHash(withRoom("max")));
+    expect(inputsHash(withRoom(13))).not.toBe(inputsHash(withRoom(12)));
+    expect(inputsHash(withRoom(12))).toBe(inputsHash(withRoom(12)));
+    // none is no field at all
+    expect(inputsHash(withRoom(undefined))).toBe(inputsHash(base));
+  });
+
+  it("changes with biggerWells when on, and is the hash it was before the setting when off", () => {
+    const base = sample();
+    const on: Project = { ...base, settings: { ...base.settings, biggerWells: true } };
+    expect(inputsHash(on)).not.toBe(inputsHash(base));
+    // Off is left out of the hashed settings (as oneWall is), so adding the setting stales nothing
+    // by itself: only PLANNING_MODEL does, once.
+    const off: Project = { ...base, settings: { ...base.settings, biggerWells: false } };
+    expect(inputsHash(off)).toBe(inputsHash(base));
+    const without: Record<string, unknown> = { ...base.settings };
+    delete without.biggerWells;
+    expect(inputsHash({ ...base, settings: without as unknown as typeof base.settings })).toBe(
+      inputsHash(base),
+    );
   });
 
   it("changes with a component's dividers: they cut slots into the tray, so the layout", () => {
@@ -134,11 +148,19 @@ describe("inputsHash", () => {
     expect(inputsHash(off)).toBe(inputsHash(base));
   });
 
-  it("hashes the fixtures as before wallGrowth became wallAbsorb, so no saved plan goes stale", () => {
-    // Pinned from the code before the rename: the hash still names the setting wallGrowth.
-    // cards-heavy and small-tiles used to set `stretch: true`, which `growth` replaced (schema
-    // 0.1.12): their files no longer carry it, so those two were pinned again, once.
+  it("hashes the fixtures to pinned values, none of them the hash they had before schema 0.3.0", () => {
+    // Schema 0.3.0 put PLANNING_MODEL into every hash (growth is the last step of planning), so
+    // every saved plan goes stale once, by design. These are pinned again from the code of that
+    // release; the second table is what they were before, kept to show none is current. Change a
+    // value only for a deliberate change of what the hash covers, and say why here.
     const pinned: Record<string, string> = {
+      "cards-heavy": "0eab3a2d9c44b9",
+      "bits-heavy": "0094f5b385e987",
+      "tiles-minis": "1df44efc800ca5",
+      "small-tiles": "1441a877fcde53",
+      "tiny-box": "041ccd3bfee0a1",
+    };
+    const before: Record<string, string> = {
       "cards-heavy": "01768a82dd047a",
       "bits-heavy": "1f7b3a193165a8",
       "tiles-minis": "13bb56259e7343",
@@ -148,6 +170,24 @@ describe("inputsHash", () => {
     for (const [name, hash] of Object.entries(pinned)) {
       const parsed = parseProject(FIXTURES[name as keyof typeof FIXTURES]);
       expect(parsed.ok && inputsHash(parsed.project), name).toBe(hash);
+      expect(hash, name).not.toBe(before[name]);
+    }
+  });
+
+  it("is deterministic and sensitive to the same inputs as before: only the planning model is new", () => {
+    // Everything but the planning model is hashed as it was, so the two hashes of one project differ
+    // only by the constant, and the project's own inputs still move the hash.
+    for (const name of Object.keys(FIXTURES)) {
+      const parsed = parseProject(FIXTURES[name as keyof typeof FIXTURES]);
+      if (!parsed.ok) {
+        throw new Error(parsed.error);
+      }
+      const p = parsed.project;
+      expect(inputsHash(p), name).toBe(inputsHash(structuredClone(p)));
+      expect(
+        inputsHash({ ...p, box: { ...p.box, innerWidth: p.box.innerWidth + 1 } }),
+        name,
+      ).not.toBe(inputsHash(p));
     }
   });
 
@@ -343,9 +383,12 @@ describe("inputsHash: groups, copies, turn locks and flat decks", () => {
     return { ...fixed, groups: [kit([c0.id, c1.id], patch)] };
   }
 
-  it("legacy hashes: a plain and a per-player 0.6 project keep theirs, a grouped one gets a new one", () => {
-    expect(inputsHash(opened(plainLegacy))).toBe(hashes.plain);
-    expect(inputsHash(opened(perPlayerLegacy))).toBe(hashes["per-player"]);
+  it("legacy hashes: every 0.6 project's old hash is stale now, a plain and a per-player one included", () => {
+    // They kept their hash through the 0.2.0 migration, and hashes.json still holds those values for
+    // documentation. Schema 0.3.0's PLANNING_MODEL changed every hash once on purpose, so none of
+    // the four is current: each of these plans is re-planned on open.
+    expect(inputsHash(opened(plainLegacy))).not.toBe(hashes.plain);
+    expect(inputsHash(opened(perPlayerLegacy))).not.toBe(hashes["per-player"]);
     expect(inputsHash(opened(groupedLegacy))).not.toBe(hashes["grouped-space"]);
   });
 
@@ -403,7 +446,7 @@ describe("inputsHash: groups, copies, turn locks and flat decks", () => {
     expect(inputsHash({ ...base, groups: [empty] })).toBe(inputsHash(base));
   });
 
-  it("member order, group copies, access and growth do change the hash", () => {
+  it("member order, group copies and access do change the hash", () => {
     const before = inputsHash(grouped());
     const [c0, c1] = fixed.components as [Component, Component];
     const reordered = { ...grouped(), groups: [kit([c1.id, c0.id])] };
@@ -411,10 +454,19 @@ describe("inputsHash: groups, copies, turn locks and flat decks", () => {
     expect(inputsHash(grouped({ copies: 2 }))).not.toBe(before);
     expect(inputsHash(grouped({ copies: 3 }))).not.toBe(inputsHash(grouped({ copies: 2 })));
     expect(inputsHash(grouped({ access: "often" }))).not.toBe(before);
-    expect(inputsHash(grouped({ growth: { w: "max" } }))).not.toBe(before);
-    expect(inputsHash(grouped({ growth: { w: 5 } }))).not.toBe(
-      inputsHash(grouped({ growth: { w: "max" } })),
-    );
+  });
+
+  it("an item's own packing is hashed only when set, so no saved plan goes stale", () => {
+    const base = sample();
+    const packed = (packing?: number): Project => ({
+      ...base,
+      components: base.components.map((c) =>
+        c.kind === "bulk" || c.kind === "minis" ? { ...c, packing } : c,
+      ),
+    });
+    expect(inputsHash(packed(undefined))).toBe(inputsHash(base));
+    expect(inputsHash(packed(0.65))).not.toBe(inputsHash(base));
+    expect(inputsHash(packed(0.65))).not.toBe(inputsHash(packed(0.8)));
   });
 
   it("a turn lock changes the hash; flatDecks walls doesn't, dividers does", () => {

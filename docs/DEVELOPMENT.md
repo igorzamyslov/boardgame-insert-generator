@@ -168,6 +168,20 @@ it only with a written reason in the code or the PR.
     name "Tokens and dice" is display and engraving only.
   - Adding a hashed field must not change the hash of existing projects (that would mark every
     saved plan stale). Leave its default out, as `oneWall` and `playLimit` do.
+- MUST keep the trays of a set of alike trays (the copies of an item or group, `Ctx.alikeOf`) alike
+  (owner, 2026-10-23, DESIGN.md decision log). Anything `evaluate`, `materialize` or `realizeTray`
+  does to a tray by where it stands (its level, whether something is on it, the padding its stack
+  gives it, the room beside it) must give every tray of a set the same size, height, rim, groove
+  and wells: go through `Level.plug` and `RealizeOptions.fixedDepth`, not around them. Run
+  `checkHardRules` (`layout/test-hard-rules.ts`) on a layout with copies when you add such a
+  thing; it compares the printed trays of every set.
+- MUST keep growth the last step of planning (owner, 2026-10-23, DESIGN.md decision log): the
+  search (`startPhase` in `layout/optimize.ts`) builds its context with
+  `createCtx(input, measure, { growth: false })`, so no tray has room to grow, every gap is a spacer
+  and the score charges it; only `withGrowth`, once the best tree is chosen, evaluates it again with
+  growth on. Never score a plan that grew, never give a tray room in the plan that an item did not
+  ask for in its size (its "Some" room is part of the size sizing writes, `CompartmentReq.minW`), and
+  keep the trays of a set of alike trays growing together (`alikeGrowth`, `layout/fill.ts`).
 - MUST keep `src/layout/` deterministic. eslint bans `Math.random` there; use the seeded PRNG
   (`layout/prng.ts`).
 - MUST keep the geometry kernel off the main thread. eslint enforces it: outside `geometry/` you
@@ -241,7 +255,7 @@ it only with a written reason in the code or the PR.
   `document.body`, so you never steal it from where the person moved it. Examples:
   - `ui/components/ComponentList.tsx`: a chip's × moves focus to the next chip, else to the
     row's button.
-  - `screens/StageTop.tsx`: Keep searching and Stop swap places in the status row, so the one
+  - `screens/StageTop.tsx`: Stop (after "Searching…") and the ⋯ menu's Try another arrangement trade the focus, so the one
     that appears takes focus.
   - `ui/components/EditorPanel.tsx`: the Remove… and Cancel confirmation pair. It moves the focus
     unconditionally: the button that went was the one just pressed, so nothing is stolen.
@@ -466,7 +480,7 @@ inside a region that already exists.
 has the same problem (`ui/SavedStatus.tsx` keeps its region mounted and empty while saving works).
 
 **Focus lands on `<body>` after a click.**
-For example, after a chip's ×, after Keep searching turns into Stop, or after deleting the last
+For example, after a chip's ×, after Try another arrangement turns into Stop, or after deleting the last
 row.
 → The focused element unmounted.
 → In an effect after the re-render, if `document.activeElement` is `body` (or null), focus the
@@ -544,6 +558,9 @@ variants of a board the run made (keep only the ones you meant to add).
 **`npm run seeds` changes every seed.**
 → It rewrites `createdWith` in each seed under `docs/design/seeds/` to the current app version.
 → Run it to add a seed, then `git restore` the other seeds, or commit them all on purpose.
+→ Tests that check a stored plan against what the plan holds (dips, the take-out order, the
+filament estimate against a slicer) read `test/fixtures/frozen-seeds/` (`loadSeed(name, true)`), the
+seeds as 0.15.0 made them: a rerun does not move them.
 
 ---
 
@@ -626,7 +643,7 @@ in `model/hash.test.ts`.
      so type tags and keys aren't flagged.
 3. If the test flags your text, reword it. Add an exception only for a real control or a real
    label:
-   - A legitimate phrase: add it to `ALLOWED` (e.g. "Lock size", "Keep searching", "Part of it").
+   - A legitimate phrase: add it to `ALLOWED` (e.g. "Lock size", "Try another arrangement", "Part of it").
      The phrase is removed before the check, and the rest of the string is still checked.
    - "part" and "parts" are allowed only in `PART_FILES` (the download list, export reasons and
      part names). Add a file there only if it writes that list.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, FINGER_ROOM_MM, applyFingerRoom } from "../model/settings";
-import type { CompartmentSpec, Settings } from "../model/types";
+import type { CompartmentSpec, Component, Settings } from "../model/types";
 import { harbourKingsKit } from "../test-support/harbourKings";
 import { wallCutout } from "./common";
 import { size } from "./group";
@@ -44,7 +44,12 @@ const byName = (wells: readonly CompartmentSpec[], name: string): CompartmentSpe
 describe("the Player kit in columns", () => {
   const project = harbourKingsKit();
   const s: Settings = project.settings;
-  const req = at(size(project.components, s, project.groups ?? []).requirements, 0);
+  // The fixture still sets the old per-axis Max growth on Resources (src/test-support is not
+  // updated here); the item's room is "as much as fits" now, which is what its fill needs.
+  const components = project.components.map((c) =>
+    c.id === "kitres01" ? ({ ...c, room: "max" } as Component) : c,
+  );
+  const req = at(size(components, s, project.groups ?? []).requirements, 0);
   const variant = req.variants.find((v) => v.id.endsWith("|columns|split1"));
   const part = at(variant?.parts ?? [], 0);
 

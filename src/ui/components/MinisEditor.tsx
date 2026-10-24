@@ -1,12 +1,11 @@
 // src/ui/components/MinisEditor.tsx
 // MobileEdit's figures editor: a card for each size of figure, and how they are stored.
 import type { SegmentedOption } from "../../kit";
-import { Stepper } from "../../kit";
+import { CheckRow, Stepper } from "../../kit";
 import type { MinisComponent } from "../../model/types";
 import { COUNT, LENGTH } from "../limits";
 import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { Alert, Choice, Group, NumField, Notes, TitleInput } from "./controls";
-import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
 import { RowRemove } from "./RowRemove";
 import { BinNotes, TrayShape } from "./ToggleOptions";
@@ -23,6 +22,22 @@ export function MinisEditor({ component: c, index, onChange }: EditorProps<Minis
   const at = `/components/${index}`;
   const setFigure = (j: number, patch: Partial<Figure>): void => {
     onChange({ ...c, figures: c.figures.map((f, k) => (k === j ? { ...f, ...patch } : f)) });
+  };
+  // Off is the absence of the key, as for every other optional setting: the file stays as it was.
+  const setKeepUpright = (j: number, on: boolean): void => {
+    onChange({
+      ...c,
+      figures: c.figures.map((f, k) => {
+        if (k !== j) {
+          return f;
+        }
+        return on
+          ? { ...f, keepUpright: true }
+          : (Object.fromEntries(
+              Object.entries(f).filter(([key]) => key !== "keepUpright"),
+            ) as Figure);
+      }),
+    });
   };
   return (
     <>
@@ -97,6 +112,13 @@ export function MinisEditor({ component: c, index, onChange }: EditorProps<Minis
                     onCommit={(h) => setFigure(j, { h })}
                   />
                 </div>
+                <CheckRow
+                  compact
+                  label={`${f.name === "" ? `Figure ${n}` : f.name} stays upright`}
+                  hint="Never laid on its side"
+                  checked={f.keepUpright === true}
+                  onChange={(on) => setKeepUpright(j, on)}
+                />
               </div>
             );
           })}
@@ -125,7 +147,6 @@ export function MinisEditor({ component: c, index, onChange }: EditorProps<Minis
       />
       <BinNotes component={c} index={index} />
       <MoreOptions component={c} errorPaths={commonOptionPaths(index)}>
-        <GrowthOptions component={c} index={index} onChange={onChange} />
         <AccessChoice component={c} index={index} onChange={onChange} />
         <TrayShape component={c} index={index} onChange={onChange} />
         <CommonRows component={c} index={index} onChange={onChange} />

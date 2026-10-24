@@ -232,7 +232,7 @@ describe("runner", () => {
     expect(stub.calls[0]?.warmStart).toBe(layout);
   });
 
-  it("says why it runs: a new plan for an edit, a search for Keep searching", async () => {
+  it("says why it runs: a new plan for an edit, a search for Try another arrangement", async () => {
     const p = fixtureProject();
     const { state, stub, runner } = setup({ ...p, layout: makeLayout(inputsHash(p)) });
     void runner.runNow("improve", "user");

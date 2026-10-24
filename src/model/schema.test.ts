@@ -12,7 +12,7 @@ import {
   serializeProject,
   toSerializable,
 } from "./schema";
-import type { Project, StoredLayout, TraySpec } from "./types";
+import type { Component, Project, StoredLayout, TraySpec } from "./types";
 import { VALIDATION_NOTICE_CODES, validateProject } from "./validate";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
 
@@ -58,6 +58,19 @@ describe("serializeProject / parseProject", () => {
     const result = parseProject(raw(p));
     expect(result.ok && result.project.components).toEqual(p.components);
     expect(result.ok && result.project.components[2]).not.toHaveProperty("fingerCuts");
+  });
+
+  it("round-trips an item's own packing on bulk and minis, and writes nothing when absent", () => {
+    const p = newProject();
+    p.components = [
+      { ...newComponent("bulk"), id: "b1", packing: 0.65 } as Component,
+      { ...newComponent("bulk"), id: "b2" },
+      { ...newComponent("minis"), id: "m1", packing: 0.8 } as Component,
+    ];
+    const result = parseProject(raw(p));
+    expect(result.ok && result.project.components).toEqual(p.components);
+    expect(result.ok && result.project.components[1]).not.toHaveProperty("packing");
+    expect(JSON.stringify(raw(p).components)).not.toMatch(/"packing":undefined/);
   });
 
   it("round-trips a project with no components", () => {
@@ -198,8 +211,16 @@ describe("toSerializable", () => {
     });
     expect(out.box).toEqual({ ...p.box, headroomCoverage: "none" });
     // the two merge switches and the engraving switch at their defaults are left out of what is written
-    const { mergeFillers, mergeRisers, engraveNames, oneWall, ...written } = p.settings;
-    expect([mergeFillers, mergeRisers, engraveNames, oneWall]).toEqual([true, true, true, false]);
+    // (biggerWells, off by default, is left out the same way)
+    const { mergeFillers, mergeRisers, engraveNames, oneWall, biggerWells, ...written } =
+      p.settings;
+    expect([mergeFillers, mergeRisers, engraveNames, oneWall, biggerWells]).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+    ]);
     expect(out.settings).toEqual({ ...written, leftover: "hollow" });
     expect(p).toEqual(before);
   });
@@ -253,6 +274,38 @@ describe("toSerializable", () => {
     expect(text).toContain('"oneWall":true');
     const back = parseProject(JSON.parse(text));
     expect(back.ok && back.project.settings.oneWall).toBe(true);
+  });
+
+  it("round-trips the bigger-wells switch: left out while off, written when on", () => {
+    const p = sampleProject();
+    expect(serializeProject(p, noForeign())).not.toContain("biggerWells");
+    const text = serializeProject(
+      { ...p, settings: { ...p.settings, biggerWells: true } },
+      noForeign(),
+    );
+    expect(text).toContain('"biggerWells":true');
+    const back = parseProject(JSON.parse(text));
+    expect(back.ok && back.project.settings.biggerWells).toBe(true);
+  });
+
+  it("round-trips an item's room, a number or max, and writes nothing for none", () => {
+    const p = sampleProject();
+    const [first] = p.components;
+    if (first === undefined) {
+      throw new Error("no component");
+    }
+    expect(serializeProject(p, noForeign())).not.toContain('"room"');
+    for (const room of [7, "max"] as const) {
+      const text = serializeProject(
+        { ...p, components: p.components.map((c) => (c === first ? { ...first, room } : c)) },
+        noForeign(),
+      );
+      const back = parseProject(JSON.parse(text));
+      if (!back.ok) {
+        throw new Error(back.error);
+      }
+      expect(back.project.components[0]?.room).toBe(room);
+    }
   });
 
   it("reads engraveNumbers into engraveNames", () => {

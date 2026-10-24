@@ -192,6 +192,14 @@
   list-style: none;
 }
 
+/* "On <tray>" carries a tray's name: cut to keep the row beside it wide enough (the whole is in its title). */
+.rail-chip__text {
+  display: block;
+  max-width: 84px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .rail-chips > li {
   margin: 0;
   padding: 0;
@@ -339,10 +347,10 @@
   color: var(--muted);
 }
 
-/* The whole border, not its colour: the swatch's own is a var() the group has no value for. */
+/* The group's own hue: the header gives `--shade-*`. */
 .gc-head--compact .k-row__swatch--group {
-  border: 2px solid var(--muted-strong);
-  background: var(--sheet);
+  border: 2px solid var(--shade-line, var(--muted-strong));
+  background: var(--shade-fill, var(--sheet));
 }
 
 .gc--compact .gc-members {

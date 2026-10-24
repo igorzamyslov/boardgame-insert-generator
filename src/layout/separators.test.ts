@@ -24,7 +24,7 @@ const cards = (separators?: number, name = "Action"): CardsComponent => {
     id: "c1",
     name,
     // room for the stack to grow into, up to retention (the plates lift it from 1 to 6 stacks)
-    growth: { stack: "max" },
+    room: "max",
     ...(separators === undefined ? {} : { separators }),
   };
 };
@@ -204,7 +204,7 @@ describe("separators and the stored layout", () => {
           ...(raw.components[0] as Record<string, unknown>),
           decks: [{ name: "Action", count: 40 }],
           storage: "upright-long",
-          growth: { stack: "max" },
+          room: "max",
         },
       ],
     });

@@ -37,6 +37,15 @@ const PICKER = "Add opens a kind picker";
 const SUMMARY = "A row's line under the name is short";
 const CHIPS = "The rail's rule chips are one per rule";
 const CLEAR = "Clear all my choices lifts every pin";
+const UPRIGHT = "A figure may lie on any side";
+const MINIS_STATES = [
+  "editor-minis",
+  "editor-minis-more",
+  "m-edit",
+  "m-edit-more",
+  "kit-member",
+  "m-kit-member",
+] as const;
 const NOTE = "The rules note says what stays";
 // 0.7.0 Task 13: Turned, the rules note's turn sentence and Between decks
 const TURNED = "A tray turned and not pinned says";
@@ -86,11 +95,13 @@ const RAIL = [
   "no-fit-bed",
   "pin-conflict",
   "workspace-turned",
+  "workspace-put-on",
   ...FLAT_DECKS,
 ] as const;
 const SHEET = [
   "m-workspace",
   "m-turned",
+  "m-put-on",
   "m-workspace-add",
   "m-workspace-rules",
   "m-fix",
@@ -114,19 +125,51 @@ const PINS =
   "Pins in the way: the first conflict names the heading, the engine's reasons are its line, and each conflict is a card";
 const FIT_PANEL = "The fit problems are a stage of their own";
 const NOFIT_FIGURE = "The no-fit line gives the closest plan's shortfall";
+const VOLUME = "The no-fit screen says how much room the items need";
 const FIT_ROW = "The rail marks the tray that does not fit: Doesn't fit";
 const BANNERS = "The plan banners use DESIGN's words";
 const NOTES = "Layout and sizing notices sit under the plan caption";
 // Task 7: the plan's caption and pin marks. The states are the plan cases of copy.board.test.tsx.
 const CAPTION = "The plan's caption names its layer";
+// 0.14.0 board 1: the stage header
+const HEADER = "The stage header is one toolbar row";
+// 0.14.0 board 2: the Layer switch
+const LAYER_ONE = "One Layer switch, the same in Top and 3D";
 const PHONE_PINS = "A phone's plan shows the pin marks";
 const FAILED = ["workspace-failed"] as const;
 const ERRORS = ["workspace-error"] as const;
 const FIT_PROBLEMS = ["no-fit", "no-fit-bed", "pin-conflict", "m-fix", "m-pin-conflict"] as const;
 const NO_FIT = ["no-fit", "no-fit-bed", "m-fix"] as const;
+/** The volume note's sentences; `{name}` stands for a figure in litres or an item's name. */
+const NEEDS = "Your items need at least {name} L as trays.";
+const HAS = ["The box has {name} L.", "The box has {name} L under the headroom."];
+const OVER = [
+  "This can't fit: take something out or reserve less space on top.",
+  "This can't fit: take something out.",
+];
+const VOLUME_RULINGS: readonly CopyRuling[] = [
+  ...HAS.map((has) => ({ text: `${NEEDS} ${has}`, states: NO_FIT, ruling: VOLUME })),
+  ...OVER.map((text) => ({ text, states: NO_FIT, ruling: VOLUME })),
+  // over the box's volume the heading says both: the figures, then the judgement
+  ...HAS.flatMap((has) =>
+    OVER.map((over) => ({ text: `${NEEDS} ${has} ${over}`, states: NO_FIT, ruling: VOLUME })),
+  ),
+  { text: "Very tight: expect to change settings.", states: NO_FIT, ruling: VOLUME },
+  { text: "{name} takes {name} L", states: NO_FIT, ruling: VOLUME },
+  {
+    text: "Leaving out {name} would bring it under the box's {name} L.",
+    states: NO_FIT,
+    ruling: VOLUME,
+  },
+];
 const PIN_CONFLICT = ["pin-conflict", "m-pin-conflict"] as const;
 // Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
 const MORE = "More holds Swap with… and Lock size";
+// 0.15.0: Put on… (a stack lock without a position: the pair moves anywhere together)
+const PUT_ON = "Put on… stands one tray on another";
+/** The states that draw a put-on: the plan's prompt while the base is chosen, and the rail after it. */
+const PUT_ON_PICK = ["workspace-put-on-pick", "m-put-on-pick"] as const;
+const PUT_ON_CHIP = ["workspace-put-on", "m-put-on"] as const;
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
 const PIN_WORDS = "Pin and Turn say what they hold";
 const TRAY_SHEET = "A phone's tray bar is a modal sheet";
@@ -135,6 +178,7 @@ const BAR_STATES = [
   "workspace-tray",
   "workspace-tray-more",
   "workspace-tray-spacer",
+  "workspace-put-on-pick",
   "kit-rail",
 ] as const;
 const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
@@ -199,11 +243,13 @@ const EDITOR_SIZES = "Card sizes are the engine's presets";
 const EDITOR_SUMMARY = "More options says what is inside it";
 const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
 const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
-const EDITOR_MAX = "A growth choice on Max says what Max means";
+const EDITOR_ROOM_MORE = "Room for more is one row per item, in the contents' terms";
 const RESIZE = "The rail's handle is named";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_CHANGED = "More options marks what differs from its default";
 const EDITOR_ROOM = "Room around the pieces shows the insert's number and lets the item change it";
+const THIN_WALLS = "Walls' Thin choice is 1.0 mm all through";
+const ITEM_PACKING = "An item's own packing is a row under More options";
 const ITEM_COPIES = "An item's Copies and Group row replace Per player and the Group box";
 const ITEM_MOVES = "Moving an item into or out of a group says what happens to its copies";
 // 0.7.0 Task 14: a drop in the rail
@@ -226,16 +272,8 @@ const EDITOR_LABELS: readonly string[] = [
   "Remove…",
   "Remove {name}…",
   // groups and their choices
-  "Room for expansions",
-  "Extra width",
-  "Extra length",
-  "Extra height",
-  "Looser pockets: width",
-  "Looser pockets: length",
   "None",
   "Auto",
-  "A set amount",
-  "Max",
   "How often you reach for it",
   "Often",
   "Sometimes",
@@ -361,7 +399,7 @@ const SET_RISERS = "Settings' first screen also has two riser rows";
 const SET_INTRO = "My printer's intro names the values it covers";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
-const SET_GAPS = "Fill small gaps with is one choice of what the engine does with spare room";
+const SET_GAPS = "Fill the space that's left is one choice of what the engine does with spare room";
 const SET_KIND = "Rim between layers is a rim and groove or a stepped base";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
@@ -378,12 +416,18 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Unused space", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Solid block", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "Fill small gaps with", states: SETTINGS_STATES, ruling: SET_GAPS },
-  { text: "A spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "Fill the space that's left", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "Separate spacers", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "Bigger wells", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "Thicker walls", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "One thick wall", states: SETTINGS_STATES, ruling: SET_GAPS },
   {
-    text: "A gap a tray can't use is printed as a separate spacer.",
+    text: "Room left beside a tray is printed as separate spacers.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS,
+  },
+  {
+    text: "Room left goes into the wells of items set to As much as fits first, then into the others' wells as far as each can use it. What is still left is a separate spacer.",
     states: SETTINGS_STATES,
     ruling: SET_GAPS,
   },
@@ -397,8 +441,12 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: SETTINGS_STATES,
     ruling: SET_GAPS,
   },
-  { text: "Back to a spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "{name} stays upright", states: MINIS_STATES, ruling: UPRIGHT },
+  { text: "Never laid on its side", states: MINIS_STATES, ruling: UPRIGHT },
+  { text: "Back to separate spacers", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
+  { text: "Thin", states: SETTINGS_STATES, ruling: THIN_WALLS },
+  { text: "You set the floor or the dividers below.", states: SETTINGS_STATES, ruling: THIN_WALLS },
   { text: "Extra space beside walls to reach in", states: SETTINGS_STATES, ruling: SET_WORDS },
   { text: "No exact number matches.", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "{n} of {n} shown.", states: SETTINGS_STATES, ruling: SET_EXACT },
@@ -533,7 +581,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Bed {n} × {n} mm", states: RAIL, ruling: BED },
   {
     text: "Clear all my choices",
-    states: ["m-workspace-rules", "m-pin-conflict", "m-turned"],
+    states: ["m-workspace-rules", "m-pin-conflict", "m-turned", "m-put-on"],
     ruling: CLEAR,
   },
   { text: "bottom layer", states: RAIL, ruling: SUMMARY },
@@ -574,7 +622,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   { text: "Edit {name}", states: [...ERRORS, ...FIT_PROBLEMS], ruling: HOMES },
   // Task 12: the fit problems' panel offers what the engine can do, in its own words
-  { text: "Keep searching", states: NO_FIT, ruling: FIT_PANEL },
+  { text: "Try another arrangement", states: NO_FIT, ruling: FIT_PANEL },
   { text: "Change the box", states: ["workspace-box-error"], ruling: HOMES },
   { text: "The {name} tray doesn't fit yet", states: NO_FIT, ruling: NOFIT },
   { text: "Not everything fits yet", states: NO_FIT, ruling: NOFIT },
@@ -586,6 +634,9 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: NOFIT_FIGURE,
   },
   { text: "The closest plan is {name}.", states: NO_FIT, ruling: NOFIT_FIGURE },
+  // 0.15.0: the volume note under the cards, and (over the box's volume) the heading's line. Its
+  // sentences are `volumeNote`'s (src/ui/volumeFit.ts), with and without a headroom.
+  ...VOLUME_RULINGS,
   { text: "It's too big for your printer's bed.", states: ["no-fit-bed"], ruling: NOFIT },
   { text: "{name} doesn't fit with your pins", states: PIN_CONFLICT, ruling: PINS },
   { text: "{name} doesn't fit with its size locked", states: PIN_CONFLICT, ruling: PINS },
@@ -603,6 +654,18 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Warning:", states: ["workspace-notes"], ruling: NOTES },
   { text: "Note:", states: ["workspace-notes"], ruling: NOTES },
   { text: "Error:", states: ["workspace-notes", "no-fit", "no-fit-bed"], ruling: NOTES },
+  // 0.14.0 board 1: the toolbar's sub-line, "Searching…", and the hint that ends the caption
+  { text: "All", states: "all", ruling: LAYER_ONE },
+  { text: "All layers, seen from above. Front of the box", states: "all", ruling: LAYER_ONE },
+  { text: "{name} trays", states: "all", ruling: HEADER },
+  { text: "{name} tray", states: "all", ruling: HEADER },
+  { text: "{name} layers", states: "all", ruling: HEADER },
+  { text: "{name} layer", states: "all", ruling: HEADER },
+  { text: "{name} of {name} mm", states: "all", ruling: HEADER },
+  { text: "Searching…", states: "all", ruling: HEADER },
+  { text: "Top", states: ["kit-member-moved", "kit-member-out"], ruling: HEADER },
+  { text: "3D", states: ["kit-member-moved", "kit-member-out"], ruling: HEADER },
+  { text: "· tap a tray for details", states: "all", ruling: HEADER },
   // Task 7: under the box, and the marks a phone's plan keeps
   {
     text: "{name}, seen from above. Front of the box",
@@ -653,10 +716,43 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: MORE,
   },
   {
+    text: "Put on…",
+    states: ["workspace-tray-more", "m-tray-more", "m-tray-market", ...PUT_ON_PICK],
+    ruling: PUT_ON,
+  },
+  {
     text: "Lock size",
     states: ["workspace-tray-more", "m-tray-more", "m-tray-market"],
     ruling: MORE,
   },
+  { text: "Pick the tray to put {name} on.", states: PUT_ON_PICK, ruling: PUT_ON },
+  {
+    text: "Spare trays and spacers can't be stood on. Pick another tray.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  { text: "On {name}", states: PUT_ON_CHIP, ruling: PUT_ON },
+  {
+    text: "Trays put on another stay on it when the plan updates.",
+    states: PUT_ON_CHIP,
+    ruling: PUT_ON,
+  },
+  {
+    text: "{name} is pinned. Unpin it before you put trays on it.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  {
+    text: "{name} already has {n} trays on it. A stack holds at most {n}.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  {
+    text: "{name} doesn't go on {name}: the stack is taller than the space in the box.",
+    states: PUT_ON_PICK,
+    ruling: PUT_ON,
+  },
+  { text: "Pick another tray to put it on.", states: PUT_ON_PICK, ruling: PUT_ON },
   { text: "Unlock size", states: ["workspace-tray-more", "m-tray-more"], ruling: MORE },
   {
     text: "Fills the gap so the trays can't slide. Print it too. {size}",
@@ -701,8 +797,10 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   ...[
     "Flat decks have no dividers.",
     "Flat stacks have no dividers.",
-    "Dividers need room for expansions.",
-    "Spacer plates need room for expansions.",
+    "Dividers need Room for more cards.",
+    "Dividers need Room for more tiles.",
+    "Spacer plates need Room for more cards.",
+    "Spacer plates need Room for more tiles.",
     "Dividers take the place of spacer plates.",
   ].map((text) => ({ text, states: EDITING, ruling: EDITOR_BLOCKED })),
   // the engine's presets, as the chips and the size line say them
@@ -751,6 +849,25 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: ITEM_COPIES,
   },
   { text: "Room around the pieces", states: OPENED_ROWS, ruling: EDITOR_ROOM },
+  { text: "How tightly it packs", states: OPENED_ROWS, ruling: ITEM_PACKING },
+  ...["Loose", "Snug", "Tight"].map((text) => ({
+    text,
+    states: OPENED_ROWS,
+    ruling: ITEM_PACKING,
+  })),
+  ...["Loose", "Snug", "Tight"].map((word) => ({
+    text: `Back to ${word}`,
+    states: OPENED_ROWS,
+    ruling: ITEM_PACKING,
+  })),
+  {
+    text: "How much of the tray's space the pieces fill.",
+    states: OPENED_ROWS,
+    ruling: ITEM_PACKING,
+  },
+  { text: "Needs the figures loose in a tray.", states: OPENED_ROWS, ruling: ITEM_PACKING },
+  { text: "This item packs at {n}.", states: OPENED_ROWS, ruling: ITEM_PACKING },
+  { text: "The insert packs at {n}.", states: OPENED_ROWS, ruling: ITEM_PACKING },
   {
     text: "{name} now has the group's {n} copies.",
     states: ["kit-member-moved", "kit-drag"],
@@ -774,7 +891,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // the stage sentence: Edit's, for the kinds and the counts it does not draw
   {
     text: "tray, {name} × {name} mm.",
-    states: [...EDITS, ...PHONE_EDITS],
+    states: [...EDITS, ...PHONE_EDITS, "workspace-failed", "no-fit", "pin-conflict"],
     ruling: EDITOR_SENTENCE,
   },
   {
@@ -801,13 +918,22 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["editor-note", ...PHONE_EDITS] as readonly string[],
     ruling: EDITOR_NOTES,
   })),
-  // what Max means, under a growth choice that is on Max (the editors' growth options)
-  {
-    text: "As much as fits beside the other trays and on your printer's bed.",
-    states: EDITING,
-    ruling: EDITOR_MAX,
-  },
-  { text: "As tall as the box allows.", states: EDITING, ruling: EDITOR_MAX },
+  // Room for more (cards, tiles, pieces): the row, its choices, its amount and its line
+  ...[
+    "Room for more cards",
+    "Room for more tiles",
+    "Room for more pieces",
+    "Room for more cards, amount",
+    "Room for more tiles, amount",
+    "Room for more pieces, amount",
+    "Some",
+    "As much as fits",
+    "The tray is planned with room for {n} more cards.",
+    "The tray is planned with room for {n} more tiles.",
+    "The tray is planned with room for {n}% more pieces.",
+    "Takes the room left over once the layout is chosen.",
+    "Fills the room left in {name}'s tray. The tray doesn't get bigger.",
+  ].map((text) => ({ text, states: EDITING, ruling: EDITOR_ROOM_MORE })),
   // asking before a removal, and the note after it (it sits in the stage slot, as the option notes do)
   { text: "Remove “{name}” from the box?", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Remove", states: EDITING, ruling: EDITOR_REMOVE },

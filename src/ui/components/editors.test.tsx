@@ -12,7 +12,8 @@ import type {
   Notice,
   TilesComponent,
 } from "../../model/types";
-import { SizingContext, ValidationContext } from "../validation";
+import { DEFAULT_SETTINGS } from "../../model/settings";
+import { SettingsContext, SizingContext, ValidationContext } from "../validation";
 import { BulkEditor } from "./BulkEditor";
 import { CardsEditor } from "./CardsEditor";
 import { CustomEditor } from "./CustomEditor";
@@ -134,6 +135,73 @@ describe("TilesEditor", () => {
   });
 });
 
+describe("How tightly it packs", () => {
+  const HINT = "How much of the tray's space the pieces fill.";
+
+  it("shows the insert's packing as a choice, and says what it means", () => {
+    render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
+    openRows();
+    expect(pressedIn("How tightly it packs")).toBe("Loose");
+    expect(screen.getByText(HINT)).toBeTruthy();
+    // the three choices, in words: a number says nothing about a bin
+    const group = screen.getByRole("group", { name: "How tightly it packs" });
+    expect(Array.from(group.querySelectorAll("button")).map((b) => b.textContent)).toEqual([
+      "Loose",
+      "Snug",
+      "Tight",
+    ]);
+  });
+
+  it("gives the item its own packing, and takes it back when the insert's own is chosen", () => {
+    const onChange = vi.fn<(c: BulkComponent) => void>();
+    const view = render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
+    openRows();
+    choose("How tightly it packs", "Snug");
+    expect(lastOf(onChange).packing).toBe(0.65);
+    view.rerender(
+      <BulkEditor component={{ ...of("bulk"), packing: 0.65 }} index={0} onChange={onChange} />,
+    );
+    expect(pressedIn("How tightly it packs")).toBe("Snug");
+    // Loose is the insert's own: nothing is set
+    choose("How tightly it packs", "Loose");
+    expect("packing" in lastOf(onChange)).toBe(false);
+    // and the row's way back says where it goes
+    fireEvent.click(screen.getByRole("button", { name: /^Back to Loose/ }));
+    expect("packing" in lastOf(onChange)).toBe(false);
+  });
+
+  it("reads the insert's number when the item has none", () => {
+    render(
+      <SettingsContext.Provider value={{ ...DEFAULT_SETTINGS, packingFactor: 0.8 }}>
+        <BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />
+      </SettingsContext.Provider>,
+    );
+    openRows();
+    expect(pressedIn("How tightly it packs")).toBe("Tight");
+  });
+
+  it("leaves a number that is no choice pressed on none, and says it", () => {
+    render(<BulkEditor component={{ ...of("bulk"), packing: 0.7 }} index={0} onChange={vi.fn()} />);
+    openRows();
+    expect(pressedIn("How tightly it packs")).toBeNull();
+    expect(screen.getByText("This item packs at 0.7.")).toBeTruthy();
+  });
+
+  it("is on a minis item only while the figures are loose in a tray, and says so otherwise", () => {
+    const onChange = vi.fn<(c: MinisComponent) => void>();
+    const view = render(<MinisEditor component={of("minis")} index={0} onChange={onChange} />);
+    openMore();
+    expect(screen.queryByRole("group", { name: "How tightly it packs" })).toBeNull();
+    expect(screen.getByText("Needs the figures loose in a tray.")).toBeTruthy();
+    view.rerender(
+      <MinisEditor component={{ ...of("minis"), storage: "bulk" }} index={0} onChange={onChange} />,
+    );
+    openRows();
+    choose("How tightly it packs", "Tight");
+    expect(lastOf(onChange).packing).toBe(0.8);
+  });
+});
+
 describe("MinisEditor", () => {
   it("edits figures and how they are stored", () => {
     const onChange = vi.fn<(c: MinisComponent) => void>();
@@ -162,6 +230,26 @@ describe("MinisEditor", () => {
     view.rerender(<MinisEditor component={two} index={0} onChange={onChange} />);
     fireEvent.click(screen.getByRole("button", { name: "Remove figure Orc" }));
     expect(lastOf(onChange).figures).toEqual(one.figures);
+  });
+});
+
+describe("MinisEditor: keep upright", () => {
+  it("keeps one figure upright, and takes the key away again when it is off", () => {
+    const onChange = vi.fn<(c: MinisComponent) => void>();
+    const one = { ...of("minis"), figures: [{ name: "Hero", w: 30, d: 30, h: 38, count: 6 }] };
+    const view = render(<MinisEditor component={one} index={0} onChange={onChange} />);
+    const box = screen.getByRole("checkbox", { name: "Hero stays upright" });
+    expect((box as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(box);
+    expect(lastOf(onChange).figures[0]).toEqual({ ...one.figures[0], keepUpright: true });
+    const kept = lastOf(onChange);
+    view.rerender(<MinisEditor component={kept} index={0} onChange={onChange} />);
+    expect(
+      (screen.getByRole("checkbox", { name: "Hero stays upright" }) as HTMLInputElement).checked,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Hero stays upright" }));
+    expect(lastOf(onChange).figures[0]).toEqual(one.figures[0]);
+    expect(Object.keys(lastOf(onChange).figures[0] ?? {})).not.toContain("keepUpright");
   });
 });
 
@@ -210,20 +298,14 @@ describe("toggles", () => {
   });
 
   it("offers spacer plates on tiles while the stack may grow, never on tokens, figures or others", () => {
-    render(
-      <TilesEditor
-        component={{ ...of("tiles"), growth: { stack: "off" } }}
-        index={0}
-        onChange={vi.fn()}
-      />,
-    );
+    render(<TilesEditor component={of("tiles")} index={0} onChange={vi.fn()} />);
     openRows();
     expect(screen.queryByLabelText("Spacer plates")).toBeNull();
     cleanup();
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(
       <TilesEditor
-        component={{ ...of("tiles"), storage: "upright" }}
+        component={{ ...of("tiles"), storage: "upright", room: 10 }}
         index={0}
         onChange={onChange}
       />,
@@ -252,7 +334,7 @@ describe("toggles", () => {
     render(
       <SizingContext.Provider value={[notice]}>
         <TilesEditor
-          component={{ ...of("tiles"), storage: "upright", separators: 5 }}
+          component={{ ...of("tiles"), storage: "upright", room: 10, separators: 5 }}
           index={0}
           onChange={vi.fn()}
         />
@@ -273,83 +355,52 @@ describe("toggles", () => {
     }
   });
 
-  describe("room to grow, by kind (minimal-trays spec §5)", () => {
-    const groups = (): string[] =>
+  describe("room for more, by kind", () => {
+    const rooms = (): string[] =>
       Array.from(document.querySelectorAll<HTMLElement>('[role="group"]'))
         .map((g) => g.getAttribute("aria-label") ?? "")
-        .filter((n) => /^(Room for expansions|Extra |Looser pockets)/.test(n));
+        .filter((n) => /^Room for more /.test(n));
 
-    it("offers tiles one choice, along the stack, auto when they stand up and none when they lie", () => {
+    it("offers tiles one row, None by default, and stores As much as fits as max", () => {
       const onChange = vi.fn<(c: TilesComponent) => void>();
-      render(
-        <TilesEditor
-          component={{ ...of("tiles"), storage: "upright" }}
-          index={0}
-          onChange={onChange}
-        />,
-      );
+      render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
       openMore();
-      expect(groups()).toEqual(["Room for expansions"]);
-      expect(pressedIn("Room for expansions")).toBe("Auto");
-      choose("Room for expansions", "Max");
-      expect(lastOf(onChange).growth).toEqual({ stack: "max" });
-      cleanup();
-      render(
-        <TilesEditor
-          component={{ ...of("tiles"), storage: "flat" }}
-          index={0}
-          onChange={vi.fn()}
-        />,
-      );
-      openMore();
-      expect(pressedIn("Room for expansions")).toBe("None");
+      expect(rooms()).toEqual(["Room for more tiles"]);
+      expect(pressedIn("Room for more tiles")).toBe("None");
+      choose("Room for more tiles", "As much as fits");
+      expect(lastOf(onChange).room).toBe("max");
     });
 
-    it("offers tokens all three axes, auto by default, each stored on its own", () => {
+    it("offers tokens one row, in pieces, and stores a number of percent", () => {
       const onChange = vi.fn<(c: BulkComponent) => void>();
       render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
       openMore();
-      expect(groups()).toEqual(["Extra width", "Extra length", "Extra height"]);
-      for (const g of groups()) {
-        expect(pressedIn(g)).toBe("Auto");
+      expect(rooms()).toEqual(["Room for more pieces"]);
+      expect(pressedIn("Room for more pieces")).toBe("None");
+      choose("Room for more pieces", "Some");
+      expect(lastOf(onChange).room).toBe(25);
+    });
+
+    it("offers figures, in pockets or loose, and a custom well no row at all", () => {
+      for (const storage of ["pockets", "bulk"] as const) {
+        render(
+          <MinisEditor component={{ ...of("minis"), storage }} index={0} onChange={vi.fn()} />,
+        );
+        openMore();
+        expect(rooms(), storage).toEqual([]);
+        expect(screen.queryByRole("group", { name: /Extra |Looser pockets/ }), storage).toBeNull();
+        cleanup();
       }
-      choose("Extra length", "None");
-      expect(lastOf(onChange).growth).toEqual({ d: "off" });
-    });
-
-    it("offers figures in pockets only width and length, none by default: a pocket's depth is a figure's height", () => {
-      render(<MinisEditor component={of("minis")} index={0} onChange={vi.fn()} />);
-      openMore();
-      expect(groups()).toEqual(["Looser pockets: width", "Looser pockets: length"]);
-      expect(pressedIn("Looser pockets: width")).toBe("None");
-      expect(screen.queryByRole("group", { name: /Looser pockets: (height|depth)/ })).toBeNull();
-    });
-
-    it("offers figures stored loose all three, auto", () => {
-      render(
-        <MinisEditor
-          component={{ ...of("minis"), storage: "bulk" }}
-          index={0}
-          onChange={vi.fn()}
-        />,
-      );
-      openMore();
-      expect(groups()).toEqual(["Extra width", "Extra length", "Extra height"]);
-      expect(pressedIn("Extra height")).toBe("Auto");
-    });
-
-    it("offers a custom well all three, none by default", () => {
       render(<CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />);
       openMore();
-      expect(groups()).toEqual(["Extra width", "Extra length", "Extra height"]);
-      expect(pressedIn("Extra width")).toBe("None");
+      expect(rooms()).toEqual([]);
     });
 
-    it("keeps them under More options", () => {
+    it("keeps it under More options", () => {
       render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
-      expect(groups()).toEqual([]);
+      expect(rooms()).toEqual([]);
       openMore();
-      expect(groups().length).toBeGreaterThan(0);
+      expect(rooms().length).toBeGreaterThan(0);
     });
   });
 });
@@ -475,22 +526,17 @@ describe("validation shown in place", () => {
     const Editor = EDITORS[kind] as unknown as AnyEditor;
     const more = () => screen.getByRole("button", { name: /^More options/ });
 
-    it.each([
-      "copies",
-      "clearance",
-      "curvedFloor",
-      "separators",
-      "dividers",
-      "growth/stack",
-      "growth/w",
-    ])("opens for an error at /components/0/%s", (field) => {
-      render(
-        <ValidationContext.Provider value={[err("field.test", `/components/0/${field}`, "Bad.")]}>
-          <Editor component={of(kind)} index={0} onChange={vi.fn()} />
-        </ValidationContext.Provider>,
-      );
-      expect(more().getAttribute("aria-expanded")).toBe("true");
-    });
+    it.each(["copies", "clearance", "curvedFloor", "separators", "dividers", "room"])(
+      "opens for an error at /components/0/%s",
+      (field) => {
+        render(
+          <ValidationContext.Provider value={[err("field.test", `/components/0/${field}`, "Bad.")]}>
+            <Editor component={of(kind)} index={0} onChange={vi.fn()} />
+          </ValidationContext.Provider>,
+        );
+        expect(more().getAttribute("aria-expanded")).toBe("true");
+      },
+    );
 
     it("stays closed for an error at another component", () => {
       render(

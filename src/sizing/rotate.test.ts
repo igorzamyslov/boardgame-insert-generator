@@ -11,7 +11,7 @@ import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./typ
 // and a pocket, so there is a spacer here to turn.
 const outer: OuterSize = { w: 36.7, d: 95.7, h: 69.2 };
 const realized = realizeTray(
-  partOf([cards({ separators: 1 })], "upright-long|strip|split1"),
+  partOf([cards({ separators: 1, room: "max" })], "upright-long|strip|split1"),
   outer,
   DEFAULT_SETTINGS,
   { lipped: false, level: 0 },
@@ -129,14 +129,14 @@ describe("rotateRealized", () => {
     const cases: [string, TrayPartReq, Settings, RealizeOptions, OuterSize][] = [
       [
         "one deck",
-        partOf([cards({ separators: 1 })], "upright-long|strip|split1"),
+        partOf([cards({ separators: 1, room: "max" })], "upright-long|strip|split1"),
         DEFAULT_SETTINGS,
         ground,
         { w: 56.7, d: 119.7, h: 69.2 },
       ],
       [
         "one deck at an outer between whole units",
-        partOf([cards({ separators: 1 })], "upright-long|strip|split1"),
+        partOf([cards({ separators: 1, room: "max" })], "upright-long|strip|split1"),
         DEFAULT_SETTINGS,
         ground,
         { w: 56.703, d: 119.708, h: 69.2 },
@@ -177,7 +177,7 @@ describe("rotateRealized", () => {
       ],
       [
         "spacer case, lipped",
-        partOf([cards({ separators: 1 })], "upright-long|strip|split1"),
+        partOf([cards({ separators: 1, room: "max" })], "upright-long|strip|split1"),
         DEFAULT_SETTINGS,
         lipped,
         { w: 59.9, d: 122.9, h: 75 },

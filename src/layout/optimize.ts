@@ -2,7 +2,7 @@ import { GEOMETRY_VERSION } from "../geometry/version";
 import type { Notice, StoredLayout } from "../model/types";
 import { createAnnealer, type Annealer, type Candidate } from "./anneal";
 import { createCtx, withSizeLocks, type Ctx, type Measure } from "./context";
-import { evaluate } from "./fill";
+import { evaluate, overflowTotal, type Plan } from "./fill";
 import { greedyTree, partitionTrees } from "./greedy";
 import {
   applyLocks,
@@ -75,6 +75,7 @@ export interface Run {
 }
 
 interface Phase {
+  /** The context the layout is planned in: no room for growth, every gap a spacer. */
   readonly ctx: Ctx;
   readonly resolved: ResolvedLocks;
   readonly conflicts: LockConflict[];
@@ -109,7 +110,8 @@ function startPhase(
   hints: WarmHints,
   useLocks: boolean,
 ): Phase {
-  const base = createCtx(input, opts.measure);
+  // Planned on natural sizes: room for the wells is the last step (`grow`, in `build`).
+  const base = createCtx(input, opts.measure, { growth: false });
   const { resolved, conflicts } = useLocks
     ? resolveLocks(base, input.locks, hints)
     : { resolved: noLocks(base), conflicts: [] };
@@ -204,6 +206,21 @@ export function createRun(
   const chains = (): Phase[] => [main, derived, fallback].filter((p) => p !== null);
   const feasible = (): Phase | undefined => chains().find((p) => p.annealer.bestFeasible !== null);
 
+  /**
+   * The last step of planning (owner, 2026-10-23): the chosen tree evaluated again with room for
+   * growth on, so the leftover room goes into the wells of the items that asked for it (and, with
+   * the fill setting "bigger wells", of the others), where the plan had left it as spacers. The
+   * tree and so every place is the plan's own; only a tray's size inside its place changes. Room
+   * only ever goes to wells, so if it somehow cost a fit the plan stands as planned.
+   */
+  const withGrowth = (phase: Phase, best: Candidate): { ctx: Ctx; plan: Plan } => {
+    const ctx = withSizeLocks(createCtx(input, opts.measure), phase.resolved.sizes);
+    const plan = evaluate(ctx, best.tree);
+    return overflowTotal(plan.overflow) > overflowTotal(best.plan.overflow)
+      ? { ctx: phase.ctx, plan: best.plan }
+      : { ctx, plan };
+  };
+
   const build = (): LayoutResult => {
     const phase = feasible();
     if (skipped) {
@@ -229,7 +246,8 @@ export function createRun(
     const capped = stop !== null;
     if (phase !== undefined && best) {
       notices.push(...bedNotices(phase.ctx));
-      const trays = materialize(phase.ctx, best.plan, opts.realize);
+      const last = withGrowth(phase, best);
+      const trays = materialize(last.ctx, last.plan, opts.realize);
       if (phase.startIgnoredLocks) {
         // The search began from a tree without the pins (no free place was left for the other
         // trays): report the kept pins the layout it found breaks, and only those.
@@ -244,7 +262,7 @@ export function createRun(
         }
       }
       const summary = summarize(trays, input);
-      notices.push(...layoutWarnings(phase.ctx, trays, summary));
+      notices.push(...layoutWarnings(last.ctx, trays, summary));
       if (stop) {
         notices.push(cappedNotice(stop));
       }

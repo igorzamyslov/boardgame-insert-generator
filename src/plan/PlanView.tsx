@@ -47,6 +47,8 @@ export interface PlanViewProps {
   stale?: boolean;
   /** A search is running: the trays that are not pinned are dimmed, as Main draws it. */
   searching?: boolean;
+  /** The caption says what a tap does ("tap a tray for details"): the normal stage, not the editor's. */
+  tapHint?: boolean;
   /** The tray bar, shown in the slot above the box while a tray is selected (the app owns it). */
   bar?: ComponentChildren;
   /**
@@ -67,10 +69,22 @@ export interface PlanViewProps {
   ownedId?: string;
   /** Index of the layer shown (0 = the bottom layer); the app owns it. Clamped to the layers there are. */
   level: number;
+  /**
+   * The Layer switch is on "All" (board 2): every layer is drawn, the upper over the lower. Otherwise
+   * layer `level` is lit and the layers below it are ghosted under it.
+   */
+  layerAll?: boolean;
   onLevelChange: (level: number) => void;
   /** The tray a "Swap with…" is under way from, or null; the app owns it. */
   swapFrom: string | null;
-  onSwapFromChange: (key: string | null) => void;
+  onSwapFromChange: (key: string | null, mode?: "swap" | "putOn") => void;
+  /** What the tray chosen next does while `swapFrom` is set: a swap (default), or "Put on…". */
+  pick?: "swap" | "putOn";
+  /**
+   * Stands the tray on the base. Gives back the sentence that says why it can't be done, or null
+   * when it was (the app owns the check and the edit).
+   */
+  onPutOn?: (trayKey: string, baseKey: string) => string | null;
   /**
    * A picture of a plan and nothing more (the fit problems, UI rebuild Task 12): no tile is a
    * control, nothing is selected, dragged or lit by the pointer, the slot above the box and the
@@ -117,6 +131,7 @@ interface Drag {
 const NOTE_LEFTOVER_SOURCE =
   "Leftover trays and spacers can't be dragged. Tap one to select it, or drag a real tray.";
 const NOTE_LEFTOVER_TARGET = "Leftover trays and spacers can't be swapped with.";
+const NOTE_PUT_ON_SPARE = "Spare trays and spacers can't be stood on. Pick another tray.";
 const NOTE_NO_TARGET = "Nothing was swapped: drop the tray onto another tray.";
 
 /** Whether the keyboard focus ring should show (not after a mouse press); true if unsure. */
@@ -165,7 +180,8 @@ export function PlanView(props: PlanViewProps) {
   const phone = useMediaQuery(PHONE_QUERY);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
-  const [swapRefused, setSwapRefused] = useState(false);
+  const [swapRefused, setSwapRefused] = useState<string | boolean>(false);
+  const putting = props.pick === "putOn" && props.onPutOn !== undefined;
   // The tray bar starts a swap from outside: a refusal of the last one is no longer news.
   useEffect(() => {
     if (swapFrom === null) {
@@ -215,9 +231,31 @@ export function PlanView(props: PlanViewProps) {
   const components = props.components ?? [];
   const groups = props.groups ?? [];
   const names = trayNames(numbered, components, groups);
-  const shown = traysAt(trays, level);
+  const putOnPrompt = (from: string): string =>
+    `Pick the tray to put ${names.get(from)?.full ?? "this tray"} on.`;
+  const layerAll = props.layerAll === true && levels.length > 1;
+  // "All": every layer, the lower first so the upper stands over it (a merged part once, as all its members).
+  const shown = layerAll
+    ? levels
+        .flatMap((l) => traysAt(trays, l))
+        .filter((t, i, list) => list.findIndex((o) => o.key === t.key) === i)
+    : traysAt(trays, level);
+  const feet = (t: TraySpec) =>
+    layerAll
+      ? t.merged
+        ? t.merged.members.filter((m) => m.part !== "riser")
+        : [t]
+      : footprintsAt(t, level);
+  // "Layer n" lights layer n and ghosts the layers below it, under it: not tiles, nothing to press.
+  const ghosts = layerAll
+    ? []
+    : levels
+        .filter((l) => l < level)
+        .flatMap((l) => traysAt(trays, l).map((t) => ({ t, l })))
+        .filter(({ t }) => !shown.some((s) => s.key === t.key))
+        .flatMap(({ t, l }) => footprintsAt(t, l).map((f, i) => ({ t, f, i })));
   const rects = shown.flatMap((t) =>
-    footprintsAt(t, level).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
+    feet(t).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
   );
   const pillType = phone ? PHONE_PILL : DESKTOP_PILL;
   const pxPerMm = floorPx / frame.innerW;
@@ -292,6 +330,17 @@ export function PlanView(props: PlanViewProps) {
     if (swapFrom !== null && swapFrom !== key) {
       if (!swappable(key)) {
         setSwapRefused(true);
+        return;
+      }
+      if (putting) {
+        const why = props.onPutOn?.(swapFrom, key) ?? null;
+        if (why !== null) {
+          setSwapRefused(why);
+          return;
+        }
+        setSwapRefused(false);
+        setSwapFrom(null);
+        onSelect(swapFrom);
         return;
       }
       onSwap(swapFrom, key);
@@ -444,9 +493,15 @@ export function PlanView(props: PlanViewProps) {
 
   const message =
     swapFrom !== null
-      ? swapRefused
-        ? "Spare trays and spacers can't be swapped. Choose another tray, or press Escape."
-        : "Choose the tray to swap with, or press Escape."
+      ? typeof swapRefused === "string"
+        ? swapRefused
+        : putting
+          ? swapRefused
+            ? NOTE_PUT_ON_SPARE
+            : putOnPrompt(swapFrom)
+          : swapRefused
+            ? "Spare trays and spacers can't be swapped. Choose another tray, or press Escape."
+            : "Choose the tray to swap with, or press Escape."
       : dragNote;
   const hasBar = props.bar !== undefined && props.bar !== null && props.bar !== false;
   // A picture has no handlers: what a press, a key or the pointer could do is not there to do.
@@ -501,7 +556,6 @@ export function PlanView(props: PlanViewProps) {
       {readOnly ? null : (
         <StageSlot
           idle={phone && !hasBar && message === null}
-          quiet={message !== null}
           live={
             // always mounted, so a reader hears a note arrive
             <div role="status">
@@ -524,13 +578,37 @@ export function PlanView(props: PlanViewProps) {
           class="plan-box"
           data-region="plan-box"
           role="group"
-          aria-label={`Plan of layer ${idx + 1} of ${Math.max(1, levels.length)}, seen from above, box front at the bottom`}
+          aria-label={
+            layerAll
+              ? "Plan of all layers, seen from above, box front at the bottom"
+              : `Plan of layer ${idx + 1} of ${Math.max(1, levels.length)}, seen from above, box front at the bottom`
+          }
           data-readonly={readOnly ? "true" : undefined}
           {...handlers}
         >
           <div class="plan-floor" ref={floorRef}>
+            {ghosts.map(({ t, f, i }) => {
+              const look = lookOfTray(t, components, groups);
+              const a = toSvgRect(f, frame);
+              return (
+                <div
+                  key={`${t.key}:${i}`}
+                  aria-hidden="true"
+                  class="plan-tile is-ghost"
+                  style={{
+                    ...(look === null
+                      ? {}
+                      : { "--tile-fill": look.shade.fill, "--tile-line": look.shade.line }),
+                    "--x": pct(((frame.bc + a.x) / frame.innerW) * 100),
+                    "--y": pct(((frame.bc + a.y) / frame.innerD) * 100),
+                    "--w": pct((a.w / frame.innerW) * 100),
+                    "--d": pct((a.h / frame.innerD) * 100),
+                  }}
+                />
+              );
+            })}
             {shown.map((t) => {
-              const all = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
+              const all = feet(t).map((f) => toSvgRect(f, frame));
               const r = largestOf(all) ?? toSvgRect(t, frame);
               const name = names.get(t.key)?.full ?? t.key;
               const locked = lockedKeys.has(t.key);
@@ -576,9 +654,9 @@ export function PlanView(props: PlanViewProps) {
               ]
                 .filter((c) => c !== "")
                 .join(" ");
-              // A group's tile takes the page's neutral tokens (plan.css), not a kind's shade.
+              // A group's look carries its own hue (`lookOfTray`), a component's its kind's shade.
               const shade =
-                look === null || grouped
+                look === null
                   ? {}
                   : {
                       "--tile-fill": look.shade.fill,
@@ -689,15 +767,19 @@ export function PlanView(props: PlanViewProps) {
           "Front of the box"
         ) : (
           <>
-            {`${layerLabel(idx, levels.length)}, seen from above. Front of the box`}
+            {`${layerAll ? "All layers" : layerLabel(idx, levels.length)}, seen from above. Front of the box`}
             <Icon name="arrow-down" size={12} />
           </>
         )}
+        {props.tapHint === true && !phone ? " · tap a tray for details" : null}
       </p>
       {lockedKeys.size > 0 && !readOnly ? (
         <p class="plan-pins">Spacers fill the gaps again when the plan updates.</p>
       ) : null}
-      <ul class="visually-hidden" aria-label={`Trays on layer ${idx + 1}`}>
+      <ul
+        class="visually-hidden"
+        aria-label={layerAll ? "Trays on all layers" : `Trays on layer ${idx + 1}`}
+      >
         {shown.map((t) => (
           <li key={t.key}>
             {`${names.get(t.key)?.full ?? t.key}${lockedKeys.has(t.key) ? ", pinned" : ""}${sizeLockedKeys.has(t.key) ? ", size locked" : ""}`}

@@ -205,6 +205,54 @@ describe("layout warnings", () => {
     expect(doesNotFitNotice(noHeadroom, { x: 1, y: 0, z: 0 }).message).not.toContain("headroom");
   });
 
+  it("says how much of the play is room left empty beside copies, when some is", () => {
+    const ctx = createCtx(makeInput(reqs), fakeMeasure);
+    // one tray in the row: 2 × 0.5 mm of clearance is all the box lets it shift, the rest is empty
+    const x = layoutWarnings(ctx, trays, { ...okSummary, playX: 2.4, crossX: 1 })[0]?.message;
+    expect(x).toContain("Trays can shift 2.40 mm left–right");
+    expect(x).toContain("1.40 mm of it is room beside copies, too thin for a spacer.");
+    const nominal = layoutWarnings(ctx, trays, { ...okSummary, playX: 1.6, crossX: 4 })[0]?.message;
+    expect(nominal).not.toContain("beside copies");
+  });
+
+  describe("copies whose stack cannot afford the joints (owner, 2026-10-23)", () => {
+    const cell = comp({ minW: 40, minD: 40, minH: 10, contents: "Wood" });
+    const copies = req("c", [variant("v", [part("c:p0:0", [cell]), part("c:p1:0", [cell])])]);
+    // no riser to read the groove from here: the stack's own trays are what these say
+    const ctx = createCtx(makeInput([copies], { settings: { fillToTop: false } }), fakeMeasure);
+    const at = (key: string, level: number, lip: boolean, path = "0"): TraySpec =>
+      traySpec({ key, path, level, lip, stack: 0, w: 50, d: 50, h: 20 });
+
+    it("says the top copy has no rim, and that the copies only stack in that order", () => {
+      const w = layoutWarnings(ctx, [at("c:p0:0", 0, true), at("c:p1:0", 1, false)], okSummary);
+      const n = w.find((x) => x.code === NOTICE_CODES.copiesJoint);
+      expect(n?.level).toBe("info");
+      expect(n?.message).toBe(
+        "The top Wood tray has no rim, so the Wood trays only stack in this order.",
+      );
+    });
+
+    it("says nothing when every copy has its rim, or when the lip is off", () => {
+      const rimmed = layoutWarnings(ctx, [at("c:p0:0", 0, true), at("c:p1:0", 1, true)], okSummary);
+      expect(rimmed.map((n) => n.code)).not.toContain(NOTICE_CODES.copiesJoint);
+      const off = createCtx(
+        makeInput([copies], {
+          settings: { lip: { ...makeInput([]).settings.lip, enabled: false } },
+        }),
+        fakeMeasure,
+      );
+      const none = layoutWarnings(off, [at("c:p0:0", 0, false), at("c:p1:0", 1, false)], okSummary);
+      expect(none.map((n) => n.code)).not.toContain(NOTICE_CODES.copiesJoint);
+    });
+
+    it("says nothing for copies that stand in no stack, whatever their lip", () => {
+      const apart = [at("c:p0:0", 0, false, "0"), at("c:p1:0", 0, false, "1")];
+      expect(layoutWarnings(ctx, apart, okSummary).map((n) => n.code)).not.toContain(
+        NOTICE_CODES.copiesJoint,
+      );
+    });
+  });
+
   it("reports no fit as not found yet, naming the iterations, never as a proven fact", () => {
     const ctx = createCtx(makeInput(reqs), fakeMeasure);
     const n = doesNotFitNotice(ctx, { x: 12.34, y: 0, z: 0 }, [], 300_000);
@@ -212,7 +260,7 @@ describe("layout warnings", () => {
     expect(n.message).toContain("300,000 iterations");
     expect(n.message).toContain("not proof");
     expect(n.message).toContain("closest attempt so far is short by 12.4 mm in width (X)");
-    expect(n.message).toContain("Press “Keep searching” to search about 3 times longer");
+    expect(n.message).toContain("Press “Try another arrangement” to search about 3 times longer");
     for (const verdict of ["too small by", "don't fit in this box"]) {
       expect(n.message).not.toContain(verdict);
     }

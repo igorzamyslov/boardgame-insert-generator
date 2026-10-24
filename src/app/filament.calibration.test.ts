@@ -2,7 +2,7 @@
 // @vitest-environment node
 // The estimate against a slicer. The reference is OrcaSlicer 2.4.2 on its Bambu Lab X1 Carbon 0.4
 // nozzle, 0.20mm Standard profile with 2 wall loops, 15 % sparse infill, 5 top and 3 bottom layers,
-// PLA at 1.24 g/cm³: it used 575.0 g for the 8 parts of the `harbour-kings-flat` seed (DESIGN §7
+// PLA at 1.24 g/cm³: it used 575.0 g for the 8 parts of the `harbour-kings-flat` seed as 0.15.0 made it, frozen in test/fixtures/frozen-seeds (DESIGN §7
 // has the whole calibration, six inserts). If the geometry changes enough to move this, slice the
 // parts again before moving the tolerance.
 import { describe, expect, it } from "vitest";
@@ -15,7 +15,7 @@ const SLICER_G = 575.0;
 
 describe("filament estimate against the slicer", () => {
   it("is within 10 % of the slicer's grams for the flat Harbour Kings seed", async () => {
-    const { project } = loadSeed("harbour-kings-flat");
+    const { project } = loadSeed("harbour-kings-flat", true);
     expect(project.settings.infill).toBe(15);
     expect(project.printer.layerHeight).toBe(0.2);
     const printed = printableParts(project.layout?.trays ?? [], {

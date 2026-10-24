@@ -101,6 +101,8 @@ Notes for adding them later without reworking the layout engine:
    `2·boxClearance + (n − 1)·trayGap`, where `n` is the most trays crossed
    along that axis: about 1–1.5 mm at Fit "normal". It is shown per axis in
    the summary; above `settings.playLimit` (1.5 mm by default) it is penalized (§7.2) and warned about.
+   Room beside an alike tray (rule 9) that is thinner than a spacer can be stays empty and adds to
+   the play.
 2. **No vertical movement.** Every stack reaches the same top plane:
    `topPlane = box.innerHeight − box.headroom + settings.topPressFit`
    (`topPressFit` default 0, range −2…+1 mm). Stack height = Σ `tray.h`
@@ -139,6 +141,21 @@ Notes for adding them later without reworking the layout engine:
    at each end. Upper trays are lifted the same way. A tray whose components
    all have finger cuts and curved floor turned off (§5) is the user's choice
    and is exempt.
+9. **Alike trays are alike** (owner, 2026-10-23: "all trays from the same
+   group/set should be the same in size, no variations"; "it shouldn't matter
+   which one I put on top"). The copies of an item or group are a set: the
+   same tray of every copy. As printed, every tray of a set has the same
+   footprint, height and wells, so any can take any other's place. A set's
+   tray is built at the size the most demanding of its places asks of it (its
+   own minimum, or what a wider tray of another kind above it asks); room a
+   set's slot has beyond that is a spacer's, never the tray's. When any of a
+   set stands in a stack, all of it is built as a tray in the middle of one
+   (the lip's wall, the groove's wall and least height), and the stack shares
+   its surplus height among them in whole layers. Best-effort, while the
+   stack can afford them: the top copy's rim and the riser, with the groove,
+   under the bottom copy (rule 2); the stack drops the rim first, then the
+   riser, and a notice says so. Checked by `checkHardRules`
+   (`test-hard-rules.ts`) after `splitRisers`.
 
 ## 4. Architecture
 

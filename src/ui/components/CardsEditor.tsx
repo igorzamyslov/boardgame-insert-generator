@@ -13,7 +13,7 @@ import { COUNT, LENGTH, OFFSET, THICKNESS_CORRECTION } from "../limits";
 import { SettingsContext } from "../validation";
 import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { Alert, Choice, CountField, ExactRow, Group, Notes, NumField, TextBox } from "./controls";
-import { GrowthOptions } from "./GrowthOptions";
+import { RoomOptions } from "./RoomOptions";
 import { MoreOptions } from "./MoreOptions";
 import { changedOptions, flatDecksBlock } from "./moreSummary";
 import { RowRemove } from "./RowRemove";
@@ -312,7 +312,7 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
           `${at}/thickness/stackMm`,
         ]}
       >
-        <GrowthOptions component={c} index={index} onChange={onChange} />
+        <RoomOptions component={c} index={index} onChange={onChange} />
         <AccessChoice component={c} index={index} onChange={onChange} />
         <Choice
           label="Cards stand"

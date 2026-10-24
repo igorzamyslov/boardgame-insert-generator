@@ -652,4 +652,51 @@ describe("score", () => {
     const s = scorePlan(ctx, evaluate(ctx, { root, variants: many.map(() => 0) }));
     expect(s.terms.play).toBeGreaterThan(0);
   });
+
+  it("counts the room beside an alike tray that is too thin for a filler as left over", () => {
+    const cell = comp({ minW: 50, minD: 40, minH: 10, elastic: { w: true, d: true } });
+    const set = req("c", [variant("v", [part("c:p0:0", [cell]), part("c:p1:0", [cell])])]);
+    const ctx = createCtx(
+      makeInput([set], { box: { innerWidth: 56, innerDepth: 46 } }),
+      fakeMeasure,
+      // the plan as the search scores it: growth is the last step, and with it on the copy would
+      // be given the 2 mm (a copy of a set grows with its set) and nothing would be left over
+      { growth: false },
+    );
+    const plan = evaluate(ctx, {
+      root: leaf([{ req: 0, variant: 0, part: 0, rotated: false }]),
+      variants: [0],
+    });
+    expect(plan.air.length).toBeGreaterThan(0);
+    const bare = scorePlan(ctx, { ...plan, air: [] });
+    const empty = scorePlan(ctx, plan);
+    expect(empty.terms.leftover).toBeGreaterThan(bare.terms.leftover);
+    expect(empty.overflow).toBe(0);
+    // and the tray can shift in it: 2 mm of play against the limit of 1.5, where the box's own
+    // clearance alone is 1 mm
+    expect(plan.playX).toBe(200);
+    expect(plan.playY).toBe(200);
+    expect(empty.terms.play).toBeGreaterThan(0);
+  });
+
+  it("counts the room every copy is made to take under a wider tray of another kind as walls swollen beyond need", () => {
+    const cell = comp({ minW: 50, minD: 40, minH: 10 });
+    const set = req("c", [variant("v", [part("c:p0:0", [cell]), part("c:p1:0", [cell])])]);
+    const ctx = createCtx(makeInput([set, boxReq("o", 100, 60, 20)]), fakeMeasure);
+    const copy = { req: 0, variant: 0, part: 0, rotated: false };
+    const other = { ...copy, part: 1 };
+    const under = scorePlan(
+      ctx,
+      evaluate(ctx, { root: cut("x", leaf([copy, item(1)]), leaf([other])), variants: [0, 0] }),
+    );
+    const beside = scorePlan(
+      ctx,
+      evaluate(ctx, { root: cut("x", leaf([copy, other]), leaf([item(1)])), variants: [0, 0] }),
+    );
+    // both are feasible, and copies are one size either way; the wider one costs
+    expect(under.overflow).toBe(0);
+    expect(beside.overflow).toBe(0);
+    expect(under.terms.swollen).toBeGreaterThan(beside.terms.swollen);
+    expect(under.total).toBeGreaterThan(beside.total);
+  });
 });

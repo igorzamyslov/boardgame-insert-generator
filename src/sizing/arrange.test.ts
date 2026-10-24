@@ -5,6 +5,7 @@ import {
   columnBreaks,
   cutsFirst,
   isOneMember,
+  offeredSplit,
   rows2Break,
   rows2Order,
   splitBlocks,
@@ -230,5 +231,70 @@ describe("splitBlocks", () => {
     const groups = splitBlocks(many, 3);
     expect(groups).not.toBeNull();
     expect(groups?.flat().length).toBe(2000);
+  });
+});
+
+describe("offeredSplit (owner, 2026-10-23: splits are even)", () => {
+  const blocksOf = (n: number, weight = (i: number) => 1 + (i % 3)): CompartmentReq[][] =>
+    Array.from({ length: n }, (_, i) => [req(String.fromCharCode(97 + i), weight(i))]);
+  const counts = (n: number, parts: number): number[] | null =>
+    offeredSplit(blocksOf(n), parts)?.map((g) => g.length) ?? null;
+
+  it("offers the whole item for one part, whatever its size", () => {
+    expect(counts(1, 1)).toEqual([1]);
+    expect(counts(7, 1)).toEqual([7]);
+  });
+
+  it("splits four entries 2:2 or 1:1:1:1, never 2:1:1", () => {
+    expect(counts(4, 2)).toEqual([2, 2]);
+    expect(counts(4, 3)).toBeNull();
+    expect(counts(4, 4)).toEqual([1, 1, 1, 1]);
+  });
+
+  it("splits by count, not by weight, when the parts divide the entries", () => {
+    // weights 4 1 1 1: the lightest heaviest part would be a | b c d, which is 1:3
+    const heavy = [[req("a", 4)], [req("b", 1)], [req("c", 1)], [req("d", 1)]];
+    expect(groupNames(offeredSplit(heavy, 2))).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+    ]);
+  });
+
+  it("offers each part count that divides the entries, and no other", () => {
+    expect(counts(6, 2)).toEqual([3, 3]);
+    expect(counts(6, 3)).toEqual([2, 2, 2]);
+    expect(counts(6, 4)).toBeNull();
+    expect(counts(3, 2)).toBeNull();
+    expect(counts(3, 3)).toEqual([1, 1, 1]);
+    expect(counts(2, 2)).toEqual([1, 1]);
+  });
+
+  it("falls back to the weighted split when no part count up to four divides the entries", () => {
+    // 5 and 7 are prime: an uneven split is all there is, so it is the best balanced one, as before
+    expect(
+      groupNames(
+        offeredSplit(
+          blocksOf(5, (i) => (i === 0 ? 4 : 1)),
+          2,
+        ),
+      ),
+    ).toEqual([["a"], ["b", "c", "d", "e"]]);
+    expect(offeredSplit(blocksOf(7), 3)?.length).toBe(3);
+    expect(offeredSplit(blocksOf(7), 4)).toBeNull();
+  });
+
+  it("never offers more parts than entries, and keeps every entry in order", () => {
+    expect(offeredSplit(blocksOf(2), 4)).toBeNull();
+    expect(offeredSplit(blocksOf(4), 0)).toBeNull();
+    expect(names(offeredSplit(blocksOf(8), 4)?.flat(2) ?? [])).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+      "f",
+      "g",
+      "h",
+    ]);
   });
 });

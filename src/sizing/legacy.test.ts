@@ -65,7 +65,12 @@ const hashOf = (part: TrayPartReq): string =>
     JSON.stringify(
       sorted({
         ...part,
-        compartments: part.compartments.map((c) => ({ ...c, contents: own(c.contents) })),
+        // `forcedOk` (which wells may take the room a stack forces on their tray) did not exist in 0.6
+        compartments: part.compartments.map((c) => ({
+          ...c,
+          forcedOk: undefined,
+          contents: own(c.contents),
+        })),
       }),
     ),
   );
@@ -96,7 +101,10 @@ function sizedNow(raw: unknown): { shot: Shot; requirements: TrayRequirement[] }
     throw new Error(parsed.error);
   }
   const { components, groups, settings } = parsed.project;
-  const { requirements, notices } = size(components, settings, groups);
+  // 0.6 grew every well by default; since the growth redesign a tray never grows on its own, and that old
+  // default is the fill setting "bigger wells" (owner, 2026-10-23), so the snapshot is compared
+  // with it on.
+  const { requirements, notices } = size(components, { ...settings, biggerWells: true }, groups);
   return { shot: shotOf(requirements, notices.length), requirements };
 }
 
@@ -109,14 +117,47 @@ describe("an ungrouped project sizes as it did in 0.6", () => {
     const { shot, requirements } = sizedNow(multiBlock);
     // 0.8.0 adds a third arrangement, columns (group-tray-fill spec §3 (b)), ranked after strip and
     // rows2: 0.6's variants are all still there, the same and in the same order, with columns after.
+    // 0.15.0 offers a figure's other resting faces and turned pockets as options of their own
+    // (standing-turned, flat, lying-turned, …): the 0.6 variants are all still there too, the same
+    // and in the same order, among them.
+    const before = new Map(
+      (was["multi-block"]?.requirements ?? []).map(
+        (r) => [r.key, new Set(r.variants.map((v) => v.id))] as const,
+      ),
+    );
     const without = {
       ...shot,
       requirements: shot.requirements.map((r) => ({
         ...r,
-        variants: r.variants.filter((v) => !v.id.includes("|columns|")),
+        variants: r.variants.filter(
+          (v) => !v.id.includes("|columns|") && before.get(r.key)?.has(v.id) === true,
+        ),
       })),
     };
-    expect(without).toEqual(was["multi-block"]);
+    // 0.14.0 offers only even splits (owner, 2026-10-23): a split of three decks in two is gone,
+    // and a split in four is new. What is still offered is 0.6's, the same and in the same order.
+    const old = was["multi-block"] as Shot;
+    const kept = {
+      ...old,
+      requirements: old.requirements.map((r, i) => ({
+        ...r,
+        variants: r.variants.filter((v) =>
+          shot.requirements[i]?.variants.some((now) => now.id === v.id),
+        ),
+      })),
+    };
+    expect({
+      ...without,
+      requirements: without.requirements.map((r) => ({
+        ...r,
+        variants: r.variants.filter((v) => !v.id.endsWith("split4")),
+      })),
+    }).toEqual(kept);
+    const gone = old.requirements.flatMap((r, i) =>
+      r.variants.filter((v) => !shot.requirements[i]?.variants.some((now) => now.id === v.id)),
+    );
+    expect(gone.length).toBeGreaterThan(0);
+    expect(gone.every((v) => /split[23]$/.test(v.id))).toBe(true);
     expect(shot.requirements.some((r) => r.variants.some((v) => v.id.includes("|columns|")))).toBe(
       true,
     );

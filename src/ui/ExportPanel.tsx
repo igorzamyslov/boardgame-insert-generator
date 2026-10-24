@@ -21,7 +21,13 @@ import { buildSpecOf, numberParts } from "../instructions/numbering";
 import type { Component, Group, Printer, Settings, TraySpec } from "../model/types";
 import { Button, Card, CloseButton, Dialog, Icon, IconTile, ProgressBar } from "../kit";
 import { formatGrams } from "./estimates";
-import { componentIndexOfTray, isGroupTray, shadeIndexOf, shadeVars } from "./identity";
+import {
+  componentIndexOfTray,
+  groupShadeIndexOfTray,
+  isGroupTray,
+  shadeIndexOf,
+  shadeVars,
+} from "./identity";
 import { useFilament } from "./useFilament";
 import "./export.css";
 
@@ -533,8 +539,9 @@ export function ExportPanel(p: ExportPanelProps) {
         const name = names.get(part.spec.key)?.full ?? part.label;
         const at = componentIndexOfTray(part.spec, components);
         const kind = at === null ? undefined : components[at]?.kind;
-        // a group's tray has no kind of its own: the neutral swatch, with a line to show on the sheet
-        const grouped = isGroupTray(part.spec, { components, groups: p.groups ?? [] });
+        // a group's tray has no kind of its own: its group's hue
+        const own = { components, groups: p.groups ?? [] };
+        const grouped = isGroupTray(part.spec, own);
         return (
           <li
             class="export-chip"
@@ -543,7 +550,7 @@ export function ExportPanel(p: ExportPanelProps) {
             data-group={grouped ? "true" : undefined}
             style={
               grouped
-                ? shadeVars("group", 0)
+                ? shadeVars("group", groupShadeIndexOfTray(part.spec, own))
                 : at === null || kind === undefined
                   ? undefined
                   : shadeVars(kind, shadeIndexOf(components, at))

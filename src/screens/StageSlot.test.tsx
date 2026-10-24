@@ -7,9 +7,10 @@ import { StageSlot } from "./StageSlot";
 afterEach(cleanup);
 
 describe("StageSlot", () => {
-  it("asks for a tap when nothing is selected", () => {
-    render(<StageSlot />);
-    expect(screen.getByText("Tap a tray for details.")).toBeTruthy();
+  it("is empty when nothing is selected: the hint is the plan's caption", () => {
+    const { container } = render(<StageSlot />);
+    expect(screen.queryByText("Tap a tray for details.")).toBeNull();
+    expect(container.querySelector(".stage-slot")?.getAttribute("data-held")).toBeNull();
   });
 
   it("shows what it is given in place of the ask", () => {
@@ -33,9 +34,9 @@ describe("StageSlot", () => {
     expect(container.querySelector(".stage-slot")?.getAttribute("data-held")).toBe("true");
   });
 
-  it("takes empty children as nothing, so the ask stays", () => {
-    render(<StageSlot>{null}</StageSlot>);
-    expect(screen.getByText("Tap a tray for details.")).toBeTruthy();
+  it("takes empty children as nothing", () => {
+    const { container } = render(<StageSlot>{null}</StageSlot>);
+    expect(container.querySelector(".stage-slot")?.getAttribute("data-held")).toBeNull();
   });
 
   it("keeps its live region, always there, before whatever else it shows", () => {
@@ -48,11 +49,6 @@ describe("StageSlot", () => {
     );
     expect(screen.getByRole("status")).toBe(live);
     expect(container.querySelector(".stage-slot")?.firstElementChild).toBe(live);
-  });
-
-  it("can leave the ask out, when something else is being said", () => {
-    render(<StageSlot quiet />);
-    expect(screen.queryByText("Tap a tray for details.")).toBeNull();
   });
 
   it("takes no room while idle, and is still read out", () => {

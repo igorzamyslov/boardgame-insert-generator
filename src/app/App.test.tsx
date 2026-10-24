@@ -1097,7 +1097,7 @@ describe("App", () => {
     expect(screen.queryByText(/Preview:/)).toBeNull();
   });
 
-  it("offers Reprint everything, not Keep searching, for a layout made under older geometry", async () => {
+  it("offers Reprint everything, not Try another arrangement, for a layout made under older geometry", async () => {
     const p = fixtureProject();
     renderApp({
       project: {
@@ -1107,7 +1107,7 @@ describe("App", () => {
     });
     expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
     const banner = document.querySelector('.k-notice[data-tone="warn"]');
     expect(banner?.textContent).toContain(
       "Made with an older version of the app. Trays printed from it won't stack with trays you print now.",
@@ -1151,41 +1151,43 @@ describe("App", () => {
     const status = (): HTMLElement =>
       document.querySelector('[data-region="status"]') as HTMLElement;
     const heading = (): string => screen.getByRole("heading", { level: 1 }).textContent ?? "";
+    /** Opens the ⋯ menu of the stage and presses "Try another arrangement". */
+    const tryAnother = (): void => {
+      fireEvent.click(screen.getByRole("button", { name: "Plan options" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Try another arrangement/ }));
+    };
 
     it("says everything fits, with the trays, the layers and the height", () => {
       renderApp({ project: withLayoutProject() });
       // two stored trays 40 mm high; the box is 70 mm inside and keeps 8 mm free on top
       expect(heading()).toBe("Everything fits");
-      expect(status().textContent).toContain("2 trays in 1 layer, 40 of 62 mm high");
+      expect(status().textContent).toContain("2 trays · 1 layer · 40 of 62 mm");
       expect(
         screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled"),
       ).toBeNull();
     });
 
-    it("Keep searching starts a longer search and becomes Stop while it runs", async () => {
+    it("Try another arrangement starts a longer search and becomes Stop while it runs", async () => {
       const { stub } = renderApp({ project: withLayoutProject() });
-      fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
+      tryAnother();
       expect(await screen.findByRole("button", { name: "Stop" })).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
       expect(stub.calls).toHaveLength(1);
-      expect(heading()).toBe("Searching for a better plan…");
+      expect(heading()).toBe("Searching…");
       // Main shows no progress bar
       expect(screen.queryByRole("progressbar")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Stop" }));
       expect(stub.cancelCount()).toBeGreaterThan(0);
       await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
-      expect(screen.getByRole("button", { name: "Keep searching" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Plan options" })).toBeTruthy();
     });
 
-    it("keeps the focus on the button across Keep searching and Stop", async () => {
+    it("keeps the focus moving across Try another arrangement and Stop", async () => {
       renderApp({ project: withLayoutProject() });
-      const keep = screen.getByRole("button", { name: "Keep searching" });
-      keep.focus();
-      fireEvent.click(keep);
+      tryAnother();
       const stop = await screen.findByRole("button", { name: "Stop" });
       expect(document.activeElement).toBe(stop);
       fireEvent.click(stop);
-      const again = await screen.findByRole("button", { name: "Keep searching" });
+      const again = await screen.findByRole("button", { name: "Plan options" });
       expect(document.activeElement).toBe(again);
     });
 

@@ -8,7 +8,7 @@ import { DEFAULT_BOX, newComponent } from "../model/defaults";
 import type { CompartmentSpec, Group } from "../model/types";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
-import { shadeHex } from "../ui/identity";
+import { shadeHex, shadeOf } from "../ui/identity";
 import planCss from "./plan.css?raw";
 import { planFrame } from "./layers";
 import { PlanView } from "./PlanView";
@@ -859,11 +859,12 @@ describe("PlanView", () => {
     expect(screen.queryByText("Tap a tray for details.")).toBeNull();
   });
 
-  it("asks for a tap in the slot while no tray is selected", () => {
+  it("says what a tap does in the caption, where the app asks for it, and not in the slot", () => {
     const { p, view } = setup();
-    expect(screen.getByText("Tap a tray for details.").closest(".stage-slot")).not.toBeNull();
-    view.rerender(<Host {...p} selectedKey="a:p0:0" bar={<p>The tray bar</p>} />);
-    expect(screen.queryByText("Tap a tray for details.")).toBeNull();
+    expect(screen.queryByText(/tap a tray for details/)).toBeNull();
+    view.rerender(<Host {...p} tapHint />);
+    expect(screen.getByText(/tap a tray for details/).closest(".plan-caption")).not.toBeNull();
+    expect(document.querySelector(".stage-slot")?.textContent).toBe("");
   });
 
   it("rings the selected tray on the tile, with the ring over its neighbours", () => {
@@ -892,6 +893,31 @@ describe("PlanView", () => {
     cleanup();
     setup({ trays: [A, B] });
     expect(screen.getByText("Layer 1, seen from above. Front of the box")).toBeTruthy();
+  });
+
+  it("lights layer n and ghosts the layers below it, under it, with nothing to press", () => {
+    const { box } = setup({ trays: [A, B, C], level: 1 });
+    // C is on layer 2: lit and a control; A and B (layer 1) are ghosts
+    expect(box.querySelector('[data-key="c:p0:0"]')).not.toBeNull();
+    expect(box.querySelector('[data-key="a:p0:0"]')).toBeNull();
+    const ghosts = [...box.querySelectorAll(".plan-tile.is-ghost")];
+    expect(ghosts).toHaveLength(2);
+    expect(ghosts.every((g) => g.getAttribute("aria-hidden") === "true")).toBe(true);
+    // under the lit layer, in the page's order
+    const tiles = [...box.querySelectorAll(".plan-tile")];
+    expect(tiles.indexOf(ghosts[0] as Element)).toBeLessThan(
+      tiles.indexOf(box.querySelector('[data-key="c:p0:0"]') as Element),
+    );
+  });
+
+  it("draws every layer, the upper over the lower, for All", () => {
+    const { box } = setup({ trays: [A, B, C], layerAll: true });
+    for (const key of ["a:p0:0", "b:p0:0", "c:p0:0"]) {
+      expect(box.querySelector(`[data-key="${key}"]`), key).not.toBeNull();
+    }
+    expect(box.querySelectorAll(".is-ghost")).toHaveLength(0);
+    expect(screen.getByText("All layers, seen from above. Front of the box")).toBeTruthy();
+    expect(box.getAttribute("aria-label")).toMatch(/all layers/i);
   });
 
   it("captions a phone's box with its front only, and drops the slot's hint", () => {
@@ -1152,13 +1178,14 @@ describe("a group's trays in the plan (G1)", () => {
     expect(box.querySelector('[data-key="kit:p1:0"]')?.getAttribute("title")).toBe("Player kit 2");
   });
 
-  it("draws a group's tray neutral: no kind shade on the tile, the tile marked as a group's", () => {
+  it("draws a group's tray in its group's hue, not a kind's, the tile marked as a group's", () => {
     const { box } = withKit();
     const tile = box.querySelector('[data-key="kit:p0:0"]') as HTMLElement;
+    const hue = shadeOf("group", 0);
     expect(tile.classList.contains("is-group")).toBe(true);
-    expect(tile.style.getPropertyValue("--tile-fill")).toBe("");
-    expect(tile.style.getPropertyValue("--tile-line")).toBe("");
-    expect(tile.style.getPropertyValue("--tile-ink")).toBe("");
+    expect(tile.style.getPropertyValue("--tile-fill")).toBe(hue.fill);
+    expect(tile.style.getPropertyValue("--tile-line")).toBe(hue.line);
+    expect(tile.style.getPropertyValue("--tile-ink")).toBe(hue.ink);
     const lone = box.querySelector('[data-key="hex:p0:0"]') as HTMLElement;
     expect(lone.classList.contains("is-group")).toBe(false);
     expect(lone.style.getPropertyValue("--tile-fill")).not.toBe("");
@@ -1225,11 +1252,9 @@ describe("a group's trays in the plan (G1)", () => {
     expect(planCss).toMatch(/\.plan-tile\.is-lifted\s*\{[^}]*var\(--tile-line/);
   });
 
-  it("is drawn from the page's tokens: --sheet ground, a 2 px --muted-strong line and pill", () => {
-    const rule = /\.plan-tile\.is-group\s*\{([^}]*)\}/.exec(planCss)?.[1] ?? "";
-    expect(rule).toMatch(/--tile-fill:\s*var\(--sheet\)/);
-    expect(rule).toMatch(/--tile-line:\s*var\(--muted-strong\)/);
-    expect(rule).toMatch(/--tile-ink:\s*var\(--muted-strong\)/);
+  it("takes its group's hue for the 2 px line and the pill, not the page's neutral tokens", () => {
+    // no is-group rule sets --tile-*: the tile's inline style does, from the group's shade
+    expect(planCss).not.toMatch(/\.plan-tile\.is-group\s*\{[^}]*--tile-fill/);
     // the tile's line is 2 px for every tile (the base rule) and the cells' 1.5 px in their own colours
     expect(planCss).toMatch(/\.plan-tile\s*\{[^}]*border:\s*2px solid var\(--tile-line/);
     const cell = /\.plan-tile\.is-group \.plan-cell\s*\{([^}]*)\}/.exec(planCss)?.[1] ?? "";

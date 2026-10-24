@@ -305,7 +305,8 @@ describe("size", () => {
       const { requirements, notices } = size([m], s);
       expect(notices).toEqual([]);
       const req = at(requirements, 0);
-      expect(req.variants.map((v) => v.id)).toEqual([
+      // (the figures as measured; their other resting faces are options of their own)
+      expect(req.variants.map((v) => v.id).filter((id) => id.startsWith("standing|"))).toEqual([
         "standing|strip|split1",
         "standing|strip|split2",
         "standing|rows2|split1",
@@ -640,7 +641,6 @@ describe("size", () => {
       const req = at(requirements, 0);
       expect(req.variants.map((v) => v.id)).toEqual([
         "upright-long+bulk-shallow|strip|split1",
-        "upright-long+bulk-shallow|strip|split2",
         "upright-long+bulk-shallow|rows2|split1",
         "upright-long+bulk-shallow|strip|split3",
         // The fallback bins stack in a column beside the deck (group-tray-fill spec §3 (b)).
@@ -655,10 +655,10 @@ describe("size", () => {
         shape: { type: "rect", w: 15, d: 15 },
         thickness: 2,
         count: 40,
-        storage: "auto",
+        storage: "upright",
       });
       const { requirements, notices } = size([squares], thinAndTight);
-      expect(notices).toEqual([]);
+      expect(notices.map((n) => n.code)).toEqual(["sizing.uprightHardToReach"]);
       const ids = at(requirements, 0).variants.map((v) => v.id);
       expect(ids.length).toBeGreaterThan(0);
       expect(ids.some((id) => id.includes("bulk"))).toBe(false);

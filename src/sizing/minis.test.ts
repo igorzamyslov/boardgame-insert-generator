@@ -1,20 +1,38 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Settings } from "../model/types";
-import { lyingDims, minisOptions } from "./minis";
+import { orientations, minisOptions } from "./minis";
+import { minOuter } from "./realize";
+import { size } from "./group";
 import { at, minis } from "./test-helpers";
 
 const s: Settings = DEFAULT_SETTINGS;
 
-describe("lyingDims", () => {
-  it("lays a tall figure down along its larger footprint side", () => {
-    expect(lyingDims({ w: 20, d: 30, h: 50 })).toEqual({ w: 20, d: 50, h: 30 });
-    expect(lyingDims({ w: 30, d: 20, h: 50 })).toEqual({ w: 50, d: 20, h: 30 });
-    expect(lyingDims({ w: 25, d: 25, h: 40 })).toEqual({ w: 40, d: 25, h: 25 });
+describe("orientations", () => {
+  const key = (d: { w: number; d: number; h: number }) => `${d.w}×${d.d}×${d.h}`;
+
+  it("lists each resting face once, the figure as given first", () => {
+    expect(orientations({ w: 20, d: 30, h: 50 }, false).map(key)).toEqual([
+      "20×30×50", // as given
+      "20×50×30", // on its side
+      "50×30×20", // flat
+    ]);
   });
 
-  it("leaves a figure that is not taller than wide alone", () => {
-    expect(lyingDims({ w: 30, d: 20, h: 15 })).toEqual({ w: 30, d: 20, h: 15 });
+  it("lays a figure that is wider than tall down too (the airship: 33 × 101 × 41)", () => {
+    expect(orientations({ w: 33, d: 101, h: 41 }, false).map(key)).toEqual([
+      "33×101×41",
+      "41×101×33", // flat on its largest face
+      "33×41×101", // on its tail
+    ]);
+  });
+
+  it("leaves a figure kept upright as it is", () => {
+    expect(orientations({ w: 20, d: 30, h: 50 }, true).map(key)).toEqual(["20×30×50"]);
+  });
+
+  it("has one orientation for a cube", () => {
+    expect(orientations({ w: 25, d: 25, h: 25 }, false)).toHaveLength(1);
   });
 });
 
@@ -39,7 +57,7 @@ describe("minisOptions", () => {
   it("makes one pocket per figure, cut half its depth through the front and back walls", () => {
     const { options, notices } = minisOptions(minis(), s);
     expect(notices).toEqual([]);
-    expect(options.map((o) => o.id)).toEqual(["standing", "lying"]);
+    expect(options.map((o) => o.id)).toEqual(["standing", "lying", "lying-turned"]);
     const standing = at(options, 0);
     expect(standing.blocks).toHaveLength(1);
     const block = at(standing.blocks, 0);
@@ -51,21 +69,27 @@ describe("minisOptions", () => {
       { type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false },
       { type: "wallCutout", side: "back", depthFraction: 0.5, floorNotch: false },
     ]);
+    // 25 × 25 × 40 on its side: as high as it is wide
     expect(at(at(at(options, 1).blocks, 0), 0)).toMatchObject({ minW: 41, minD: 26, minH: 26 });
   });
 
   describe("a short figure: a full-depth cut with a floor notch, front and back", () => {
-    const pocketOf = (figure: { w: number; d: number; h: number }, variant = 0) =>
-      at(
+    const pocketOf = (figure: { w: number; d: number; h: number }, id = "standing") => {
+      const { options } = minisOptions(
+        minis({ figures: [{ name: "Pawn", count: 2, ...figure }] }),
+        s,
+      );
+      return at(
         at(
           at(
-            minisOptions(minis({ figures: [{ name: "Pawn", count: 2, ...figure }] }), s).options,
-            variant,
+            options.filter((o) => o.id === id),
+            0,
           ).blocks,
           0,
         ),
         0,
       );
+    };
     const cuts = (c: ReturnType<typeof pocketOf>) =>
       c.features.flatMap((f) => (f.type === "wallCutout" ? [f] : []));
     const notched = [
@@ -89,19 +113,26 @@ describe("minisOptions", () => {
 
     it("judges the figure's height in each variant: a tall figure that lies down 15 mm high is short", () => {
       // standing it is 30 mm tall; lying it is as high as its larger footprint side
-      expect(cuts(pocketOf({ w: 15, d: 15, h: 30 }, 0))).toEqual(half);
-      expect(cuts(pocketOf({ w: 15, d: 15, h: 30 }, 1))).toEqual(notched);
-      // lying it is 30 mm high, taller than a fingertip's half-depth needs
-      expect(cuts(pocketOf({ w: 10, d: 30, h: 50 }, 1))).toEqual(half);
+      expect(cuts(pocketOf({ w: 15, d: 15, h: 30 }))).toEqual(half);
+      expect(cuts(pocketOf({ w: 15, d: 15, h: 30 }, "lying"))).toEqual(notched);
+      // on its side it is 30 mm high, taller than a fingertip's half-depth needs
+      expect(cuts(pocketOf({ w: 10, d: 30, h: 50 }, "lying"))).toEqual(half);
     });
   });
 
-  it("offers no lying variant when nothing is taller than wide", () => {
+  it("lays a figure down that is wider than tall, and offers its pocket turned in plan", () => {
     const { options } = minisOptions(
       minis({ figures: [{ name: "Cart", w: 30, d: 20, h: 15, count: 1 }] }),
       s,
     );
-    expect(options.map((o) => o.id)).toEqual(["standing"]);
+    expect(options.map((o) => o.id)).toEqual([
+      "standing",
+      "standing-turned",
+      "lying",
+      "lying-turned",
+      "tall",
+      "tall-turned",
+    ]);
     expect(at(at(at(options, 0).blocks, 0), 0).contents).toBe("Minis — Cart");
   });
 
@@ -141,6 +172,12 @@ describe("minisOptions", () => {
     expect(deep.minW).toBe(57.74); // √(100000/30) = 57.735…, rounded up
     expect(deep.minH).toBe(30);
   });
+
+  it("bulk mode packs by the figure's own packing when it has one", () => {
+    const { options } = minisOptions(minis({ storage: "bulk", packing: 1 }), s);
+    // the bounding-box volume is 50 000 mm³: at packing 1 the pile needs exactly that
+    expect(at(at(at(options, 0).blocks, 0), 0).minVolume).toBe(50000);
+  });
 });
 
 describe("minis growth (minimal-trays spec §5)", () => {
@@ -152,17 +189,112 @@ describe("minis growth (minimal-trays spec §5)", () => {
     expect(pocket().growth).toBeUndefined();
   });
 
-  it("makes pockets looser in width and length when asked, never in depth", () => {
-    const c = pocket(minis({ growth: { w: 4, d: "auto", h: "max" } }));
-    expect(c.elastic).toEqual({ w: true, d: true, h: false });
-    // auto: the figure's own 25 mm
-    expect(c.growth).toEqual({ w: 4, d: 25 });
+  it("never makes pockets looser: minis offer no room, whatever a file sets", () => {
+    // was per-axis growth of a pocket; the pocket is as loose as its clearance (owner, 2026-10-23)
+    const c = pocket({ ...minis(), room: "max" } as never);
+    expect(c.elastic).toEqual({ w: false, d: false, h: false });
+    expect(c.growth).toBeUndefined();
   });
 
-  it("stored as bulk, grows like loose pieces: auto on every axis", () => {
-    const c = pocket(minis({ storage: "bulk" }));
-    expect(c.elastic).toEqual({ w: true, d: true, h: true });
-    expect(minis({ storage: "bulk", growth: { h: "off" } }).growth).toEqual({ h: "off" });
-    expect(pocket(minis({ storage: "bulk", growth: { h: "off" } })).elastic.h).toBe(false);
+  it("stored as bulk, grows like loose pieces only under bigger wells: auto on every axis", () => {
+    expect(pocket(minis({ storage: "bulk" })).elastic).toEqual({ w: false, d: false, h: false });
+    const wells = { ...s, biggerWells: true };
+    const bin = at(at(at(minisOptions(minis({ storage: "bulk" }), wells).options, 0).blocks, 0), 0);
+    expect(bin.elastic).toEqual({ w: true, d: true, h: true });
+    // pockets stay tight under bigger wells: more room there is only a looser fit
+    const pockets = at(at(at(minisOptions(minis(), wells).options, 0).blocks, 0), 0);
+    expect(pockets.elastic).toEqual({ w: false, d: false, h: false });
+  });
+});
+
+describe("any side, any turn", () => {
+  const airship = { name: "Airship", w: 33, d: 101, h: 41, count: 1 };
+  const trayVolume = (c: ReturnType<typeof minis>, only?: string): number => {
+    const { requirements } = size([c], s);
+    const candidates = requirements
+      .flatMap((r) => r.variants)
+      .filter((v) => only === undefined || v.id.startsWith(`${only}|`));
+    expect(candidates.length).toBeGreaterThan(0);
+    return Math.min(
+      ...candidates.map((v) => {
+        const o = minOuter(at(v.parts, 0), s, { lipped: false, level: 0 });
+        return o.w * o.d * o.h;
+      }),
+    );
+  };
+
+  it("offers the airship lying, and its tray is smaller than standing", () => {
+    const c = minis({ figures: [airship] });
+    const { options } = minisOptions(c, s);
+    expect(options.map((o) => o.id)).toContain("flat");
+    const standing = at(at(at(options, 0).blocks, 0), 0);
+    expect(standing).toMatchObject({ minW: 34, minD: 102, minH: 42 });
+    const flat = at(
+      at(
+        at(
+          options.filter((o) => o.id === "flat"),
+          0,
+        ).blocks,
+        0,
+      ),
+      0,
+    );
+    expect(flat).toMatchObject({ minW: 42, minD: 102, minH: 34 });
+    expect(trayVolume(c)).toBeLessThan(trayVolume(c, "standing"));
+  });
+
+  it("keeps a figure marked keep upright standing, and never lays it down", () => {
+    const { options } = minisOptions(minis({ figures: [{ ...airship, keepUpright: true }] }), s);
+    expect(options.map((o) => o.id)).toEqual(["standing", "standing-turned"]);
+    for (const o of options) {
+      expect(at(at(o.blocks, 0), 0).minH).toBe(42);
+    }
+  });
+
+  it("lays down only the figures not kept upright", () => {
+    const { options } = minisOptions(
+      minis({
+        figures: [
+          { ...airship, keepUpright: true },
+          { name: "Hero", w: 25, d: 25, h: 40, count: 1 },
+        ],
+      }),
+      s,
+    );
+    const lying = at(
+      options.filter((o) => o.id === "lying"),
+      0,
+    );
+    expect(at(at(lying.blocks, 0), 0).minH).toBe(42);
+    expect(at(at(lying.blocks, 1), 0).minH).toBe(26);
+  });
+
+  it("turns pockets in plan by itself: a turned option swaps w and d", () => {
+    const { options } = minisOptions(minis({ figures: [airship] }), s);
+    const standing = at(
+      at(
+        at(
+          options.filter((o) => o.id === "standing"),
+          0,
+        ).blocks,
+        0,
+      ),
+      0,
+    );
+    const turned = at(
+      at(
+        at(
+          options.filter((o) => o.id === "standing-turned"),
+          0,
+        ).blocks,
+        0,
+      ),
+      0,
+    );
+    expect([turned.minW, turned.minD, turned.minH]).toEqual([
+      standing.minD,
+      standing.minW,
+      standing.minH,
+    ]);
   });
 });

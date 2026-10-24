@@ -29,9 +29,7 @@ describe("EditorStage", () => {
     renderApp({ project: loadSeed("harbour-kings").project });
     editMarket();
     const h1 = screen.getByRole("heading", { level: 1 });
-    expect(h1.textContent).toMatch(
-      /^Market deck tray, \d+(\.\d)? × \d+(\.\d)? mm\. It grows as you add cards\.$/,
-    );
+    expect(h1.textContent).toMatch(/^Market deck tray, \d+(\.\d)? × \d+(\.\d)? mm\.$/);
     // the name is in bold, as Edit has it
     expect(h1.querySelector("strong")?.textContent).toBe("Market deck");
     // the slot is the board's 52 px one, and the stage holds no status heading beside it
@@ -94,8 +92,7 @@ describe("EditorStage", () => {
         within(layerGroup())
           .getAllByRole("button")
           .map((b) => b.textContent),
-      ).toEqual(["Layer 1 (bottom)", "Layer 2 (top)"]);
-      expect(within(layerGroup()).queryByText("All")).toBeNull();
+      ).toEqual(["Layer 1", "Layer 2", "All"]);
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     });
 
@@ -110,13 +107,13 @@ describe("EditorStage", () => {
       const first = trays.find((t) => t.key.startsWith("market01:"));
       expect(first).toBeDefined();
       const home = first?.level ?? 0;
-      expect(pressed()).toEqual([home === 0 ? "Layer 1 (bottom)" : "Layer 2 (top)"]);
+      expect(pressed()).toEqual([home === 0 ? "Layer 1" : "Layer 2"]);
       expect(shownKeys().every((k) => level(k) === home)).toBe(true);
       expect(document.querySelector(".plan-tile.is-lifted")).not.toBeNull();
       // the other layer: its trays are drawn, and the item's are not on it
       fireEvent.click(
         within(layerGroup()).getByRole("button", {
-          name: home === 0 ? "Layer 2 (top)" : "Layer 1 (bottom)",
+          name: home === 0 ? "Layer 2" : "Layer 1",
         }),
       );
       expect(shownKeys().length).toBeGreaterThan(0);
@@ -132,13 +129,13 @@ describe("EditorStage", () => {
       const before = pressed()[0];
       fireEvent.click(
         within(layerGroup()).getByRole("button", {
-          name: before === "Layer 1 (bottom)" ? "Layer 2 (top)" : "Layer 1 (bottom)",
+          name: before === "Layer 1" ? "Layer 2" : "Layer 1",
         }),
       );
       fireEvent.click(screen.getByRole("button", { name: "Done" }));
       open(/^Event cards, /);
       const event = (project.layout?.trays ?? []).find((t) => t.key.startsWith("event"));
-      const expected = event?.level === 0 ? "Layer 1 (bottom)" : "Layer 2 (top)";
+      const expected = event?.level === 0 ? "Layer 1" : "Layer 2";
       expect(pressed()).toEqual([expected]);
       expect(document.querySelector(".plan-tile.is-lifted")).not.toBeNull();
     });
@@ -285,14 +282,14 @@ describe("StageSentence", () => {
   const tray = (over: Partial<TraySpec> = {}): TraySpec => makeTray({ w: 95, d: 190, ...over });
 
   it("gives the size, and that a deck grows", () => {
-    render(<StageSentence component={cards()} trays={[tray()]} />);
+    render(<StageSentence component={cards({ room: 20 })} trays={[tray()]} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Market deck tray, 95 × 190 mm. It grows as you add cards.",
     );
   });
 
   it("says nothing of growing for a deck that does not, or for another kind", () => {
-    render(<StageSentence component={cards({ growth: { stack: "off" } })} trays={[tray()]} />);
+    render(<StageSentence component={cards({ room: undefined })} trays={[tray()]} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Market deck tray, 95 × 190 mm.",
     );
@@ -511,9 +508,9 @@ describe("a group's stage (G2)", () => {
         .getAllByRole("button", { pressed: true })
         .map((b) => b.textContent ?? "");
     // the group is on the second layer, and the box opens there
-    expect(pressed()).toEqual(["Layer 2 (top)"]);
-    fireEvent.click(within(layers).getByRole("button", { name: "Layer 1 (bottom)" }));
-    expect(pressed()).toEqual(["Layer 1 (bottom)"]);
+    expect(pressed()).toEqual(["Layer 2"]);
+    fireEvent.click(within(layers).getByRole("button", { name: "Layer 1" }));
+    expect(pressed()).toEqual(["Layer 1"]);
   });
 
   it("draws the strip for a phone with the group's trays edited", () => {

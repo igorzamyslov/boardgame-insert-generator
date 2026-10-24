@@ -2,6 +2,8 @@
 // Do not rename or change anything here without a roadmap contract change.
 // All lengths are millimetres.
 
+import type { Room } from "./room";
+
 export type Access = "often" | "sometimes" | "setup";
 export type Side = "front" | "back" | "left" | "right"; // tray-local: front = −Y, back = +Y, left = −X, right = +X
 
@@ -33,8 +35,6 @@ export interface Group {
   copies?: number;
   /** "How often you reach for it", for the whole tray: a member's own `access` is not used. */
   access: Access;
-  /** "Extra room" for the whole tray; absent = none. */
-  growth?: Partial<Record<"w" | "d" | "h", GrowthMode>>;
   /** Component ids, in compartment order. */
   memberIds: string[];
 }
@@ -71,10 +71,11 @@ export interface ComponentBase {
   fingerCuts?: boolean; // a centred finger cut through a wall of each compartment
   curvedFloor?: boolean; // a scoop ramp on the floor (bulk, minis, custom only)
   cornerReliefs?: boolean; // Ø 3 mm reliefs in the corners of each compartment
-  // How much more room the component's own contents may have beyond what they need, per axis
-  // (minimal-trays spec §5). Absent, or an axis absent: the kind's default (growthOf in ./defaults).
-  // Replaces `stretch`, which the reader still accepts (readBase).
-  growth?: Growth;
+  // "Room for more" (./room.ts): how much more of its own contents the tray is given. Absent: none,
+  // a tray never grows on its own. A number: that many more cards or tiles, or that many percent more
+  // pieces, part of the planned size. "max": as much as fits, taken from the room left after the
+  // plan is made. Replaces `growth` and `stretch` (schema 0.3.0).
+  room?: Room;
   // cards and tiles that grow along the stack only: whether the room it grows into is filled by a
   // spacer, and how many thin loose plates that is printed as, so one can be pulled out as the
   // collection grows (absent, or 0: no spacer at all, never unless asked for; 1: a single block;
@@ -93,19 +94,20 @@ export interface ComponentBase {
 }
 
 /**
- * One axis of growth: `off` (never), `auto` (up to a conservative cap, `autoGrowthMm` in sizing),
- * a number (that many mm beyond the minimum) or `max` (whatever the layout has to give).
+ * One axis of growth, as sizing hands it to the layout (never stored; `growthOf` in ./defaults
+ * works it out from an item's `room` and the fill setting): `off` (never), `auto` (up to a
+ * conservative cap, `AUTO_GROWTH_*` in sizing), a number (that many mm beyond the minimum) or
+ * `max` (whatever the layout has to give).
  */
 export type GrowthMode = "off" | "auto" | "max" | number;
 
 /**
- * The axes a component's growth is set on, in the user's terms: the width, length (front to back)
- * and height of what is stored, or `stack` for the stack of cards or tiles, whichever way it lies
- * (a deck on its edge grows sideways, a flat one grows taller). Sizing maps each to the physical
- * axis of the tray (growthOf in ./defaults).
+ * The axes a component's growth is worked out on: the width, length (front to back) and height of
+ * what is stored, or `stack` for the stack of cards or tiles, whichever way it lies (a deck on its
+ * edge grows sideways, a flat one grows taller). Sizing maps each to the physical axis of the tray
+ * (growthOf in ./defaults).
  */
 export type GrowthAxis = "w" | "d" | "h" | "stack";
-export type Growth = Partial<Record<GrowthAxis, GrowthMode>>;
 
 export type Sleeve = "none" | "standard" | "premium" | { w: number; h: number; thickness: number };
 
@@ -137,6 +139,12 @@ export type BulkItem =
 export interface BulkComponent extends ComponentBase {
   kind: "bulk";
   items: BulkItem[];
+  /**
+   * How much of the bin's space its pieces fill, 0.05 to 1 (packingOf in ./settings). Absent: the
+   * insert's `packingFactor`. Only count-and-size pieces read it: a pile given as a volume is
+   * already the room it takes.
+   */
+  packing?: number;
 }
 
 export type TileShape =
@@ -153,8 +161,21 @@ export interface TilesComponent extends ComponentBase {
 
 export interface MinisComponent extends ComponentBase {
   kind: "minis";
-  figures: { name: string; w: number; d: number; h: number; count: number }[];
+  /**
+   * keepUpright: never laid on its side or its back, for a fragile figure: only `w` and `d` may
+   * swap (a turn in plan). Absent: the figure may be laid down where that makes a smaller tray.
+   */
+  figures: {
+    name: string;
+    w: number;
+    d: number;
+    h: number;
+    count: number;
+    keepUpright?: boolean;
+  }[];
   storage: "pockets" | "bulk";
+  /** Like BulkComponent.packing, for the figures stored loose in a tray (`storage` "bulk"). */
+  packing?: number;
 }
 
 export interface CustomComponent extends ComponentBase {
@@ -239,6 +260,15 @@ export interface Settings {
    * nothing), and is part of the inputs hash only when on. Default off.
    */
   oneWall: boolean;
+  /**
+   * "Fill the space that's left" with bigger wells: after the plan is made, the room left beside a
+   * tray goes into the wells of its items, those set to "as much as fits" first, as far as each
+   * kind may take it (`AUTO_GROWTH_*`, retention), and what is still left stays a separate spacer.
+   * Off (the default): spacers take it, and only an item set to "as much as fits" grows. Excludes
+   * the thick-walls choices (`wallAbsorb`, `oneWall`), which are the other ways to fill it. In the
+   * inputs hash only when on.
+   */
+  biggerWells: boolean;
   /**
    * Print connected filler parts as one part, up to the largest that fits the print bed (spec
    * minimal-trays §6.1, lever 1). A print-time decomposition like the riser split: no part of the
@@ -337,7 +367,8 @@ export interface TraySpec {
   wall: number;
   floor: number;
   // true when another tray is stacked on this one and settings.lip.enabled: it carries the lower
-  // half of the joint, the lip (rim) or the socket the slab above drops into (step)
+  // half of the joint, the lip (rim) or the socket the slab above drops into (step). Also true of
+  // the top tray of a stack of alike trays (copies), which any of them may be: it carries them too
   lip: boolean;
   /**
    * Set on a tray that stands on a riser carrying the joint (splitRisers), never stored: the tray

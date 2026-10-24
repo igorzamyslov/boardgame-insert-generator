@@ -192,7 +192,7 @@ describe("upright cards and tiles: one finger channel", () => {
     const narrow: Settings = { ...s, fingerPocket: { ...s.fingerPocket, width: 14 } };
     const pile = (id: string) => bulk({ id, items: [{ name: "Pile", volumeMl: 40 }] });
     const deck = cards({
-      growth: { stack: "max" },
+      room: "max",
       shortSide: 63,
       longSide: 88,
       decks: decks(80),
@@ -236,7 +236,7 @@ describe("upright cards and tiles: one finger channel", () => {
   it("keeps such a cut clear of the deck's spacer", () => {
     const dial = (id: string) => custom({ id, count: 1 });
     const deck = cards({
-      growth: { stack: "max" },
+      room: "max",
       separators: 1,
       shortSide: 63,
       longSide: 88,
@@ -263,10 +263,7 @@ describe("upright cards and tiles: one finger channel", () => {
   });
 
   it("notches a spacer standing in a channelled well to match the channel", () => {
-    const one = partOf(
-      [cards({ growth: { stack: "max" }, separators: 1 })],
-      "upright-long|strip|split1",
-    );
+    const one = partOf([cards({ room: "max", separators: 1 })], "upright-long|strip|split1");
     const min = minOuter(one, s, ground);
     const r = realize(one, s, ground, { ...min, w: min.w + 10 });
     expect(r.spacers).toHaveLength(1);
@@ -283,7 +280,7 @@ describe("upright cards and tiles: one finger channel", () => {
     // the 76.5 mm spacer ends where the U (bottom 40.75 mm up, radius 13.25) meets its faces.
     const steep = largestChamfer({ ...s, wall: 3, floor: 3 });
     const deck = cards({
-      growth: { stack: "max" },
+      room: "max",
       separators: 1,
       shortSide: 25,
       longSide: 80,
@@ -394,7 +391,8 @@ describe("cut sides beside a rounded outer corner", () => {
             shape: { type: "rect", w: 15, d: 15 },
             thickness: 2,
             count: 40,
-            storage: "auto",
+            // Explicit: auto no longer stands a 15 mm chit upright (its cut is under a fingertip).
+            storage: variant.startsWith("upright") ? "upright" : "auto",
           }),
         ],
         variant,
@@ -715,22 +713,33 @@ describe("posts: a cut never removes a whole wall (spec §6.1)", () => {
   });
 
   it("drops the flat variants of tiles too small for a cut, keeping the upright ones or a bin", () => {
-    const hexes = (storage: "flat" | "auto") =>
+    const hexes = (storage: "flat" | "auto" | "upright") =>
       tiles({
         shape: { type: "hex", flatToFlat: 8.5, orientation: "flat" },
         thickness: 1.5,
         count: 19,
         storage,
       });
-    const auto = size([hexes("auto")], s);
-    const ids = auto.requirements.flatMap((req) => req.variants.map((v) => v.id));
+    // An explicit upright is kept, with a warning that its cuts are hard to reach.
+    const upright = size([hexes("upright")], s);
+    const ids = upright.requirements.flatMap((req) => req.variants.map((v) => v.id));
     expect(ids.length).toBeGreaterThan(0);
     expect(ids.every((id) => id.startsWith("upright"))).toBe(true);
-    // Flat only: no flat variant is left, so the tiles go in a scoop bin, and a notice says so.
-    const flat = size([hexes("flat")], s);
-    const binIds = flat.requirements.flatMap((req) => req.variants.map((v) => v.id));
-    expect(binIds.every((id) => id.startsWith("bulk-"))).toBe(true);
-    expect(flat.notices.map((n) => [n.level, n.code])).toEqual([["info", "sizing.noFingerSlot"]]);
+    expect(upright.notices.map((n) => n.code)).toEqual(["sizing.uprightHardToReach"]);
+    // Neither flat nor (under `auto`) upright has a cut a finger can use: the tiles go in a scoop
+    // bin, and a notice says so.
+    for (const storage of ["flat", "auto"] as const) {
+      const sized = size([hexes(storage)], s);
+      const binIds = sized.requirements.flatMap((req) => req.variants.map((v) => v.id));
+      expect(
+        binIds.every((id) => id.startsWith("bulk-")),
+        storage,
+      ).toBe(true);
+      expect(
+        sized.notices.map((n) => [n.level, n.code]),
+        storage,
+      ).toEqual([["info", "sizing.noFingerSlot"]]);
+    }
   });
 });
 

@@ -50,30 +50,23 @@ const SCENARIOS: { name: string; component: Component; changed: OptionId[] }[] =
     component: of("cards", {
       access: "often",
       storage: "upright-long",
-      growth: { stack: "max" },
+      room: "max",
       fingerCuts: false,
       cornerReliefs: true,
-      separators: 3,
       thickness: { mode: "preset", scale: 1.1 },
       copies: 4,
       clearance: 3,
     }),
     changed: [
-      "growth-stack",
+      "room",
       "access",
       "storage",
       "fingerCuts",
       "cornerReliefs",
-      "separators",
       "thickness",
       "copies",
       "clearance",
     ],
-  },
-  {
-    name: "cards with dividers",
-    component: of("cards", { dividers: 2 }),
-    changed: ["dividers"],
   },
   {
     name: "cards that stand, a measured stack",
@@ -84,32 +77,44 @@ const SCENARIOS: { name: string; component: Component; changed: OptionId[] }[] =
     name: "tokens and dice",
     component: of("bulk", {
       access: "setup",
-      growth: { w: "off", h: 10 },
+      room: 20,
       curvedFloor: false,
       fingerCuts: true,
       cornerReliefs: true,
       clearance: 0.25,
     }),
-    changed: [
-      "growth-w",
-      "growth-h",
-      "access",
-      "curvedFloor",
-      "fingerCuts",
-      "cornerReliefs",
-      "clearance",
-    ],
+    changed: ["room", "access", "curvedFloor", "fingerCuts", "cornerReliefs", "clearance"],
   },
   {
-    name: "tiles that lie flat, with room to grow chosen",
-    component: of("tiles", { storage: "flat", growth: { stack: "auto" }, dividers: 1 }),
+    name: "tiles that lie flat, with some room for more",
+    component: of("tiles", { storage: "flat", room: 10, dividers: 1 }),
     // a flat stack offers no dividers: the stored count has no row
-    changed: ["growth-stack"],
+    changed: ["room"],
   },
   {
     name: "miniatures in pockets, looser",
-    component: of("minis", { growth: { w: "auto" }, curvedFloor: true }),
-    changed: ["growth-w", "curvedFloor"],
+    component: of("minis", { curvedFloor: true }),
+    changed: ["curvedFloor"],
+  },
+  {
+    name: "tokens packed tighter than the insert packs them",
+    component: of("bulk", { packing: 0.8 }),
+    changed: ["packing"],
+  },
+  {
+    name: "tokens whose packing is the insert's own number, however the file wrote it",
+    component: of("bulk", { packing: 0.5 }),
+    changed: [],
+  },
+  {
+    name: "miniatures loose in a tray, packed snug",
+    component: of("minis", { storage: "bulk", packing: 0.65 }),
+    changed: ["packing"],
+  },
+  {
+    name: "miniatures in pockets keep a stored packing but show no dot: its row is blocked",
+    component: of("minis", { storage: "pockets", packing: 0.65 }),
+    changed: [],
   },
   {
     name: "something else with a curved floor on a kind that has none by default",
@@ -130,18 +135,23 @@ describe("changedOptions", () => {
   });
 
   it("leaves the spacer plates out while dividers take their place, and counts them again without", () => {
-    const both = of("cards", { dividers: 2, separators: 3 });
-    expect([...changedOptions(both, DEFAULT_SETTINGS)]).toEqual(["dividers"]);
-    expect([...changedOptions(of("cards", { separators: 3 }), DEFAULT_SETTINGS)]).toEqual([
-      "separators",
-    ]);
+    const both = of("cards", { room: 20, dividers: 2, separators: 3 });
+    expect([...changedOptions(both, DEFAULT_SETTINGS)]).toEqual(["room", "dividers"]);
+    expect([...changedOptions(of("cards", { room: 20, separators: 3 }), DEFAULT_SETTINGS)]).toEqual(
+      ["room", "separators"],
+    );
+  });
+
+  it("has no dividers or spacer plates row on a deck with no room for more, so counts neither", () => {
+    expect([
+      ...changedOptions(of("cards", { dividers: 2, separators: 3 }), DEFAULT_SETTINGS),
+    ]).toEqual([]);
   });
 
   it("does not count a value that was written equal to its default", () => {
     const cards = of("cards", {
       access: "sometimes",
       storage: "auto",
-      growth: { stack: "auto" },
       fingerCuts: true,
       cornerReliefs: false,
       curvedFloor: false,
@@ -166,11 +176,28 @@ describe("changedOptions", () => {
     );
   });
 
+  it("counts a room for more once, whatever it is set to, and not an item that offers none", () => {
+    for (const room of [5, "max"] as const) {
+      expect([...changedOptions(of("cards", { room }), DEFAULT_SETTINGS)]).toEqual(["room"]);
+    }
+    expect([...changedOptions(of("bulk", { room: 50 }), DEFAULT_SETTINGS)]).toEqual(["room"]);
+    // minis and custom items have no row: a room a file wrote there is no news
+    for (const kind of ["minis", "custom"] as const) {
+      expect([...changedOptions(of(kind, { room: 20 } as never), DEFAULT_SETTINGS)]).toEqual([]);
+    }
+  });
+
+  it("says room to grow in the summary only while a room is set", () => {
+    expect(moreSummary(of("cards"), DEFAULT_SETTINGS)).not.toContain("room to grow");
+    expect(moreSummary(of("tiles", { room: 10 }), DEFAULT_SETTINGS)).toContain("room to grow");
+    expect(moreSummary(of("bulk", { room: "max" }), DEFAULT_SETTINGS)).toContain("room to grow");
+  });
+
   it("counts what the summary says", () => {
     for (const { component, changed } of SCENARIOS) {
       expect(optionsChanged(component, DEFAULT_SETTINGS)).toBe(changed.length);
       expect(moreSummary(component, DEFAULT_SETTINGS)).toMatch(
-        new RegExp(`· ${changed.length} changed$`),
+        changed.length === 0 ? /^[^·]*$/ : new RegExp(`· ${changed.length} changed$`),
       );
     }
   });
@@ -218,7 +245,7 @@ describe("More options: the dot and the way back", () => {
       of("cards", {
         access: "often",
         storage: "flat",
-        growth: { stack: "auto" },
+        room: 20,
         fingerCuts: false,
         cornerReliefs: true,
         separators: 2,
@@ -267,11 +294,12 @@ describe("More options: the dot and the way back", () => {
   });
 
   it("leaves the dividers to their row: the chip and the row are one change", () => {
-    panel(of("cards", { dividers: 1 }));
-    expect(counted()).toBe(1);
-    expect(dots()).toBe(1);
+    panel(of("cards", { room: 20, dividers: 1 }));
+    // the room and the dividers: two rows, two changes
+    expect(counted()).toBe(2);
+    expect(dots()).toBe(2);
     expect(screen.getByRole("button", { name: "Removable dividers" })).toBeTruthy();
-    expect(backs().map((b) => b.textContent)).toEqual(["Back to 0"]);
+    expect(backs().map((b) => b.textContent)).toEqual(["Back to None", "Back to 0"]);
   });
 
   it("keeps the keyboard on the control after a Back that removes the link", async () => {

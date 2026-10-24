@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stage header decision</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="review.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+</helmet>
+<div class="b">
+<div class="hd">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div class="kick">Board 1 · Stage header · chosen: one toolbar row, in Top and in 3D</div>
+<h1>One row above the plan, the same in both views</h1>
+</div>
+<ul class="prob">
+<li>Today three rows (status, switches, hint) cost about 210 px before the box, and 3D shows a small model in a big empty stage.</li>
+<li><b>Rule for every screen:</b> Top and 3D share the same header, the same caption position and the same controls. Only the picture and one view-specific control change.</li>
+<li>Revised again: the status line has no room for a link. "Try another arrangement" goes into ⋯ (shown open in Top; same menu in 3D). While it runs, the status line reads "Searching… Stop". When nothing fits, it is a button in the problem strip (board 6).</li>
+<li>3D grows to fill the stage. "Spread apart" is the one view-specific control, at the right of the caption row; in Top that slot is empty.</li>
+</ul>
+</div>
+<div class="opts">
+<div class="opt cur">
+<div class="ot"><span class="ol">1</span>Today · 3D<span class="sub">3 rows, small model</span></div>
+<div class="mock">
+<div class="ab fx" style="left:16px;top:14px;right:16px"><span class="ck">✓</span><div><div class="h2">Everything fits</div><div class="sm">15 trays in 2 layers, 70 of 70 mm high</div></div><span class="pill" style="margin-left:auto">Keep searching</span></div>
+<div class="ab fx" style="left:16px;top:76px;right:16px;justify-content:flex-end"><span class="seg"><span class="on">All</span><span>Layer 1</span><span>Layer 2</span></span><span class="seg"><span>Top</span><span class="on">3D</span></span></div>
+<div class="ab sm" style="left:16px;top:122px">Tap a tray for details.</div>
+<div class="persp" style="top:150px;height:260px"><div class="scn" style="left:130px;top:40px;width:190px;height:190px"><div class="box" style="width:190px;height:190px"><div class="t to p1"></div><div class="t tb p2"></div><div class="t ts p3"></div><div class="t tl p4"></div><div class="t to p5"></div><div class="t tg p6"></div><div class="t tp p7"></div><div class="t to p8"></div></div></div></div>
+<div class="ab fx" style="left:0;right:0;bottom:12px;justify-content:center"><span class="spread">Spread apart <i></i></span></div>
+<div class="note" style="right:16px;top:430px">Model fills about 40% of the stage</div>
+</div>
+<div class="why">Reference (3D). The Top view has the same three rows.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">2</span>Chosen · Top</div>
+<div class="mock">
+<div class="ab fx" style="left:16px;top:14px;right:16px"><span class="ck">✓</span><div style="flex:1"><div class="h2" style="font-size:17px">Everything fits</div><div class="sm">15 trays · 2 layers · 70 of 70 mm</div></div><span class="seg"><span class="on">Top</span><span>3D</span></span><span class="pill" aria-label="More">⋯</span></div>
+<div class="ab fx" style="left:16px;top:70px"><span class="seg"><span class="on">Layer 1</span><span>Layer 2</span><span>Both</span></span></div>
+<div class="box" style="left:50px;top:116px;width:340px;height:340px"><div class="t to p1"></div><div class="t tb p2">Starter decks 2</div><div class="t ts p3"></div><div class="t tl p4">Market deck</div><div class="t to p5">Coins and cubes</div><div class="t tg p6">Hex tiles</div><div class="t tp p7">Heroes</div><div class="t to p8">Dice</div></div>
+<div class="ab fx" style="left:16px;right:16px;top:470px;justify-content:center;gap:12px"><span class="xs">Layer 1, from above · tap a tray for details</span></div>
+<div class="ab" style="right:16px;top:56px;width:200px;background:#fff;border-radius:12px;padding:6px;box-shadow:0 6px 18px rgba(0,0,0,.18);font-size:13px"><div style="padding:6px 8px"><b>Try another arrangement</b><div class="xs">Searches a bit longer</div></div><div style="padding:6px 8px;border-top:1px solid #e3e0d9"><b>Settings</b></div></div>
+</div>
+<div class="why"><b>Plan up about 100 px and 30% larger.</b> A rare action stays one tap deep, never louder than Download.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">2</span>Chosen · 3D<span class="sub" style="margin-left:auto;font-size:13px;color:#5d5d57">same header, same caption</span></div>
+<div class="mock">
+<div class="ab fx" style="left:16px;top:14px;right:16px"><span class="ck">✓</span><div style="flex:1"><div class="h2" style="font-size:17px">Everything fits</div><div class="sm">15 trays · 2 layers · 70 of 70 mm</div></div><span class="seg"><span>Top</span><span class="on">3D</span></span><span class="pill" aria-label="More">⋯</span></div>
+<div class="ab fx" style="left:16px;top:70px"><span class="seg"><span>Layer 1</span><span>Layer 2</span><span class="on">Both</span></span></div>
+<div class="persp" style="top:100px;height:360px"><div class="scn" style="left:100px;top:70px;width:250px;height:250px"><div class="box" style="width:250px;height:250px"><div class="t to p1"></div><div class="t tb p2"></div><div class="t ts p3"></div><div class="t tl p4"></div><div class="t to p5"></div><div class="t tg p6"></div><div class="t tp p7"></div><div class="t to p8"></div></div><div class="box up" style="width:250px;height:250px"><div class="t tb" style="left:14%;top:2%;width:50%;height:42%"></div><div class="t tl" style="left:2%;top:75%;width:30%;height:23%"></div></div></div></div>
+<div class="ab fx" style="left:16px;right:16px;top:470px;justify-content:space-between"><span class="xs">Drag to turn · tap a tray for details</span><span class="spread">Spread apart <i></i></span></div>
+</div>
+<div class="why"><b>Same toolbar, same menu, same caption row.</b> The model grows to the width of the plan's column. The Layer control behaves the same (here: both shown, peel to Layer 1 to see inside).</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1560,"height":940}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

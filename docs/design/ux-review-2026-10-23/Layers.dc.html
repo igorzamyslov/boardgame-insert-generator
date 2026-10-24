@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Layers options revised</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="review.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+</helmet>
+<div class="b">
+<div class="hd">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div class="kick">Board 2 · Layers · revised, still open</div>
+<h1>One layer control, same meaning in Top and 3D</h1>
+</div>
+<ul class="prob">
+<li>The real problem: Top shows one layer, 3D shows All, and the two switches carry different labels.</li>
+<li>Feedback: layer cards in component colours mix with the tray colours, and their height should not imply the layer's height.</li>
+<li>Option A is the plain fix: one segment, identical labels and behaviour in both views. Option B is the strip again, now neutral and with identical card sizes; height lives in the text and a thin fill bar.</li>
+<li>Either way: "Layer n" shows layers 1 to n. Top lights layer n and ghosts the ones below; 3D peels away the ones above.</li>
+</ul>
+</div>
+<div class="opts">
+<div class="opt cur">
+<div class="ot"><span class="ol">1</span>Today<span class="sub">different in each view</span></div>
+<div class="mock">
+<div class="ab sm" style="left:16px;top:10px;font-weight:700;color:#1c1d1a">Top</div>
+<div class="ab fx" style="left:16px;top:30px"><span class="seg"><span class="on">Layer 1 (bottom)</span><span>Layer 2 (top)</span></span><span class="seg"><span class="on">Top</span><span>3D</span></span></div>
+<div class="box" style="left:130px;top:76px;width:170px;height:170px"><div class="t to p1"></div><div class="t tb p2"></div><div class="t ts p3"></div><div class="t tl p4"></div><div class="t to p5"></div><div class="t tg p6"></div><div class="t tp p7"></div><div class="t to p8"></div></div>
+<div class="ab sm" style="left:16px;top:270px;font-weight:700;color:#1c1d1a">3D</div>
+<div class="ab fx" style="left:16px;top:290px"><span class="seg"><span class="on">All</span><span>Layer 1 (bottom)</span><span>Layer 2 (top)</span></span><span class="seg"><span>Top</span><span class="on">3D</span></span></div>
+<div class="persp" style="top:316px;height:200px"><div class="scn" style="left:140px;top:30px;width:150px;height:150px"><div class="box" style="width:150px;height:150px"><div class="t to p1"></div><div class="t tb p2"></div><div class="t ts p3"></div><div class="t tl p4"></div><div class="t to p5"></div><div class="t tg p6"></div><div class="t tp p7"></div><div class="t to p8"></div></div></div></div>
+</div>
+<div class="why">Reference. The segment grows an "All" in 3D only.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">A</span>Same segment, both views</div>
+<div class="mock">
+<div class="ab sm" style="left:16px;top:10px;font-weight:700;color:#1c1d1a">Top</div>
+<div class="ab fx" style="left:16px;top:30px"><span class="seg"><span>Layer 1</span><span class="on">Layer 2</span><span>All</span></span><span class="seg"><span class="on">Top</span><span>3D</span></span></div>
+<div class="box" style="left:130px;top:76px;width:170px;height:170px"><div class="t to p1 dim"></div><div class="t tb" style="left:14%;top:2%;width:50%;height:42%"></div><div class="t tl" style="left:2%;top:75%;width:30%;height:23%"></div><div class="t to dim p5"></div><div class="t tg dim p6"></div><div class="t tp dim p7"></div></div>
+<div class="ab sm" style="left:16px;top:270px;font-weight:700;color:#1c1d1a">3D</div>
+<div class="ab fx" style="left:16px;top:290px"><span class="seg"><span>Layer 1</span><span class="on">Layer 2</span><span>All</span></span><span class="seg"><span>Top</span><span class="on">3D</span></span></div>
+<div class="persp" style="top:316px;height:200px"><div class="scn" style="left:140px;top:30px;width:150px;height:150px"><div class="box" style="width:150px;height:150px"><div class="t to p1"></div><div class="t tb p2"></div><div class="t ts p3"></div><div class="t tl p4"></div><div class="t to p5"></div><div class="t tg p6"></div><div class="t tp p7"></div><div class="t to p8"></div></div><div class="box up" style="width:150px;height:150px"><div class="t tb" style="left:14%;top:2%;width:50%;height:42%"></div><div class="t tl" style="left:2%;top:75%;width:30%;height:23%"></div></div></div></div>
+</div>
+<div class="why"><b>Smallest change.</b> "(bottom)/(top)" drops out of the labels; the caption names them. Nothing new to learn.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">B</span>Neutral strip, equal cards</div>
+<div class="mock">
+<div class="ab sm" style="left:16px;top:10px;font-weight:700;color:#1c1d1a">Top and 3D use the same strip</div>
+<div class="ab" style="left:16px;top:34px;width:128px;display:flex;flex-direction:column;gap:6px">
+<div style="border:2px solid #1c1d1a;border-radius:8px;background:#fff;padding:7px 8px"><b style="font-size:12px">Layer 2 · top</b><div class="xs">5 trays</div><div class="bar" style="margin-top:5px"><i style="width:47%;background:#6d6d66"></i></div><div class="xs" style="margin-top:3px">33 of 70 mm</div></div>
+<div style="border:1px solid #d6d1c5;border-radius:8px;background:#fff;padding:7px 8px"><b style="font-size:12px">Layer 1 · bottom</b><div class="xs">10 trays</div><div class="bar" style="margin-top:5px"><i style="width:53%;background:#6d6d66"></i></div><div class="xs" style="margin-top:3px">37 of 70 mm</div></div>
+<div class="pill" style="justify-content:center">All</div>
+</div>
+<div class="box" style="left:170px;top:34px;width:150px;height:150px"><div class="t to p1 dim"></div><div class="t tb" style="left:14%;top:2%;width:50%;height:42%"></div><div class="t tl" style="left:2%;top:75%;width:30%;height:23%"></div><div class="t to dim p5"></div><div class="t tg dim p6"></div></div>
+<div class="ab xs" style="left:170px;top:190px">Top: layer 2 lit, layer 1 ghosted</div>
+<div class="persp" style="left:140px;top:222px;height:200px"><div class="scn" style="left:80px;top:20px;width:140px;height:140px"><div class="box" style="width:140px;height:140px"><div class="t to p1"></div><div class="t tb p2"></div><div class="t ts p3"></div><div class="t tl p4"></div><div class="t to p5"></div><div class="t tg p6"></div><div class="t tp p7"></div><div class="t to p8"></div></div><div class="box up" style="width:140px;height:140px;outline:2px solid #1c1d1a"><div class="t tb" style="left:14%;top:2%;width:50%;height:42%"></div><div class="t tl" style="left:2%;top:75%;width:30%;height:23%"></div></div></div></div>
+<div class="ab xs" style="left:170px;top:430px">3D: same selection, layers above peel off</div>
+</div>
+<div class="why"><b>Uniform, colourless cards.</b> Colour belongs to components only; each card is the same size and says its height in millimetres. Worth the extra space only if the numbers (heights, counts) are useful to you.</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1560,"height":940}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

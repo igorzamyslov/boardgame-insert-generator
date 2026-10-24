@@ -9,19 +9,19 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Settings } from "../model/types";
 import { minOuter, realizeTray } from "./realize";
-import { assertTrayInvariants, at, cards, partOf } from "./test-helpers";
+import { assertTrayInvariants, at, bulk, cards, partOf } from "./test-helpers";
 import type { RealizeOptions } from "./types";
 
 const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
 const upper: RealizeOptions = { lipped: true, level: 2 };
-const flat = (count: number, growth?: { stack: "max" }) =>
+const flat = (count: number, room?: "max") =>
   partOf(
     [
       cards({
         storage: "flat",
         sleeve: "none",
         decks: [{ name: "Deck", count }],
-        ...(growth ? { growth } : {}),
+        ...(room ? { room } : {}),
       }),
     ],
     "flat|strip|split1",
@@ -90,11 +90,49 @@ describe("realizeTray with padding: the height a tray must have beyond its conte
   });
 
   it("leaves a well that may grow deeper alone: it takes the height as before", () => {
-    const grow = flat(5, { stack: "max" });
+    const grow = flat(5, "max");
     const m = minOuter(grow, s, upper);
     const outer = { ...m, h: m.h + 10 };
     const without = realizeTray(grow, outer, s, upper);
     const given = realizeTray(grow, outer, s, { ...upper, padding: 0 });
     expect(at(given.compartments, 0).floorZ).toBe(at(without.compartments, 0).floorZ);
+  });
+});
+
+describe("realizeTray with fixedDepth: an alike tray's wells do not depend on how much padding it has", () => {
+  // Bits in a bin that may grow in height (as much as fits) take a deeper well from the room a tray has; the
+  // trays of one set stand in stacks with different padding, so they must not (owner, 2026-10-23).
+  const bin = partOf(
+    [bulk({ items: [{ name: "Bits", count: 20, w: 10, d: 10, h: 4 }], room: "max" })],
+    "deep|strip|split1",
+  );
+  const base = minOuter(bin, s, upper);
+  const depth = (padding: number, fixedDepth: boolean): number => {
+    const r = realizeTray(bin, { ...base, h: base.h + padding }, s, {
+      ...upper,
+      padding,
+      fixedDepth,
+    });
+    return base.h + padding - at(r.compartments, 0).floorZ;
+  };
+
+  it("deepens the well with the room it has, as before, unless it is fixed", () => {
+    expect(depth(6, false)).toBeGreaterThan(depth(0, false) + 1);
+    // the same well from the rim down, however much of the tray's height is raised floor
+    expect(depth(6, true)).toBeCloseTo(depth(0, true), 9);
+  });
+
+  it("gives every padding the same well: only the raised floor moves", () => {
+    const wells = [0, 0.2, 3, 9.6, 30].map((padding) => {
+      const outer = { ...base, h: base.h + padding };
+      const r = realizeTray(bin, outer, s, { ...upper, padding, fixedDepth: true });
+      const c = at(r.compartments, 0);
+      return [c.w, c.d, outer.h - c.floorZ];
+    });
+    for (const w of wells) {
+      expect(w[0]).toBe(at(wells, 0)[0]);
+      expect(w[1]).toBe(at(wells, 0)[1]);
+      expect(w[2]).toBeCloseTo(at(wells, 0)[2] ?? 0, 9);
+    }
   });
 });

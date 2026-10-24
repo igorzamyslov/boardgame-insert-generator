@@ -4,6 +4,8 @@ import { setClearance, setItemCopies } from "../../app/actions";
 import { Stepper } from "../../kit";
 import type { SegmentedOption } from "../../kit";
 import { COMPONENT_DEFAULTS } from "../../model/defaults";
+import { FLOAT_EPSILON, PACKING_CHOICES, packingChoiceOf, packingOf } from "../../model/settings";
+import type { PackingChoice } from "../../model/settings";
 import type { Access, Component } from "../../model/types";
 import { COPIES, OFFSET } from "../limits";
 import { formatNumber } from "../NumberField";
@@ -11,7 +13,7 @@ import { messagesOf } from "../FieldMessages";
 import { SettingsContext, useFieldNotices } from "../validation";
 import { Alert, Choice, ExactRow, Group as Field, NumField } from "./controls";
 import { GroupRow, ItemGroupingContext, SetOnGroup, useItemGroup } from "./GroupRow";
-import { insertClearance } from "./moreSummary";
+import { insertClearance, packingOffered } from "./moreSummary";
 import type { EditorProps } from "./types";
 
 export const ACCESS_OPTIONS: SegmentedOption<Access>[] = [
@@ -32,10 +34,11 @@ export function commonOptionPaths(index: number): string[] {
   return [
     `${at}/copies`,
     `${at}/clearance`,
+    `${at}/packing`,
     `${at}/curvedFloor`,
     `${at}/separators`,
     `${at}/dividers`,
-    `${at}/growth`,
+    `${at}/room`,
   ];
 }
 
@@ -102,6 +105,76 @@ function ClearanceRow<C extends Component>({ component: c, index, onChange }: Ed
   );
 }
 
+const PACKING_OPTIONS: SegmentedOption<PackingChoice>[] = [
+  { value: "loose", label: "Loose" },
+  { value: "snug", label: "Snug" },
+  { value: "tight", label: "Tight" },
+];
+
+/** A packing in words: the choice it is, else the number. */
+function packingWords(value: number): string {
+  const choice = packingChoiceOf(value);
+  return PACKING_OPTIONS.find((o) => o.value === choice)?.label ?? formatNumber(value);
+}
+
+/**
+ * How tightly a pile of loose pieces packs (bulk, and minis stored loose): the share of its bin the
+ * pieces fill, in three words. The insert gives every pile one number (Settings, Packing factor);
+ * this row shows it, and choosing another gives this item its own. Choosing the insert's own sets
+ * nothing. Minis in pockets have no pile: the row stays, blocked, and says what it needs.
+ */
+function PackingRow<C extends Component>({ component: c, index, onChange }: EditorProps<C>) {
+  const title = "How tightly it packs";
+  const settings = useContext(SettingsContext);
+  if (c.kind !== "bulk" && c.kind !== "minis") {
+    return null;
+  }
+  if (!packingOffered(c)) {
+    return <ExactRow title={title} blockedReason="Needs the figures loose in a tray." />;
+  }
+  const inherited = settings.packingFactor;
+  const value = packingOf(c, settings);
+  const choice = packingChoiceOf(value);
+  const own = c.packing !== undefined && Math.abs(c.packing - inherited) > FLOAT_EPSILON;
+  const set = (packing: number | undefined): void => {
+    const next = { ...c };
+    if (packing === undefined) {
+      delete next.packing;
+    } else {
+      next.packing = packing;
+    }
+    onChange(next as unknown as C);
+  };
+  return (
+    <ExactRow
+      title={title}
+      meta={packingWords(value)}
+      errorPaths={[`/components/${index}/packing`]}
+      revert={own ? { to: packingWords(inherited), onBack: () => set(undefined) } : undefined}
+    >
+      <Choice<PackingChoice | "custom">
+        label={title}
+        options={PACKING_OPTIONS}
+        value={choice}
+        onChange={(v) => {
+          if (v !== "custom") {
+            const n = PACKING_CHOICES[v];
+            set(Math.abs(n - inherited) < FLOAT_EPSILON ? undefined : n);
+          }
+        }}
+      />
+      <span class="ed-line">How much of the tray's space the pieces fill.</span>
+      {choice === "custom" ? (
+        <span class="ed-line">
+          {own
+            ? `This item packs at ${formatNumber(value)}.`
+            : `The insert packs at ${formatNumber(value)}.`}
+        </span>
+      ) : null}
+    </ExactRow>
+  );
+}
+
 /**
  * The item's own Copies (spec §7.5): a stepper from 1 to 10, each copy its own tray. The row's way
  * back is 1, the item's single tray; a copy count that the engine refuses shows its words in place.
@@ -152,6 +225,7 @@ export function CommonRows<C extends Component>(props: EditorProps<C>) {
       {useItemGroup() === undefined ? <CopiesRow {...props} /> : <SetOnGroup />}
       <GroupRow />
       <ClearanceRow {...props} />
+      <PackingRow {...props} />
     </>
   );
 }

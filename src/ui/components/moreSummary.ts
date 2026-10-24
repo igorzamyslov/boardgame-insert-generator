@@ -3,19 +3,17 @@ import {
   cornerReliefsOn,
   curvedFloorOffered,
   curvedFloorOn,
-  defaultGrowth,
   defaultTogglesOf,
   dividersOf,
   dividersOffered,
   fingerCutsOn,
   flatDecksOffered,
-  growthAxesOf,
-  growthOf,
   separatorsOf,
   COMPONENT_DEFAULTS,
 } from "../../model/defaults";
-import { effective } from "../../model/settings";
-import type { Component, GrowthAxis, Settings } from "../../model/types";
+import { FLOAT_EPSILON, effective } from "../../model/settings";
+import { roomOf, roomWords } from "../../model/room";
+import type { Component, Settings } from "../../model/types";
 
 /**
  * One option under More options, as a person sees it: a choice, a chip or a row. A row that shows
@@ -23,7 +21,7 @@ import type { Component, GrowthAxis, Settings } from "../../model/types";
  * set's size, so the two never disagree.
  */
 export type OptionId =
-  | `growth-${GrowthAxis}`
+  | "room"
   | "access"
   | "storage"
   | "flatDecks"
@@ -34,14 +32,12 @@ export type OptionId =
   | "separators"
   | "thickness"
   | "copies"
-  | "clearance";
+  | "clearance"
+  | "packing";
 
-/** Whether the deck or stack of tiles may grow along its stack, which is what offers spacer plates and dividers. */
+/** Whether the deck or stack of tiles has room for more (not None), which is what offers spacer plates and dividers. */
 export function wellMayGrow(c: Component): boolean {
-  return (
-    (c.kind === "cards" || c.kind === "tiles") &&
-    growthOf(c, "stack", c.storage === "flat") !== "off"
-  );
+  return (c.kind === "cards" || c.kind === "tiles") && roomOf(c).mode !== "none";
 }
 
 /** A stack of cards or tiles: the kinds whose well may have spacer plates and dividers. */
@@ -60,7 +56,7 @@ export function spacersBlock(c: Component): string | undefined {
   if (dividersOf(c) > 0) {
     return "Dividers take the place of spacer plates.";
   }
-  return wellMayGrow(c) ? undefined : "Spacer plates need room for expansions.";
+  return wellMayGrow(c) ? undefined : `Spacer plates need ${roomWords(c.kind)}.`;
 }
 
 /** Why a deck or stack of tiles has no dividers right now, in a line, or undefined when it may. */
@@ -74,7 +70,7 @@ export function dividersBlock(c: Component): string | undefined {
     }
     return c.kind === "cards" ? "Flat decks have no dividers." : "Flat stacks have no dividers.";
   }
-  return "Dividers need room for expansions.";
+  return `Dividers need ${roomWords(c.kind)}.`;
 }
 
 /**
@@ -97,6 +93,14 @@ export function insertClearance(c: Component, settings: Settings): number {
   return c.kind === "cards" ? e.cardClearance : e.pieceClearance;
 }
 
+/**
+ * Whether the item has a pile of loose pieces whose packing it can set: bulk always, minis only
+ * while the figures are stored loose in a tray (the row stays, blocked, for the other).
+ */
+export function packingOffered(c: Component): c is Component & { kind: "bulk" | "minis" } {
+  return c.kind === "bulk" || (c.kind === "minis" && c.storage === "bulk");
+}
+
 /** The chip value of the curved floor: a file may set one where the kind has none (it still shows). */
 export function curvedFloorShown(c: Component): boolean {
   return c.curvedFloor === true || curvedFloorOn(c);
@@ -110,11 +114,8 @@ export function curvedFloorShown(c: Component): boolean {
  */
 export function changedOptions(c: Component, settings: Settings, grouped = false): Set<OptionId> {
   const out = new Set<OptionId>();
-  const lying = (c.kind === "cards" || c.kind === "tiles") && c.storage === "flat";
-  for (const axis of growthAxesOf(c)) {
-    if (growthOf(c, axis, lying) !== defaultGrowth(c, axis, lying)) {
-      out.add(`growth-${axis}`);
-    }
+  if (roomOf(c).mode !== "none") {
+    out.add("room");
   }
   if (!grouped && c.access !== COMPONENT_DEFAULTS.access) {
     out.add("access");
@@ -142,6 +143,13 @@ export function changedOptions(c: Component, settings: Settings, grouped = false
   }
   if (c.clearance !== undefined && c.clearance !== insertClearance(c, settings)) {
     out.add("clearance");
+  }
+  if (
+    packingOffered(c) &&
+    c.packing !== undefined &&
+    Math.abs(c.packing - settings.packingFactor) > FLOAT_EPSILON
+  ) {
+    out.add("packing");
   }
   if (c.kind === "cards") {
     if (c.storage !== COMPONENT_DEFAULTS.cards.storage) {
@@ -181,9 +189,8 @@ export function moreSummary(c: Component, settings: Settings, grouped = false): 
   } else if (c.kind !== "tiles") {
     parts.push(`curved floor ${curvedFloorOn(c) ? "on" : "off"}`);
   }
-  // only a choice made says so: a deck leaves room to grow unless told not to, so the default is no news
-  const chosen = c.growth?.stack;
-  if ((c.kind === "cards" || c.kind === "tiles") && chosen !== undefined && chosen !== "off") {
+  // only a room set says so: None is the default, so it is no news
+  if (roomOf(c).mode !== "none") {
     parts.push("room to grow");
   }
   const changed = optionsChanged(c, settings, grouped);

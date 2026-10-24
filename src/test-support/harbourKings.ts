@@ -59,23 +59,23 @@ export interface Tuning {
 export const NO_TUNING: Tuning = { settings: {}, components: {} };
 
 /**
- * What `npm run seeds` found (see Tuning): a clearance of its own on each component (2 to 10 mm),
- * the first one its last pass reached that puts the Heroes in a short bottom layer and leaves no
- * sliver of a spacer in the plan or the no-fit plan. Every simpler
- * tuning (Settings values, deck sleeves, one clearance on all) came first in its order and did not,
- * since 0.5.3 keeps one item's trays in one stack. Counts and names the rail shows are never in it.
+ * What `npm run seeds` found (see Tuning): one clearance of 3 mm on every component, the first of
+ * its tries that puts the Heroes in a short bottom layer and leaves no sliver of a spacer in the
+ * plan or the no-fit plan (the Settings values and deck sleeves came first and did not). Before
+ * 0.15.0 it took a clearance of its own on each component (2 to 10 mm). Counts and names the rail
+ * shows are never in it.
  */
 export const LAYER_TUNING: Tuning = {
   settings: {},
   components: {
-    market01: { clearance: 7 },
+    market01: { clearance: 5 },
     starter1: { clearance: 6.5 },
-    events01: { clearance: 7.5 },
-    coins001: { clearance: 3.5 },
-    resourc1: { clearance: 2 },
-    dice0001: { clearance: 8 },
-    hextiles: { clearance: 8.5 },
-    heroes01: { clearance: 5 },
+    events01: { clearance: 7 },
+    coins001: { clearance: 8 },
+    resourc1: { clearance: 4 },
+    dice0001: { clearance: 10 },
+    hextiles: { clearance: 7.5 },
+    heroes01: { clearance: 2.5 },
   },
 };
 
@@ -152,7 +152,7 @@ function untuned(): Project {
         name: "Heroes",
         access: "setup",
         kind: "minis",
-        figures: [{ name: "Hero", w: 30, d: 30, h: 38, count: 6 }],
+        figures: [{ name: "Hero", w: 30, d: 30, h: 38, count: 6, keepUpright: true }],
         storage: "pockets",
       },
     ],
@@ -202,6 +202,9 @@ export function harbourKingsKitLoose(): Project {
   return {
     ...p,
     id: "harbkit1",
+    // A row of four turned kit trays is 279 mm wide: in this box the copies, which are one size, stand
+    // in a column, as the board draws them.
+    box: { ...p.box, innerWidth: 270 },
     components: [
       cards("market01", "Market deck", "often", [{ name: "Market deck", count: 80 }]),
       // Mini cards, lying flat: a copy's tray is about 70 mm deep, so four copies stand in one column.
@@ -217,7 +220,7 @@ export function harbourKingsKitLoose(): Project {
         ["Wood", "Stone", "Grain"].map((name) => ({ name, count: 10, w: 16, d: 16, h: 2 })),
         // Max: grouped in the Player kit it fills the room its tray already has (group-tray-fill
         // spec §2) and never makes the tray bigger; loose it would take all the room there is.
-        { growth: { w: "max", d: "max", h: "max" } },
+        { room: "max" },
       ),
       {
         id: "kithero1",
@@ -247,7 +250,6 @@ export function harbourKingsKit(): Project {
     name: "Player kit",
     copies: 4,
     access: "often",
-    growth: { w: "off", d: "off", h: "off" },
     memberIds: KIT_MEMBER_IDS,
   };
   return {
@@ -260,16 +262,24 @@ export function harbourKingsKit(): Project {
 /**
  * The kit with a Hero that is too long for one copy to fit the print bed beside its other
  * compartments, so the Player kit splits ("Player kit 1a" and "1b"). `length` is the Hero's
- * footprint (mm); `npm run seeds` checks the outcome.
+ * footprint (mm); `npm run seeds` checks the outcome. The Hero stands (`keepUpright`): left free it
+ * may lie on any side or turn in plan, and at 140 mm the Player kit no longer split.
  */
 export function harbourKingsKitSplit(length = 140): Project {
   const kit = harbourKingsKit();
   return {
     ...kit,
     id: "harbkit2",
+    box: { ...kit.box, innerWidth: 380 },
+    // the copies are one size, so a printer that cannot take a whole kit splits all four the same way (a narrow bed:
+    // a whole copy no longer grows to a square one, so only a bed short in one direction forces the split)
+    printer: { ...kit.printer, bedX: 170, bedY: 110 },
     components: kit.components.map((c) =>
       c.id === "kithero1" && c.kind === "minis"
-        ? { ...c, figures: [{ name: "Hero", w: length, d: 30, h: 38, count: 1 }] }
+        ? {
+            ...c,
+            figures: [{ name: "Hero", w: length, d: 30, h: 38, count: 1, keepUpright: true }],
+          }
         : c,
     ),
   };
@@ -335,10 +345,10 @@ function trayOf(layout: readonly TraySpec[] | undefined, componentId: string): T
 /**
  * `base` with Market deck and Heroes pinned where `base`'s plan has them, and Hex tiles raised to
  * `count`. The engine only reports a pin conflict at some counts (the rest fit around the pins or
- * fit nowhere, and which ones moves with the engine), so
- * `npm run seeds` checks the outcome.
+ * fit nowhere, and which ones moves with the engine), so `npm run seeds` checks the outcome. Trays
+ * no longer grow into spare room, so the counts that conflict start higher (160, not 100).
  */
-export function harbourKingsPinConflict(base: Project, count = 100): Project {
+export function harbourKingsPinConflict(base: Project, count = 160): Project {
   let p = base;
   for (const id of ["market01", "heroes01"]) {
     p = toggleLock(p, trayOf(base.layout?.trays, id));
@@ -388,10 +398,23 @@ const SEEDS = import.meta.glob<unknown>("../../docs/design/seeds/*.json", {
   import: "default",
 });
 
+/**
+ * Seeds as `npm run seeds` made them in 0.15.0, kept as they were: the plans tests check dips, the
+ * take-out order and the filament estimate against (a slicer's grams for the flat one) were found
+ * by an optimizer that has moved since, and a stored plan reads and prints the same.
+ */
+const FROZEN = import.meta.glob<unknown>("../../test/fixtures/frozen-seeds/*.json", {
+  eager: true,
+  import: "default",
+});
+
 /** A committed seed (`npm run seeds` writes them); throws when it is missing or unreadable. */
-export function loadSeed(name: string): Seed {
-  const raw = SEEDS[`../../docs/design/seeds/${name}.json`] as
-    { storage: Record<string, string>; projectId: string } | undefined;
+export function loadSeed(name: string, frozen = false): Seed {
+  const raw = (frozen ? FROZEN : SEEDS)[
+    frozen
+      ? `../../test/fixtures/frozen-seeds/${name}.json`
+      : `../../docs/design/seeds/${name}.json`
+  ] as { storage: Record<string, string>; projectId: string } | undefined;
   if (raw === undefined) {
     throw new Error(`no seed "${name}": run npm run seeds`);
   }
@@ -403,6 +426,8 @@ export function loadSeed(name: string): Seed {
   if (loaded === null || !loaded.ok) {
     throw new Error(`seed "${name}" does not hold a project`);
   }
-  const result = SEEDS[`../../docs/design/seeds/${name}.result.json`] as LayoutResult | undefined;
+  const result = frozen
+    ? undefined
+    : (SEEDS[`../../docs/design/seeds/${name}.result.json`] as LayoutResult | undefined);
   return { storage: raw.storage, project: loaded.project, ...(result ? { result } : {}) };
 }

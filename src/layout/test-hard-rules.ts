@@ -12,16 +12,21 @@
  */
 import { planTray } from "../geometry/plan";
 import { effective } from "../model/settings";
-import { grooveOf, rimOn } from "../model/lip";
+import { builtLevel, grooveOf, lipAbove, rimOn } from "../model/lip";
 import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
 import { hasGrip, needsGrip, wallFor } from "../sizing";
 import { createCtx, printedHeight, type PartRef } from "./context";
+import { splitRisers } from "./risers";
 import { inferVariant, meetsMinimum } from "./warmstart";
 import type { LayoutInput, LockConflict } from "./types";
 import { toU, type Rect, type U } from "./units";
 
-function tiles(rects: readonly Rect[], region: Rect, gap: U): boolean {
+/**
+ * `slack`: how much of a region may be empty past the parts in it, along each axis: 0 for an exact
+ * tiling, or less than a filler needs where alike trays leave room too thin to be one.
+ */
+function tiles(rects: readonly Rect[], region: Rect, gap: U, slack: U): boolean {
   if (rects.length === 0) {
     return false;
   }
@@ -31,8 +36,10 @@ function tiles(rects: readonly Rect[], region: Rect, gap: U): boolean {
       r !== undefined &&
       r.x === region.x &&
       r.y === region.y &&
-      r.w === region.w &&
-      r.d === region.d
+      region.w - r.w >= 0 &&
+      region.w - r.w <= slack &&
+      region.d - r.d >= 0 &&
+      region.d - r.d <= slack
     );
   }
   for (const alongX of [true, false]) {
@@ -45,13 +52,18 @@ function tiles(rects: readonly Rect[], region: Rect, gap: U): boolean {
       if (lo.length === 0 || hi.length === 0 || lo.length + hi.length !== rects.length) {
         continue;
       }
+      // the next region starts where its first part does, up to `slack` past the gap
+      const next = Math.min(...hi.map(start));
+      if (next - c - gap > slack) {
+        continue;
+      }
       const regionLo: Rect = alongX
         ? { ...region, w: c - region.x }
         : { ...region, d: c - region.y };
       const regionHi: Rect = alongX
-        ? { x: c + gap, y: region.y, w: region.x + region.w - c - gap, d: region.d }
-        : { x: region.x, y: c + gap, w: region.w, d: region.y + region.d - c - gap };
-      if (tiles(lo, regionLo, gap) && tiles(hi, regionHi, gap)) {
+        ? { x: next, y: region.y, w: region.x + region.w - next, d: region.d }
+        : { x: region.x, y: next, w: region.w, d: region.y + region.d - next };
+      if (tiles(lo, regionLo, gap, slack) && tiles(hi, regionHi, gap, slack)) {
         return true;
       }
     }
@@ -60,8 +72,13 @@ function tiles(rects: readonly Rect[], region: Rect, gap: U): boolean {
 }
 
 /** Exact guillotine tiling of `region` by `rects`, separated by exactly `gap` along every cut. */
-export function isGuillotineTiling(rects: readonly Rect[], region: Rect, gap: U): boolean {
-  return tiles(rects, region, gap);
+export function isGuillotineTiling(
+  rects: readonly Rect[],
+  region: Rect,
+  gap: U,
+  slack: U = 0,
+): boolean {
+  return tiles(rects, region, gap, slack);
 }
 
 function overlap3d(a: TraySpec, b: TraySpec): boolean {
@@ -145,11 +162,36 @@ export function checkHardRules(
     }
   });
 
-  // Rule 1: the bottom layer tiles the floor with only trayGap between parts.
+  // The joints of a stack of copies (the top one's rim, the groove under the bottom one) are
+  // best-effort: a stack that went without says so in a notice, and may differ from the others in
+  // only those.
+  const jointDropped = notices.some((n) => n.code === "layout.copiesJoint");
+  // The sets of alike trays (owner, 2026-10-23: all trays of one set are the same size), and the
+  // ones with a tray in a stack, which are built as a tray in the middle of one is wherever they stand.
+  const setOf = (t: TraySpec): number => {
+    const ref = refOf.get(t.key);
+    return ref ? ctx.alikeOf(ref) : -1;
+  };
+  const inStack = new Set(
+    real.filter((t) => real.some((o) => o !== t && o.path === t.path)).map((t) => setOf(t)),
+  );
+  inStack.delete(-1);
+  const plug = (t: TraySpec): boolean => inStack.has(setOf(t));
+  const alikeOnFloor = real.some((t) => t.level === 0 && setOf(t) >= 0);
+
+  // Rule 1: the bottom layer tiles the floor with only trayGap between parts. Beside an alike
+  // tray room too thin for a filler stays empty instead of going into the tray.
   const bottoms = printed
     .filter((t) => t.level === 0)
     .map((t) => ({ x: toU(t.x), y: toU(t.y), w: toU(t.w), d: toU(t.d) }));
-  if (!isGuillotineTiling(bottoms, { x: 0, y: 0, w: ctx.floorW, d: ctx.floorD }, ctx.gap)) {
+  if (
+    !isGuillotineTiling(
+      bottoms,
+      { x: 0, y: 0, w: ctx.floorW, d: ctx.floorD },
+      ctx.gap,
+      alikeOnFloor ? ctx.minFillerUpper - 1 : 0,
+    )
+  ) {
     v.push("bottom layer does not tile the floor with exactly trayGap gaps");
   }
 
@@ -168,8 +210,24 @@ export function checkHardRules(
     const base = stack[0];
     // Rule 2: the trays add up to the top plane exactly (fillToTop), or to no more than it
     // (fillToTop off). Risers are derived for printing and never stored.
+    // An alike tray on top has its lip standing above the stack, and the alike trays of a stack
+    // share the surplus in whole layers, so a stack of them only is up to a layer each short of it.
     const sum = stack.reduce((s, t) => s + toU(t.h), 0);
-    if (settings.fillToTop ? sum !== ctx.topPlane : sum > ctx.topPlane) {
+    const topTray = stack[stack.length - 1];
+    const limit =
+      ctx.topPlane - (topTray?.lip && plug(topTray) ? toU(lipAbove(settings, true)) : 0);
+    const plugs = stack.filter((t) => plug(t) && !sizeLocked.has(t.key));
+    const restFree = stack.some((t) => !plug(t) && !sizeLocked.has(t.key));
+    // a stack that went without its rim or riser (best-effort, with the notice that says so) stops
+    // short by whatever it did not pad
+    const exact = plugs.length === 0 || restFree;
+    if (
+      settings.fillToTop
+        ? exact
+          ? sum !== limit
+          : sum > limit || (!jointDropped && limit - sum >= plugs.length * ctx.layer)
+        : sum > limit
+    ) {
       v.push(`stack ${path}: Σh = ${sum} ≠ topPlane ${ctx.topPlane}`);
     }
     let z = 0;
@@ -185,7 +243,8 @@ export function checkHardRules(
       }
       z += toU(t.h);
       const top = k === stack.length - 1;
-      if (t.lip !== (settings.lip.enabled && !top)) {
+      const topCopy = top && plug(t);
+      if (t.lip !== (settings.lip.enabled && (!top || plug(t))) && !(topCopy && jointDropped)) {
         v.push(`${t.key}: lip flag wrong`);
       }
       if (base && k > 0) {
@@ -276,6 +335,9 @@ export function checkHardRules(
   for (const t of printed) {
     if (toU(t.z) + toU(t.h) > ctx.topPlane) {
       v.push(`${t.key}: rises above the top plane`);
+    }
+    if (t.part === "tray" && toU(t.z + t.h + lipAbove(settings, t.lip)) > ctx.topPlane) {
+      v.push(`${t.key}: its lip rises above the top plane`);
     }
   }
 
@@ -407,6 +469,40 @@ export function checkHardRules(
       s.y + s.d > owner.y + owner.d + eps
     ) {
       v.push(`${s.key}: spacer outside its tray`);
+    }
+  }
+
+  // Alike trays (owner, 2026-10-23: "all trays from the same group/set should be the same in size,
+  // no variations"): as printed, every tray of a set has the same size, height, rim and wells, so
+  // any can take another's place. Padding goes into the riser, so it is judged after splitRisers.
+  if (settings.fillToTop) {
+    const made = splitRisers(trays, { settings, printer: input.printer, locks: input.locks });
+    const bySet = new Map<number, TraySpec[]>();
+    for (const t of made) {
+      const own = real.find((r) => r.key === t.key);
+      const set = t.part === "tray" && own ? setOf(own) : -1;
+      if (set >= 0 && !sizeLocked.has(t.key)) {
+        bySet.set(set, [...(bySet.get(set) ?? []), t]);
+      }
+    }
+    for (const list of bySet.values()) {
+      // in the tray's own frame: a tray turned a quarter turn has its sides swapped
+      const shape = (t: TraySpec): string =>
+        JSON.stringify([
+          t.rotated ? [t.d, t.w] : [t.w, t.d],
+          t.h,
+          jointDropped ? null : t.lip,
+          jointDropped ? null : builtLevel(t) > 0,
+          t.compartments
+            .map((c) => [...(t.rotated ? [c.d, c.w] : [c.w, c.d]), c.floorZ, c.kind])
+            .sort(),
+        ]);
+      const first = list[0];
+      for (const t of list) {
+        if (first && shape(t) !== shape(first)) {
+          v.push(`${t.key}: not the same as ${first.key}, which it should be (alike trays)`);
+        }
+      }
     }
   }
 

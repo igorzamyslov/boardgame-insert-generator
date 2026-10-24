@@ -32,7 +32,7 @@ import { COPY_RULINGS, DOWNLOAD_STATES } from "../screens/copy-rulings";
  * - "Lock size", "Unlock size", "size locked", "size lock(s)", "Size unlocked on": the size lock
  *   is a real control and its name (spec: only the position lock is a "pin"); "Size unlocked on
  *   <n> trays" is what an edit says when it takes size locks off trays that are gone (DESIGN §7).
- * - "Keep searching", "Keep space free", "Part of it": real labels (the box's headroom choice;
+ * - "Try another arrangement", "Keep space free", "Part of it": real labels (the box's headroom choice;
  *   named in DESIGN §2 Words). "Keep this version": the project menu's choice after another tab
  *   changed the insert (Main's board; it has nothing to do with pins). "keeps the top layer from
  *   sliding" and "Keeps everything snug": the hints of Settings' board, where "keeps" is the plain
@@ -196,7 +196,7 @@ const NOT_WORDS =
 
 /** Legitimate uses, removed from the text before NOT_WORDS looks at it. */
 const ALLOWED =
-  /\b(?:Lock size|Unlock size|Size unlocked on|size[ -]locked|size locks?|Keep searching|Keep space free|Keep this version|keeps the top layer from sliding|Keeps everything snug|Turned trays keep their direction when the plan updates|Part of it|data-part)\b/gi;
+  /\b(?:Lock size|Unlock size|Size unlocked on|size[ -]locked|size locks?|Try another arrangement|Keep space free|Keep this version|keeps the top layer from sliding|Keeps everything snug|Turned trays keep their direction when the plan updates|Part of it|data-part)\b/gi;
 
 /** Files that write the download list, why a part could not be exported, and part names. */
 const PART_FILES: readonly RegExp[] = [
@@ -240,7 +240,7 @@ describe("copy", () => {
     const all = files.flatMap((f) => texts(f, sources.get(f) ?? ""));
     // A scan that read nothing would pass for the wrong reason.
     expect(all.length).toBeGreaterThan(1000);
-    expect(all.some((t) => t.text.includes("Keep searching"))).toBe(true);
+    expect(all.some((t) => t.text.includes("Try another arrangement"))).toBe(true);
     // Comments are not read, and a colour is not a retired "#<digit>".
     expect(texts("x.ts", "// Advanced mode, #1.\nconst a = '#1D1F1C';").map((t) => t.text)).toEqual(
       ["#1D1F1C"],
@@ -274,7 +274,7 @@ describe("copy", () => {
     expect(not("a component")).toBe("component");
     expect(not("Lock size")).toBeNull();
     expect(not("Lock size and keep it")).toBe("keep");
-    expect(not("Keep searching")).toBeNull();
+    expect(not("Try another arrangement")).toBeNull();
     expect(not("Keep space free on top")).toBeNull();
     expect(not("Keep this version")).toBeNull();
     expect(not("Size locked")).toBeNull();
@@ -329,7 +329,7 @@ describe("copy", () => {
       expect(readme).not.toMatch(old);
     }
     expect(readme).toContain("Pin");
-    expect(readme).toContain("Keep searching");
+    expect(readme).toContain("Try another arrangement");
     // The Not-column words, in the prose only: a code span (`...`) and a heading naming a file
     // or code is not copy, and "part" belongs to the download list.
     const prose = readme

@@ -114,15 +114,10 @@
 }
 
 /*
- * A group's tray is neutral (G1, spec §7.6): a mixed tray has no single kind, so the page's own
- * tokens stand for it, `--sheet` for the ground and `--muted-strong` for the 2 px line, the pill's
- * ink and Edit's lift; its cells say what is where, each in its member's kind colours.
+ * A group's tray (G1, spec §7.6) has no kind, so no kind's hue: its tile takes its group's own
+ * (`--tile-*`, set inline from `groupShadeIndexOfTray`) and its cells say what is where, each in
+ * its member's kind colours.
  */
-.plan-tile.is-group {
-  --tile-fill: var(--sheet);
-  --tile-line: var(--muted-strong);
-  --tile-ink: var(--muted-strong);
-}
 
 /* Spare trays and spacers belong to no component: hatched, with a dashed edge (Main). */
 .plan-tile.is-leftover {
@@ -137,6 +132,16 @@
 /* While one component is pointed at or selected, every other tray fades. At 60% the hue stays; at half it went grey on the box. */
 .plan-tile.is-dimmed {
   opacity: 0.6;
+}
+
+/*
+ * A layer below the one the Layer switch lights (board 2): its trays under the lit layer, faint, with
+ * nothing to press. It is the plan's picture of what the lit layer stands on.
+ */
+.plan-tile.is-ghost {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
 }
 
 .plan-tile.is-source {
@@ -310,12 +315,25 @@
 }
 
 /*
- * The 3D view holds the caption's place under its frame (an empty, hidden line like the plan's
- * caption), so the frame has the height the plan's has, and Top turning to 3D moves nothing. A
- * phone's 3D view has none: the plan's caption there is its own and the stage scrolls.
+ * The caption row (board 1): the same row under the frame in Top and in 3D, across the working
+ * column. Top centres its one line; 3D has what the view does at the left and its one control,
+ * Spread apart, at the right (a phone's wraps, the control under the words).
  */
-.plan-caption--spacer {
-  visibility: hidden;
+.plan-col .plan-caption {
+  flex: none;
+  align-self: stretch;
+  justify-content: center;
+  min-height: 24px;
+}
+
+.plan-col .plan-caption--3d {
+  flex-wrap: wrap;
+  gap: var(--s-4) var(--s-16);
+  justify-content: space-between;
+}
+
+.plan-caption--3d .range-field input {
+  min-height: 24px;
 }
 
 /*
@@ -367,10 +385,6 @@
 
   .plan-caption {
     font-size: var(--text-2xs);
-  }
-
-  .plan-caption--spacer {
-    display: none;
   }
 
   /* MobileWorkspace: no cells, except a group's, which are what says what is in its tray (G4); and a smaller pill. */

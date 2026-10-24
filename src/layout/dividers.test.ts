@@ -167,7 +167,7 @@ describe("dividers in a real layout", () => {
           ...(raw.components[0] as Record<string, unknown>),
           decks: [{ name: "Action", count: 60 }],
           storage: "upright-long",
-          growth: { stack: "max" },
+          room: "max",
           ...(dividers > 0 ? { dividers } : {}),
         },
       ],

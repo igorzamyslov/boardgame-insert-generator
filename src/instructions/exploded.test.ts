@@ -2,6 +2,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
+import { shadeHex } from "../ui/identity";
 import { boxOutline, outlineCenter, trayPosition } from "../viewer/transform";
 import { explodedView } from "./exploded";
 import { trayNames } from "./naming";
@@ -220,7 +221,7 @@ describe("explodedView", () => {
 });
 
 describe("explodedView with a group's trays", () => {
-  it("names a group's trays by the group and draws them neutral", () => {
+  it("names a group's trays by the group and draws them in the group's hue", () => {
     const base = fixtureProject();
     const [a, b] = base.components as [
       (typeof base.components)[number],
@@ -263,7 +264,7 @@ describe("explodedView with a group's trays", () => {
     expect(view?.parts.map((x) => x.name)).toEqual(["Player kit 1", "Player kit 2"]);
     const doc = parse(view?.svg ?? "");
     const top = doc.querySelector('g[data-part="1"]')?.querySelectorAll("polygon");
-    expect(top?.[top.length - 1]?.getAttribute("fill")).toBe("#ffffff");
-    expect(top?.[top.length - 1]?.getAttribute("stroke")).toBe("#3e413c");
+    expect(top?.[top.length - 1]?.getAttribute("fill")).toBe(shadeHex("group", 0, "light").fill);
+    expect(top?.[top.length - 1]?.getAttribute("stroke")).toBe(shadeHex("group", 0, "light").line);
   });
 });

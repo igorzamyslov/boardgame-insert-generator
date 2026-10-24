@@ -6,7 +6,7 @@ import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { GROUP_SHADE, SPACER_SHADE, shadeHex } from "../ui/identity";
+import { SPACER_SHADE, shadeHex } from "../ui/identity";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import type { Component } from "../model/types";
 import type { SceneFactory, SceneHandle } from "./types";
@@ -189,14 +189,14 @@ describe("Viewer", () => {
     const own = makeTray({ key: "own:p0:0", level: 0, compartments: [deckWell("Market ×20")] });
     const base = { components: fixtureProject().components, groups: [kit] };
 
-    it("takes the neutral body colour of the group, and an ungrouped tray its kind's shade", async () => {
+    it("takes the body colour of its group's hue, and an ungrouped tray its kind's shade", async () => {
       const scene = stubScene();
       render(<Viewer {...props({ ...base, trays: [inKit(0), inKit(1), own] }, scene)} />);
       await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
       const shown = vi.mocked(scene.handle.setTrays).mock.calls.at(-1)?.[0] ?? [];
       const got = Object.fromEntries(shown.map((t) => [t.spec.key, t.color]));
-      expect(got["kit:p0:0"]).toBe(GROUP_SHADE.light.fill);
-      expect(got["kit:p1:0"]).toBe(GROUP_SHADE.light.fill);
+      expect(got["kit:p0:0"]).toBe(shadeHex("group", 0, "light").fill);
+      expect(got["kit:p1:0"]).toBe(shadeHex("group", 0, "light").fill);
       expect(got["own:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
     });
 
@@ -445,7 +445,7 @@ describe("Viewer", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("draws the canvas in the plan's frame, sized from the box, with the controls over its foot", async () => {
+  it("draws the canvas in the plan's frame, sized from the box, with Spread apart in the caption row under it", async () => {
     const scene = stubScene();
     const { container } = render(
       <Viewer {...props({ box: { ...DEFAULT_BOX, innerWidth: 300, innerDepth: 150 } }, scene)} />,
@@ -456,15 +456,14 @@ describe("Viewer", () => {
     expect(fit?.style.getPropertyValue("--box-l")).toBe("150");
     const frame = fit?.querySelector(".viewer-stage");
     expect(frame?.querySelector("canvas.viewer-canvas")).not.toBeNull();
-    // the one row of controls is inside the frame, out of the flow
+    // messages are inside the frame, out of the flow; the one control, Spread apart, is in the caption row under it
     const under = container.querySelector(".viewer-under");
-    const row = under?.querySelector(".viewer-controls");
+    const row = container.querySelector(".plan-caption--3d");
     expect(row).not.toBeNull();
-    // Spread apart is the one control in the row (the Layer switch is the status row's); nothing else sits in the strip but messages
     expect(row?.querySelectorAll("input[type=range], select")).toHaveLength(1);
-    expect(row?.querySelector("select")).toBeNull();
-    expect(under?.querySelector("ul, li")).toBeNull();
+    expect(under?.querySelector("input, select, ul, li")).toBeNull();
     expect(frame?.contains(under ?? null)).toBe(true);
+    expect(frame?.contains(row ?? null)).toBe(false);
     expect(frame?.getAttribute("data-region")).toBe("plan-box");
   });
 

@@ -65,11 +65,17 @@ export const CORNER_RELIEF_D = 3;
 /**
  * At most this many variants per storage option of a requirement (spec §7.1): every arrangement
  * (strip, rows2, columns) × every split (MAX_SPLITS). It was 8 (2 × 3 and room to spare) until
- * group-tray-fill spec §3 (b) added columns.
+ * group-tray-fill spec §3 (b) added columns, and 12 since a split in four.
  */
-export const MAX_VARIANTS = 9;
-/** Splits across at most this many trays (spec §7.1). */
-export const MAX_SPLITS = 3;
+export const MAX_VARIANTS = 12;
+/**
+ * Splits across at most this many trays (spec §7.1; four since 0.14.0, so four entries can be
+ * one tray each). Only even splits are offered (`offeredSplit`), so this is the most any item
+ * is cut into, not how many variants it gets.
+ */
+export const MAX_SPLITS = 4;
+/** The most trays `splitBlocks` balances by weight: what an item with no even split falls back to. */
+export const MAX_WEIGHTED_SPLITS = 3;
 /** A measured card thickness below this (mm per card) is implausible; the preset is used. */
 export const MIN_MEASURED_CARD_T = 0.1;
 /** Tile column / stack variants: target stack heights in mm (1 column is always offered). */

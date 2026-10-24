@@ -1,0 +1,298 @@
+{
+  "schemaVersion": "0.2.1",
+  "createdWith": "0.11.1",
+  "id": "scythe02",
+  "name": "Scythe: base + Invaders from Afar + Encounters + Wind Gambit tiles (fits)",
+  "box": {
+    "innerWidth": 356,
+    "innerDepth": 290,
+    "innerHeight": 92,
+    "headroom": 10,
+    "headroomCoverage": "full",
+    "storedOnSide": false
+  },
+  "printer": {
+    "bedX": 256,
+    "bedY": 256,
+    "bedZ": 256,
+    "bedMargin": 5,
+    "layerHeight": 0.2
+  },
+  "settings": {
+    "wall": 1.6,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 1,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.03,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": {
+      "width": 25,
+      "floorNotch": 12.5,
+      "wallRoom": 0,
+      "dividerRoom": 0
+    },
+    "lip": {
+      "enabled": true,
+      "height": 2,
+      "thickness": 1.2,
+      "ledge": 1.7,
+      "play": 0.25
+    },
+    "topPressFit": 0,
+    "packingFactor": 0.65,
+    "leftover": "spare",
+    "fillToTop": true,
+    "minRiser": 3,
+    "wallAbsorb": 0,
+    "infill": 15,
+    "playLimit": 1.5
+  },
+  "components": [
+    {
+      "id": "min01000",
+      "name": "Faction miniatures",
+      "access": "setup",
+      "kind": "minis",
+      "figures": [
+        {
+          "name": "Leader",
+          "w": 28,
+          "d": 28,
+          "h": 38,
+          "count": 1
+        },
+        {
+          "name": "Mech",
+          "w": 28,
+          "d": 28,
+          "h": 33,
+          "count": 4
+        }
+      ],
+      "storage": "pockets"
+    },
+    {
+      "id": "blk02000",
+      "name": "Faction wooden pieces",
+      "access": "setup",
+      "kind": "bulk",
+      "items": [
+        {
+          "name": "Workers, structures, recruits, stars, cubes, tokens",
+          "count": 31,
+          "w": 12,
+          "d": 12,
+          "h": 12
+        }
+      ]
+    },
+    {
+      "id": "blk03000",
+      "name": "Resources",
+      "access": "often",
+      "kind": "bulk",
+      "items": [
+        {
+          "name": "Oil",
+          "count": 20,
+          "w": 16,
+          "d": 16,
+          "h": 12
+        },
+        {
+          "name": "Metal",
+          "count": 20,
+          "w": 16,
+          "d": 16,
+          "h": 12
+        },
+        {
+          "name": "Wood",
+          "count": 20,
+          "w": 16,
+          "d": 16,
+          "h": 12
+        },
+        {
+          "name": "Food",
+          "count": 20,
+          "w": 16,
+          "d": 16,
+          "h": 12
+        }
+      ]
+    },
+    {
+      "id": "blk04000",
+      "name": "Coins",
+      "access": "often",
+      "kind": "bulk",
+      "items": [
+        {
+          "name": "Cardboard coins (80 + 7)",
+          "volumeMl": 70
+        }
+      ]
+    },
+    {
+      "id": "cus05000",
+      "name": "Power dials",
+      "access": "often",
+      "kind": "custom",
+      "w": 66,
+      "d": 66,
+      "h": 7,
+      "count": 2
+    },
+    {
+      "id": "blk06000",
+      "name": "Cardboard tokens",
+      "access": "sometimes",
+      "kind": "bulk",
+      "items": [
+        {
+          "name": "Encounter, multiplier and other tokens",
+          "volumeMl": 45
+        }
+      ]
+    },
+    {
+      "id": "til07000",
+      "name": "Structure bonus tiles",
+      "access": "setup",
+      "kind": "tiles",
+      "shape": {
+        "type": "rect",
+        "w": 45,
+        "d": 45
+      },
+      "thickness": 2,
+      "count": 6,
+      "storage": "auto"
+    },
+    {
+      "id": "cds08000",
+      "name": "Combat cards",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 44,
+      "longSide": 67,
+      "decks": [
+        {
+          "name": "",
+          "count": 42
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    },
+    {
+      "id": "cds09000",
+      "name": "Encounter cards",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 70,
+      "longSide": 110,
+      "decks": [
+        {
+          "name": "Base",
+          "count": 28
+        },
+        {
+          "name": "Encounters promo",
+          "count": 32
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    },
+    {
+      "id": "cds10000",
+      "name": "Factory and Riverwalk cards",
+      "access": "setup",
+      "kind": "cards",
+      "shortSide": 70,
+      "longSide": 110,
+      "decks": [
+        {
+          "name": "Factory",
+          "count": 12
+        },
+        {
+          "name": "Riverwalk",
+          "count": 5
+        },
+        {
+          "name": "Quick-start",
+          "count": 5
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    },
+    {
+      "id": "cds11000",
+      "name": "Objective and Automa cards",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 57,
+      "longSide": 87,
+      "decks": [
+        {
+          "name": "Objective",
+          "count": 23
+        },
+        {
+          "name": "Automa",
+          "count": 37
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    },
+    {
+      "id": "til12000",
+      "name": "Wind Gambit tiles",
+      "access": "setup",
+      "kind": "tiles",
+      "shape": {
+        "type": "rect",
+        "w": 45,
+        "d": 65
+      },
+      "thickness": 2,
+      "count": 24,
+      "storage": "auto"
+    }
+  ],
+  "locks": [],
+  "groups": [
+    {
+      "id": "faction1",
+      "name": "Faction",
+      "copies": 7,
+      "access": "setup",
+      "memberIds": ["min01000", "blk02000"]
+    }
+  ]
+}

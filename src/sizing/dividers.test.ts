@@ -89,19 +89,24 @@ describe("the slot and its dividers", () => {
 });
 
 describe("which components can have dividers", () => {
-  it("offers them to a deck or stack of tiles that stands up and may grow", () => {
-    expect(dividersOffered(cards({ storage: "upright-long" }))).toBe(true);
-    expect(dividersOffered(cards({ storage: "upright-short" }))).toBe(true);
-    expect(dividersOffered(cards({ storage: "auto" }))).toBe(true);
-    expect(dividersOffered(tiles({ storage: "upright" }))).toBe(true);
-    expect(dividersOffered(tiles({ storage: "auto" }))).toBe(true);
+  it("offers them to a deck or stack of tiles that stands up and has room (some or as much as fits)", () => {
+    for (const room of ["max", 10] as const) {
+      expect(dividersOffered(cards({ storage: "upright-long", room }))).toBe(true);
+      expect(dividersOffered(cards({ storage: "upright-short", room }))).toBe(true);
+      expect(dividersOffered(cards({ storage: "auto", room }))).toBe(true);
+      expect(dividersOffered(tiles({ storage: "upright", room }))).toBe(true);
+      expect(dividersOffered(tiles({ storage: "auto", room }))).toBe(true);
+    }
   });
 
   it("does not offer them to flat storage, or to a stack that may not grow", () => {
     expect(dividersOffered(cards({ storage: "flat" }))).toBe(false);
     expect(dividersOffered(tiles({ storage: "flat" }))).toBe(false);
-    expect(dividersOffered(cards({ growth: { stack: "off" } }))).toBe(false);
-    expect(dividersOffered(tiles({ growth: { stack: "off" } }))).toBe(false);
+    // a deck or stack with no room (the default) has nothing to partition: divided or not, the
+    // well is the stack's own width, so a divider is not offered (owner, 2026-10-23)
+    expect(dividersOffered(cards({ storage: "upright-long" }))).toBe(false);
+    expect(dividersOffered(tiles({ storage: "upright" }))).toBe(false);
+    expect(dividersOffered(cards({ storage: "upright-long", room: 0 }))).toBe(false);
   });
 
   it("does not offer them to bins, minis or custom wells", () => {
@@ -114,35 +119,48 @@ describe("which components can have dividers", () => {
   it("reads a count set where they are not offered as none, and stores 0 as nothing", () => {
     const set = { ...bulk(), dividers: 3 };
     expect(dividersOf(set)).toBe(0);
-    expect(dividersOf(cards({ dividers: 3 }))).toBe(3);
-    expect(dividersOf(cards({ dividers: 3, growth: { stack: "off" } }))).toBe(0);
+    expect(dividersOf(cards({ dividers: 3, room: "max" }))).toBe(3);
+    expect(dividersOf(cards({ dividers: 3 }))).toBe(0);
     expect("dividers" in withDividers(cards({ dividers: 3 }), 0)).toBe(false);
     expect(withDividers(cards(), 2).dividers).toBe(2);
   });
 
   it("asks sizing for slots only where they are offered", () => {
-    expect(deck(cards({ dividers: 2 })).dividers).toBe(2);
-    expect(deck(cards({ dividers: 2, growth: { stack: "off" } })).dividers).toBeUndefined();
+    expect(deck(cards({ dividers: 2, room: "max" })).dividers).toBe(2);
+    expect(deck(cards({ dividers: 2 })).dividers).toBeUndefined();
     expect(deck(cards()).dividers).toBeUndefined();
     // flat storage of the same component: no dividers, no floor extra
     const flat = at(
-      at(at(cardOptions(cards({ dividers: 2, storage: "auto" }), s, 0).options, 2).blocks, 0),
+      at(
+        at(cardOptions(cards({ dividers: 2, storage: "auto", room: "max" }), s, 0).options, 2)
+          .blocks,
+        0,
+      ),
       0,
     );
     expect(flat.dividers).toBeUndefined();
     expect(flat.floorExtra).toBeUndefined();
-    const stacks = at(tileOptions(tiles({ dividers: 2, storage: "upright" }), s).options, 0);
+    const stacks = at(
+      tileOptions(tiles({ dividers: 2, storage: "upright", room: "max" }), s).options,
+      0,
+    );
     expect(at(at(stacks.blocks, 0), 0).dividers).toBe(2);
     expect(
-      at(at(at(tileOptions(tiles({ dividers: 2, storage: "flat" }), s).options, 0).blocks, 0), 0)
-        .dividers,
+      at(
+        at(
+          at(tileOptions(tiles({ dividers: 2, storage: "flat", room: "max" }), s).options, 0)
+            .blocks,
+          0,
+        ),
+        0,
+      ).dividers,
     ).toBeUndefined();
   });
 });
 
 describe("a divided well, sized", () => {
-  const plain = deck(cards());
-  const divided = deck(cards({ dividers: 2 }));
+  const plain = deck(cards({ room: "max" }));
+  const divided = deck(cards({ dividers: 2, room: "max" }));
 
   it("is wider by the room of its slots, has no spacer, and grows itself", () => {
     expect(divided.minW).toBeCloseTo(plain.minW + 2 * SLOT, 2);
@@ -153,7 +171,7 @@ describe("a divided well, sized", () => {
   });
 
   it("ignores spacer plates: dividers and plates are exclusive", () => {
-    const both = deck(cards({ dividers: 2, separators: 4, growth: { stack: "max" } }));
+    const both = deck(cards({ dividers: 2, separators: 4, room: "max" }));
     expect(both.separators).toBeUndefined();
     expect(both.spacerAxis).toBeUndefined();
     // and the plates' retention does not apply
@@ -162,11 +180,8 @@ describe("a divided well, sized", () => {
   });
 
   it("makes the tray as much taller as the slots go deep", () => {
-    const one = partOf([cards({ growth: { stack: "max" } })], "upright-long|strip|split1");
-    const two = partOf(
-      [cards({ growth: { stack: "max" }, dividers: 2 })],
-      "upright-long|strip|split1",
-    );
+    const one = partOf([cards({ room: "max" })], "upright-long|strip|split1");
+    const two = partOf([cards({ room: "max", dividers: 2 })], "upright-long|strip|split1");
     expect(minOuter(two, s, ground).h).toBeCloseTo(minOuter(one, s, ground).h + DIVIDER_GROOVE, 2);
   });
 });
@@ -185,17 +200,14 @@ describe("the retention cap with dividers", () => {
   });
 
   it("gives the divided deck component more room than the same deck without them", () => {
-    const wide = (c = cards({ growth: { stack: "max" } })): number | undefined => deck(c).growth?.w;
-    expect(wide(cards({ growth: { stack: "max" }, dividers: 2 }))).toBeCloseTo(
-      (wide() ?? 0) * 3,
-      1,
-    );
+    const wide = (c = cards({ room: "max" })): number | undefined => deck(c).growth?.w;
+    expect(wide(cards({ room: "max", dividers: 2 }))).toBeCloseTo((wide() ?? 0) * 3, 1);
   });
 });
 
 describe("realizing a divided well", () => {
   const part = (n: number) =>
-    partOf([cards({ growth: { stack: "max" }, dividers: n })], "upright-long|strip|split1");
+    partOf([cards({ room: "max", dividers: n })], "upright-long|strip|split1");
 
   it("cuts N slots, evenly spaced across the well, and no spacer", () => {
     for (const n of [1, 2, 3, 6]) {
@@ -237,7 +249,7 @@ describe("realizing a divided well", () => {
   });
 
   it("takes more of a roomy leaf than the same deck without dividers, as far as retention allows", () => {
-    const plain = partOf([cards({ growth: { stack: "max" } })], "upright-long|strip|split1");
+    const plain = partOf([cards({ room: "max" })], "upright-long|strip|split1");
     const p = part(2);
     const base = minOuter(plain, s, ground);
     const wide = { w: base.w + 200, d: base.d, h: base.h + DIVIDER_GROOVE };
@@ -253,7 +265,7 @@ describe("realizing a divided well", () => {
 
   it("permits width T + slots + (N + 1) × the undivided slack allowance: only the slack scales", () => {
     const stack = at(
-      partOf([cards({ growth: { stack: "max" } })], "upright-long|strip|split1").compartments,
+      partOf([cards({ room: "max" })], "upright-long|strip|split1").compartments,
       0,
     ).minW;
     for (const n of [1, 3]) {

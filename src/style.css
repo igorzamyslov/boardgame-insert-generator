@@ -556,39 +556,14 @@ input[aria-invalid="true"] {
   font: 500 var(--text-xs) / 20px var(--font-ui);
 }
 
-/* Spread apart: one quiet row, the label beside its control. */
-.viewer-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-4) var(--s-16);
-  align-items: center;
-  justify-content: center;
-  max-width: 100%;
-  padding: var(--s-4) var(--s-12);
-  border-radius: var(--r-tile);
-  background: var(--pill-fill);
-  color: var(--muted-strong);
-  font: 500 var(--text-xs) / 20px var(--font-ui);
-}
-
-.viewer-controls .field,
+/* Spread apart: the label beside its control, at the right end of the 3D view's caption row. */
 .range-field {
   display: flex;
   gap: var(--s-8);
   align-items: center;
-}
-
-/* stylelint-disable-next-line no-descending-specificity */
-.viewer-controls .field > label {
-  color: inherit;
-  font: inherit;
+  color: var(--muted-strong);
+  font: 500 var(--text-xs) / 20px var(--font-ui);
   white-space: nowrap;
-}
-
-.viewer-controls select {
-  width: auto;
-  font: inherit;
-  color: var(--ink);
 }
 
 .range-field input {

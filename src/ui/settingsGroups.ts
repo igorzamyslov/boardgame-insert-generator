@@ -11,7 +11,7 @@ export interface ExactGroup {
   paths: readonly string[];
   /**
    * Choices that sit among the numbers (they are not in `SETTING_RANGES`). "spareRoom" is the choice
-   * between a spacer, thicker walls and one thick wall: it draws the `wallAbsorb` number itself, so
+   * between separate spacers, bigger wells, thicker walls and one thick wall: it draws the `wallAbsorb` number itself, so
    * that path is in `paths` (an error there opens the group) but is not a row of its own.
    */
   extras?: readonly ("leftover" | "spareRoom")[];

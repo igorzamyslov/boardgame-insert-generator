@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, MIN_WALL_MM } from "../model/settings";
+import { DEFAULT_SETTINGS, MIN_WALL_MM, applyWallChoice } from "../model/settings";
 import type { Settings } from "../model/types";
 import { rowsOf, wallFor } from "./outer";
 import { minOuter } from "./realize";
@@ -28,6 +28,27 @@ describe("wallFor", () => {
     expect(wallFor({ ...s, wall: 3.5 }, true)).toBe(3.5);
     expect(wallFor({ ...s, wall: 0.5 }, false)).toBe(MIN_WALL_MM);
     expect(MIN_WALL_MM).toBeCloseTo(0.9, 9);
+  });
+
+  describe("with the Thin walls choice (1.0 mm)", () => {
+    const thin = applyWallChoice(s, "thin");
+
+    it("thins a tray that stands alone, and keeps the rim's walls thick", () => {
+      expect(wallFor(thin, false)).toBe(1);
+      // the lip and its ledge need 2.9 mm whatever the wall
+      expect(wallFor(thin, true)).toBeCloseTo(2.9, 9);
+      // a tray above the first keeps what its groove leaves around the wells
+      expect(wallFor(thin, false, 1)).toBeCloseTo(wallFor(s, false, 1), 9);
+      expect(wallFor(thin, false, 1)).toBeGreaterThan(2.5);
+    });
+
+    it("keeps the stepped base at 1.0 mm, a hundredth or so more above the first", () => {
+      const step = { ...thin, lip: { ...thin.lip, kind: "step" as const } };
+      expect(wallFor(step, false)).toBe(1);
+      expect(wallFor(step, true)).toBe(1);
+      expect(wallFor(step, false, 1)).toBeGreaterThan(1);
+      expect(wallFor(step, false, 1)).toBeLessThan(1.02);
+    });
   });
 
   it("is thicker above level 0 with the lip on, for the groove under the tray's outer edge", () => {

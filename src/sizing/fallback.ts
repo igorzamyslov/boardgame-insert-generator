@@ -33,6 +33,11 @@ function binPieces(c: Component): readonly Pieces[] | null {
  */
 export function bulkFallback(c: Component, s: Settings): StorageOption[] | null {
   const pieces = binPieces(c);
-  const modes = { w: binGrowthOf(c, "w"), d: binGrowthOf(c, "d"), h: binGrowthOf(c, "h") };
+  const wells = s.biggerWells;
+  const modes = {
+    w: binGrowthOf(c, "w", wells),
+    d: binGrowthOf(c, "d", wells),
+    h: binGrowthOf(c, "h", wells),
+  };
   return pieces === null ? null : binOptions(c, pieces, binTogglesOf(c), modes, s);
 }
