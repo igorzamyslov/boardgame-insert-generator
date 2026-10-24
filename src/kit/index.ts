@@ -18,7 +18,7 @@ export {
 export { IconTile, type IconTileProps, type IconTileSize } from "./IconTile";
 export { GripIcon, GroupGlyph, Icon, KindGlyph, type IconName, type IconProps } from "./icons";
 export { KindTile, type KindTileProps } from "./KindTile";
-export { ListRow, type ListRowProps } from "./ListRow";
+export { ListRow, RowEditButton, type ListRowProps } from "./ListRow";
 export {
   MenuItem,
   MenuLink,

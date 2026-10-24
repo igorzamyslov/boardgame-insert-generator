@@ -211,6 +211,19 @@ export function GroupEditor({
   const copiesAlertId = useId();
   const copiesRefused = messagesOf(useFieldNotices(`/groups/${index}/copies`)).errors.length > 0;
   const [asking, setAsking] = useState(false);
+  // Escape leaves the editor, as Done does; one that something inside took (a menu, a drag) is theirs.
+  const leaveOnEscape = (e: KeyboardEvent): void => {
+    if (
+      e.key !== "Escape" ||
+      e.defaultPrevented ||
+      (e.target as HTMLElement).tagName === "SELECT"
+    ) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    onBack();
+  };
 
   // The panel replaced the list: the reader starts at its top, and a screen reader hears whose it is.
   // Coming back from an item, the focus is on that item's name (the order list takes it).
@@ -286,7 +299,12 @@ export function GroupEditor({
 
   if (phone) {
     return (
-      <section class="ed ed--phone ed--group" data-group aria-label={`Edit ${name}`}>
+      <section
+        class="ed ed--phone ed--group"
+        data-group
+        aria-label={`Edit ${name}`}
+        onKeyDown={leaveOnEscape}
+      >
         <header class="ed-bar">
           <IconButton
             label="Back"
@@ -313,7 +331,12 @@ export function GroupEditor({
     );
   }
   return (
-    <section class="ed ed--group" data-group aria-labelledby={`${group.id}-heading`}>
+    <section
+      class="ed ed--group"
+      data-group
+      aria-labelledby={`${group.id}-heading`}
+      onKeyDown={leaveOnEscape}
+    >
       {/* the page's h1 is the stage's sentence: this names the panel and takes the focus */}
       <h2 class="visually-hidden" id={`${group.id}-heading`} tabIndex={-1} ref={headingRef}>
         {name}

@@ -497,9 +497,9 @@ when it's somewhere else.
 → Wrap the component in a small `Host` that holds the value in `useState` (`plan/PlanView.test.tsx`).
 
 **Errors are invisible.**
-→ The field sits in a closed disclosure ("More options", "Exact numbers").
+→ The field sits in a closed disclosure (a Tray settings row, "Exact numbers").
 → The disclosure opens itself while an error exists at one of its paths and stays open
-(`MoreOptions errorPaths={commonOptionPaths(index)}` matches exact paths and prefixes,
+(`SettingsGroup errorPaths={shapePaths(index)}` and the like match exact paths and prefixes,
 `path/...`). If you add a field under a disclosure, add its path. The test must assert the message
 has no closed `<details>` ancestor.
 

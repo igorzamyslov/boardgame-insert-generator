@@ -18,6 +18,12 @@ export interface Project {
   components: Component[];
   /** Absent: no groups. A group's members are components, named by id in `memberIds`. */
   groups?: Group[];
+  /**
+   * Absent: the list shows the items in `components` order. Else the order the rail lists its items
+   * in (component ids; an id it lacks goes last, in `components` order). A person's order, kept
+   * with the project: the plan ignores it, so it is no input of the layout (not in the hash).
+   */
+  listOrder?: string[];
   locks: Lock[];
   layout?: StoredLayout;
 }

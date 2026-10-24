@@ -19,7 +19,7 @@ import { CardsEditor } from "./CardsEditor";
 import { CustomEditor } from "./CustomEditor";
 import { MinisEditor } from "./MinisEditor";
 import { TilesEditor } from "./TilesEditor";
-import { choose, lastOf, of, openMore, openRows, pressedIn } from "./test-editors";
+import { choose, lastOf, of, openRows, openSettings, pressedIn, trayRow } from "./test-editors";
 
 afterEach(cleanup);
 
@@ -190,7 +190,7 @@ describe("How tightly it packs", () => {
   it("is on a minis item only while the figures are loose in a tray, and says so otherwise", () => {
     const onChange = vi.fn<(c: MinisComponent) => void>();
     const view = render(<MinisEditor component={of("minis")} index={0} onChange={onChange} />);
-    openMore();
+    openRows();
     expect(screen.queryByRole("group", { name: "How tightly it packs" })).toBeNull();
     expect(screen.getByText("Needs the figures loose in a tray.")).toBeTruthy();
     view.rerender(
@@ -257,7 +257,7 @@ describe("toggles", () => {
   it("defaults tokens to a curved floor without finger cuts, and turns cuts on", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
     render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
-    openMore();
+    openRows();
     const chip = (name: string) => screen.getByRole("button", { name });
     expect(chip("Curved floor").getAttribute("aria-pressed")).toBe("true");
     expect(chip("Finger cuts").getAttribute("aria-pressed")).toBe("false");
@@ -277,19 +277,19 @@ describe("toggles", () => {
         <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </SizingContext.Provider>,
     );
-    openMore();
+    openRows();
     expect(screen.getByRole("button", { name: "Finger cuts" }).getAttribute("aria-pressed")).toBe(
       "true",
     );
     const note = screen.getByText(/stored loose in a tray with a curved floor/);
-    // outside More options: in the basics, where it is read first
+    // outside Tray settings: in the basics, where it is read first
     expect(note.closest(".k-disclosure")).toBeNull();
   });
 
   it("offers no curved floor on tiles, and corner holes on by default", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
-    openMore();
+    openRows();
     expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
     const holes = screen.getByRole("button", { name: "Corner holes" });
     expect(holes.getAttribute("aria-pressed")).toBe("true");
@@ -364,7 +364,7 @@ describe("toggles", () => {
     it("offers tiles one row, None by default, and stores As much as fits as max", () => {
       const onChange = vi.fn<(c: TilesComponent) => void>();
       render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
-      openMore();
+      openRows();
       expect(rooms()).toEqual(["Room for more tiles"]);
       expect(pressedIn("Room for more tiles")).toBe("None");
       choose("Room for more tiles", "As much as fits");
@@ -374,7 +374,7 @@ describe("toggles", () => {
     it("offers tokens one row, in pieces, and stores a number of percent", () => {
       const onChange = vi.fn<(c: BulkComponent) => void>();
       render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
-      openMore();
+      openRows();
       expect(rooms()).toEqual(["Room for more pieces"]);
       expect(pressedIn("Room for more pieces")).toBe("None");
       choose("Room for more pieces", "Some");
@@ -386,20 +386,20 @@ describe("toggles", () => {
         render(
           <MinisEditor component={{ ...of("minis"), storage }} index={0} onChange={vi.fn()} />,
         );
-        openMore();
+        openRows();
         expect(rooms(), storage).toEqual([]);
         expect(screen.queryByRole("group", { name: /Extra |Looser pockets/ }), storage).toBeNull();
         cleanup();
       }
       render(<CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />);
-      openMore();
+      openRows();
       expect(rooms()).toEqual([]);
     });
 
-    it("keeps it under More options", () => {
+    it("keeps it under Tray settings", () => {
       render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
       expect(rooms()).toEqual([]);
-      openMore();
+      openRows();
       expect(rooms().length).toBeGreaterThan(0);
     });
   });
@@ -480,38 +480,45 @@ describe("validation shown in place", () => {
         <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
-    openMore();
+    openRows();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByText("Heads up.")).toBeTruthy();
   });
 
-  it("folds the optional fields under More options, closed by default", () => {
+  it("folds the optional fields under Tray settings, four rows closed by default", () => {
     render(<CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />);
-    const more = screen.getByRole("button", { name: /^More options/ });
-    expect(more.getAttribute("aria-expanded")).toBe("false");
+    const rows = ["Reach", "Shape", "Room", "Copies and group"] as const;
+    for (const title of rows) {
+      expect(trayRow(title)?.getAttribute("aria-expanded"), title).toBe("false");
+    }
     expect(screen.queryByRole("group", { name: "How often you reach for it" })).toBeNull();
-    fireEvent.click(more);
-    expect(more.getAttribute("aria-expanded")).toBe("true");
-    const panel = document.getElementById(more.getAttribute("aria-controls") ?? "") as HTMLElement;
-    expect(within(panel).getByRole("group", { name: "How often you reach for it" })).toBeTruthy();
-    expect(within(panel).getByRole("button", { name: "Finger cuts" })).toBeTruthy();
-    expect(within(panel).getByRole("button", { name: "Copies" })).toBeTruthy();
-    expect(within(panel).queryByRole("button", { name: "Per player" })).toBeNull();
+    const panelOf = (title: (typeof rows)[number]) =>
+      document.getElementById(trayRow(title)?.getAttribute("aria-controls") ?? "") as HTMLElement;
+    openSettings("Reach", "Shape", "Room", "Copies and group");
+    expect(
+      within(panelOf("Reach")).getByRole("group", { name: "How often you reach for it" }),
+    ).toBeTruthy();
+    expect(within(panelOf("Shape")).getByRole("button", { name: "Finger cuts" })).toBeTruthy();
+    expect(within(panelOf("Room")).getByLabelText(/^Room around the pieces/)).toBeTruthy();
+    expect(
+      within(panelOf("Copies and group")).getByRole("textbox", { name: "Copies" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Per player" })).toBeNull();
   });
 
-  it("opens More options when a field inside has an error, and keeps it open", () => {
+  it("opens the row Copies and group when a field inside has an error, and keeps it open", () => {
     const notice = err("field.copies", "/components/0/copies", "Bad players.");
     const c = { ...of("custom"), copies: 0 };
-    const more = () => screen.getByRole("button", { name: /^More options/ });
+    const copies = () => trayRow("Copies and group") as HTMLElement;
     const view = render(<CustomEditor component={c} index={0} onChange={vi.fn()} />);
-    expect(more().getAttribute("aria-expanded")).toBe("false");
+    expect(copies().getAttribute("aria-expanded")).toBe("false");
     view.rerender(
       <ValidationContext.Provider value={[notice]}>
         <CustomEditor component={c} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
-    expect(more().getAttribute("aria-expanded")).toBe("true");
-    // and so is the row: the message is on the page, in no closed panel
+    expect(copies().getAttribute("aria-expanded")).toBe("true");
+    // the message is on the page, in no closed panel
     expect(screen.getByRole("alert").textContent).toBe("Bad players.");
     view.rerender(
       <ValidationContext.Provider value={[]}>
@@ -519,24 +526,34 @@ describe("validation shown in place", () => {
       </ValidationContext.Provider>,
     );
     // stays open once an error brought it up, so it does not vanish under the person mending it
-    expect(more().getAttribute("aria-expanded")).toBe("true");
+    expect(copies().getAttribute("aria-expanded")).toBe("true");
   });
 
-  describe.each(Object.keys(EDITORS) as (keyof typeof EDITORS)[])("More options of %s", (kind) => {
+  describe.each(Object.keys(EDITORS) as (keyof typeof EDITORS)[])("Tray settings of %s", (kind) => {
     const Editor = EDITORS[kind] as unknown as AnyEditor;
-    const more = () => screen.getByRole("button", { name: /^More options/ });
+    const ROWS = ["Reach", "Shape", "Room", "Copies and group"] as const;
+    // the row that holds each field, which opens for an error at it
+    const OPENS: Record<string, (typeof ROWS)[number]> = {
+      copies: "Copies and group",
+      clearance: "Room",
+      curvedFloor: "Shape",
+      separators: "Shape",
+      dividers: "Shape",
+      room: "Room",
+    };
 
-    it.each(["copies", "clearance", "curvedFloor", "separators", "dividers", "room"])(
-      "opens for an error at /components/0/%s",
-      (field) => {
-        render(
-          <ValidationContext.Provider value={[err("field.test", `/components/0/${field}`, "Bad.")]}>
-            <Editor component={of(kind)} index={0} onChange={vi.fn()} />
-          </ValidationContext.Provider>,
+    it.each(Object.keys(OPENS))("opens its row for an error at /components/0/%s", (field) => {
+      render(
+        <ValidationContext.Provider value={[err("field.test", `/components/0/${field}`, "Bad.")]}>
+          <Editor component={of(kind)} index={0} onChange={vi.fn()} />
+        </ValidationContext.Provider>,
+      );
+      for (const title of ROWS) {
+        expect(trayRow(title)?.getAttribute("aria-expanded"), `${field}: ${title}`).toBe(
+          title === OPENS[field] ? "true" : "false",
         );
-        expect(more().getAttribute("aria-expanded")).toBe("true");
-      },
-    );
+      }
+    });
 
     it("stays closed for an error at another component", () => {
       render(
@@ -546,7 +563,24 @@ describe("validation shown in place", () => {
           <Editor component={of(kind)} index={0} onChange={vi.fn()} />
         </ValidationContext.Provider>,
       );
-      expect(more().getAttribute("aria-expanded")).toBe("false");
+      for (const title of ROWS) {
+        expect(trayRow(title)?.getAttribute("aria-expanded"), title).toBe("false");
+      }
+    });
+
+    it("has its four rows, each showing its settings once pressed and none before", () => {
+      render(<Editor component={of(kind)} index={0} onChange={vi.fn()} />);
+      const marks: Record<(typeof ROWS)[number], () => HTMLElement | null> = {
+        Reach: () => screen.queryByRole("group", { name: "How often you reach for it" }),
+        Shape: () => screen.queryByRole("button", { name: "Finger cuts" }),
+        Room: () => screen.queryByLabelText(/^Room around the pieces/),
+        "Copies and group": () => screen.queryByRole("textbox", { name: "Copies" }),
+      };
+      for (const title of ROWS) {
+        expect(marks[title](), `${title} closed`).toBeNull();
+        openSettings(title);
+        expect(marks[title](), `${title} open`).not.toBeNull();
+      }
     });
   });
 
@@ -576,7 +610,7 @@ describe("validation shown in place", () => {
       return <TilesEditor component={c} index={0} onChange={setC} />;
     }
     render(<Harness />);
-    openMore();
+    openRows();
     expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
     const back = screen.getByRole("button", { name: "Back to curved floor off for Tray shape" });
     back.focus();

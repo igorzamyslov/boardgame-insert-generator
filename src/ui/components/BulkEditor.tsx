@@ -2,10 +2,17 @@
 // EditKinds' tokens and dice editor: a card for each kind of piece, with its count and its size.
 import type { BulkComponent, BulkItem } from "../../model/types";
 import { COUNT, LENGTH, VOLUME_ML } from "../limits";
-import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
+import {
+  CopiesRows,
+  ReachGroup,
+  RoomRows,
+  copiesPaths,
+  roomPaths,
+  shapePaths,
+} from "./CommonOptions";
 import { NumField, TextBox } from "./controls";
 import { RoomOptions } from "./RoomOptions";
-import { MoreOptions } from "./MoreOptions";
+import { SettingsGroup, TraySettings } from "./TraySettings";
 import { RowRemove } from "./RowRemove";
 import { BinNotes, TrayShape } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -143,12 +150,19 @@ export function BulkEditor({ component: c, index, onChange }: EditorProps<BulkCo
         </button>
       ) : null}
       <BinNotes component={c} index={index} />
-      <MoreOptions component={c} errorPaths={commonOptionPaths(index)}>
-        <RoomOptions component={c} index={index} onChange={onChange} />
-        <AccessChoice component={c} index={index} onChange={onChange} />
-        <TrayShape component={c} index={index} onChange={onChange} />
-        <CommonRows component={c} index={index} onChange={onChange} />
-      </MoreOptions>
+      <TraySettings>
+        <ReachGroup component={c} index={index} onChange={onChange} />
+        <SettingsGroup id="shape" component={c} errorPaths={shapePaths(index)}>
+          <TrayShape component={c} index={index} onChange={onChange} />
+        </SettingsGroup>
+        <SettingsGroup id="room" component={c} errorPaths={roomPaths(index)}>
+          <RoomOptions component={c} index={index} onChange={onChange} />
+          <RoomRows component={c} index={index} onChange={onChange} />
+        </SettingsGroup>
+        <SettingsGroup id="copies" component={c} errorPaths={copiesPaths(index)}>
+          <CopiesRows component={c} index={index} onChange={onChange} />
+        </SettingsGroup>
+      </TraySettings>
     </>
   );
 }

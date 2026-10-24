@@ -138,6 +138,19 @@ export function EditorPanel({
       {removeLabel}
     </button>
   );
+  // Escape leaves the editor, as Done does; one that something inside took (a menu, a drag) is theirs.
+  const leaveOnEscape = (e: KeyboardEvent): void => {
+    if (
+      e.key !== "Escape" ||
+      e.defaultPrevented ||
+      (e.target as HTMLElement).tagName === "SELECT"
+    ) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    onBack();
+  };
   const kind = KIND_TILES.find((t) => t.kind === c.kind)?.label ?? "";
   const rename = (next: string): void => onChange({ ...c, name: next });
   const group = grouping?.group;
@@ -161,6 +174,7 @@ export function EditorPanel({
         data-kind={c.kind}
         style={shadeVars(c.kind, kindIndex)}
         aria-label={`Edit ${name}`}
+        onKeyDown={leaveOnEscape}
       >
         <header class="ed-bar">
           <IconButton
@@ -192,6 +206,7 @@ export function EditorPanel({
       data-kind={c.kind}
       style={shadeVars(c.kind, kindIndex)}
       aria-labelledby={`${c.id}-heading`}
+      onKeyDown={leaveOnEscape}
     >
       {/* the page's h1 is the stage's sentence: this names the panel and takes the focus */}
       <h2 class="visually-hidden" id={`${c.id}-heading`} tabIndex={-1} ref={headingRef}>

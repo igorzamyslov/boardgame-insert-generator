@@ -2,6 +2,7 @@
 import type { ButtonHTMLAttributes, CSSProperties, ComponentChildren } from "preact";
 import type { ComponentKind } from "../model/types";
 import { cx } from "./cx";
+import { Icon } from "./icons";
 import { IconTile } from "./IconTile";
 
 export interface ListRowProps extends Omit<
@@ -21,8 +22,8 @@ export interface ListRowProps extends Omit<
   lit?: boolean;
   /**
    * The phone sheet's row (MobileWorkspace): a 14 px swatch in the kind's line and fill, or a
-   * dashed square without a kind, the name, and the meta on the right. A link into an editor, so
-   * it says nothing of being selected.
+   * dashed square without a kind, the name, and the meta on the right. Pressing it selects, like
+   * the rail's row; the box's own row (no kind) is a link, so it says nothing of being selected.
    */
   compact?: boolean;
   /**
@@ -32,6 +33,19 @@ export interface ListRowProps extends Omit<
   shade?: Record<string, string>;
   /** Beside the row, outside its button: a rule chip. */
   after?: ComponentChildren;
+  /** Present: a pencil beside the row (outside its button) that edits it; pressing the row only selects. */
+  onEdit?: () => void;
+  /** The pencil's name for assistive technology ("Edit Market deck"). */
+  editLabel?: string;
+}
+
+/** The pencil beside a row: it opens what the row stands for, where pressing the row only selects. */
+export function RowEditButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" class="k-row__edit" aria-label={label} title={label} onClick={onClick}>
+      <Icon name="pencil" size={16} />
+    </button>
+  );
 }
 
 /** One line of "What's inside": the kind's tile, the name and a line under it. */
@@ -44,6 +58,8 @@ export function ListRow({
   compact = false,
   shade,
   after,
+  onEdit,
+  editLabel,
   class: extra,
   type = "button",
   ...rest
@@ -55,7 +71,7 @@ export function ListRow({
         {...rest}
         type={type}
         class={cx("k-row", compact && "k-row--compact", extra as string | undefined)}
-        aria-pressed={compact ? undefined : selected}
+        aria-pressed={kind === undefined ? undefined : selected}
         data-lit={lit && !compact ? "true" : undefined}
       >
         {compact ? (
@@ -90,6 +106,9 @@ export function ListRow({
           </span>
         )}
       </button>
+      {onEdit !== undefined ? (
+        <RowEditButton label={editLabel ?? `Edit ${name}`} onClick={onEdit} />
+      ) : null}
       {after}
     </div>
   );

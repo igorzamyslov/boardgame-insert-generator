@@ -1,7 +1,7 @@
 // src/ui/components/GroupCard.tsx
 import type { ComponentChildren } from "preact";
 import { useId, useState } from "preact/hooks";
-import { GripIcon, GroupGlyph, IconTile, ListRow } from "../../kit";
+import { GripIcon, GroupGlyph, IconTile, ListRow, RowEditButton } from "../../kit";
 import { DEFAULT_GROUP_NAME } from "../../model/groups";
 import type { ComponentKind, Group, TraySpec } from "../../model/types";
 
@@ -40,10 +40,16 @@ export interface GroupCardProps {
   compact?: boolean;
   /** Beside the header, outside its button: the rule chips. */
   chips?: ComponentChildren;
-  /** The header was chosen: the group's editor. */
+  /** The header was pressed: the group's trays are selected, nothing opens. */
+  onSelect?: () => void;
+  /** A member's row was pressed: its tray is selected, nothing opens. Absent: the row opens its editor. */
+  onSelectItem?: (id: string) => void;
+  /** The pencil on the header (or a double press on it): the group's editor. */
   onEdit?: () => void;
-  /** A member was chosen: the item's editor. */
+  /** The pencil on a member (or a double press on its row): the item's editor. */
   onEditItem: (id: string) => void;
+  /** A key on a member's row (Alt+arrows move it). */
+  onItemKeyDown?: (id: string, e: KeyboardEvent) => void;
   /** The pointer or the focus is on the header or a member (every member's id: all the group's trays light), or left it (null). */
   onLight?: (ids: readonly string[] | null) => void;
   /** A member's grip: its `onPointerDown`, for the drag that moves it (`useRailDrag`). */
@@ -113,8 +119,11 @@ export function GroupCard({
   lit = false,
   compact = false,
   chips,
+  onSelect,
+  onSelectItem,
   onEdit,
   onEditItem,
+  onItemKeyDown,
   onLight,
   onGrip,
 }: GroupCardProps) {
@@ -172,7 +181,8 @@ export function GroupCard({
           data-misfit={misfit ? "true" : undefined}
           data-group-head={group.id}
           style={shade}
-          onClick={() => onEdit?.()}
+          onClick={() => (onSelect ?? onEdit)?.()}
+          onDblClick={() => onEdit?.()}
           onMouseEnter={enter(null)}
           onMouseLeave={leave}
           onFocus={enter(null)}
@@ -201,6 +211,9 @@ export function GroupCard({
             </span>
           )}
         </button>
+        {onEdit === undefined ? null : (
+          <RowEditButton label={`Edit ${name}`} onClick={() => onEdit()} />
+        )}
         {chips}
       </div>
       {members.length === 0 ? (
@@ -232,7 +245,11 @@ export function GroupCard({
                 shade={m.shade}
                 data-row-id={m.id}
                 data-problem={m.problem ? "true" : undefined}
-                onClick={() => onEditItem(m.id)}
+                onClick={() => (onSelectItem ?? onEditItem)(m.id)}
+                onDblClick={() => onEditItem(m.id)}
+                onEdit={() => onEditItem(m.id)}
+                editLabel={`Edit ${m.who}`}
+                onKeyDown={(e: KeyboardEvent) => onItemKeyDown?.(m.id, e)}
                 onMouseEnter={enter(m.id)}
                 onMouseLeave={leave}
                 onFocus={enter(m.id)}

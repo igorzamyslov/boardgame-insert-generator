@@ -7,7 +7,8 @@ import { CARD_PRESETS } from "../../model/presets";
 import type { CardsComponent } from "../../model/types";
 import { ValidationContext } from "../validation";
 import { CardsEditor, cardPresetOf } from "./CardsEditor";
-import { choose, openMore, openRows, pressedIn } from "./test-editors";
+import { mm } from "../identity";
+import { choose, openRows, pressedIn, trayRow } from "./test-editors";
 
 afterEach(cleanup);
 
@@ -17,6 +18,17 @@ function cards(over: Partial<CardsComponent> = {}): CardsComponent {
     throw new Error("expected cards");
   }
   return { ...c, id: "c1", ...over };
+}
+
+/** One setting under a row of Tray settings, by its name (a plain label over its control). */
+function settingOf(title: string): HTMLElement {
+  const label = Array.from(document.querySelectorAll<HTMLElement>(".ed-setting > .ed-label")).find(
+    (l) => l.textContent === title,
+  );
+  if (!label?.parentElement) {
+    throw new Error(`no setting ${title}`);
+  }
+  return label.parentElement;
 }
 
 function setup(c: CardsComponent) {
@@ -33,65 +45,65 @@ function setup(c: CardsComponent) {
 }
 
 describe("CardsEditor", () => {
-  it("picks a size preset from the chips", () => {
+  const sizeSelect = (): HTMLSelectElement =>
+    screen.getByRole("combobox", { name: "Card size" }) as HTMLSelectElement;
+  const pickSize = (value: string): void => {
+    fireEvent.change(sizeSelect(), { target: { value } });
+  };
+
+  it("picks a size preset from the list of sizes", () => {
     expect(cardPresetOf(cards())).toBe("standard");
     const { last } = setup(cards());
-    expect(pressedIn("Card size")).toBe("Standard");
-    choose("Card size", "Tarot");
+    expect(sizeSelect().value).toBe("standard");
+    expect(sizeSelect().selectedOptions[0]?.textContent).toBe("Standard · 63.5 × 88 mm");
+    pickSize("tarot");
     expect(last()).toMatchObject({ shortSide: 70, longSide: 120 });
   });
 
-  it("says the card's size under the chips", () => {
+  it("says each size with its measures in the list, and My own size last", () => {
     setup(cards());
-    expect(screen.getByText("63.5 × 88 mm")).toBeTruthy();
-  });
-
-  it("offers the common sizes as chips, and the others inside My own size", () => {
-    setup(cards());
-    const labels = (name: string): (string | null)[] =>
-      Array.from(screen.getByRole("group", { name }).querySelectorAll("button")).map(
-        (b) => b.textContent,
-      );
-    expect(labels("Card size")).toEqual([
-      "Standard",
-      "Standard American",
-      "Euro",
-      "Mini Euro",
-      "Tarot",
+    expect(Array.from(sizeSelect().options).map((o) => o.textContent)).toEqual([
+      ...CARD_PRESETS.map((p) => `${p.label} · ${mm(p.shortSide)} × ${mm(p.longSide)} mm`),
       "My own size",
     ]);
-    expect(screen.queryByRole("group", { name: "Other sizes" })).toBeNull();
-    choose("Card size", "My own size");
-    expect(labels("Other sizes")).toEqual([
-      "Mini American",
-      "French Tarot",
-      "Extra Large",
-      "Dixit",
+    expect(Array.from(sizeSelect().options).map((o) => o.value)).toEqual([
+      ...CARD_PRESETS.map((p) => p.id),
+      "custom",
     ]);
+    // the sides are typed only under My own size
+    expect(screen.queryByLabelText(/Short side/)).toBeNull();
+    expect(screen.queryByLabelText(/Long side/)).toBeNull();
+    expect(screen.queryByRole("group", { name: "Card size" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Other sizes" })).toBeNull();
   });
 
-  it("opens My own size, with the other size pressed, for a file that set one", () => {
+  it("opens My own size, with the sides, for a file that set a size no preset has", () => {
+    setup(cards({ shortSide: 77, longSide: 111 }));
+    expect(sizeSelect().value).toBe("custom");
+    expect((screen.getByLabelText(/Short side/) as HTMLInputElement).value).toBe("77");
+    expect((screen.getByLabelText(/Long side/) as HTMLInputElement).value).toBe("111");
+  });
+
+  it("shows a size a preset has as that preset, with no fields for the sides", () => {
     setup(cards({ shortSide: 80, longSide: 120 }));
-    expect(pressedIn("Card size")).toBe("My own size");
-    expect(pressedIn("Other sizes")).toBe("Dixit");
+    expect(sizeSelect().value).toBe("dixit");
+    expect(screen.queryByLabelText(/Short side/)).toBeNull();
   });
 
   it.each(CARD_PRESETS.map((p) => [p.id, p] as const))(
     "can select the %s preset",
     (_id, preset) => {
       const { last } = setup(cards({ shortSide: 10, longSide: 20 }));
-      if (preset.common === true) {
-        choose("Card size", preset.label);
-      } else {
-        choose("Other sizes", preset.label);
-      }
+      pickSize(preset.id);
       expect(last()).toMatchObject({ shortSide: preset.shortSide, longSide: preset.longSide });
     },
   );
 
   it("commits custom sides on blur and orders them short ≤ long", () => {
     const { onChange, last } = setup(cards());
-    choose("Card size", "My own size");
+    pickSize("custom");
+    // choosing My own size changes nothing by itself: the sides are the preset's until typed over
+    expect(onChange).not.toHaveBeenCalled();
     const long = screen.getByLabelText(/Long side/);
     fireEvent.input(long, { target: { value: "1" } });
     fireEvent.input(long, { target: { value: "10" } });
@@ -115,14 +127,14 @@ describe("CardsEditor", () => {
       expect(last().decks[0]).toMatchObject({ count: 51 });
     });
 
-    it("offers a second deck among the basics, under the stepper and before More options", () => {
+    it("offers a second deck among the basics, under the stepper and before Tray settings", () => {
       const { last } = setup(cards());
       const add = screen.getByRole("button", { name: "+ Another deck" });
       const stepper = screen.getByLabelText("Number of cards");
-      const more = screen.getByRole("button", { name: /^More options/ });
+      const reach = trayRow("Reach") as HTMLElement;
       expect(stepper.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(add.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(more.getAttribute("aria-expanded")).toBe("false");
+      expect(add.compareDocumentPosition(reach) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(reach.getAttribute("aria-expanded")).toBe("false");
       fireEvent.click(add);
       expect(last().decks).toEqual([
         { name: "Deck 1", count: 50 },
@@ -249,7 +261,7 @@ describe("CardsEditor", () => {
       });
     });
 
-    it("has no Decks row under More options", () => {
+    it("has no Decks row under Tray settings", () => {
       setup(cards());
       openRows();
       expect(screen.queryByRole("button", { name: /^Decks/ })).toBeNull();
@@ -336,11 +348,11 @@ describe("CardsEditor", () => {
     });
   });
 
-  describe("More options", () => {
+  describe("Tray settings", () => {
     it("offers how often, how the cards stand and the tray shape", () => {
       const { last } = setup(cards());
       expect(screen.queryByRole("group", { name: "Cards stand" })).toBeNull();
-      openMore();
+      openRows();
       expect(pressedIn("How often you reach for it")).toBe("Sometimes");
       expect(pressedIn("Cards stand")).toBe("Auto");
       choose("Cards stand", "Flat");
@@ -414,7 +426,7 @@ describe("CardsEditor", () => {
 
     it("shows finger cuts on, no curved floor, and corner holes off", () => {
       const { last } = setup(cards());
-      openMore();
+      openRows();
       const cuts = screen.getByRole("button", { name: "Finger cuts" });
       expect(cuts.getAttribute("aria-pressed")).toBe("true");
       expect(screen.queryByRole("button", { name: "Curved floor" })).toBeNull();
@@ -428,12 +440,12 @@ describe("CardsEditor", () => {
 
     it("never offers a curved floor on cards, and gives a file that set one the way back instead of a chip", () => {
       const { view } = setup(cards());
-      openMore();
+      openRows();
       expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
       expect(screen.queryByRole("button", { name: /^Back to curved floor/ })).toBeNull();
       view.unmount();
       const set = setup(cards({ curvedFloor: true }));
-      openMore();
+      openRows();
       // the chip is not offered, so it can't remove itself; the way back is the "Back to" link
       expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
       fireEvent.click(
@@ -447,7 +459,7 @@ describe("CardsEditor", () => {
     it("is one row, None by default, for a deck of any stand", () => {
       for (const storage of ["upright-long", "flat", "auto"] as const) {
         const { view } = setup(cards({ storage }));
-        openMore();
+        openRows();
         expect(pressedIn("Room for more cards"), storage).toBe("None");
         const labels = Array.from(
           screen.getByRole("group", { name: "Room for more cards" }).querySelectorAll("button"),
@@ -459,14 +471,14 @@ describe("CardsEditor", () => {
 
     it("names the default only in the way back, and only while a room is set", () => {
       const { view } = setup(cards({ storage: "upright-long" }));
-      openMore();
+      openRows();
       expect(screen.queryByText(/is the default/)).toBeNull();
       expect(
         screen.queryByRole("button", { name: /^Back to .* for Room for more cards/ }),
       ).toBeNull();
       view.unmount();
       setup(cards({ storage: "upright-long", room: 20 }));
-      openMore();
+      openRows();
       expect(
         screen.getByRole("button", { name: "Back to None for Room for more cards" }),
       ).toBeTruthy();
@@ -474,18 +486,18 @@ describe("CardsEditor", () => {
 
     it("never offers the card's own width or length, or a second axis", () => {
       setup(cards({ storage: "upright-long" }));
-      openMore();
+      openRows();
       expect(screen.queryByRole("group", { name: /Extra (width|length|height)/ })).toBeNull();
     });
 
     it("starts Some at 20 cards and keeps the number as typed", () => {
       const { last, view } = setup(cards({ storage: "upright-long" }));
-      openMore();
+      openRows();
       choose("Room for more cards", "Some");
       expect(last().room).toBe(20);
       view.unmount();
       const next = setup(cards({ storage: "upright-long", room: 20 }));
-      openMore();
+      openRows();
       expect(pressedIn("Room for more cards")).toBe("Some");
       fireEvent.input(screen.getByLabelText(/Room for more cards, amount/), {
         target: { value: "35" },
@@ -495,7 +507,7 @@ describe("CardsEditor", () => {
 
     it("stores nothing for None", () => {
       const { last } = setup(cards({ storage: "upright-long", room: "max" }));
-      openMore();
+      openRows();
       choose("Room for more cards", "None");
       expect("room" in last()).toBe(false);
     });
@@ -588,43 +600,47 @@ describe("CardsEditor", () => {
       });
       expect(chip.getAttribute("aria-disabled")).toBe("true");
       expect(reasonOf(chip)).toBe("For flat decks, see Between decks.");
-      expect(screen.getByRole("button", { name: /^Dividers/ }).textContent).toContain(
-        "For flat decks, see Between decks.",
-      );
+      expect(settingOf("Dividers").textContent).toContain("For flat decks, see Between decks.");
+      expect(settingOf("Dividers").querySelector("input")).toBeNull();
     });
 
     it("blocks the spacer plates and the dividers of a deck with no room to grow, with the reasons", () => {
       setup(cards());
       openRows();
-      expect(screen.getByRole("button", { name: /^Spacer plates/ }).textContent).toContain(
+      expect(settingOf("Spacer plates").textContent).toContain(
         "Spacer plates need Room for more cards.",
       );
+      expect(settingOf("Spacer plates").querySelector("input")).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Spacer plates/ })).toBeNull();
       const chip = screen.getByRole("button", { name: "Removable dividers" });
       expect(chip.getAttribute("aria-disabled")).toBe("true");
       expect(reasonOf(chip)).toBe("Dividers need Room for more cards.");
-      expect(screen.getByRole("button", { name: /^Dividers/ }).textContent).toContain(
-        "Dividers need Room for more cards.",
-      );
+      expect(settingOf("Dividers").textContent).toContain("Dividers need Room for more cards.");
+      expect(settingOf("Dividers").querySelector("input")).toBeNull();
     });
 
     it("blocks the spacer plates while the well has dividers", () => {
       setup(cards({ room: 20, storage: "upright-long", dividers: 2, separators: 4 }));
       openRows();
-      const row = screen.getByRole("button", { name: /^Spacer plates/ });
-      expect(row.getAttribute("aria-disabled")).toBe("true");
+      const row = settingOf("Spacer plates");
+      expect(row.classList.contains("ed-setting--blocked")).toBe(true);
       expect(row.textContent).toContain("Dividers take the place of spacer plates.");
+      expect(row.querySelector("input")).toBeNull();
       // the dividers themselves are on offer
-      expect(
-        screen.getByRole("button", { name: /^Dividers/ }).getAttribute("aria-disabled"),
-      ).toBeNull();
+      expect(settingOf("Dividers").classList.contains("ed-setting--blocked")).toBe(false);
+      expect(screen.getByLabelText("Number of dividers")).toBeTruthy();
     });
 
     it("blocks nothing where the deck can have both", () => {
       setup(cards({ room: 20, storage: "upright-long" }));
       openRows();
-      for (const name of [/^Spacer plates/, /^Dividers/, /^Removable dividers$/]) {
-        expect(screen.getByRole("button", { name }).getAttribute("aria-disabled")).toBeNull();
+      for (const title of ["Spacer plates", "Dividers"]) {
+        expect(settingOf(title).classList.contains("ed-setting--blocked"), title).toBe(false);
+        expect(settingOf(title).querySelector("input"), title).not.toBeNull();
       }
+      expect(
+        screen.getByRole("button", { name: "Removable dividers" }).getAttribute("aria-disabled"),
+      ).toBeNull();
     });
 
     it("stores nothing when the count goes back to 0", () => {
@@ -685,7 +701,7 @@ describe("CardsEditor validation", () => {
     expect(screen.getByRole("alert").textContent).toBe("Bad count.");
   });
 
-  it("opens More options and the thickness row for a measured stack error", () => {
+  it("opens the row Room, with the thickness setting, for a measured stack error", () => {
     render(
       <ValidationContext.Provider
         value={[
@@ -704,9 +720,10 @@ describe("CardsEditor validation", () => {
         />
       </ValidationContext.Provider>,
     );
-    expect(
-      screen.getByRole("button", { name: /^More options/ }).getAttribute("aria-expanded"),
-    ).toBe("true");
+    expect(trayRow("Room")?.getAttribute("aria-expanded")).toBe("true");
+    for (const title of ["Reach", "Shape", "Copies and group"] as const) {
+      expect(trayRow(title)?.getAttribute("aria-expanded"), title).toBe("false");
+    }
     expect(screen.getByRole("alert").textContent).toBe("Bad stack.");
   });
 
@@ -758,8 +775,8 @@ describe("the thickness correction", () => {
 
   it("says what the row is for, with the board's words, and nothing more", () => {
     setup(cards());
-    openMore();
-    const row = screen.getByRole("button", { name: /^Card thickness/ });
+    openRows();
+    const row = settingOf("Card thickness");
     expect(row.textContent).toContain(
       "From the sleeve table. Measure your stack if decks come out tight.",
     );
@@ -770,40 +787,41 @@ describe("the thickness correction", () => {
       { name: "Starter", count: 20 },
       { name: "Market", count: 20 },
     ];
-    const between = (): HTMLElement => screen.getByRole("button", { name: /^Between decks/ });
+    const between = (): HTMLElement => settingOf("Between decks");
 
-    /** The children of More options' panel, in order. */
+    /** The children of the row Shape's panel, in order. */
     const panel = (): Element[] => {
-      const more = screen.getByRole("button", { name: /^More options/ });
+      const shape = trayRow("Shape") as HTMLElement;
       return [
-        ...(document.getElementById(more.getAttribute("aria-controls") ?? "")?.children ?? []),
+        ...(document.getElementById(shape.getAttribute("aria-controls") ?? "")?.children ?? []),
       ];
     };
-    const rowOf = (): Element => between().closest(".ed-exact") as Element;
+    const rowOf = (): Element => between();
 
     it("is a row directly under Cards stand once the item has two decks or more", () => {
       setup(cards({ decks: two }));
-      openMore();
+      openRows();
       const at = panel().indexOf(rowOf());
       expect(at).toBeGreaterThan(0);
       expect(
         panel()[at - 1]?.querySelector('[role="group"][aria-label="Cards stand"]'),
       ).not.toBeNull();
-      expect(between().textContent).toContain("Fixed walls");
+      expect(within(between()).getByRole("button", { name: "Fixed walls" })).toBeTruthy();
     });
 
-    it("carries its value in a title, so a narrow rail that clips the meta still says it", () => {
+    it("says its value as the pressed choice, and the way back while it is not Fixed walls", () => {
       setup(cards({ decks: two, storage: "flat", flatDecks: "dividers" }));
-      openMore();
-      expect(between().querySelector(".k-drow__metatext")?.getAttribute("title")).toBe(
-        "Removable dividers",
-      );
+      openRows();
+      expect(pressedIn("Between decks")).toBe("Removable dividers");
+      expect(
+        within(between()).getByRole("button", { name: "Back to Fixed walls for Between decks" }),
+      ).toBeTruthy();
     });
 
     it("is absent with one deck", () => {
       setup(cards());
-      openMore();
-      expect(screen.queryByRole("button", { name: /^Between decks/ })).toBeNull();
+      openRows();
+      expect(screen.queryByText("Between decks")).toBeNull();
     });
 
     it("offers Fixed walls and Removable dividers, and writes flatDecks", () => {
@@ -819,24 +837,25 @@ describe("the thickness correction", () => {
 
     it("reads as set under Auto, and applies when Auto picks flat", () => {
       setup(cards({ decks: two, storage: "auto", flatDecks: "dividers" }));
-      openMore();
-      expect(between().getAttribute("aria-disabled")).toBeNull();
-      expect(between().textContent).toContain("Removable dividers");
+      openRows();
+      expect(between().classList.contains("ed-setting--blocked")).toBe(false);
+      expect(pressedIn("Between decks")).toBe("Removable dividers");
     });
 
     it("is blocked with upright storage, with its reason", () => {
       const { onChange } = setup(cards({ decks: two, storage: "upright-long" }));
-      openMore();
-      expect(between().getAttribute("aria-disabled")).toBe("true");
+      openRows();
+      expect(between().classList.contains("ed-setting--blocked")).toBe(true);
       expect(between().textContent).toContain("Only flat decks can share one well.");
-      fireEvent.click(between());
+      // the setting is a name and its reason: nothing to press
+      expect(within(between()).queryByRole("button")).toBeNull();
       expect(screen.queryByRole("group", { name: "Between decks" })).toBeNull();
       expect(onChange).not.toHaveBeenCalled();
     });
 
     it("keeps its place when the storage changes", () => {
       const view = setup(cards({ decks: two, storage: "flat" }));
-      openMore();
+      openRows();
       const flat = panel().indexOf(rowOf());
       expect(flat).toBeGreaterThan(0);
       view.view.rerender(

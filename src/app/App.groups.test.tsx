@@ -90,6 +90,9 @@ function grouped(asGroup = false): Project {
 const rail = (): HTMLElement => screen.getByRole("complementary", { name: "What's inside" });
 const row = (id: string): HTMLElement =>
   rail().querySelector(`[data-row-id="${id}"]`) as HTMLElement;
+/** The pencil beside a row: it opens the item's editor (a press on the row only selects its tray). */
+const edit = (id: string): HTMLElement =>
+  within(row(id).closest(".k-rowwrap") as HTMLElement).getByRole("button", { name: /^Edit / });
 const tile = (key: string): HTMLElement =>
   document.querySelector(`.plan-tile[data-key="${key}"]`) as HTMLElement;
 const showLayer = (name: RegExp): void => {
@@ -156,7 +159,7 @@ describe("a tray that holds a group's items", () => {
   it("lifts the tray in every member's editor, on the layer it is on", () => {
     renderApp({ project: grouped() });
     for (const id of ["mkt", "gem"]) {
-      fireEvent.click(row(id));
+      fireEvent.click(edit(id));
       // the editor opens on the tray's layer: it is drawn, lifted, and the other tray is not here
       expect(tile("mkt:p0:0"), id).not.toBeNull();
       expect(tile("mkt:p0:0").classList.contains("is-lifted"), id).toBe(true);
@@ -164,7 +167,7 @@ describe("a tray that holds a group's items", () => {
       fireEvent.click(screen.getByRole("button", { name: "Done" }));
     }
     // and it is not lifted for the item that is not in it
-    fireEvent.click(row("tab"));
+    fireEvent.click(edit("tab"));
     expect(tile("mkt:p0:0")).toBeNull();
     expect(tile("tab:p0:0").classList.contains("is-lifted")).toBe(true);
   });

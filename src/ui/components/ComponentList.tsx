@@ -38,7 +38,14 @@ export interface ComponentListProps {
   selectedIds?: readonly string[];
   /** The components whose tray does not fit (a fit problem's culprit): their rows are warn-lit and say so. */
   culprits?: ReadonlySet<string>;
-  /** A row was chosen: open its editor. */
+  /** The order the list shows its items in (`Project.listOrder`); absent: the components' own. */
+  listOrder?: readonly string[];
+  /**
+   * A row was pressed: its tray is selected (plan and 3D light it), nothing opens. Absent: a press
+   * opens the editor, as `onOpen` does.
+   */
+  onSelect?: (id: string) => void;
+  /** The pencil on a row, a double press on it, or a press where nothing can be selected: open its editor. */
   onOpen: (id: string) => void;
   /** The pointer or the focus is on a row (its component's id), or left it (null). */
   onHover?: (id: string | null) => void;
@@ -187,10 +194,12 @@ export function ComponentList({
   trays,
   locks = [],
   groups = [],
+  listOrder,
   compact = false,
   first,
   selectedIds = [],
   culprits,
+  onSelect,
   onOpen,
   onHover,
   onLight,
@@ -217,6 +226,18 @@ export function ComponentList({
           ...(pointedGroup ?? []),
         ]);
   const listRef = useRef<HTMLUListElement>(null);
+  // The item a keyboard move took: its row takes the focus back once the list has re-rendered.
+  const refocus = useRef<string | null>(null);
+  useEffect(() => {
+    const id = refocus.current;
+    if (id === null) {
+      return;
+    }
+    refocus.current = null;
+    [...(listRef.current?.querySelectorAll<HTMLElement>("[data-row-id]") ?? [])]
+      .find((r) => r.dataset.rowId === id)
+      ?.focus();
+  });
   // A tablet has no hover: an ungrouped row's grip is shown there all the time (rail.css).
   const noHover = useRef(
     typeof window.matchMedia === "function" && window.matchMedia("(hover: none)").matches,
@@ -272,10 +293,39 @@ export function ComponentList({
     names?.get(trayKey)?.full ??
     components.find((c) => trayKey.startsWith(`${c.id}:`))?.name ??
     "another tray";
-  const entries = railEntries({ components, groups });
+  const entries = railEntries({ components, groups, listOrder });
   if (entries.length === 0 && first === undefined) {
     return null;
   }
+  const press = onSelect ?? onOpen;
+
+  /**
+   * Alt+↑ / Alt+↓ on an item's row moves it one place: among the list's entries (an item in the
+   * list), or in its group's order (a member). The drop is the drag's own: one undo step, said aloud.
+   */
+  const moveKey = (id: string, e: KeyboardEvent): void => {
+    if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown") || onDrop === undefined) {
+      return;
+    }
+    e.preventDefault();
+    const way = e.key === "ArrowUp" ? -1 : 1;
+    const own = groups.find((g) => g.memberIds.includes(id));
+    if (own !== undefined) {
+      const at = own.memberIds.indexOf(id);
+      const to = at + way;
+      if (to >= 0 && to < own.memberIds.length) {
+        refocus.current = id;
+        onDrop(id, { groupId: own.id, index: to });
+      }
+      return;
+    }
+    const at = entries.findIndex((x) => x.kind === "item" && x.id === id);
+    const to = at + way;
+    if (at !== -1 && to >= 0 && to < entries.length) {
+      refocus.current = id;
+      onDrop(id, { out: true, index: to });
+    }
+  };
 
   /** The chips beside an owner's row or header: one per rule, each with an × that lifts it. */
   const chipsFor = (
@@ -378,7 +428,7 @@ export function ComponentList({
           );
           const name = group.name === "" ? "Group" : group.name;
           return (
-            <li class="rail-item" key={group.id}>
+            <li class="rail-item" key={group.id} data-entry={group.id}>
               <GroupCard
                 group={group}
                 shade={shadeVars("group", groupShadeIndexOf(groups, group.id))}
@@ -395,8 +445,18 @@ export function ComponentList({
                   "data-group-head",
                   chipsOf(group.id, locks, baseName),
                 )}
+                onSelect={() => {
+                  const first = members[0];
+                  if (first === undefined) {
+                    onEditGroup?.(group.id);
+                  } else {
+                    press(first.c.id);
+                  }
+                }}
+                onSelectItem={press}
                 onEdit={() => onEditGroup?.(group.id)}
                 onEditItem={onOpen}
+                onItemKeyDown={moveKey}
                 onLight={onLight}
                 onGrip={compact ? undefined : drag.gripDown}
               />
@@ -424,7 +484,7 @@ export function ComponentList({
         const enter = (): void => onHover?.(c.id);
         const leave = (): void => onHover?.(null);
         return (
-          <li class="rail-item" key={c.id} aria-label={who}>
+          <li class="rail-item" key={c.id} aria-label={who} data-entry={c.id}>
             {compact ? null : (
               <span
                 class="gc-grip gc-grip--loose"
@@ -450,7 +510,11 @@ export function ComponentList({
               shade={shadeVars(c.kind, kindIndexOf(components, i))}
               data-row-id={c.id}
               data-problem={problem ? "true" : undefined}
-              onClick={() => onOpen(c.id)}
+              onClick={() => press(c.id)}
+              onDblClick={() => onOpen(c.id)}
+              onEdit={() => onOpen(c.id)}
+              editLabel={`Edit ${who}`}
+              onKeyDown={(e: KeyboardEvent) => moveKey(c.id, e)}
               onMouseEnter={enter}
               onMouseLeave={leave}
               onFocus={enter}

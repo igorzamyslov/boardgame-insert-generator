@@ -80,6 +80,7 @@ import {
   takeOff,
   swapTrays,
   sizeLockedKeys,
+  placeInList,
   takeOutOfGroup,
   applyPrinter,
   unpinTrays,
@@ -402,6 +403,20 @@ export function App(props: AppProps) {
     setEditingGroupId(id);
     setSheetOpen(true);
   };
+  // A press on a row of the list: its tray is selected (the plan and 3D light it, the tray bar shows
+  // its facts) and nothing opens. With no plan to select in, the press opens the editor instead.
+  const selectComponent = (id: string): void => {
+    const tray = layout
+      ? printable.find(
+          (t) => t.part === "tray" && componentIdsOfTray(t, project.components).includes(id),
+        )
+      : undefined;
+    if (tray === undefined) {
+      editComponent(id);
+    } else {
+      s.selection.value = tray.key;
+    }
+  };
   // Where the status heading's jump buttons lead: the box's editor, a component's or a group's, or Settings.
   const showSection = (id: string): void => {
     if (id === "settings") {
@@ -575,6 +590,30 @@ export function App(props: AppProps) {
   };
 
   // The component the selected tray belongs to: its row in the rail is pressed.
+  // Another tray chosen while an editor is open leaves that editor: choosing is selecting, and the
+  // editor was for the one before. (Only a change of the selection counts, not an editor opening.)
+  const lastSelected = useRef(s.selection.value);
+  useEffect(() => {
+    const now = s.selection.value;
+    const before = lastSelected.current;
+    lastSelected.current = now;
+    if (now === null || now === before || (editingId === null && editingGroupId === null)) {
+      return;
+    }
+    const tray = printable.find((t) => t.key === now);
+    if (tray === undefined) {
+      return;
+    }
+    const ids = componentIdsOfTray(tray, project.components);
+    const mine =
+      editingId !== null
+        ? ids.includes(editingId)
+        : (groupById(project, editingGroupId ?? "")?.memberIds ?? []).some((m) => ids.includes(m));
+    if (!mine) {
+      setEditingId(null);
+      setEditingGroupId(null);
+    }
+  }, [s.selection.value]);
   // The plan's layers, once: the Layer switch and the 3D view both read this list.
   const planLevels = useMemo(() => levelsOf(layout?.trays ?? []), [layout]);
   const selectedTray = layout ? printable.find((t) => t.key === s.selection.value) : undefined;
@@ -725,7 +764,9 @@ export function App(props: AppProps) {
       const notes = notesAsSentences(
         editGroupWith((q) =>
           "out" in target
-            ? takeOutOfGroup(q, id)
+            ? target.index === undefined
+              ? takeOutOfGroup(q, id)
+              : placeInList(q, id, target.index)
             : moveToGroup(q, id, target.groupId, target.index),
         ),
       );
@@ -767,6 +808,8 @@ export function App(props: AppProps) {
       trays={listTrays}
       locks={project.locks}
       groups={project.groups}
+      listOrder={project.listOrder}
+      onSelect={selectComponent}
       box={project.box}
       printer={projPrinter}
       phone={phone}

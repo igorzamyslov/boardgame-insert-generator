@@ -91,7 +91,7 @@ export function GroupRow() {
     run();
   };
   return (
-    <ExactRow title="Group" meta={group === undefined ? "None" : groupNameOf(group.name)}>
+    <ExactRow title="Group">
       <div class="ed-stack" ref={panel}>
         {group === undefined ? (
           <div

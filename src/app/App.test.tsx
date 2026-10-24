@@ -1224,7 +1224,11 @@ describe("App", () => {
       expect(download.getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(download);
       expect(screen.queryByRole("dialog", { name: "Ready to print" })).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Edit Market" }));
+      fireEvent.click(
+        within(screen.getByRole("complementary", { name: "What's inside" })).getByRole("button", {
+          name: "Edit Market",
+        }),
+      );
       expect(await screen.findByRole("heading", { level: 2, name: "Market" })).toBeTruthy();
       // leaving the editor does not bring it back
       fireEvent.click(screen.getByRole("button", { name: "Done" }));

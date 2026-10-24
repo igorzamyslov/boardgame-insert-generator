@@ -53,13 +53,13 @@ describe("ListRow", () => {
   });
 
   describe("compact (the phone sheet's row)", () => {
-    it("is a swatch, the name and the meta on the right, and says nothing of being selected", () => {
+    it("is a swatch, the name and the meta on the right, and is pressed while selected", () => {
       const { container } = render(
         <ListRow compact kind="tiles" name="Hex tiles" meta="24 tiles" selected />,
       );
       const row = screen.getByRole("button", { name: /^Hex tiles,\s*24 tiles$/ });
       expect(row.classList.contains("k-row--compact")).toBe(true);
-      expect(row.hasAttribute("aria-pressed")).toBe(false);
+      expect(row.getAttribute("aria-pressed")).toBe("true");
       expect(container.querySelector(".k-tile")).toBeNull();
       expect(container.querySelector(".k-row__swatch")).toBeTruthy();
       expect(container.querySelector(".k-row__text")).toBeNull();
@@ -68,6 +68,8 @@ describe("ListRow", () => {
     it("draws the box's row, which has no kind, as an outlined square", () => {
       const { container } = render(<ListRow compact name="The box" meta="285 × 285 × 70 mm" />);
       expect(container.querySelector(".k-row__swatch--box")).toBeTruthy();
+      // the box is no tray to select: its row is not a toggle
+      expect(screen.getByRole("button").hasAttribute("aria-pressed")).toBe(false);
     });
 
     it("keeps a long name on one line", () => {

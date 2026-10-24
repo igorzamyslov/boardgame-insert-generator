@@ -42,10 +42,13 @@ const PREFS_RAIL_420 = { "insert-generator:prefs": JSON.stringify({ railWidth: 4
 const MENU = { click: { role: "button", name: /^Project menu/ } };
 // The rail (Task 5) and the editor opened from it (Task 10).
 const RAIL = '[data-region="rail"]';
-const EDIT_MARKET = { click: { role: "button", name: /^Market deck, /, in: RAIL } };
+const EDIT_MARKET = { click: { role: "button", name: /^Edit Market deck$/, in: RAIL } };
 // The owner's Star Realms (a tall box): WideStage2's own insert; its second item is the Starter deck.
-const EDIT_STARTER = { click: { role: "button", name: /^Starter deck, /, in: RAIL } };
-const MORE_OPTIONS = { click: { role: "button", name: /^More options/, in: RAIL } };
+const EDIT_STARTER = { click: { role: "button", name: /^Edit Starter deck$/, in: RAIL } };
+// The editor's Tray settings rows, all opened (a member of a group has no Reach).
+const OPEN_ROWS = ["Reach", "Shape", "Room", "Copies and group"].map((row) => ({
+  click: { role: "button", name: new RegExp(`^${row}`), in: RAIL },
+}));
 // The no-fit heading: "The <name> tray doesn't fit yet" (owner decision; the board's is "<name> don't fit yet").
 const FIT_YET = /tray doesn't fit yet|Not everything fits yet/;
 // The banner's button (the stale seeds): a new plan, whose result the state then waits for.
@@ -66,7 +69,7 @@ const PLAN_KIT_2 = {
   },
 };
 // the card's header: its name is the group's ("Player kit, 4 copies"), and opens the group's editor (Task 11)
-const KIT_HEADER = { click: { role: "button", name: "Player kit, 4 copies", in: RAIL } };
+const KIT_HEADER = { click: { role: "button", name: "Edit Player kit", in: RAIL } };
 // The tray bar (Task 8), and the tray the harness selects in it.
 const TRAY_BAR = '[data-region="tray-bar"]';
 const SELECT_HEROES = {
@@ -631,11 +634,66 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [EDIT_MARKET],
   },
+  // Tray settings (0.22.0): the basics, then Reach / Shape / Room / Copies and group as rows.
+  "editor-rows": {
+    board: "Edit",
+    nearest:
+      "Edit's first screen; the review's item-editor board (option 3) draws the rows under it",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [EDIT_MARKET],
+  },
+  "editor-rows-open": {
+    board: "Edit",
+    nearest:
+      "Edit's first screen; the review's item-editor board (option 3) draws the rows under it",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [EDIT_MARKET, { click: { role: "button", name: /^Reach/, in: RAIL } }],
+  },
+  // A bulk item (Hero tokens: loose pieces): Room and Copies open, to see the packing setting.
+  "editor-rows-bulk": {
+    board: "Edit",
+    nearest:
+      "Edit's first screen; the review's item-editor board (option 3) draws the rows under it",
+    viewport: { width: 1440, height: 1300 },
+    seed: "harbour-kings",
+    steps: [
+      { click: { role: "button", name: /^Edit Dice$/, in: RAIL } },
+      { click: { role: "button", name: /^Room/, in: RAIL } },
+      { click: { role: "button", name: /^Copies and group/, in: RAIL } },
+    ],
+  },
+  "editor-rows-all": {
+    board: "Edit",
+    nearest:
+      "Edit's first screen; the review's item-editor board (option 3) draws the rows under it",
+    viewport: { width: 1440, height: 1500 },
+    seed: "harbour-kings",
+    steps: [
+      EDIT_MARKET,
+      { click: { role: "button", name: /^Reach/, in: RAIL } },
+      { click: { role: "button", name: /^Shape/, in: RAIL } },
+      { click: { role: "button", name: /^Room/, in: RAIL } },
+    ],
+  },
+  "m-edit-rows": {
+    board: "MobileEdit",
+    nearest:
+      "MobileEdit's first screen; the review's item-editor board (option 3) draws the rows under it",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: [
+      { click: { role: "button", name: /What's inside/ } },
+      { click: { role: "button", name: /^Edit Heroes$/, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^Shape/ } },
+    ],
+  },
   "editor-more": {
     board: "Edit",
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [EDIT_MARKET, MORE_OPTIONS],
+    steps: [EDIT_MARKET, ...OPEN_ROWS],
   },
   // One deck, then "+ Another deck" pressed: the stepper turns into the deck list where it stood
   // (the owner's rule, 0.5.3: a control stays where it first appeared). The board has no such line.
@@ -658,7 +716,7 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [
       EDIT_MARKET,
-      MORE_OPTIONS,
+      ...OPEN_ROWS,
       { click: { role: "button", name: /^Corner holes/, in: RAIL } },
       { click: { role: "button", name: /^Room around the pieces/, in: RAIL } },
     ],
@@ -673,7 +731,7 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [
       EDIT_MARKET,
-      MORE_OPTIONS,
+      ...OPEN_ROWS,
       { click: { role: "button", name: "Flat", in: RAIL } },
       { waitFor: { text: "Flat decks have no dividers." } },
     ],
@@ -697,14 +755,14 @@ export const STATES = {
     boardCrop: { rail: "main section:nth-of-type(1)" },
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: /^Coins and cubes, /, in: RAIL } }],
+    steps: [{ click: { role: "button", name: /^Edit Coins and cubes$/, in: RAIL } }],
   },
   "editor-tiles": {
     board: "EditKinds",
     boardCrop: { rail: "main section:nth-of-type(2)" },
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: /^Hex tiles, /, in: RAIL } }],
+    steps: [{ click: { role: "button", name: /^Edit Hex tiles$/, in: RAIL } }],
   },
   // Something else: the seed has none, so one is added and filled in as the board has it.
   "editor-custom": {
@@ -728,7 +786,7 @@ export const STATES = {
     nearest: "no board of its own: Edit's layout, MobileEdit's content",
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: /^Heroes, /, in: RAIL } }],
+    steps: [{ click: { role: "button", name: /^Edit Heroes$/, in: RAIL } }],
   },
   // The box's editor (Task 11): the rail's panel and the side view, which is the page's h1 ("Side view of the box").
   box: {
@@ -1038,7 +1096,7 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [
       { click: { role: "button", name: /What's inside/ } },
-      { click: { role: "button", name: /^Heroes, /, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^Edit Heroes$/, in: '[data-region="sheet"]' } },
     ],
   },
   "m-download": {
@@ -1159,8 +1217,8 @@ export const STATES = {
     viewport: { width: 1440, height: 1500 },
     seed: "harbour-kings-kit",
     steps: [
-      { click: { role: "button", name: /^Hero, /, in: RAIL } },
-      MORE_OPTIONS,
+      { click: { role: "button", name: /^Edit Hero$/, in: RAIL } },
+      ...OPEN_ROWS,
       { click: { role: "button", name: /^Group/, in: RAIL } },
       { waitFor: { role: "button", name: "Take out of group" } },
     ],
@@ -1176,8 +1234,8 @@ export const STATES = {
       KIT_HEADER,
       { fill: { label: "Name", value: "Starter kit for every player at the table" } },
       { click: { role: "button", name: "What's inside", in: RAIL } },
-      { click: { role: "button", name: /^Hero, /, in: RAIL } },
-      MORE_OPTIONS,
+      { click: { role: "button", name: /^Edit Hero$/, in: RAIL } },
+      ...OPEN_ROWS,
       { click: { role: "button", name: /^Group/, in: RAIL } },
       { waitFor: { role: "button", name: "Take out of group" } },
     ],
@@ -1190,7 +1248,7 @@ export const STATES = {
     seed: "harbour-kings-kit",
     steps: [
       EDIT_MARKET,
-      MORE_OPTIONS,
+      ...OPEN_ROWS,
       { click: { role: "button", name: /^Group/, in: RAIL } },
       { click: { role: "button", name: /^Move to group/, in: RAIL } },
       { waitFor: { role: "button", name: "New group" } },
@@ -1272,8 +1330,8 @@ export const STATES = {
     viewport: { width: 1440, height: 1500 },
     seed: "harbour-kings-flat",
     steps: [
-      { click: { role: "button", name: /^Starter deck, /, in: RAIL } },
-      MORE_OPTIONS,
+      { click: { role: "button", name: /^Edit Starter deck$/, in: RAIL } },
+      ...OPEN_ROWS,
       { click: { role: "button", name: /^Between decks/, in: RAIL } },
     ],
   },
@@ -1304,7 +1362,7 @@ export const STATES = {
     seed: "harbour-kings-kit",
     steps: [
       { click: { role: "button", name: /What's inside/ } },
-      { click: { role: "button", name: /^Hero, /, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^Edit Hero$/, in: '[data-region="sheet"]' } },
     ],
   },
   // The same on a phone, in the sheet.
@@ -1318,7 +1376,7 @@ export const STATES = {
       { click: { role: "button", name: "Player kit, 4 copies", in: '[data-region="sheet"]' } },
       { fill: { label: "Name", value: "Starter kit for every player at the table" } },
       { click: { role: "button", name: "Back", in: '[data-region="sheet"]' } },
-      { click: { role: "button", name: /^Hero, /, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^Edit Hero$/, in: '[data-region="sheet"]' } },
       { click: { role: "button", name: /^More options/, in: '[data-region="sheet"]' } },
       { click: { role: "button", name: /^Group/, in: '[data-region="sheet"]' } },
       { waitFor: { role: "button", name: "Take out of group" } },

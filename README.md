@@ -25,7 +25,7 @@ geometry clients, so they never start a worker or load WASM.
 
 ## What the app does
 
-One screen, one mode: plain choices come first, and the exact numbers sit behind "More options" (per item) and "Exact numbers" (in Settings).
+One screen, one mode: plain choices come first, and the exact numbers sit in the rows of "Tray settings" (per item) and "Exact numbers" (in Settings).
 
 1. **Start.** A first visit asks for the box's inside size ("Measure the box"), then a kind
    ("Add what goes inside") or "Start from an example game". After that the workspace has
@@ -34,7 +34,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
 2. **What's inside.** Five kinds: Cards, Tokens and dice, Tiles, Miniatures (the pieces are
    figures) and Other. Each item has its own shade of its kind's colour and icon, and
    that same shade marks its trays in the plan and in the 3D view. Editing an item opens
-   a panel with the basics and, under "More options", the rest: room for more cards, tiles or pieces, how
+   a panel with the basics and, under "Tray settings" (Reach, Shape, Room, Copies and group), the rest: room for more cards, tiles or pieces, how
    often you reach for it, finger cuts, curved floor, corner holes, how cards stand,
    copies (each its own tray), the group an item belongs to, removable dividers between flat
    decks in one well, and the exact numbers in rows that open in place. While you edit, the stage
@@ -222,8 +222,11 @@ in `app/meshes.ts`.
    MAJOR.
 4. **UI:** create `src/ui/components/<Kind>Editor.tsx` taking
    `EditorProps<YourComponent>` (the basics first, then the rest inside the
-   `<MoreOptions summary={moreSummary(c)} errorPaths={commonOptionPaths(index)}>` disclosure,
-   with `<RoomOptions …/>`, `<AccessChoice …/>`, `<TrayShape …/>` and `<CommonRows …/>`; the
+   `<TraySettings>` with its four `<SettingsGroup id="reach|shape|room|copies" errorPaths={…}>`
+   rows: `<ReachGroup …/>`, then `<TrayShape …/>` in Shape, `<RoomOptions …/>` and `<RoomRows …/>`
+   in Room, `<CopiesRows …/>` in Copies and group (the paths are `shapePaths`, `roomPaths` and
+   `copiesPaths` of `CommonOptions.tsx`; the row's value line is `groupSummary` in
+   `moreSummary.ts`); the
    controls are in `ui/components/controls.tsx`), add a `case` to `KindEditor` in `EditorPanel.tsx`,
    and add the kind to `KIND_TILES` in `screens/KindPicker.tsx`. Field paths must
    match `validateProject()` so errors show next to the field.

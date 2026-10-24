@@ -25,7 +25,7 @@ afterEach(() => {
 const kit = (): Project => loadSeed("harbour-kings-kit").project;
 const rail = (): HTMLElement => screen.getByRole("complementary", { name: "What's inside" });
 const openFromCard = (): void => {
-  fireEvent.click(within(rail()).getByRole("button", { name: "Player kit, 4 copies" }));
+  fireEvent.click(within(rail()).getByRole("button", { name: "Edit Player kit" }));
 };
 const names = (store: ReturnType<typeof renderApp>["store"]): string[] => {
   const p = store.state.project.value;
@@ -187,7 +187,7 @@ describe("Copies and how often", () => {
       throw new Error("the kit seed has a group");
     }
     const { store } = renderApp({ project: { ...base, groups: [{ ...group, copies: 10 }] } });
-    fireEvent.click(within(rail()).getByRole("button", { name: "Player kit, 10 copies" }));
+    fireEvent.click(within(rail()).getByRole("button", { name: "Edit Player kit" }));
     expect(screen.getByRole("button", { name: "More" }).getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     expect(store.state.project.value.groups?.[0]?.copies).toBe(10);
@@ -373,7 +373,7 @@ describe("Remove group…", () => {
       throw new Error("the kit seed has a group");
     }
     renderApp({ project: { ...base, groups: [{ ...group, copies: 1 }] } });
-    fireEvent.click(within(rail()).getByRole("button", { name: "Player kit, 1 copy" }));
+    fireEvent.click(within(rail()).getByRole("button", { name: "Edit Player kit" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
     expect(screen.getByText("Remove the group “Player kit”? Its 3 items stay.")).toBeTruthy();
   });
@@ -397,7 +397,7 @@ describe("on a phone", () => {
     phone();
     renderApp({ project: kit() });
     fireEvent.click(within(sheet()).getByRole("button", { name: "Show everything" }));
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Player kit, 4 copies" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Edit Player kit" }));
     const panel = within(sheet()).getByRole("region", { name: "Edit Player kit" });
     expect(within(panel).getByRole("heading", { level: 1 }).textContent).toBe("Player kit");
     expect(within(panel).getByRole("button", { name: "Back" })).toBeTruthy();
