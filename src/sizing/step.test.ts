@@ -12,9 +12,9 @@ import { assertTrayInvariants, at, cards, partOf } from "./test-helpers";
 
 const step: Settings = {
   ...DEFAULT_SETTINGS,
-  lip: { ...DEFAULT_SETTINGS.lip, enabled: true, kind: "step" },
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "step" as const },
 };
-const rim: Settings = { ...step, lip: { ...step.lip, kind: "rim" } };
+const rim: Settings = { ...step, lip: { ...step.lip, joint: "rim" as const } };
 const deck = partOf(
   [cards({ storage: "flat", sleeve: "none", decks: [{ name: "Deck", count: 30 }] })],
   "flat|strip|split1",

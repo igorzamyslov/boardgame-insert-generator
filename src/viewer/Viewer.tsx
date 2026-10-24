@@ -42,6 +42,13 @@ export interface ViewerProps {
    * trays; the editor's stage gives them. They join the trays a rail row lights.
    */
   litKeys?: readonly string[];
+  /**
+   * The tray that does not fit (the no-fit stage): lit alone, as the edited item is, and in the
+   * scene tinted in the warn colour and lifted out of its slot, the same marking the plan gives it.
+   */
+  misfitKey?: string | null;
+  /** Escape on the canvas: it ends a swap that is chosen in this view. */
+  onEscape?: () => void;
   /** The caption says what a click does ("tap a tray for details"): the normal stage, not the editor's. */
   tapHint?: boolean;
   /**
@@ -74,6 +81,7 @@ export function Viewer(p: ViewerProps) {
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
   const [canvasKey, setCanvasKey] = useState(0);
   const scheme = pageScheme();
+  const misfitKey = p.misfitKey ?? null;
   const ownLevels = useMemo(() => levelsOf(p.trays), [p.trays]);
   const levels = p.levels ?? ownLevels;
   const parts = useMemo(() => numberParts(p.trays), [p.trays]);
@@ -246,6 +254,10 @@ export function Viewer(p: ViewerProps) {
   }, [status, shownLevel]);
 
   useEffect(() => {
+    handleRef.current?.setMisfit(misfitKey);
+  }, [status, misfitKey, p.trays]);
+
+  useEffect(() => {
     handleRef.current?.setSelected(p.selectedKey);
   }, [status, p.selectedKey]);
 
@@ -254,7 +266,7 @@ export function Viewer(p: ViewerProps) {
   const railId = hoveredComponent.value;
   // A group's card pointed at names every member: all the group's trays light.
   const railMembers = hoveredMembers.value;
-  const editedKey = (p.litKeys ?? []).join("\n");
+  const editedKey = (misfitKey === null ? (p.litKeys ?? []) : [misfitKey]).join("\n");
   // An item is being edited (the editor gave its trays): they are lit hard, not as a hover is.
   const editing = editedKey !== "";
   const litKey = useMemo(() => {
@@ -315,6 +327,10 @@ export function Viewer(p: ViewerProps) {
   // The arrow keys step through the trays the scene shows, ends wrapping round: a keyboard route
   // to every tray, now that the scene has no row of chips for it.
   const stepTray = (e: KeyboardEvent): void => {
+    if (e.key === "Escape" && p.onEscape !== undefined) {
+      p.onEscape();
+      return;
+    }
     const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
     if (
       (!forward && e.key !== "ArrowLeft" && e.key !== "ArrowUp") ||

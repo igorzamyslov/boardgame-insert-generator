@@ -195,6 +195,13 @@ it only with a written reason in the code or the PR.
   growth on. Never score a plan that grew, never give a tray room in the plan that an item did not
   ask for in its size (its "Some" room is part of the size sizing writes, `CompartmentReq.minW`), and
   keep the trays of a set of alike trays growing together (`alikeGrowth`, `layout/fill.ts`).
+- MUST keep Auto (`settings.lip.joint` "auto", 2026-10-24) out of the engine: `createRun`
+  (`layout/optimize.ts`) resolves it, so every search, `materialize` and `realizeTray` sees "off",
+  "rim" or "step" only, and the layout it stores says which (`StoredLayout.joint`). Everything that
+  sizes, draws or prints from stored trays (the app's `engineProject`, `jointOf`, `checkHardRules`)
+  reads Auto as that joint, and as the rim when the layout names none (an unresolved "auto" is
+  the rim in `rimOn`, never a third joint). Keep which parts carry a joint (`TraySpec.lip`,
+  `onRiser`, `Level.plug`) apart from which joint it is: a change to either must work with both.
 - MUST keep `src/layout/` deterministic. eslint bans `Math.random` there; use the seeded PRNG
   (`layout/prng.ts`).
 - MUST keep the geometry kernel off the main thread. eslint enforces it: outside `geometry/` you
@@ -230,12 +237,21 @@ it only with a written reason in the code or the PR.
   `groove.zTop` (with the stepped base, geometry 0.9.2, at the step's top, and the underside name
   goes on the slab's bed face; a socketed wall is only the socket's wall thick at the top). The underside name stays `EDGE_MM` inside the groove's `reach`. Tests fail if the
   groove is ignored (`engrave.test.ts`, "on three faces").
-- MUST engrave on at most three faces, each only where it has room (`planEngravings`): the wall
-  `planEngraving` prefers, the wall across from it (the thinnest feature kept between the two
-  recesses), and the underside (`planUnderside`: mirrored, centred, V grooves with no flat roof,
-  because no downward face may be steeper than 45°). A merged part carries walls only. A new
+- MUST engrave on at most four faces, each only where it has room (`planEngravings`): the floor of
+  one well (`planInside`, geometry 0.9.9: straight walls, planned first), the wall `planEngraving`
+  prefers, the wall across from it (the thinnest feature kept between the two recesses), and the
+  underside (`planUnderside`: mirrored, a flat recess 0.4 mm deep that moves aside from the floor's
+  name or drops out; the one flat downward face `checkPrintability` lets through). A merged part
+  carries walls, and the floor of a riser's pocket (`planMergedInside`), never the underside. A new
   engraving input goes in the spec or settings, so it reaches the mesh cache key; the faces
   themselves depend only on the spec and settings.
+- MUST set names with `layoutText` (`geometry/glyphs.ts`): Overpass Bold outlines (SIL OFL 1.1) in
+  `name-font-data.ts`, which `scripts/build-name-font.mjs` generates (never edit it by hand; the
+  script's header says how to run it). A name's size is one of `CAP_SIZES_MM` (8, 6, 5, 4 mm),
+  chosen by `fitCap`. Planners measure with `layoutText` (pure, no kernel); only the builders
+  (`buildEngraving`, `buildUnderside`, `buildInside`) make a `CrossSection`, from the same polygons.
+  The licence text is `licenses/overpass-OFL.txt`, and `licenses.config.ts` puts it on the
+  third-party licences page (`REQUIRED_PACKAGES`).
 
 ### Components and accessibility
 
@@ -574,7 +590,7 @@ variants of a board the run made (keep only the ones you meant to add).
 **`npm run seeds` changes every seed.**
 → It rewrites `createdWith` in each seed under `docs/design/seeds/` to the current app version.
 → Run it to add a seed, then `git restore` the other seeds, or commit them all on purpose.
-→ Tests that check a stored plan against what the plan holds (dips, the take-out order, the
+→ Tests that check a stored plan against what the plan holds (chamfers, the take-out order, the
 filament estimate against a slicer) read `test/fixtures/frozen-seeds/` (`loadSeed(name, true)`), the
 seeds as 0.15.0 made them: a rerun does not move them.
 
@@ -697,10 +713,10 @@ in `model/hash.test.ts`.
 
 The packing guide's Lift column says how each printed part comes back out of the box
 (`src/instructions/lift.ts`; DESIGN §7, "The packing guide says how to take each tray out"). A new
-grip feature (a finger dip in a filler, say) is **one entry in `GRIP_RULES`**: its `kind`, whether
+grip feature (a top chamfer on a filler, say) is **one entry in `GRIP_RULES`**: its `kind`, whether
 it is a grip of the part's `own`, and an `applies` test on the spec's features (a merged part
 meets a rule when one of its members does) and, for what stands beside the part, on `facing`, the
-keys of the trays with a finger dip of a filler beside them (`dipsFacingTrays`, read in `render.ts`). Then:
+keys of the trays with a top chamfer of a filler beside them (`chamfersFacingTrays`, read in `render.ts`). Then:
 
 1. Add its line to `LIFT_LINES` (the rulings in `screens/copy-rulings.ts` list every value), and
    the kind to `GripKind`.

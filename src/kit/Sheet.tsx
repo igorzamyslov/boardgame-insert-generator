@@ -28,6 +28,11 @@ export interface SheetProps {
    * Without it one handle holds the grip, the title and the chevron.
    */
   handleLabel?: string;
+  /**
+   * Folded, the head row (title and chevron) gives way to these chips, one row (board 9): the sheet
+   * is 76 px, its content is out of sight, and a swipe up on it opens it. The grip opens it too.
+   */
+  chips?: ComponentChildren;
   /** A button beside the handle, in reach while the sheet is folded. */
   action?: ComponentChildren;
   /** The `data-region` the screenshot harness finds the sheet by (the owner names it). */
@@ -36,6 +41,9 @@ export interface SheetProps {
   legacy?: boolean;
   children: ComponentChildren;
 }
+
+/** How far a finger moves up (or down) before it is a swipe, px. */
+const SWIPE_PX = 28;
 
 const FOCUSABLE =
   "button, input, select, textarea, summary, [href], [tabindex]:not([tabindex='-1'])";
@@ -75,7 +83,10 @@ export function Sheet(p: SheetProps) {
     }
   }, [p.expanded]);
   // `inert` is not in Preact's typings yet.
-  const inert = { inert: !p.expanded && p.peek !== true } as Record<string, unknown>;
+  const chipped = p.chips !== undefined && !p.expanded;
+  const inert = { inert: !p.expanded && (p.peek !== true || chipped) } as Record<string, unknown>;
+  // A swipe up on the folded sheet opens it, and a swipe down on the grip of an open one folds it.
+  const swipe = useRef<{ y: number; id: number } | null>(null);
   const c = p.legacy ? "pf-sheet" : "k-sheet";
   const toggle = (): void => p.onExpandedChange(!p.expanded);
   const title = (
@@ -101,6 +112,7 @@ export function Sheet(p: SheetProps) {
       data-editing={p.editing ? "true" : undefined}
       data-peek={p.peek ? "true" : undefined}
       data-grip={p.handleLabel === undefined ? undefined : "button"}
+      data-chips={p.chips === undefined ? undefined : "true"}
       data-region={p.region}
       onKeyDown={(e) => {
         if (e.key === "Escape" && p.expanded && !e.defaultPrevented) {
@@ -110,7 +122,29 @@ export function Sheet(p: SheetProps) {
       }}
     >
       {/* An editor brings its own header (MobileEdit): the grip and title are hidden, still there for the owner's handle. */}
-      <div class={`${c}__bar`} hidden={p.editing ? true : undefined}>
+      <div
+        class={`${c}__bar`}
+        hidden={p.editing ? true : undefined}
+        onPointerDown={(e) => {
+          swipe.current = e.isPrimary ? { y: e.clientY, id: e.pointerId } : null;
+        }}
+        onPointerUp={(e) => {
+          const start = swipe.current;
+          swipe.current = null;
+          if (start === null || start.id !== e.pointerId) {
+            return;
+          }
+          const dy = e.clientY - start.y;
+          if (chipped && dy < -SWIPE_PX) {
+            p.onExpandedChange(true);
+          } else if (p.expanded && p.chips !== undefined && dy > SWIPE_PX) {
+            p.onExpandedChange(false);
+          }
+        }}
+        onPointerCancel={() => {
+          swipe.current = null;
+        }}
+      >
         {p.handleLabel === undefined ? (
           <button
             type="button"
@@ -134,19 +168,23 @@ export function Sheet(p: SheetProps) {
               aria-controls={bodyId}
               onClick={toggle}
             />
-            <h2 class={`${c}__head`}>
-              <button
-                type="button"
-                class={`${c}__handle`}
-                ref={handle}
-                aria-expanded={p.expanded}
-                aria-controls={bodyId}
-                onClick={toggle}
-              >
-                {title}
-                {chevron}
-              </button>
-            </h2>
+            {chipped ? (
+              <div class={`${c}__chips`}>{p.chips}</div>
+            ) : (
+              <h2 class={`${c}__head`}>
+                <button
+                  type="button"
+                  class={`${c}__handle`}
+                  ref={handle}
+                  aria-expanded={p.expanded}
+                  aria-controls={bodyId}
+                  onClick={toggle}
+                >
+                  {title}
+                  {chevron}
+                </button>
+              </h2>
+            )}
           </>
         )}
         {p.action}

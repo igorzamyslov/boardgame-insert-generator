@@ -8,7 +8,10 @@ import type { RealizeOptions, TrayPartReq } from "./types";
 
 // These cover sizing with a locating lip available (the lipped wall, upper-tray
 // minimums), so they turn it on; the app's own default is off.
-const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
+const s: Settings = {
+  ...DEFAULT_SETTINGS,
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "rim" as const },
+};
 const ground: RealizeOptions = { lipped: false, level: 0 };
 const single = partOf([cards()], "upright-long|strip|split1");
 const twoDecks = [
@@ -24,7 +27,7 @@ describe("wallFor", () => {
   it("is the wall, or max(wall, lip.thickness + lip.ledge) on a lipped tray", () => {
     expect(wallFor(s, false)).toBe(1.6);
     expect(wallFor(s, true)).toBeCloseTo(2.9, 9);
-    expect(wallFor({ ...s, lip: { ...s.lip, enabled: false } }, true)).toBe(1.6);
+    expect(wallFor({ ...s, lip: { ...s.lip, joint: "off" as const } }, true)).toBe(1.6);
     expect(wallFor({ ...s, wall: 3.5 }, true)).toBe(3.5);
     expect(wallFor({ ...s, wall: 0.5 }, false)).toBe(MIN_WALL_MM);
     expect(MIN_WALL_MM).toBeCloseTo(0.9, 9);
@@ -43,7 +46,7 @@ describe("wallFor", () => {
     });
 
     it("keeps the stepped base at 1.0 mm, a hundredth or so more above the first", () => {
-      const step = { ...thin, lip: { ...thin.lip, kind: "step" as const } };
+      const step = { ...thin, lip: { ...thin.lip, joint: "step" as const } };
       expect(wallFor(step, false)).toBe(1);
       expect(wallFor(step, true)).toBe(1);
       expect(wallFor(step, false, 1)).toBeGreaterThan(1);
@@ -60,8 +63,8 @@ describe("wallFor", () => {
     expect(wallFor(s, true, 1)).toBeCloseTo(2.9, 9);
     // level 0 and the lip off: as before
     expect(wallFor(s, false, 0)).toBe(1.6);
-    expect(wallFor({ ...s, lip: { ...s.lip, enabled: false } }, false, 1)).toBe(1.6);
-    expect(wallFor({ ...s, lip: { ...s.lip, enabled: false } }, true, 1)).toBe(1.6);
+    expect(wallFor({ ...s, lip: { ...s.lip, joint: "off" as const } }, false, 1)).toBe(1.6);
+    expect(wallFor({ ...s, lip: { ...s.lip, joint: "off" as const } }, true, 1)).toBe(1.6);
   });
 });
 
@@ -117,7 +120,7 @@ describe("minOuter", () => {
       wall: 0.9,
       floor: 0.8,
       bottomChamfer: 0.2,
-      lip: { ...s.lip, enabled: false },
+      lip: { ...s.lip, joint: "off" as const },
     };
     const part = partOf(
       [
@@ -197,7 +200,11 @@ describe("minOuter", () => {
     // wall stands above it
     expect(minOuter(thin, s, { lipped: false, level: 1 }).h).toBe(3.65);
     expect(
-      minOuter(thin, { ...s, lip: { ...s.lip, enabled: false } }, { lipped: false, level: 1 }).h,
+      minOuter(
+        thin,
+        { ...s, lip: { ...s.lip, joint: "off" as const } },
+        { lipped: false, level: 1 },
+      ).h,
     ).toBe(3.2);
   });
 

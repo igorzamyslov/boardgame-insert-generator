@@ -2,7 +2,14 @@ import type { Json } from "./json";
 import { isRecord, shorten, summarize } from "./json";
 import type { Ctx } from "./schema-reader";
 import { absorbErrors, adopt, childCtx, Reader, SCHEMA_NOTICE_CODES } from "./schema-reader";
-import type { CompartmentSpec, FeatureSpec, ReservedSpec, StoredLayout, TraySpec } from "./types";
+import type {
+  CompartmentSpec,
+  FeatureSpec,
+  Joint,
+  ReservedSpec,
+  StoredLayout,
+  TraySpec,
+} from "./types";
 import { UNKNOWN_APP_VERSION } from "./version";
 
 const SIDES = ["front", "back", "left", "right"] as const;
@@ -20,8 +27,8 @@ function verbatim<T>(raw: Json): T {
 }
 
 function readFeature(r: Reader): FeatureSpec {
-  // The stored features only. "fingerDip" is not among them on purpose: a finger dip is derived at
-  // print time (layout/dips.ts), so a stored layout never holds one.
+  // The stored features only. "topChamfer" is not among them on purpose: a top chamfer is derived at
+  // print time (layout/chamfers.ts), so a stored layout never holds one.
   const type = r.tag("type", [
     "wallCutout",
     "spacerNotch",
@@ -224,6 +231,7 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
     seed: r.strictNum("seed"),
     iterations: r.strictNum("iterations"),
     capped: r.bool("capped", false),
+    joint: r.has("joint") ? r.oneOf<Joint>("joint", ["off", "rim", "step"]) : undefined,
     trays,
     ...(r.has("reserved") ? { reserved: r.objects("reserved").map(readReserved) } : {}),
   });

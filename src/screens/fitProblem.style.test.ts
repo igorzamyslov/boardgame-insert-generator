@@ -90,8 +90,7 @@ describe("fitProblem.css", () => {
     expect(card).toMatch(/background:\s*var\(--sheet\)/);
   });
 
-  it("gives NoFit's first card the 1.5 px ink edge, and PinConflict's cards 14 px", () => {
-    expect(ruleFor(".fp-card--lead")).toMatch(/border:\s*1\.5px solid var\(--ink\)/);
+  it("gives PinConflict's cards 14 px", () => {
     expect(ruleFor('.fp-cards[data-kind="pinConflict"] > .fp-card')).toMatch(
       /border-radius:\s*var\(--r-card\)/,
     );

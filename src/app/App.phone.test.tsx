@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
-import tokens from "../styles/tokens.css?raw";
+import workspaceCss from "../screens/workspace.css?raw";
 import type { Project } from "../model/types";
 import type { ShareFile } from "./sendFile";
 import { fixtureProject, flush, makeLayout, makeResult, makeTray } from "./test-helpers";
@@ -53,6 +53,8 @@ function project(): Project {
 const sheet = (): HTMLElement => screen.getByRole("region", { name: "The box and what's inside" });
 // The title's button; the editor has its own way back named "What's inside" too, so it is found by its class.
 const handle = (): HTMLElement => sheet().querySelector(".k-sheet__handle") as HTMLElement;
+/** The selected tray's dock: the one bar, under the plan, as on a desktop. */
+const dock = (): HTMLElement => screen.getByRole("region", { name: "Selected tray" });
 const grip = (): HTMLElement => within(sheet()).getByRole("button", { name: "Show everything" });
 const rowIn = (name: RegExp): HTMLElement => within(sheet()).getByRole("button", { name });
 
@@ -72,31 +74,46 @@ describe("the phone layout", () => {
     ).toHaveLength(1);
   });
 
-  it("puts the list in a sheet that peeks while folded, and the grip and the title open it", () => {
+  it("folds the list to one row of chips, and the grip opens it and the title folds it", () => {
     phone();
     renderApp({ project: project() });
     expect(screen.queryByRole("complementary")).toBeNull();
-    expect(sheet().getAttribute("data-peek")).toBe("true");
-    expect(handle().getAttribute("aria-expanded")).toBe("false");
-    // folded, the rows and the Add pill are still in reach
-    expect(rowIn(/^The box,/).closest("[inert]")).toBeNull();
+    expect(sheet().getAttribute("data-chips")).toBe("true");
+    // folded: the chips and the Add pill are in reach, the list itself is not, and there is no title row
+    expect(grip().getAttribute("aria-expanded")).toBe("false");
+    expect(sheet().querySelector(".k-sheet__handle")).toBeNull();
+    expect(within(sheet()).getByRole("list", { name: "Items" }).closest("[inert]")).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Add" }).closest("[inert]")).toBeNull();
-    fireEvent.click(handle());
-    expect(handle().getAttribute("aria-expanded")).toBe("true");
-    fireEvent.click(grip());
-    expect(handle().getAttribute("aria-expanded")).toBe("false");
+    expect(sheet().querySelector(".k-sheet__body")?.closest("[inert]")).not.toBeNull();
     fireEvent.click(grip());
     expect(grip().getAttribute("aria-expanded")).toBe("true");
+    expect(handle().getAttribute("aria-expanded")).toBe("true");
+    expect(within(sheet()).queryByRole("list", { name: "Items" })).toBeNull();
+    expect(rowIn(/^The box,/).closest("[inert]")).toBeNull();
+    fireEvent.click(handle());
+    expect(grip().getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(grip());
+    expect(handle().getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("peeks the sheet at 196 px with The box first", () => {
+  it("peeks the sheet at 76 px with one chip per item, in the list's order", () => {
     phone();
     renderApp({ project: project() });
-    // folded: the peek, and the one row the peek shows is The box
-    expect(sheet().getAttribute("data-peek")).toBe("true");
-    expect(tokens).toMatch(/--sheet-peek:\s*196px/);
-    const first = within(sheet()).getAllByRole("listitem")[0] as HTMLElement;
-    expect(within(first).getByRole("button", { name: /^The box, / })).toBeTruthy();
+    expect(workspaceCss).toMatch(/--sheet-peek:\s*76px/);
+    const chips = within(within(sheet()).getByRole("list", { name: "Items" })).getAllByRole(
+      "button",
+    );
+    expect(chips.map((c) => c.textContent)).toEqual(project().components.map((c) => c.name));
+    expect(chips.every((c) => c.getAttribute("aria-pressed") === "false")).toBe(true);
+  });
+
+  it("opens the full list with a swipe up on the folded sheet", () => {
+    phone();
+    renderApp({ project: project() });
+    const bar = sheet().querySelector(".k-sheet__bar") as HTMLElement;
+    fireEvent.pointerDown(bar, { clientY: 600, pointerId: 1, isPrimary: true });
+    fireEvent.pointerUp(bar, { clientY: 500, pointerId: 1, isPrimary: true });
+    expect(grip().getAttribute("aria-expanded")).toBe("true");
   });
 
   describe("the page behind a dialog that fills the screen", () => {
@@ -112,22 +129,23 @@ describe("the phone layout", () => {
       Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
     });
 
-    it("is made inert by the tray sheet, Download and Settings", async () => {
+    it("is made inert by Download and Settings, not by a tray's dock", async () => {
       phone(true, true);
       renderApp({ project: project() });
       fireEvent.keyDown(document.querySelector('.plan-tile[data-key="m:p0:0"]') as Element, {
         key: "Enter",
       });
-      expect(screen.getByRole("dialog").tagName).toBe("DIALOG");
-      expect(modal).toHaveBeenCalledTimes(1);
-      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+      // the dock is not a dialog: nothing modal opens for a tray
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(modal).not.toHaveBeenCalled();
+      fireEvent.click(within(dock()).getByRole("button", { name: "Close" }));
       // the focus goes back to the tile on the next frame: let it, so it cannot land in a later test
       await waitFor(() => expect(document.activeElement?.getAttribute("data-key")).toBe("m:p0:0"));
 
       const header = document.querySelector('[data-region="header"]') as HTMLElement;
       fireEvent.click(within(header).getByRole("button", { name: "Download" }));
       expect(screen.getByRole("dialog", { name: "Ready to print" }).tagName).toBe("DIALOG");
-      expect(modal).toHaveBeenCalledTimes(2);
+      expect(modal).toHaveBeenCalledTimes(1);
       fireEvent.click(
         within(screen.getByRole("dialog", { name: "Ready to print" })).getByRole("button", {
           name: "Close",
@@ -141,7 +159,7 @@ describe("the phone layout", () => {
         }),
       );
       expect(screen.getByRole("dialog", { name: "Settings" }).tagName).toBe("DIALOG");
-      expect(modal).toHaveBeenCalledTimes(3);
+      expect(modal).toHaveBeenCalledTimes(2);
       // leave the app as it was found
       fireEvent.click(
         within(screen.getByRole("dialog", { name: "Settings" })).getByRole("button", {
@@ -152,9 +170,10 @@ describe("the phone layout", () => {
     });
   });
 
-  it("says how many items there are beside the title", () => {
+  it("says how many items there are beside the title, once the list is open", () => {
     phone();
     renderApp({ project: project() });
+    fireEvent.click(grip());
     expect(handle().textContent).toBe(`What's inside${project().components.length}`);
   });
 
@@ -217,22 +236,21 @@ describe("the phone layout", () => {
     expect(await within(sheet()).findByRole("heading", { level: 1, name: "Tiles" })).toBeTruthy();
   });
 
-  it("opens the sheet on the editor when a tray's Edit is pressed", async () => {
+  it("opens the sheet on the editor when the dock's Edit is pressed", async () => {
     phone();
-    renderApp({ project: project() });
+    const { store } = renderApp({ project: project() });
     fireEvent.keyDown(document.querySelector('.plan-tile[data-key="m:p0:0"]') as Element, {
       key: "Enter",
     });
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Edit Market" }),
-    );
+    fireEvent.click(within(dock()).getByRole("button", { name: "Edit" }));
     expect(handle().getAttribute("aria-expanded")).toBe("true");
     expect(sheet().getAttribute("data-full")).toBe("true");
     expect(await within(sheet()).findByRole("heading", { level: 1, name: "Market" })).toBeTruthy();
-    // the tray's sheet gives way to the editor, and comes back with the list: the tray is still selected
-    expect(screen.queryByRole("dialog")).toBeNull();
+    // folding the editor comes back to the list: the tray is still selected, and its dock is still there
     fireEvent.click(handle());
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(grip().getAttribute("aria-expanded")).toBe("false");
+    expect(store.state.selection.value).toBe("m:p0:0");
+    expect(dock()).toBeTruthy();
   });
 
   describe("what is behind a sheet that fills the screen", () => {
@@ -245,9 +263,7 @@ describe("the phone layout", () => {
       fireEvent.keyDown(document.querySelector('.plan-tile[data-key="m:p0:0"]') as Element, {
         key: "Enter",
       });
-      fireEvent.click(
-        within(screen.getByRole("dialog")).getByRole("button", { name: "Edit Market" }),
-      );
+      fireEvent.click(within(dock()).getByRole("button", { name: "Edit" }));
     }
 
     it("is out of reach of Tab and screen readers (inert) below 600 px, and the sheet is not", () => {
@@ -274,7 +290,7 @@ describe("the phone layout", () => {
     it("also holds for the box section", () => {
       phone(true, true);
       renderApp({ project: project() });
-      fireEvent.click(handle());
+      fireEvent.click(grip());
       expect(behind().some((el) => el.hasAttribute("inert"))).toBe(false);
       fireEvent.click(rowIn(/^The box,/));
       expect(behind().every((el) => el.hasAttribute("inert"))).toBe(true);
@@ -286,14 +302,14 @@ describe("the phone layout", () => {
   it("fills the screen for the box, and folds back to the list when closed", async () => {
     phone();
     renderApp({ project: project() });
-    fireEvent.click(handle());
+    fireEvent.click(grip());
     expect(sheet().getAttribute("data-full")).toBeNull();
     fireEvent.click(rowIn(/^The box,/));
     expect(sheet().getAttribute("data-full")).toBe("true");
     expect(await within(sheet()).findByRole("heading", { level: 1, name: "The box" })).toBeTruthy();
     fireEvent.keyDown(handle(), { key: "Escape" });
-    expect(handle().getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(handle());
+    expect(grip().getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(grip());
     expect(sheet().getAttribute("data-full")).toBeNull();
     expect(rowIn(/^The box,/)).toBeTruthy();
   });
@@ -309,10 +325,10 @@ describe("the phone layout", () => {
     expect(rowIn(/^Market,/)).toBeTruthy();
   });
 
-  it("offers Try another arrangement on a card of the sheet when the trays do not fit", async () => {
+  it("offers Try another arrangement in the pinned strip when the trays do not fit", async () => {
     phone();
     const { store, stub } = renderApp({ project: project() });
-    expect(within(sheet()).queryByRole("button", { name: "Try another arrangement" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Add" })).toBeTruthy();
     act(() => {
       store.state.lastResult.value = makeResult(null, {
@@ -320,16 +336,16 @@ describe("the phone layout", () => {
       });
       store.state.lastResultHash.value = store.state.currentHash.value;
     });
-    // the sheet is the fit problem's now (a region of its own name): its title, its card, in reach while folded
-    const fix = screen.getByRole("region", { name: "Ways to make it fit" });
-    expect(within(fix).getByRole("heading", { name: "Ways to make it fit" })).toBeTruthy();
-    expect(within(fix).queryByRole("button", { name: "Add" })).toBeNull();
-    const keep = within(fix).getByRole("button", { name: "Try another arrangement" });
+    // the sheet stays the list (no card of its own); the strip over the plan has the button
+    expect(screen.queryByRole("region", { name: "Ways to make it fit" })).toBeNull();
+    expect(within(sheet()).getByRole("button", { name: "Add" })).toBeTruthy();
+    const keep = screen.getByRole("button", { name: "Try another arrangement" });
+    expect(keep.closest(".stage-fit")).not.toBeNull();
     expect(keep.closest("[inert]")).toBeNull();
     fireEvent.click(keep);
     await waitFor(() => expect(stub.calls).toHaveLength(1));
     expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
-    // the card went with the search: Stop, which took its place, has the focus
+    // the button went with the search: Stop, which took its place, has the focus
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Stop" }));
   });
 
@@ -340,65 +356,75 @@ describe("the phone layout", () => {
       });
     };
 
-    it("opens the tray's sheet: a modal dialog named by the tray, and no bar in the stage", () => {
+    it("shows the tray's dock under the plan: no dialog, no sheet of its own", () => {
       phone();
       renderApp({ project: project() });
-      expect(screen.queryByRole("dialog")).toBeNull();
-      pick();
-      const dialog = screen.getByRole("dialog");
-      expect(within(dialog).getByRole("heading", { level: 2, name: "Market" })).toBeTruthy();
-      expect(dialog.getAttribute("aria-modal")).toBe("true");
       expect(screen.queryByRole("region", { name: "Selected tray" })).toBeNull();
-      // only one element is the sheet: the list's sheet behind it lets go of the name
-      expect(document.querySelectorAll('[data-region="sheet"]')).toHaveLength(1);
-      expect(document.querySelector('[data-region="sheet"]')).toBe(dialog);
+      pick();
+      expect(screen.queryByRole("dialog")).toBeNull();
+      const bar = dock();
+      expect(bar.closest(".tray-dock")).not.toBeNull();
+      expect(bar.closest(".plan-col")).not.toBeNull();
+      expect(within(bar).getByText("Market")).toBeTruthy();
+      expect(within(bar).getByRole("button", { name: "Edit" })).toBeTruthy();
+      expect(within(bar).getByRole("button", { name: "More about this tray" })).toBeTruthy();
+      expect(sheet().closest("[inert]")).toBeNull();
     });
 
-    it("keeps the plan where it is: the slot has no room for a bar the sheet replaces", () => {
+    it("presses the chip of the picked tray's item", () => {
       phone();
       renderApp({ project: project() });
-      const slot = (): Element | null => document.querySelector(".stage-slot");
-      expect(slot()?.classList.contains("visually-hidden")).toBe(true);
+      const chip = (): HTMLElement =>
+        within(within(sheet()).getByRole("list", { name: "Items" })).getByRole("button", {
+          name: "Market",
+        });
+      expect(chip().getAttribute("aria-pressed")).toBe("false");
       pick();
-      expect(slot()?.classList.contains("visually-hidden")).toBe(true);
+      expect(chip().getAttribute("aria-pressed")).toBe("true");
+    });
+
+    it("selects the item's tray when its chip is tapped, and clears it when tapped again", () => {
+      phone();
+      const { store } = renderApp({ project: project() });
+      const chip = (): HTMLElement =>
+        within(within(sheet()).getByRole("list", { name: "Items" })).getByRole("button", {
+          name: "Market",
+        });
+      fireEvent.click(chip());
+      expect(store.state.selection.value).toBe("m:p0:0");
+      expect(dock()).toBeTruthy();
+      fireEvent.click(chip());
+      expect(store.state.selection.value).toBeNull();
+    });
+
+    it("puts the Layer switch under the plan", () => {
+      phone();
+      renderApp({ project: project() });
+      const segs = document.querySelector(".stage-segs--phone") as HTMLElement;
+      expect(segs.parentElement?.classList.contains("plan-col")).toBe(true);
     });
 
     it("closes with Close, and clears the selection", () => {
       phone();
       const { store } = renderApp({ project: project() });
       pick();
-      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
-      expect(screen.queryByRole("dialog")).toBeNull();
+      fireEvent.click(within(dock()).getByRole("button", { name: "Close" }));
+      expect(screen.queryByRole("region", { name: "Selected tray" })).toBeNull();
       expect(store.state.selection.value).toBeNull();
     });
 
-    it("gives the focus back to the tile when Escape closes the sheet", async () => {
+    it("gives the focus back to the tile when Close is pressed", async () => {
       phone();
-      const { store } = renderApp({ project: project() });
+      renderApp({ project: project() });
       const tile = document.querySelector('.plan-tile[data-key="m:p0:0"]') as HTMLElement;
       // picked without the focus on it, so only the bar's own hand-back can put it there
       pick();
       expect(document.activeElement).not.toBe(tile);
-      act(() => {
-        screen.getByRole("dialog").dispatchEvent(new Event("cancel", { cancelable: true }));
-      });
-      expect(screen.queryByRole("dialog")).toBeNull();
-      expect(store.state.selection.value).toBeNull();
+      fireEvent.click(within(dock()).getByRole("button", { name: "Close" }));
       await waitFor(() => expect(document.activeElement).toBe(tile));
     });
 
-    it("gives the focus back to the tile when a press behind the sheet closes it", async () => {
-      phone();
-      const { store } = renderApp({ project: project() });
-      const tile = document.querySelector('.plan-tile[data-key="m:p0:0"]') as HTMLElement;
-      pick();
-      fireEvent.click(screen.getByRole("dialog"));
-      expect(screen.queryByRole("dialog")).toBeNull();
-      expect(store.state.selection.value).toBeNull();
-      await waitFor(() => expect(document.activeElement).toBe(tile));
-    });
-
-    it("lets go of the plan while a swap is chosen, and takes it back when it is made", () => {
+    it("keeps the plan in reach while a swap is chosen, and the swap is made by picking the tray", () => {
       phone();
       const p = fixtureProject();
       const trays = [
@@ -409,18 +435,16 @@ describe("the phone layout", () => {
       fireEvent.keyDown(document.querySelector('.plan-tile[data-key="a:p0:0"]') as Element, {
         key: "Enter",
       });
-      const dialog = screen.getByRole("dialog");
-      fireEvent.click(within(dialog).getByRole("button", { name: "More" }));
-      fireEvent.click(within(dialog).getByRole("button", { name: "Swap with…" }));
+      fireEvent.click(within(dock()).getByRole("button", { name: "More about this tray" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Swap places with…/ }));
       expect(store.state.swapFrom.value).toBe("a:p0:0");
-      expect(screen.queryByRole("dialog")).toBeNull();
       expect(screen.getByText(/Choose the tray to swap with/)).toBeTruthy();
       fireEvent.keyDown(document.querySelector('.plan-tile[data-key="b:p0:0"]') as Element, {
         key: "Enter",
       });
       expect(store.state.project.value.locks).toHaveLength(2);
       expect(store.state.swapFrom.value).toBeNull();
-      expect(screen.getByRole("dialog")).toBeTruthy();
+      expect(dock()).toBeTruthy();
     });
   });
 

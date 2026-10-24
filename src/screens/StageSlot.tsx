@@ -1,6 +1,7 @@
 // src/screens/StageSlot.tsx
-// The 52 px slot above the plan's box (Main): the tray bar while a tray is selected (Task 8), a toast
-// (Task 10). Empty otherwise: the hint "Tap a tray for details." is the plan's caption now (board 1).
+// The slot over the plan's box: what is said for a moment (a swap's prompt, a refusal, a toast of
+// Task 10). It holds no room: the notes float over the top of the box (stage.css), and the selected
+// tray's dock has its own place at the foot of the column (board 4).
 import type { ComponentChildren } from "preact";
 import { toChildArray } from "preact";
 import { cx } from "../kit/cx";
@@ -14,7 +15,7 @@ export interface StageSlotProps {
   idle?: boolean;
 }
 
-/** The slot's height is `--stage-slot` (stage.css); it grows when what it holds is taller. */
+/** The slot has no height (stage.css): what it holds floats over the box. */
 export function StageSlot({ children, live, idle = false }: StageSlotProps) {
   const held = toChildArray(children).some((c) => c !== "");
   return (

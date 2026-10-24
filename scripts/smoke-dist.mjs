@@ -31,6 +31,7 @@ const REQUIRED_LICENSES = [
   "fflate",
   "@fontsource/bricolage-grotesque",
   "@fontsource/figtree",
+  "Overpass",
 ];
 // A relative static or dynamic import of a script: from"./x.js", import("./x.js"), import "./x.js".
 const IMPORT_PATH = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.{1,2}\/[^"']+\.js)["']/g;

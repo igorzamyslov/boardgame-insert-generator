@@ -69,6 +69,16 @@ function clipperEntry(): LicenseEntry {
   };
 }
 
+/** The engraved names' font: outlines of Overpass Bold are compiled into the geometry (name-font-data.ts). */
+function overpassEntry(): LicenseEntry {
+  return {
+    name: "Overpass (outlines of the engraved names)",
+    version: "4.0",
+    license: "OFL-1.1",
+    text: readFileSync(here("./licenses/overpass-OFL.txt"), "utf8"),
+  };
+}
+
 export function licensePlugin(): Plugin {
   // rollup-plugin-license is typed against its own rollup version; the hooks it uses are
   // the same in Vite's rollup, so the plugin object is passed through as a Vite plugin.
@@ -84,6 +94,7 @@ export function licensePlugin(): Plugin {
             ),
             manifoldEntry(),
             clipperEntry(),
+            overpassEntry(),
             ...fontEntries(),
           ];
           const text = renderLicenses(entries, "Board Game Insert Generator");

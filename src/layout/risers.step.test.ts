@@ -23,7 +23,7 @@ function owner(kind: "rim" | "step"): Project {
     throw new Error(parsed.error);
   }
   const p = parsed.project;
-  return { ...p, settings: { ...p.settings, lip: { ...p.settings.lip, kind } } };
+  return { ...p, settings: { ...p.settings, lip: { ...p.settings.lip, joint: kind } } };
 }
 
 function stored(p: Project): TraySpec[] {

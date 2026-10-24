@@ -6,7 +6,7 @@
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { Button, CloseButton, Drawer, Segmented } from "../kit";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { Notice, Printer, Settings } from "../model/types";
+import type { Joint, Notice, Printer, Settings } from "../model/types";
 import { printerProblems } from "../share";
 import { InsertSettings, PrintingOptions } from "./SettingsForm";
 import { PrinterForm } from "./PrinterForm";
@@ -41,6 +41,8 @@ export interface SettingsSheetProps {
   /** This insert's settings, and how they are changed. */
   settings: Settings;
   onSettingsChange: (s: Settings) => void;
+  /** The joint the current plan was made with, so Auto can say which one it chose. */
+  plannedJoint?: Joint;
   /** The printer this insert is planned for. */
   printer: Printer;
   /** My printer: the preference every new insert starts with. */
@@ -165,7 +167,11 @@ export function SettingsSheet(p: SettingsSheetProps) {
       </div>
       <div class="st-body">
         {tab === "insert" ? (
-          <InsertSettings settings={p.settings} onChange={p.onSettingsChange} />
+          <InsertSettings
+            settings={p.settings}
+            planned={p.plannedJoint}
+            onChange={p.onSettingsChange}
+          />
         ) : (
           <PrinterTab {...p} />
         )}

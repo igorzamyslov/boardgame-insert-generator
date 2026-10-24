@@ -7,16 +7,56 @@ import {
   effective,
   effectiveBottomChamfer,
 } from "./settings";
-import type { Settings, TraySpec } from "./types";
+import type { LipJoint, Settings, StoredLayout, TraySpec } from "./types";
 
-/** The rim between layers is on and is the lip and groove (`lip.kind` "rim"). */
+/**
+ * The rim between layers is on and is the lip and groove (`lip.joint` "rim"). A joint that is
+ * still "auto" is the rim too: the planner resolves it first (`withJoint`), and a stored layout
+ * that does not name one was made with the rim (`jointOf`).
+ */
 export function rimOn(s: Settings): boolean {
-  return s.lip.enabled && s.lip.kind !== "step";
+  return s.lip.joint === "rim" || s.lip.joint === "auto";
 }
 
-/** The rim between layers is on and is the stepped base (`lip.kind` "step"). */
+/** The rim between layers is on and is the stepped base (`lip.joint` "step"). */
 export function stepOn(s: Settings): boolean {
-  return s.lip.enabled && s.lip.kind === "step";
+  return s.lip.joint === "step";
+}
+
+/**
+ * Parts are keyed to each other by some joint. "auto" counts as on: it is always one or the other
+ * once planned (`jointOf`), and the planner resolves it before anything is sized.
+ */
+export function lipEnabled(s: Settings): boolean {
+  return s.lip.joint !== "off";
+}
+
+/** The settings with the rim between layers set to `joint`, for planning or building with it. */
+export function withJoint(s: Settings, joint: LipJoint): Settings {
+  return s.lip.joint === joint ? s : { ...s, lip: { ...s.lip, joint } };
+}
+
+/**
+ * The project as the engine builds it: with Auto resolved to the joint the layout (or, with none,
+ * the closest attempt of a run that found no fit) was planned with. Every other project is returned
+ * as it is. For everything that draws, sizes or prints from the stored trays; never to save.
+ */
+export function engineProject<P extends { settings: Settings; layout?: StoredLayout }>(
+  p: P,
+  attempt?: Pick<StoredLayout, "joint">,
+): P {
+  return p.settings.lip.joint === "auto"
+    ? { ...p, settings: jointOf(p.settings, p.layout ?? attempt) }
+    : p;
+}
+
+/**
+ * The settings the engine builds with: "auto" is the joint the layout was planned with
+ * (`StoredLayout.joint`), the rim for a layout that does not say (a plan made before Auto
+ * existed carries no joint, and it never had a stepped base unless the settings said so).
+ */
+export function jointOf(s: Settings, layout: Pick<StoredLayout, "joint"> | undefined): Settings {
+  return s.lip.joint === "auto" ? withJoint(s, layout?.joint ?? "rim") : s;
 }
 
 /** How far a part's joint stands above its `h`: the lip of a lipped part with the rim, else 0. */
@@ -223,11 +263,11 @@ export function leastRiser(s: Settings): number {
  * hangs below the seam and is no part of it.
  */
 export function upperTrayMinH(s: Settings): number {
-  return s.lip.enabled ? bottomMinimums(s, 1).h : 0;
+  return lipEnabled(s) ? bottomMinimums(s, 1).h : 0;
 }
 
 // ---------------------------------------------------------------------------------------------
-// The stepped base (`lip.kind` "step", owner 2026-10-23): the other joint between stacked parts.
+// The stepped base (`lip.joint` "step", owner 2026-10-23): the other joint between stacked parts.
 //
 // Cross-section of the upper part's edge, in (u, z): u in from its outer face, z from the seam
 // (where it meets the top of the part below; its TraySpec z). With `wall` the lower part's wall,

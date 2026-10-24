@@ -149,8 +149,7 @@ describe("stackAllowed", () => {
         printer: { bedX: 130, bedY: 130 },
         settings: {
           lip: {
-            enabled: lip,
-            kind: "rim",
+            joint: lip ? ("rim" as const) : ("off" as const),
             height: 2,
             thickness: 1.2,
             ledge: 1.7,
@@ -292,7 +291,7 @@ describe("alike trays in a stack (owner, 2026-10-23)", () => {
     });
 
     it("always has the step's rim: the socket stands in the tray, not above it", () => {
-      const step = { lip: { ...DEFAULT_SETTINGS.lip, enabled: true, kind: "step" as const } };
+      const step = { lip: { ...DEFAULT_SETTINGS.lip, joint: "step" as const } };
       const ctx = ctxAt(26, { settings: step });
       const h = stackHeights(ctx, stackLevels(ctx, [copy(0), copy(1)]));
       expect(h.rim).toBe(true);

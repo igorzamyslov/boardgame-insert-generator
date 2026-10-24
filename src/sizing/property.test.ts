@@ -259,7 +259,7 @@ const settingsArb: Arbitrary<Settings> = fc
     bottomChamfer: setting(0, 3),
     fit: fc.constantFrom(0.7, 1, 1.4),
     lip: fc.record({
-      enabled: fc.boolean(),
+      joint: fc.constantFrom("off" as const, "rim" as const),
       thickness: setting(0.9, 2),
       ledge: setting(0.5, 3),
       height: setting(1, 5),
@@ -274,8 +274,8 @@ const settingsArb: Arbitrary<Settings> = fc
     // With the lip on, upper trays (chamfer ≥ 0.5) rest on ledge − 2 × play × fit (field.lipBearing):
     // the ledge leaves room for that, and the chamfer stays below it, on the 0.001 mm grid.
     const play = 2 * DEFAULT_SETTINGS.lip.play * r.fit;
-    const ledge = r.lip.enabled ? Math.max(r.lip.ledge, 0.502 + play) : r.lip.ledge;
-    const bearing = r.lip.enabled ? Math.floor((ledge - play) * 1000) / 1000 - 0.001 : 3;
+    const ledge = r.lip.joint !== "off" ? Math.max(r.lip.ledge, 0.502 + play) : r.lip.ledge;
+    const bearing = r.lip.joint !== "off" ? Math.floor((ledge - play) * 1000) / 1000 - 0.001 : 3;
     return {
       ...walls,
       divider: r.divider,

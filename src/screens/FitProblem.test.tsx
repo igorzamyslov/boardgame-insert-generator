@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // src/screens/FitProblem.test.tsx
-// The fit problems as the app draws them (UI rebuild Task 12): a search that found no fit (NoFit,
-// MobileFix) and pins that block a fit (PinConflict). The seeds are real runs: the stage is fed
-// the result the way the runner leaves it.
+// The fit problems as the app draws them: a search that found no fit (the problem strip over the
+// normal stage, board 6 of the 2026-10-23 review) and pins that block a fit (PinConflict, UI
+// rebuild Task 12). The seeds are real runs: the stage is fed the result the way the runner leaves it.
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderApp } from "../app/test-app";
@@ -53,6 +53,9 @@ function phone(): void {
 
 const h1 = (): HTMLElement => screen.getByRole("heading", { level: 1 });
 const options = (): HTMLElement => document.querySelector('[data-region="options"]') as HTMLElement;
+/** No fit: the pinned strip, and its two buttons. */
+const strip = (): HTMLElement => document.querySelector(".stage-fit") as HTMLElement;
+const stripActions = (): HTMLElement => strip().querySelector(".fit-strip__actions") as HTMLElement;
 const names = (root: HTMLElement): (string | null)[] =>
   within(root)
     .getAllByRole("button")
@@ -61,16 +64,16 @@ const names = (root: HTMLElement): (string | null)[] =>
 const DENIED =
   /Lay the figures down|shallower|loose in one bin|any layer|Everything fits|Still doesn't fit|Best|needs \d+ mm|Unpin one and everything/;
 
-describe("when it doesn't fit (NoFit)", () => {
+describe("when it doesn't fit (the strip)", () => {
   it("names the tray and the reason as a heading", () => {
     const { project, result } = fitProblem("harbour-kings-nofit");
     const misfit = misfitOf(result.bestAttempt, project.box, project.settings, project.components);
     expect(misfit?.name).toBe("Heroes");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(h1().textContent).toBe(`The ${misfit?.name} tray doesn't fit yet`);
-    // the engine's whole-plan shortfall (33.7 mm in height) is the one figure
+    // one dimension is the cause (a figure 80 mm tall in a 70 mm box): the line says which, in the engine's figures
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box. The closest plan is 33.7 mm too tall.",
+      "Heroes needs 103.7 mm of height. The box has 70 mm.",
     );
     // the status is in the stage as a region of its own, in the warn tone
     expect(
@@ -78,13 +81,18 @@ describe("when it doesn't fit (NoFit)", () => {
     ).toBe("warn");
   });
 
-  it("says how much room the items need against the box, under the cards", () => {
+  it("says how much room the items need against the box, under the buttons", () => {
     fitProblem("harbour-kings-nofit");
-    expect(options().querySelector(".fp-volume")?.textContent).toBe(
+    // volume is not the cause here (2.0 L of 5.6 L): it is not the headline, only behind a fold-out
+    expect(strip().querySelector(".fit-strip__line")?.closest("details")).not.toBeNull();
+    expect(strip().querySelector(".fit-strip__volume summary")?.textContent).toBe(
+      "What the items need",
+    );
+    expect(strip().querySelector(".fit-strip__volume")?.textContent).toContain(
       "Your items need at least 2.0 L as trays. The box has 5.6 L.",
     );
-    // the cards come first: the phone's sheet shows them in its peek
-    expect(options().querySelector(".fp-cards")?.firstElementChild?.tagName).toBe("BUTTON");
+    // the buttons come first
+    expect(strip().querySelector(".fit-strip__actions + .fit-strip__volume")).not.toBeNull();
   });
 
   it("says very tight beside the figures when the items nearly fill the box", () => {
@@ -93,7 +101,7 @@ describe("when it doesn't fit (NoFit)", () => {
       ...p,
       box: { ...p.box, innerWidth: 175, innerDepth: 175 },
     }));
-    expect(options().querySelector(".fp-volume__line")?.textContent).toMatch(
+    expect(strip().querySelector(".fit-strip__line")?.textContent).toMatch(
       /^Your items need at least 2\.0 L as trays\. The box has 2\.\d L\. Very tight: expect to change settings\.$/,
     );
     expect(h1().textContent).toMatch(/tray doesn't fit yet$/);
@@ -109,9 +117,14 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(document.querySelector(".k-status__line")?.textContent).toMatch(
       /^Your items need at least 2\.0 L as trays\. The box has 1\.\d L\. This can't fit: take something out\.$/,
     );
-    expect(names(options())).toEqual(["Try another arrangement"]);
-    // the biggest items, so it is clear what to leave out
-    expect(options().querySelector(".fp-volume__list")?.textContent).toMatch(/Heroes takes 0\.7 L/);
+    expect(names(stripActions())).toEqual(["Try another arrangement"]);
+    // the biggest items, so it is clear what to leave out, behind "What takes the room"
+    expect(strip().querySelector(".fit-strip__more summary")?.textContent).toBe(
+      "What takes the room",
+    );
+    expect(strip().querySelector(".fit-strip__more ul")?.textContent).toMatch(
+      /Heroes takes 0\.7 L/,
+    );
     expect(document.querySelector("[data-misfit]")).toBeNull();
   });
 
@@ -123,33 +136,65 @@ describe("when it doesn't fit (NoFit)", () => {
     );
   });
 
-  it("names every axis that is short, the largest first, rounded up", () => {
+  it("names every axis that is short, the largest first, rounded up, when no tray is named", () => {
     fitProblem("harbour-kings-nofit", (r) => {
-      if (r.bestAttempt !== null) {
-        r.bestAttempt.shortfall = { x: 2.951, y: 0, z: 17.2 };
-      }
+      r.bestAttempt = { trays: [], shortfall: { x: 2.951, y: 0, z: 17.2 } };
     });
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box. The closest plan is 17.2 mm too tall and 3.0 mm too wide.",
+      "The closest plan is 17.2 mm too tall and 3.0 mm too wide.",
     );
   });
 
   it("names a shortfall in length, and says nothing of one that is not there", () => {
     fitProblem("harbour-kings-nofit", (r) => {
-      if (r.bestAttempt !== null) {
-        r.bestAttempt.shortfall = { x: 0, y: 4, z: 0 };
-      }
+      r.bestAttempt = { trays: [], shortfall: { x: 0, y: 4, z: 0 } };
     });
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box. The closest plan is 4.0 mm too long.",
+      "The closest plan is 4.0 mm too long.",
     );
     cleanup();
     fitProblem("harbour-kings-nofit", (r) => {
-      if (r.bestAttempt !== null) {
-        r.bestAttempt.shortfall = { x: 0, y: 0, z: 0.01 };
-      }
+      r.bestAttempt = { trays: [], shortfall: { x: 0, y: 0, z: 0.01 } };
     });
     expect(document.querySelector(".k-status__line")?.textContent).toMatch(/0\.1 mm too tall/);
+  });
+
+  it("names the one side of the box that is the limit, with the engine's own figures", () => {
+    // Heroes laid low but pushed past the box's right edge: width is the cause, not height
+    fitProblem("harbour-kings-nofit", (r) => {
+      const heroes = r.bestAttempt?.trays.find((t) => t.part === "tray" && t.h > 70);
+      if (heroes === undefined) {
+        throw new Error("no tall tray in the seed");
+      }
+      heroes.h = 20;
+      heroes.x = 285 - heroes.w + 12.3;
+    });
+    expect(document.querySelector(".k-status__line")?.textContent).toMatch(
+      /^Heroes needs 297\.3 mm of width\. The box has 285 mm\.$/,
+    );
+  });
+
+  it("keeps the volume line as the headline only where volume is the reason", () => {
+    // tight: 2.0 L of trays in 2.1 L of box: the figures show, the biggest items are folded away
+    fitProblem("harbour-kings-nofit", undefined, (p) => ({
+      ...p,
+      box: { ...p.box, innerWidth: 175, innerDepth: 175 },
+    }));
+    expect(strip().querySelector(":scope > .fit-strip__volume > .fit-strip__line")).not.toBeNull();
+    cleanup();
+    // roomy: the line waits behind "What the items need"
+    fitProblem("harbour-kings-nofit");
+    expect(strip().querySelector(":scope > .fit-strip__volume > .fit-strip__line")).toBeNull();
+  });
+
+  it("has no ⋯ menu in the strip: its one entry is a button there", () => {
+    fitProblem("harbour-kings-nofit");
+    expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
+    cleanup();
+    // the normal plan keeps it
+    const { project } = loadSeed("harbour-kings");
+    renderApp({ project });
+    expect(screen.getByRole("button", { name: "Plan options" })).toBeTruthy();
   });
 
   it("does not repeat the engine's no-fit paragraph, and keeps the other notices", () => {
@@ -185,16 +230,16 @@ describe("when it doesn't fit (NoFit)", () => {
       "The closest plan is 5.0 mm too tall.",
     );
     // nothing to edit: only the search is offered
-    expect(names(options())).toEqual(["Try another arrangement"]);
+    expect(names(stripActions())).toEqual(["Try another arrangement"]);
   });
 
-  it("offers only actions the engine can do", () => {
+  it("offers only actions the engine can do, in the status row", () => {
     fitProblem("harbour-kings-nofit");
-    const panel = options();
-    expect(
-      within(panel).getByRole("heading", { level: 2, name: "Ways to make it fit" }),
-    ).toBeTruthy();
-    expect(names(panel)).toEqual(["Edit Heroes", "Try another arrangement"]);
+    expect(names(stripActions())).toEqual(["Edit Heroes", "Try another arrangement"]);
+    // the strip is the status row itself: the h1 is in it, and there is no panel of its own
+    expect(strip().getAttribute("data-region")).toBe("status");
+    expect(strip().contains(h1())).toBe(true);
+    expect(document.querySelector('[data-region="options"]')).toBeNull();
     expect(document.querySelector('[data-region="stage"]')?.textContent).not.toMatch(DENIED);
   });
 
@@ -211,12 +256,12 @@ describe("when it doesn't fit (NoFit)", () => {
       app.store.state.lastResult.value = result;
       app.store.state.lastResultHash.value = app.store.state.currentHash.value;
     });
-    expect(names(options())).toEqual(["Edit Heroes"]);
+    expect(names(stripActions())).toEqual(["Edit Heroes"]);
   });
 
   it("opens the editor of the tray from its card", async () => {
     fitProblem("harbour-kings-nofit");
-    fireEvent.click(within(options()).getByRole("button", { name: "Edit Heroes" }));
+    fireEvent.click(within(stripActions()).getByRole("button", { name: "Edit Heroes" }));
     expect(await screen.findByRole("button", { name: "Done" })).toBeTruthy();
   });
 
@@ -227,7 +272,7 @@ describe("when it doesn't fit (NoFit)", () => {
         app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "improve" };
       });
     });
-    const keep = within(options()).getByRole("button", { name: "Try another arrangement" });
+    const keep = within(stripActions()).getByRole("button", { name: "Try another arrangement" });
     keep.focus();
     fireEvent.click(keep);
     expect(refit).toHaveBeenCalledTimes(1);
@@ -235,15 +280,16 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Stop" }));
   });
 
-  it("gives the first card the ink edge, and no other", () => {
+  it("makes Edit the primary button, and Try another arrangement the secondary", () => {
     fitProblem("harbour-kings-nofit");
-    const cards = [...options().querySelectorAll(".fp-card")];
-    expect(cards.map((c) => c.classList.contains("fp-card--lead"))).toEqual([true, false]);
+    const [edit, keep] = [...stripActions().querySelectorAll("button")];
+    expect(edit?.classList.contains("k-btn--primary")).toBe(true);
+    expect(keep?.classList.contains("k-btn--secondary")).toBe(true);
   });
 
-  it("hands the focus to the first card when a search ends on the same problem", () => {
+  it("hands the focus to Edit when a search ends on the same problem", () => {
     const app = fitProblem("harbour-kings-nofit");
-    const keep = within(options()).getByRole("button", { name: "Try another arrangement" });
+    const keep = within(stripActions()).getByRole("button", { name: "Try another arrangement" });
     vi.spyOn(app.store, "refit").mockImplementation(() => {
       act(() => {
         app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "improve" };
@@ -257,13 +303,13 @@ describe("when it doesn't fit (NoFit)", () => {
       app.store.state.run.value = { status: "done" };
     });
     expect(document.activeElement).toBe(
-      within(options()).getByRole("button", { name: "Edit Heroes" }),
+      within(stripActions()).getByRole("button", { name: "Edit Heroes" }),
     );
   });
 
   it("takes the focus without scrolling the stage, so the heading and the plan's top stay in view", () => {
     const app = fitProblem("harbour-kings-nofit");
-    const keep = within(options()).getByRole("button", { name: "Try another arrangement" });
+    const keep = within(stripActions()).getByRole("button", { name: "Try another arrangement" });
     vi.spyOn(app.store, "refit").mockImplementation(() => {
       act(() => {
         app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "improve" };
@@ -321,7 +367,7 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(document.querySelector(".plan-caption")?.textContent).toMatch(/seen from above/);
   });
 
-  it("is not interactive: no tile is a button, and a press selects nothing", () => {
+  it("draws no tile as a control, and a press selects nothing", () => {
     const app = fitProblem("harbour-kings-nofit");
     const box = document.querySelector('[data-region="plan-box"]') as HTMLElement;
     expect(within(box).queryAllByRole("button")).toHaveLength(0);
@@ -330,9 +376,9 @@ describe("when it doesn't fit (NoFit)", () => {
     fireEvent.pointerDown(tile, { button: 0, pointerId: 1 });
     fireEvent.pointerUp(tile, { button: 0, pointerId: 1 });
     expect(app.store.state.selection.value).toBeNull();
-    // no Layer or View switch and no tray bar
-    expect(screen.queryByRole("group", { name: "Layer" })).toBeNull();
-    expect(screen.queryByRole("group", { name: "View" })).toBeNull();
+    // the Layer and View switches are the normal stage's, in the same places; there is no tray bar
+    expect(screen.getByRole("group", { name: "Layer" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "View" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Selected tray" })).toBeNull();
   });
 
@@ -346,11 +392,11 @@ describe("when it doesn't fit (NoFit)", () => {
 
   it("is gone when a plan fits again", () => {
     const app = fitProblem("harbour-kings-nofit");
-    expect(options()).not.toBeNull();
+    expect(strip()).not.toBeNull();
     act(() => {
       app.store.state.lastResult.value = null;
     });
-    expect(document.querySelector('[data-region="options"]')).toBeNull();
+    expect(document.querySelector(".stage-fit")).toBeNull();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 });
@@ -516,7 +562,9 @@ describe("when pins block a fit (PinConflict)", () => {
   it("does not hand the focus to Stop when Try another arrangement starts no search", () => {
     const app = fitProblem("harbour-kings-nofit");
     vi.spyOn(app.store, "refit").mockImplementation(() => undefined);
-    fireEvent.click(within(options()).getByRole("button", { name: "Try another arrangement" }));
+    fireEvent.click(
+      within(stripActions()).getByRole("button", { name: "Try another arrangement" }),
+    );
     // a later run that the person did not ask for must not pull the focus to its Stop
     act(() => {
       app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "edit" };
@@ -537,25 +585,28 @@ describe("on a phone (MobileFix)", () => {
     return document.querySelector('[data-region="sheet"]') as HTMLElement;
   }
 
-  it("holds the ways to make it fit in a peek sheet under the heading and the attempt", () => {
+  it("pins the strip over the attempt, and leaves the sheet the list", () => {
     phone();
     fitProblem("harbour-kings-nofit");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(h1().textContent).toBe("The Heroes tray doesn't fit yet");
+    expect(names(stripActions())).toEqual(["Edit Heroes", "Try another arrangement"]);
+    // the sheet is the list again: no cards, no "Ways to make it fit"
     expect(
-      within(sheet()).getByRole("heading", { level: 2, name: "Ways to make it fit" }),
-    ).toBeTruthy();
-    const cards = within(sheet().querySelector(".fp-cards") as HTMLElement);
-    expect(cards.getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "Edit Heroes",
-      "Try another arrangement",
-    ]);
-    expect(sheet().getAttribute("data-peek")).toBe("true");
+      within(sheet()).queryByRole("heading", { level: 2, name: "Ways to make it fit" }),
+    ).toBeNull();
+    expect(sheet().querySelector(".fp-cards")).toBeNull();
     // the attempt, with the misfit marked
     expect(document.querySelectorAll(".plan-tile.is-misfit")).toHaveLength(1);
-    // the heading is not offering the fixes a second time
-    const status = document.querySelector('[data-region="status"]') as HTMLElement;
-    expect(within(status).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("folds the volume note behind one line, so the pinned strip leaves the plan its room", () => {
+    phone();
+    fitProblem("harbour-kings-nofit");
+    const more = strip().querySelector("details.fit-strip__more") as HTMLElement;
+    expect(more.querySelector("summary")?.textContent).toBe("What the items need");
+    expect(more.textContent).toContain("Your items need at least 2.0 L as trays.");
+    expect(strip().querySelector(":scope > .fit-strip__volume > .fit-strip__line")).toBeNull();
   });
 
   it("titles the sheet Unpin one for pins in the way", () => {
@@ -573,7 +624,7 @@ describe("on a phone (MobileFix)", () => {
     ]);
   });
 
-  it("keeps the list within reach under the cards", () => {
+  it("keeps the list in the sheet, the culprit's row marked", () => {
     phone();
     fitProblem("harbour-kings-nofit");
     expect(within(sheet()).getByRole("button", { name: /^The box/ })).toBeTruthy();

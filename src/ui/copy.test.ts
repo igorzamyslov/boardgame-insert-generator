@@ -34,7 +34,9 @@ import { COPY_RULINGS, DOWNLOAD_STATES } from "../screens/copy-rulings";
  *   <n> trays" is what an edit says when it takes size locks off trays that are gone (DESIGN §7).
  * - "Try another arrangement", "Keep space free", "Part of it": real labels (the box's headroom choice;
  *   named in DESIGN §2 Words). "Keep this version": the project menu's choice after another tab
- *   changed the insert (Main's board; it has nothing to do with pins). "keeps the top layer from
+ *   changed the insert (Main's board; it has nothing to do with pins). "Keep here" and "Keep this
+ *   size": the tray dock's menu entries, the pin's and the size lock's names (board 4; DESIGN §7).
+ *   "The tray dock keeps Edit and one menu": that decision's name, quoted by its ruling. "keeps the top layer from
  *   sliding" and "Keeps everything snug": the hints of Settings' board, where "keeps" is the plain
  *   verb (DESIGN §7). "Turned trays keep their direction when the plan updates": the rules note's
  *   sentence about turns (DESIGN §7), where "keep" is the plain verb too, for that sentence only.
@@ -196,7 +198,7 @@ const NOT_WORDS =
 
 /** Legitimate uses, removed from the text before NOT_WORDS looks at it. */
 const ALLOWED =
-  /\b(?:Lock size|Unlock size|Size unlocked on|size[ -]locked|size locks?|Try another arrangement|Keep space free|Keep this version|keeps the top layer from sliding|Keeps everything snug|Turned trays keep their direction when the plan updates|Part of it|data-part)\b/gi;
+  /\b(?:Lock size|Unlock size|Size unlocked on|size[ -]locked|size locks?|Try another arrangement|Keep space free|Keep this version|Keep here|Keep this size|The tray dock keeps Edit and one menu|keeps the top layer from sliding|Keeps everything snug|Turned trays keep their direction when the plan updates|Part of it|data-part)\b/gi;
 
 /** Files that write the download list, why a part could not be exported, and part names. */
 const PART_FILES: readonly RegExp[] = [
@@ -277,6 +279,9 @@ describe("copy", () => {
     expect(not("Try another arrangement")).toBeNull();
     expect(not("Keep space free on top")).toBeNull();
     expect(not("Keep this version")).toBeNull();
+    expect(not("Keep here")).toBeNull();
+    expect(not("Keep this size")).toBeNull();
+    expect(not("Keep it")).toBe("Keep");
     expect(not("Size locked")).toBeNull();
     expect(not("Size unlocked on 2 trays")).toBeNull();
     expect(not("Unlocked trays")).toBe("Unlocked");

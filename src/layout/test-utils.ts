@@ -1,3 +1,4 @@
+import { lipEnabled } from "../model/lip";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { CHANNEL_DEPTH, MIN_GRIP } from "../sizing/constants";
 import type {
@@ -139,7 +140,7 @@ export function makeInput(
     // than riding on the product default. A test of flush stacking passes `lip` itself.
     settings: {
       ...DEFAULT_SETTINGS,
-      lip: { ...DEFAULT_SETTINGS.lip, enabled: true },
+      lip: { ...DEFAULT_SETTINGS.lip, joint: "rim" as const },
       ...o.settings,
     },
     locks: o.locks ?? [],
@@ -167,7 +168,7 @@ export const fakeMeasure: Measure = (p, _settings, opts) => {
  */
 export const groovedMeasure: Measure = (p, settings, opts) => {
   const m = fakeMeasure(p, settings, opts);
-  return opts.level > 0 && settings.lip.enabled && !opts.lipped
+  return opts.level > 0 && lipEnabled(settings) && !opts.lipped
     ? { ...m, w: m.w + 1.2, d: m.d + 1.2 }
     : m;
 };
