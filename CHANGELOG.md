@@ -10,7 +10,7 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
-## [0.23.2] - 2026-10-24
+## [0.23.3] - 2026-10-24
 
 ### Fixed
 
@@ -18,6 +18,15 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
   its button, and Delete is a small grey trash icon on each row instead of a red "Delete…" link
   (it turns red when you point at it, and still asks before it deletes). Two inserts with the same
   name show when each was last edited, so you can tell them apart.
+
+## [0.23.2] - 2026-10-24
+
+### Fixed
+
+- **Copies that grow no longer leave a crack between trays.** When identical copies took the
+  spare room into their wells, a plan could end up with a sliver of room too thin for a spacer
+  between two trays instead of at the end of the row, so the trays no longer sat flush. That
+  sliver now stays at the end of the row.
 
 ## [0.23.1] - 2026-10-24
 
