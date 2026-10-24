@@ -141,6 +141,11 @@
   overflow: auto;
 }
 
+/* The folded phone sheet is one row of chips (board 9): the grip row, a 44 px row and 8 px under it. */
+.ws--chips {
+  --sheet-peek: 76px;
+}
+
 .ws-stage--focus {
   padding: var(--stage-pad-focus);
 }

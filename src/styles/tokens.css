@@ -165,8 +165,6 @@
   --stage-pad-focus: 28px 40px; /* first visit, the box, fit problems (the editor shares the normal stage's padding) */
   --row-min: 52px; /* list rows, check rows */
   --kind-tile-h: 56px;
-  --stage-slot: 52px;
-  --stage-slot-bar: 62px; /* the workspace's slot over the plan is as tall as the tray bar (Main's board draws 85), so a tray chosen moves and resizes nothing */
   --status-icon: 40px;
   --status-icon-phone: 32px;
   --menu-w: 260px;

@@ -83,8 +83,9 @@ const selectSpacer = (): void => {
   fireEvent.keyDown(spacer, { key: "Enter" });
 };
 
+/** The tray dock's ⋯ button (board 4): the menu with Keep here, Rotate 90°, Swap places with…, Put on…, Keep this size. */
 const openMore = (): void => {
-  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  fireEvent.click(screen.getByRole("button", { name: "More about this tray" }));
 };
 
 /** A component's editor, opened from its row in the rail (the phone's sheet has the same rows). */
@@ -240,7 +241,7 @@ const setPutOn = (store: Store): void => {
 const choosePutOn = (): void => {
   selectTray(/^Market deck/)();
   openMore();
-  fireEvent.click(screen.getByRole("button", { name: "Put on…" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Put on…/ }));
 };
 
 /** A count no deck can have: the first component's editor holds an error. */
@@ -1003,8 +1004,8 @@ const CASES: readonly Case[] = [
       ["no-fit-bed", "NoFit", "harbour-kings-nofit-bed"],
       ["pin-conflict", "PinConflict", "harbour-kings-pins"],
     ].flatMap(([state = "", board = "", seed = ""]): Case[] =>
-      // the options panel is only NoFit's and PinConflict's (the bed variant has the same one)
-      region === "options" && state === "no-fit-bed"
+      // the options panel is only PinConflict's: no fit has the strip in its status row
+      region === "options" && state !== "pin-conflict"
         ? []
         : [
             {
@@ -1085,21 +1086,21 @@ const CASES: readonly Case[] = [
   {
     state: "m-tray",
     board: "MobileTray",
-    region: "sheet",
+    region: "tray-bar",
     phone: true,
     steps: selectTray(/^Heroes/),
   },
   {
     state: "m-tray-market",
     board: "MobileTray",
-    region: "sheet",
+    region: "tray-bar",
     phone: true,
     steps: selectTray(/^Market deck/),
   },
   {
     state: "m-tray-more",
     board: "MobileTray",
-    region: "sheet",
+    region: "tray-bar",
     phone: true,
     steps: () => {
       selectTray(/^Heroes/)();
@@ -1109,7 +1110,7 @@ const CASES: readonly Case[] = [
   {
     state: "m-tray-spacer",
     board: "MobileTray",
-    region: "sheet",
+    region: "tray-bar",
     phone: true,
     steps: selectSpacer,
   },

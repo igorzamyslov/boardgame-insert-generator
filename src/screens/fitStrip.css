@@ -1,0 +1,108 @@
+/*
+ * The no-fit problem strip (board 6 of the 2026-10-23 review): the status row's expanded state.
+ * It is pinned at the top of the stage, so the explanation never scrolls away, and it is the same
+ * in Top and in 3D. The heading, the switches and the buttons are the kit's (kit.css); this file
+ * only places them. On the tokens (styles/tokens.css).
+ */
+
+.stage-fit {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-10);
+  padding: var(--s-12) var(--s-14);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--sheet));
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--warn-bg) 40%, var(--sheet));
+}
+
+/* The words of the heading are in the warn ink, as the fit problems' always were. */
+.stage-fit .k-status__title,
+.stage-fit .k-status__line {
+  color: var(--warn-ink);
+}
+
+/* A long name wraps under its first words: the title is the strip's whole message, not a cut line. */
+.stage-fit .k-status__title.ellipsis {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+/* The strip says how far off the plan is: the line wraps, it is not cut with an ellipsis. */
+.ws-stage .stage-fit .k-status__line:not(:has(.stage-list)) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+/* The two things to do: Edit <tray> (ink), then Try another arrangement. */
+.fit-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-10);
+  align-items: center;
+  min-width: 0;
+}
+
+/* What the items need against the box (0.15.0): plain words, the judgement in the warn ink. */
+.fit-strip__volume {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  min-width: 0;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.fit-strip__volume p,
+.fit-strip__volume ul {
+  margin: 0;
+}
+
+.fit-strip__judgement {
+  color: var(--warn-ink);
+}
+
+.fit-strip__more summary {
+  min-height: var(--s-24);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.fit-strip__more ul {
+  padding-left: var(--s-16);
+}
+
+.fit-strip__more > :not(summary) {
+  margin-top: var(--s-4);
+}
+
+/* A phone's strip keeps the ⋯ beside the heading, and the two buttons share their row where they fit. */
+@media (width < 760px) {
+  .stage-fit {
+    gap: var(--s-8);
+    padding: var(--s-10) var(--s-12);
+  }
+
+  .stage-fit .k-status {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+
+  .stage-fit .k-status__lead {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .stage-fit .k-status__extra {
+    flex: none;
+  }
+
+  .fit-strip__actions {
+    gap: var(--s-8);
+  }
+}

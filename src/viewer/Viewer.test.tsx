@@ -26,6 +26,7 @@ function stubScene() {
     setSelected: vi.fn(),
     setLit: vi.fn(),
     setReserved: vi.fn(),
+    setMisfit: vi.fn(),
     onPick: vi.fn((cb: (key: string | null) => void) => {
       picked = cb;
     }),

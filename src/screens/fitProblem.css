@@ -1,11 +1,10 @@
 /*
- * The fit problems' stage (UI rebuild Task 12), from NoFit, PinConflict and MobileFix: the status
- * heading (the kit's), the plan as a picture, and the panel of what to do. The heading's warn
- * icon and the cards are the kit's or the board's own values, on the
- * tokens (styles/tokens.css).
+ * The pins' stage (UI rebuild Task 12), from PinConflict and MobileFix: the status heading (the
+ * kit's), the plan as a picture, and the column of what to do. No fit has no stage of its own now:
+ * it is the normal stage under the problem strip (fitStrip.css). On the tokens (styles/tokens.css).
  */
 
-/* The heading keeps its height; the body follows 24 px under it (NoFit): the stage's 16 px gap and 8 more. */
+/* The heading keeps its height; the body follows 24 px under it: the stage's 16 px gap and 8 more. */
 .fp-status {
   flex: none;
 }
@@ -43,7 +42,7 @@
 }
 
 /*
- * Beside the picture: NoFit's panel, then the notices of the run (they have room here, and the
+ * Beside the picture: the panel, then the notices of the run (they have room here, and the
  * stage keeps its height). The board's panel is content-sized: 300 px inside its padding, 342 in all.
  */
 .fp-side {
@@ -60,7 +59,7 @@
   max-width: 340px;
 }
 
-/* NoFit's panel: a white card on the page, 16 px round, a 1 px rule, 20 px in. */
+/* The panel: a white card on the page, 16 px round, a 1 px rule, 20 px in. */
 .fp-panel {
   display: flex;
   flex: none;
@@ -93,34 +92,9 @@
   min-width: 0;
 }
 
-/* NoFit's volume note (0.15.0): plain words under the cards, the judgement in the warn ink. */
-.fp-volume {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-8);
-  min-width: 0;
-  padding-top: var(--s-4);
-  color: var(--ink);
-  font-size: var(--text-sm);
-  line-height: 1.4;
-}
-
-.fp-volume p,
-.fp-volume ul {
-  margin: 0;
-}
-
-.fp-volume__judgement {
-  color: var(--warn-ink);
-}
-
-.fp-volume__list {
-  padding-left: var(--s-16);
-}
-
 /*
  * One thing to do: its words alone, 600. 14 px in, a 1 px field line and 12 px round (PinConflict's
- * cards are 14); the first of NoFit's has a 1.5 px ink edge. A button, so it is 44 px at the least.
+ * cards are 14). A button, so it is 44 px at the least.
  */
 .fp-card {
   display: flex;
@@ -144,10 +118,6 @@
 /* style.css (until Task 17) repaints every button under the pointer: a card keeps its own colour. */
 .fp-card:hover:not(:disabled) {
   background: var(--sheet);
-}
-
-.fp-card--lead {
-  border: 1.5px solid var(--ink);
 }
 
 .fp-cards[data-kind="pinConflict"] > .fp-card {

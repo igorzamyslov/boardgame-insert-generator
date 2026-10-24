@@ -2,7 +2,7 @@
 // The stage while a component is being edited (Edit), on the normal stage's own frame (WideStage2):
 // where the status heading stood is the sentence that says which tray this is (the page's one h1)
 // or, for a few seconds after an option changed, the note about it; under it the same Layer and
-// Top / 3D switches; the tray bar's slot is an empty band; the box is drawn from above or in 3D with
+// Top / 3D switches; the box is drawn from above or in 3D with
 // the edited component's trays lifted and the rest dimmed. On a phone the sheet's name is the h1,
 // and the strip under its header shows the same two things.
 import type { ComponentChildren } from "preact";
@@ -261,6 +261,10 @@ export interface NormalStage {
   body: ComponentChildren;
   /** The 3D view, when that is what the column shows: the slot above it and the viewer's props. */
   threeD: { slot: StageSlotProps; viewer: ViewerProps } | null;
+  /** A phone's Layer switch (and its 3D toggle), under the plan (board 9); a desktop has them over it. */
+  under?: ComponentChildren;
+  /** The dock of the selected tray, over the column's foot (board 4); nothing while none is selected. */
+  dock?: ComponentChildren;
   /** Under the plan: the layout and sizing notices. */
   after: ComponentChildren;
 }
@@ -275,12 +279,16 @@ function StageFrame({
   className,
   threeD,
   body,
+  under,
+  dock,
   after,
 }: {
   top: ComponentChildren;
   className?: string;
   threeD: { slot: StageSlotProps; viewer: ViewerProps } | null;
   body: ComponentChildren;
+  under?: ComponentChildren;
+  dock?: ComponentChildren;
   after: ComponentChildren;
 }) {
   return (
@@ -299,7 +307,9 @@ function StageFrame({
         ) : (
           body
         )}
+        {under}
         {after}
+        {dock === undefined || dock === null ? null : <div class="tray-dock">{dock}</div>}
       </section>
     </>
   );
@@ -402,7 +412,7 @@ function litKeysOf(mine: readonly TraySpec[], trays: readonly TraySpec[]): strin
 
 /**
  * The stage of the editor, on the normal stage's frame: the sentence where the status heading
- * stood, the Layer and Top / 3D switches, an empty band where the tray bar stands, and the box
+ * stood, the Layer and Top / 3D switches, and the box
  * with the edited trays lifted (from above) or lit (in 3D), the rest dimmed.
  */
 export function EditorStage({
@@ -437,7 +447,14 @@ export function EditorStage({
   const target = targetOf({ componentId, groupId, components, groups }, trays);
   if (target === undefined) {
     return normal === undefined ? null : (
-      <StageFrame top={normal.top} threeD={normal.threeD} body={normal.body} after={normal.after} />
+      <StageFrame
+        top={normal.top}
+        threeD={normal.threeD}
+        body={normal.body}
+        under={normal.under}
+        dock={normal.dock}
+        after={normal.after}
+      />
     );
   }
   const { mine } = target;
@@ -490,8 +507,6 @@ export function EditorStage({
         <div class="stage-segs__layer">{layers}</div>
       </div>
     );
-  // The tray bar's place stays, empty, so the frame is where the normal stage's is.
-  const band = <span class="ed-band" />;
   // What the 3D view draws: the model as it was when the last change was over, and the edited trays lit.
   const settledTarget = targetOf(
     { componentId, groupId, components: sComponents ?? components, groups: sGroups },
@@ -534,7 +549,6 @@ export function EditorStage({
     ) : (
       <PlanView
         {...plan}
-        bar={phone ? undefined : band}
         {...target.edited}
         level={at}
         layerAll={pick === null}

@@ -54,8 +54,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    three sizes only, and its header has "Open file" and the project menu.
 4. **The plan.** The optimizer runs on its own 400 ms after you stop editing. The status heading
    above the box says the result ("Everything fits. 6 trays in 2 layers, 40 of 52 mm high.") or
-   what is wrong. When nothing fits the screen shows the closest attempt, dimmed, with the tray
-   that doesn't fit marked, and "Ways to make it fit": "Edit <name>" and "Try another arrangement". When
+   what is wrong. When nothing fits the status row becomes a strip pinned at the top of the stage,
+   with "Edit <name>" and "Try another arrangement", and the stage, in Top and in 3D, shows the
+   closest attempt dimmed with the tray that doesn't fit marked (in 3D it sticks out of its slot). When
    your pins block the fit it shows the plan that was kept and "Unpin one": "Unpin <name>" (or
    "Unlock size of <name>") for each pin in the way. "Try another arrangement" runs a longer
    search (about three times the budget) from the current plan and never throws it away;
@@ -65,16 +66,16 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    "Layer n (top)", and the Layer segment above the box, beside the Top / 3D segment, has a button
    for each. On a wide screen the app is one centred block, 1600 px at most, with the status, the
    switches and the box in one column.
-5. **Trays.** Select a tray, in the plan, in the 3D view or in the list, to see its tray bar: one
-   row with its colour, its name over one line ("Layer 1 (bottom) · 95 × 190 × 40 mm · about 4.5 h,
-   76 g"), "Pin this tray", "Turn this tray 90°", "Edit", "More" and Close ("this stack" for a tray in a
-   stack of two or more). "Pin this tray" holds it where it is (a stack: all its trays), "Turn this
-   tray 90°" turns it without pinning it ("Turned" says so; its × lets it turn as the plan likes), "Edit" opens its item, and "More" holds "Swap with…" (swap
-   two trays: drag one onto another, or use the keyboard; both stacks are pinned) and "Lock size"
-   (holds it at the size it is). A line says why an action is blocked. Spacers, spare trays and
-   risers have no actions, only Close. Pins and size locks also show as chips on the item's row,
-   each with an x ("Unpin", "Unlock size"). The optimizer works around them and never drops one
-   silently.
+5. **Trays.** Select a tray, in the plan, in the 3D view or in the list (on a phone, by its chip),
+   to see its dock: one toolbar at the bottom centre of the stage, the same in Top, in 3D and on a
+   phone. Its label is the tray's colour, its name and one line ("Layer 1 · 95 × 190 × 40 mm · about
+   76 g"); "Edit" opens its item. The ⋯ menu holds "Keep here" (the pin: holds it where it is, a
+   stack with all its trays), "Rotate 90°" (turns it without pinning it; "Turned" says so, and its
+   × lets it turn as the plan likes), "Swap places with…" (pick the other tray in the plan or in 3D;
+   both stacks are pinned), "Put on…" and "Keep this size" (holds it at the size it is), each with a
+   line saying what it does. A blocked entry says why. Spacers, spare trays and risers have no
+   actions, only Close. Pins and size locks also show as chips on the item's row, each with an x
+   ("Unpin", "Unlock size"). The optimizer works around them and never drops one silently.
 6. **3D view.** The "3D" segment (beside "Top") shows the trays in a frame as wide as the plan's
    column (it needs WebGL; the rest works without), with the model kept inside it however you turn
    it. One quiet row holds "Spread apart". There is no axis button.

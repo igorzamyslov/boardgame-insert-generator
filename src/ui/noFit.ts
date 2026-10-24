@@ -22,17 +22,34 @@ export interface Misfit {
   name: string;
   /** "bed": no print bed orientation holds it (a definite cause). "box": it overhangs the box in the closest attempt. */
   reason: "bed" | "box";
+  /**
+   * The one dimension the closest attempt overhangs the box by furthest (reason "box"): how much the
+   * tray's side needs of the box's `axis` and how much the box has there, mm, from the attempt's own figures.
+   */
+  limit?: { axis: "height" | "width" | "length"; need: number; have: number };
 }
 
-/** How far a tray of the closest attempt sticks out of the box, mm (0 when it is inside). */
-function overBox(t: TraySpec, box: Box, settings: Settings, under: boolean): number {
-  return Math.max(
-    0,
-    t.x + t.w - box.innerWidth,
-    t.y + t.d - box.innerDepth,
-    // a stack under a kept-free area stops lower than the lid
-    t.z + t.h - (under ? topPlane(box, settings) : lidPlane(box, settings)),
-  );
+/** How far a tray of the closest attempt sticks out of the box, mm (0 when it is inside), and on which side. */
+function overBox(
+  t: TraySpec,
+  box: Box,
+  settings: Settings,
+  under: boolean,
+): { over: number; limit?: NonNullable<Misfit["limit"]> } {
+  // a stack under a kept-free area stops lower than the lid
+  const top = under ? topPlane(box, settings) : lidPlane(box, settings);
+  const sides = [
+    { axis: "height" as const, have: top, over: t.z + t.h - top },
+    { axis: "width" as const, have: box.innerWidth, over: t.x + t.w - box.innerWidth },
+    { axis: "length" as const, have: box.innerDepth, over: t.y + t.d - box.innerDepth },
+  ];
+  const worst = sides.reduce((a, b) => (b.over > a.over ? b : a));
+  return worst.over <= 0
+    ? { over: 0 }
+    : {
+        over: worst.over,
+        limit: { axis: worst.axis, need: worst.have + worst.over, have: worst.have },
+      };
 }
 
 /**
@@ -59,7 +76,13 @@ export function misfitOf(
   const names = trayNames(numberParts(attempt.trays as TraySpec[]), components, groups);
   const overBed = new Set(attempt.overBedKeys ?? []);
   const under = stacksUnder(attempt.trays, attempt.reserved ?? []);
-  let best: { tray: TraySpec; held: Component; bed: boolean; over: number } | null = null;
+  let best: {
+    tray: TraySpec;
+    held: Component;
+    bed: boolean;
+    over: number;
+    limit?: Misfit["limit"];
+  } | null = null;
   for (const tray of attempt.trays) {
     const held = tray.part === "tray" ? holdsOf(tray, components)[0] : undefined;
     if (held === undefined) {
@@ -67,14 +90,13 @@ export function misfitOf(
     }
     const bed = overBed.has(tray.key);
     // beyond the bed: the biggest first; overhanging the box: the furthest first
-    const over = bed
-      ? tray.w * tray.d * tray.h
-      : overBox(tray, box, settings, under.has(tray.stack));
+    const sticking = bed ? undefined : overBox(tray, box, settings, under.has(tray.stack));
+    const over = bed ? tray.w * tray.d * tray.h : (sticking?.over ?? 0);
     if (!bed && over <= 0) {
       continue;
     }
     if (best === null || (bed && !best.bed) || (bed === best.bed && over > best.over)) {
-      best = { tray, held, bed, over };
+      best = { tray, held, bed, over, limit: sticking?.limit };
     }
   }
   if (best === null) {
@@ -92,6 +114,7 @@ export function misfitOf(
     trayKey: best.tray.key,
     name: names.get(best.tray.key)?.full ?? best.held.name,
     reason: best.bed ? "bed" : "box",
+    ...(best.limit === undefined ? {} : { limit: best.limit }),
   };
 }
 
