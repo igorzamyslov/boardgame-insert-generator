@@ -135,6 +135,7 @@ export interface CompartmentInput {
   spacerRoom?: number;
   separators?: number;
   dividers?: number;
+  plates?: number;
   floorExtra?: number;
   minVolume?: number;
   maxHRatio?: number;
@@ -183,6 +184,9 @@ export function compartment(input: CompartmentInput): CompartmentReq {
   }
   if (input.dividers !== undefined && input.dividers > 0) {
     req.dividers = input.dividers;
+  }
+  if (input.plates !== undefined && input.plates > 0) {
+    req.plates = input.plates;
   }
   if (input.floorExtra !== undefined && input.floorExtra > 0) {
     req.floorExtra = input.floorExtra;

@@ -244,18 +244,16 @@ export function withSeparators<C extends Component>(c: C, n: number): C {
 }
 
 /**
- * Whether the component can have dividers (minimal-trays spec §5): a deck or a stack of tiles
- * standing up, that may grow along its stack. A divider partitions room the user has grown into,
- * so without growth there is nothing to partition; a flat stack grows taller, not wider, and a
- * bin has no stack to split (and a curved floor under the slot). `auto` storage counts: a layout
- * that stands it up gets the dividers, one that lays it flat has none.
+ * Whether the component can have dividers (minimal-trays spec §5): a deck or a stack of tiles with
+ * room to grow, however it is stored. A divider partitions room the user has grown into, so
+ * without growth there is nothing to partition; a bin has no stack to split (and a curved floor
+ * under the slot). Standing up they are plates in floor slots, lying flat they are plates between
+ * groups of the stack (`separatorPlate`). The one exception: decks lying flat in one well already
+ * have dividers between them (`flatDecks`, Between decks), and these take their place.
  */
 export function dividersOffered(c: Component): boolean {
-  if (c.kind === "cards") {
-    return c.storage !== "flat" && roomOf(c).mode !== "none";
-  }
-  if (c.kind === "tiles") {
-    return c.storage !== "flat" && roomOf(c).mode !== "none";
+  if (c.kind === "cards" || c.kind === "tiles") {
+    return roomOf(c).mode !== "none" && !sharesFlatWell(c);
   }
   return false;
 }
@@ -267,6 +265,13 @@ export function dividersOffered(c: Component): boolean {
  */
 export function flatDecksOffered(c: Component): boolean {
   return c.kind === "cards" && c.decks.length >= 2;
+}
+
+/** Whether a cards item's decks are asked to share one flat well (`flatDecks`: "dividers"). */
+function sharesFlatWell(c: Component): boolean {
+  return (
+    c.kind === "cards" && c.storage === "flat" && c.flatDecks === "dividers" && flatDecksOffered(c)
+  );
 }
 
 /** How many dividers the component's grown well gets: what it set where they are offered, else 0. */

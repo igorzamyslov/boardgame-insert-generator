@@ -234,8 +234,13 @@ import type { Semver } from "../model/version";
  * added to its member after the one outline (its corners rounded once, its bottom chamfered once)
  * is built. A mesh-only change on a derived part: outer size, footprint, lip, fit and every tray
  * are as before (the lip ring is the same solid), the seams are only filled. A PATCH.
+ *
+ * 0.9.7 gives a flat deck or stack of tiles its dividers as loose horizontal plates between groups
+ * of the stack (FeatureSpec "separatorPlate", derived into parts by splitDividers): the well is a
+ * plate taller for each, and the tray itself is otherwise as before. A new optional feature, so a
+ * PATCH (planTray only checks it); a stored layout without one builds as it did.
  */
-export const GEOMETRY_VERSION = "0.9.6";
+export const GEOMETRY_VERSION = "0.9.7";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

@@ -64,11 +64,13 @@ export function dividersBlock(c: Component): string | undefined {
   if (!isWellKind(c) || dividersOffered(c)) {
     return undefined;
   }
-  if (c.storage === "flat") {
-    if (flatDecksOffered(c)) {
-      return "For flat decks, see Between decks.";
-    }
-    return c.kind === "cards" ? "Flat decks have no dividers." : "Flat stacks have no dividers.";
+  if (
+    c.kind === "cards" &&
+    c.storage === "flat" &&
+    c.flatDecks === "dividers" &&
+    flatDecksOffered(c)
+  ) {
+    return "For flat decks, see Between decks.";
   }
   return `Dividers need ${roomWords(c.kind)}.`;
 }
