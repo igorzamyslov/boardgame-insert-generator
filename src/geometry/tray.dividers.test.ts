@@ -113,3 +113,43 @@ describe("a divider, as printed", () => {
     expect(problemsOf(m, upper, GEO)).toEqual([]);
   });
 });
+
+describe("a divider's finger cuts (0.21.0)", () => {
+  const plate = (notches: TraySpec["notches"]): TraySpec =>
+    traySpec({
+      key: "d:p0:0:divider:1",
+      part: "divider",
+      w: 90,
+      d: 60,
+      h: 3,
+      wall: 0,
+      floor: 0,
+      lip: false,
+      solid: true,
+      compartments: [],
+      notches,
+    });
+
+  it("cuts a flat plate's edge in half rounds, and a standing plate's top edge", () => {
+    const whole = buildTray(m, plate(undefined), GEO).volumeMm3;
+    const flat = buildTray(
+      m,
+      plate([
+        { face: "left", at: 30, r: 12 },
+        { face: "right", at: 30, r: 12 },
+      ]),
+      GEO,
+    ).volumeMm3;
+    // two half-discs of radius 12, 3 mm thick
+    expect(whole - flat).toBeCloseTo(2 * 0.5 * Math.PI * 144 * 3, -2);
+    const top = traySpec({
+      ...plate([{ face: "top", at: 30, r: 10 }]),
+      w: 3,
+      d: 60,
+      h: 40,
+    });
+    const standing = buildTray(m, top, GEO).volumeMm3;
+    const plain = buildTray(m, { ...top, notches: undefined }, GEO).volumeMm3;
+    expect(plain - standing).toBeCloseTo(0.5 * Math.PI * 100 * 3, -2);
+  });
+});

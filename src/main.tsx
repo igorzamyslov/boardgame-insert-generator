@@ -4,7 +4,7 @@ import { App } from "./app/App";
 import { loadGeometryClient, loadLayoutClient } from "./app/clients";
 import { createMeshSource } from "./app/meshes";
 import { connectWindow, createAppStore } from "./app/store";
-import { createPrefsStore, createProjectStore } from "./share";
+import { createHiddenNotesStore, createPrefsStore, createProjectStore } from "./share";
 import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
@@ -19,6 +19,7 @@ import "./screens/firstVisit.css";
 const store = createAppStore({
   projectStore: createProjectStore(),
   prefs: createPrefsStore(),
+  notes: createHiddenNotesStore(),
   loadLayoutClient,
   clearHash: () => {
     history.replaceState(null, "", window.location.pathname + window.location.search);

@@ -32,9 +32,10 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
     if (!part) {
       continue;
     }
-    // An alike tray of a set in a stack is built, and its wells laid out, as a tray in the middle of
-    // a stack is whatever level it stands at, so every one of the set is the same.
-    const built = t.plug ? Math.max(t.level, 1) : t.level;
+    // A tray with the full joint (an alike tray of a set in a stack, or one of the split parts of an
+    // item) is built, and its wells laid out, as a tray in the middle of a stack is whatever level it
+    // stands at, so every one of an alike set is the same and any split part can take another's place.
+    const built = t.joint ? Math.max(t.level, 1) : t.level;
     const m = ctx.metrics(t.item, t.lipped, built);
     const minW = t.item.rotated ? m.d : m.w;
     const minD = t.item.rotated ? m.w : m.d;

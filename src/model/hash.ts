@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS } from "./settings";
+import { DEFAULT_SETTINGS, topAreasOf } from "./settings";
 import type { Component, Group, Project, Settings } from "./types";
 
 /**
@@ -106,6 +106,20 @@ export function lipForHash(lip: Settings["lip"]): Record<string, unknown> {
 }
 
 /**
+ * The box as the hash sees it. Kept-free areas move the layout only while they apply (space kept on
+ * top, for part of it, with a size), and only their size does: their names and any area of a box that
+ * keeps the whole top are left out, so a box with no area hashes as it did before they existed.
+ */
+function boxForHash(box: Project["box"]): Project["box"] {
+  const out: Project["box"] = { ...box };
+  delete out.headroomAreas;
+  const areas = topAreasOf(box);
+  return areas.length === 0
+    ? out
+    : { ...out, headroomAreas: areas.map((a) => ({ w: a.w, d: a.d })) };
+}
+
+/**
  * Hash of everything that affects the layout (spec §5 StoredLayout.inputsHash):
  * box, printer, settings, components and locks. Names are left out, so renaming never
  * triggers a re-optimize. `separators` is in: set, it makes a grown deck's room a spacer (and lifts the cap on how far it may grow), so it changes the stored layout. `dividers` is in too: it cuts slots into the tray's floor, so the stored layout and the geometry differ (the dividers themselves are derived from those slots, not stored). `settings.playLimit` is in, but only when it is not the default 1.5 mm (so older plans stay current). `settings.infill` is out: it only
@@ -156,7 +170,7 @@ export function inputsHash(p: Project): string {
     // the plan these inputs make: this constant stales every saved plan once. Never change it
     // without the same reason, and never remove it.
     planning: PLANNING_MODEL,
-    box: p.box,
+    box: boxForHash(p.box),
     printer: p.printer,
     settings,
     components: withoutNames(p.components.map((c) => hashedItem(c, grouped))),

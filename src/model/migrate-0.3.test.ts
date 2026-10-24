@@ -3,7 +3,7 @@ import type { Json } from "./json";
 import { migrateTo030, roomFromGrowth } from "./migrate-0.3";
 import { MIGRATIONS, parseProject } from "./schema";
 import { inputsHash } from "./hash";
-import { SCHEMA_VERSION } from "./version";
+import { SCHEMA_VERSION, parseSemver } from "./version";
 
 // Schema 0.3.0: per-axis `growth` (and the older `stretch`) become one `room` per item, in the
 // contents' terms. Owner, 2026-10-23: growth is off by default, so Auto reads as None.
@@ -70,7 +70,7 @@ function roomsOf(out: Json): unknown[] {
 
 describe("the migration from 0.2 to 0.3", () => {
   it("is registered for the line 0.2 and is the one the schema version needs", () => {
-    expect(SCHEMA_VERSION).toBe("0.3.0");
+    expect(parseSemver(SCHEMA_VERSION)).toMatchObject({ major: 0, minor: 3 });
     expect(MIGRATIONS.find((m) => m.from === "0.2")).toMatchObject({ to: "0.3.0" });
   });
 

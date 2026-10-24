@@ -86,11 +86,14 @@ describe("the Player kit seed", () => {
     const chips = [...document.querySelectorAll<HTMLElement>(".export-chip")].filter(
       (c) => c.dataset.group === "true",
     );
-    expect(chips.map((c) => c.textContent).sort()).toEqual([
-      "Player kit 1",
-      "Player kit 2",
-      "Player kit 3",
-      "Player kit 4",
-    ]);
+    // a layer names three pills, then "+ n" with the rest in its title
+    const folded = [...document.querySelectorAll<HTMLElement>(".export-chip--more")].flatMap((c) =>
+      (c.title ?? "").split(", "),
+    );
+    expect(
+      [...chips.map((c) => c.textContent), ...folded]
+        .filter((n) => n?.startsWith("Player kit"))
+        .sort(),
+    ).toEqual(["Player kit 1", "Player kit 2", "Player kit 3", "Player kit 4"]);
   });
 });

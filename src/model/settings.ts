@@ -1,5 +1,5 @@
 import { deepFreeze } from "./freeze";
-import type { Box, Settings } from "./types";
+import type { Box, Settings, TopArea } from "./types";
 
 /** Minimum printable feature width in mm: 2 lines of 0.4 mm (spec §6.1). */
 export const MIN_FEATURE_MM = 0.8;
@@ -276,9 +276,48 @@ export function effective(s: Settings): Effective {
   };
 }
 
-/** Height every stack must reach (spec §3 rule 2). */
+/**
+ * Height every stack must reach (spec §3 rule 2): the box under the space kept free on top. With
+ * kept-free areas (`topAreasOf`) only the stacks under an area stop here; the rest reach `lidPlane`.
+ */
 export function topPlane(box: Box, s: Settings): number {
   return round6(box.innerHeight - box.headroom + s.topPressFit);
+}
+
+/**
+ * Height the stacks reach where nothing is kept free: the lid, as `topPlane` where the whole top is
+ * kept free (no areas), and higher than it by the headroom where only the areas are.
+ */
+export function lidPlane(box: Box, s: Settings): number {
+  return topAreasOf(box).length === 0 ? topPlane(box, s) : round6(box.innerHeight + s.topPressFit);
+}
+
+/**
+ * The areas the layout keeps free on top: the box's `headroomAreas` when it keeps space on top
+ * (headroom above 0) for part of the top only. Entries with no size are left out: "Part of it" with
+ * no size is the whole top, as it was before areas.
+ */
+export function topAreasOf(box: Box): TopArea[] {
+  if (box.headroom <= 0 || box.headroomCoverage !== "partial") {
+    return [];
+  }
+  return (box.headroomAreas ?? []).filter((a) => a.w > 0 && a.d > 0);
+}
+
+/** What a kept-free area is called where it shows (plan, 3D, side view, packing guide) when it has no name. */
+export const DEFAULT_AREA_NAME = "Rulebook";
+
+/** An area's name for the screen. */
+export function areaName(a: TopArea | undefined): string {
+  const name = a?.name?.trim() ?? "";
+  return name === "" ? DEFAULT_AREA_NAME : name;
+}
+
+/** The volume under the lid the trays may fill, mm³, floor `w` × `d` less what the areas keep free. */
+export function usableMm3(box: Box, s: Settings, w: number, d: number): number {
+  const areas = topAreasOf(box);
+  const kept = areas.reduce((sum, a) => sum + a.w * a.d, 0) * box.headroom;
+  return w * d * lidPlane(box, s) - kept;
 }
 
 /**

@@ -7,8 +7,10 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { Button, CheckRow, Icon, IconButton, Segmented } from "../kit";
+import { topAreasOf } from "../model/settings";
 import type { Box } from "../model/types";
-import { NumField } from "./components/controls";
+import { Alert, NumField } from "./components/controls";
+import { mm } from "./identity";
 import { LENGTH, OFFSET } from "./limits";
 import "./components/editor.css";
 import "./boxPanel.css";
@@ -84,6 +86,30 @@ function Sizes({ box, onChange, phone }: Pick<BoxPanelProps, "box" | "onChange" 
   );
 }
 
+/**
+ * What the line under the choice says, true of the state the choice is in: nothing at 0 mm (the
+ * choice is blocked and says why); the whole top; "Part of it" before it has a size (the engine
+ * reserves the whole top until it has one); and with a size, the area and where it goes.
+ */
+export function keepFreeLine(box: Box): string | null {
+  if (box.headroom <= 0) {
+    return null;
+  }
+  if (box.headroomCoverage === "full") {
+    return `Trays stop ${mm(box.headroom)} mm below the lid, everywhere.`;
+  }
+  const area = topAreasOf(box)[0];
+  return area === undefined
+    ? "Give its width and length to reserve only that much. Until then the whole top is reserved."
+    : `Reserved: ${mm(area.w)} × ${mm(area.d)} mm, in a corner the plan picks. Trays reach the lid everywhere else.`;
+}
+
+/** The first area with one of its sides set, the rest of the list as it was (the model holds more than one). */
+function withArea(box: Box, side: "w" | "d", v: number): Partial<Box> {
+  const [first, ...rest] = box.headroomAreas ?? [];
+  return { headroomAreas: [{ ...(first ?? { w: 0, d: 0 }), [side]: v }, ...rest] };
+}
+
 /** "Keep space free on top": the height, and whether it is the whole top or only where something lies. */
 function KeepFree({ box, onChange, phone }: Pick<BoxPanelProps, "box" | "onChange" | "phone">) {
   const nothing = box.headroom === 0;
@@ -122,9 +148,44 @@ function KeepFree({ box, onChange, phone }: Pick<BoxPanelProps, "box" | "onChang
           stretch
         />
       </div>
-      <p class="ed-line bx-top__line">
-        Part of it: only where the rulebook lies. Trays fill the rest.
-      </p>
+      {box.headroom > 0 && box.headroomCoverage === "partial" ? (
+        <div class="bx-group" role="group" aria-labelledby="box-area-title">
+          <span class="bx-group__head">
+            <span class="ed-label" id="box-area-title">
+              What lies there
+            </span>
+            {phone === true ? null : <span class="ed-line">In mm</span>}
+          </span>
+          <div class="bx-area">
+            <NumField
+              id="box-area-w"
+              label="Width"
+              labelExtra="of what lies there"
+              unit="mm"
+              hideUnit={phone !== true}
+              compact={false}
+              value={box.headroomAreas?.[0]?.w ?? 0}
+              path="/box/headroomAreas/0/w"
+              {...OFFSET}
+              onCommit={(v) => onChange(withArea(box, "w", v))}
+            />
+            <NumField
+              id="box-area-d"
+              label="Length"
+              labelExtra="of what lies there"
+              unit="mm"
+              hideUnit={phone !== true}
+              compact={false}
+              value={box.headroomAreas?.[0]?.d ?? 0}
+              path="/box/headroomAreas/0/d"
+              {...OFFSET}
+              onCommit={(v) => onChange(withArea(box, "d", v))}
+            />
+          </div>
+          <Alert id="box-area-error" path="/box/headroomAreas/0" />
+        </div>
+      ) : null}
+      {keepFreeLine(box) === null ? null : <p class="ed-line bx-top__line">{keepFreeLine(box)}</p>}
     </div>
   );
 }

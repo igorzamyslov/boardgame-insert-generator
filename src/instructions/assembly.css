@@ -371,3 +371,7 @@
     font-size: 8pt;
   }
 }
+
+.assembly-closing {
+  break-inside: avoid;
+}

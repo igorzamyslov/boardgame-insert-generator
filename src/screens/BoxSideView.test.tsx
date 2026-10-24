@@ -126,4 +126,92 @@ describe("BoxSideView", () => {
     const { container } = draw(p, p.box, true);
     expect(container.querySelector(".bx-side")?.getAttribute("data-phone")).toBe("true");
   });
+
+  describe("with a kept-free area", () => {
+    /** The seed's box (70 high) keeping 12 mm for part of the top: a 120 × 100 area in the front left corner. */
+    const withArea = (placed = true): { p: Project; box: Box } => {
+      const p = harbour();
+      const box: Box = {
+        ...p.box,
+        innerHeight: 70,
+        headroom: 12,
+        headroomCoverage: "partial",
+        headroomAreas: [{ w: 120, d: 100 }],
+      };
+      const reserved = placed
+        ? [{ area: 0, name: "Rulebook", x: 100, y: 0, w: 120, d: 100, z: 57.5 }]
+        : undefined;
+      const layout = p.layout === undefined ? undefined : { ...p.layout, reserved };
+      return { p: { ...p, box, layout }, box };
+    };
+
+    it("draws the paper as a ghost slab over its stacks, not a band over the whole top", () => {
+      const { p, box } = withArea();
+      const { container } = draw(p, box);
+      expect(document.querySelector(".bx-band")).toBeNull();
+      const ghost = container.querySelector<HTMLElement>(".bx-reserve");
+      expect(ghost).toBeTruthy();
+      const usable = box.innerWidth - 2 * 0.5;
+      const num = (name: string): number =>
+        parseFloat(ghost?.style.getPropertyValue(name) ?? "NaN");
+      expect(num("--x")).toBeCloseTo((100 / usable) * 100, 2);
+      expect(num("--w")).toBeCloseTo((120 / usable) * 100, 2);
+      // the floor is as high as the lid now: the slab is the headroom's share of it
+      expect(num("--h")).toBeCloseTo((12 / (70 + p.settings.topPressFit)) * 100, 1);
+      expect(ghost?.textContent).toBe("Kept free, 12 mm");
+      expect(container.querySelector(".bx-drawing")?.getAttribute("aria-hidden")).toBe("true");
+    });
+
+    it("scales the blocks to the lid, so the stacks elsewhere reach the top of the drawing", () => {
+      const { p, box } = withArea();
+      const { container } = draw(p, box);
+      const lid = 70 + p.settings.topPressFit;
+      const blocks = [...container.querySelectorAll<HTMLElement>(".bx-tray")];
+      expect(blocks.length).toBeGreaterThan(0);
+      for (const block of blocks) {
+        const num = (name: string): number => parseFloat(block.style.getPropertyValue(name));
+        const t = (p.layout?.trays ?? []).find((x) => x.key === block.dataset.key);
+        expect(num("--h")).toBeCloseTo(((t?.h ?? 0) / lid) * 100, 2);
+      }
+    });
+
+    it("says both heights in the caption, text a reader gets", () => {
+      const { p, box } = withArea();
+      draw(p, box);
+      const low = 70 - 12 + p.settings.topPressFit;
+      const lid = 70 + p.settings.topPressFit;
+      const caption = screen.getByText(
+        `Trays fill the ${Math.round(lid * 10) / 10} mm below the lid, and ${Math.round(low * 10) / 10} mm under the Rulebook.`,
+      );
+      expect(caption.closest("[aria-hidden='true']")).toBeNull();
+    });
+
+    it("draws the slab at the left while there is no plan to say where it lies", () => {
+      const { p, box } = withArea(false);
+      const { container } = draw({ ...p, layout: undefined }, box);
+      const ghost = container.querySelector<HTMLElement>(".bx-reserve");
+      expect(ghost).toBeTruthy();
+      expect(parseFloat(ghost?.style.getPropertyValue("--x") ?? "NaN")).toBe(0);
+      expect(container.querySelectorAll(".bx-tray")).toHaveLength(0);
+    });
+
+    it("keeps the whole-top drawing for 'Part of it' with no size, and for 'Whole top'", () => {
+      const p = harbour();
+      for (const box of [
+        { ...p.box, headroom: 8, headroomCoverage: "partial" as const },
+        {
+          ...p.box,
+          headroom: 8,
+          headroomCoverage: "full" as const,
+          headroomAreas: [{ w: 100, d: 90 }],
+        },
+      ]) {
+        cleanup();
+        const { container } = draw(p, box);
+        expect(container.querySelector(".bx-reserve")).toBeNull();
+        expect(screen.getByText("Kept free, 8 mm")).toBeTruthy();
+        expect(screen.getByText("Trays fill the 62 mm below.")).toBeTruthy();
+      }
+    });
+  });
 });

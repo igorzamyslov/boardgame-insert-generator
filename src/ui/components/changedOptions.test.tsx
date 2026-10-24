@@ -87,8 +87,7 @@ const SCENARIOS: { name: string; component: Component; changed: OptionId[] }[] =
   },
   {
     name: "tiles that lie flat, with some room for more",
-    component: of("tiles", { storage: "flat", room: 10, dividers: 1 }),
-    // a flat stack offers no dividers: the stored count has no row
+    component: of("tiles", { storage: "flat", room: 10 }),
     changed: ["room"],
   },
   {

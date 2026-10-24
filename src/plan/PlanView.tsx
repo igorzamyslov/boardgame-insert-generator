@@ -6,10 +6,10 @@ import { isLockable } from "../app/actions";
 import { trayNames } from "../instructions/naming";
 import { numberParts, partsByKey } from "../instructions/numbering";
 import { Icon, KindGlyph } from "../kit";
-import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Group, ReservedSpec, Settings, TraySpec } from "../model/types";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { StageSlot } from "../screens/StageSlot";
-import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
+import { componentIdsOfTray, mm, sharingTrayWith } from "../ui/identity";
 import { PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import {
   footprintsAt,
@@ -95,6 +95,11 @@ export interface PlanViewProps {
   dim?: "all" | "unpinned";
   /** Read-only: the tray that does not fit, drawn on top in the warn style with only its name. */
   misfitKey?: string | null;
+  /**
+   * What lies on top of the stacks (the rulebook, a board): its footprint is outlined on every
+   * layer, labelled with its name and size. A picture only; no tile or press is affected.
+   */
+  reserved?: readonly ReservedSpec[];
 }
 
 /** What the layer switch calls layer `i` (0 = bottom) of `n`: no height, only the order. */
@@ -257,6 +262,7 @@ export function PlanView(props: PlanViewProps) {
   const rects = shown.flatMap((t) =>
     feet(t).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
   );
+  const reservedAreas = props.reserved ?? [];
   const pillType = phone ? PHONE_PILL : DESKTOP_PILL;
   const pxPerMm = floorPx / frame.innerW;
 
@@ -759,6 +765,24 @@ export function PlanView(props: PlanViewProps) {
                 </Fragment>
               );
             })}
+            {reservedAreas.map((r, i) => {
+              const a = toSvgRect(r, frame);
+              return (
+                <div
+                  key={`reserved:${i}`}
+                  aria-hidden="true"
+                  class="plan-reserved"
+                  style={{
+                    "--x": pct(((frame.bc + a.x) / frame.innerW) * 100),
+                    "--y": pct(((frame.bc + a.y) / frame.innerD) * 100),
+                    "--w": pct((a.w / frame.innerW) * 100),
+                    "--d": pct((a.h / frame.innerD) * 100),
+                  }}
+                >
+                  <span class="plan-reserved-label">{`${r.name} ${mm(r.w)} × ${mm(r.d)}`}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -786,6 +810,11 @@ export function PlanView(props: PlanViewProps) {
           </li>
         ))}
       </ul>
+      {reservedAreas.map((r, i) => (
+        <p key={`reserved:${i}`} class="visually-hidden">
+          {`${r.name}, ${mm(r.w)} × ${mm(r.d)} mm, lies over the trays`}
+        </p>
+      ))}
     </div>
   );
 }

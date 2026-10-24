@@ -38,6 +38,13 @@
   margin: 0;
 }
 
+/* What lies on top: width and length, two fields (the kept space's size), 10 px apart like the box's. */
+.bx-area {
+  display: grid;
+  gap: var(--s-10);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .bx-sizes {
   display: grid;
   gap: var(--s-10);

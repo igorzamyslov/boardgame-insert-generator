@@ -4,7 +4,7 @@ import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Access, ComponentKind, Lock, Project } from "../model/types";
 import { groupById, requirementKeyOf } from "../model/groups";
-import { topPlane } from "../model/settings";
+import { lidPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
@@ -546,7 +546,7 @@ export function App(props: AppProps) {
           layers: Math.max(1, layers),
           height: Math.max(0, ...layout.trays.map((t) => t.z + t.h)),
           // the height below the space the box keeps free on top (where every stack reaches)
-          boxHeight: topPlane(project.box, projSettings),
+          boxHeight: lidPlane(project.box, projSettings),
         }
       : null;
   // Download waits while the plan changes by itself; otherwise a plan that doesn't fit says so.
@@ -1022,6 +1022,7 @@ export function App(props: AppProps) {
         trays: printable,
         box: project.box,
         settings: project.settings,
+        reserved: layout?.reserved,
         components: project.components,
         groups: project.groups,
         lockedKeys: locked,
@@ -1060,7 +1061,14 @@ export function App(props: AppProps) {
     </div>
   );
   // The layout and sizing notices, under the plan caption.
-  const stageNotes = <StageNotes notices={summaryNotices} />;
+  const stageNotes = (
+    <StageNotes
+      notices={summaryNotices}
+      hidden={store.notes.of(project.id)}
+      onHide={(n) => store.notes.hide(project.id, n)}
+      onShowHidden={() => store.notes.showAll(project.id)}
+    />
+  );
   const stageSlot = (
     <>
       {notices}
@@ -1104,6 +1112,7 @@ export function App(props: AppProps) {
           viewer={{
             box: project.box,
             settings: project.settings,
+            reserved: layout?.reserved,
             stale: s.stale.value,
             meshes,
             ...props.viewerProps,
@@ -1121,6 +1130,7 @@ export function App(props: AppProps) {
                 ? printable
                 : null
           }
+          reserved={fitKind === "noFit" ? s.noFitAttempt.value?.reserved : layout?.reserved}
           box={project.box}
           settings={projSettings}
           components={project.components}
@@ -1145,6 +1155,7 @@ export function App(props: AppProps) {
           viewer={{
             box: project.box,
             settings: project.settings,
+            reserved: layout?.reserved,
             stale: s.stale.value,
             meshes,
             ...props.viewerProps,

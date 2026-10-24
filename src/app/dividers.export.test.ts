@@ -8,6 +8,7 @@ import { inputsHash } from "../model/hash";
 import { noForeign, parseProject } from "../model/schema";
 import { decodeHash } from "../share/link";
 import { encodeHash } from "../test-support/link";
+import { packingGuide, whatGoesWhere } from "../instructions/render";
 import { size } from "../sizing";
 import { buildCombined3mf, buildPartsZip, buildStlZip, planExport } from "./exportBuild";
 
@@ -18,7 +19,7 @@ const raw = FIXTURES["cards-heavy"] as unknown as Record<string, unknown> & {
   components: Record<string, unknown>[];
 };
 
-function divided() {
+function divided(storage = "upright-long", dividers = 3) {
   const parsed = parseProject({
     ...raw,
     box: { ...raw.box, innerWidth: 150, innerDepth: 110, innerHeight: 120 },
@@ -26,9 +27,9 @@ function divided() {
       {
         ...(raw.components[0] as Record<string, unknown>),
         decks: [{ name: "Action", count: 60 }],
-        storage: "upright-long",
+        storage,
         room: "max",
-        dividers: 3,
+        dividers,
       },
     ],
   });
@@ -112,4 +113,49 @@ describe("a project with dividers", () => {
       parts(p),
     );
   });
+});
+
+describe("a flat deck with dividers (0.21.0)", () => {
+  // the owner's case: a flat deck with dividers made no part at all
+  for (const storage of ["flat", "auto"]) {
+    it(`under ${storage} storage prints its plates, built, exported and in the guide`, async () => {
+      const p = divided(storage, 2);
+      const printed = parts(p);
+      const plates = printed.filter((x) => x.part === "divider");
+      expect(plates).toHaveLength(2);
+      // lying across the well, one above the other, each a plate thick
+      const [a, b] = plates as [(typeof plates)[number], (typeof plates)[number]];
+      expect(a.h).toBeLessThan(5);
+      expect(a.w).toBeGreaterThan(a.h * 10);
+      expect(b.z).toBeGreaterThan(a.z + a.h);
+      const m = await loadManifold();
+      const plan = planExport(printed);
+      expect(plan.skipped).toEqual([]);
+      const options = {
+        getMesh: (spec: Parameters<typeof buildTray>[1]) =>
+          Promise.resolve(buildTray(m, spec, p.settings)),
+        onProgress: () => undefined,
+        yieldToUi: () => Promise.resolve(),
+      };
+      const combined = await buildCombined3mf(plan.parts, { x: 246, y: 246 }, options);
+      expect(combined.failed).toEqual([]);
+      expect(combined.included).toBe(plan.parts.length);
+      // the plates are in the stored plan, and a share link carries them back
+      const link = decodeHash(encodeHash(p, noForeign()));
+      if (!link.ok) {
+        throw new Error(link.error);
+      }
+      expect(
+        link.project.layout?.trays.some((x) =>
+          x.compartments.some((c) => c.features.some((f) => f.type === "separatorPlate")),
+        ),
+      ).toBe(true);
+      const printedLayout = { ...p.layout, trays: printed };
+      const rows = whatGoesWhere(printedLayout, p).filter((r) => r.name.startsWith("Divider"));
+      expect(rows).toHaveLength(2);
+      expect(rows.every((r) => r.goesInto !== undefined && r.goesInto !== "")).toBe(true);
+      const guide = packingGuide(printedLayout, p).flatMap((l) => l.rows.map((r) => r.name));
+      expect(guide.filter((n) => n.startsWith("Divider"))).toHaveLength(2);
+    });
+  }
 });

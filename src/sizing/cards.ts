@@ -15,7 +15,7 @@ import {
   type OptionsResult,
 } from "./common";
 import { CHANNEL_DEPTH, DIVIDER_GROOVE, MIN_MEASURED_CARD_T } from "./constants";
-import { dividedWidth, dividerSlotWidth } from "./dividers";
+import { dividedWidth, dividerSlotWidth, dividerThickness } from "./dividers";
 import { growthMm, stackGrowthMm } from "./growth";
 import type { CompartmentReq } from "./types";
 import { ceilU, fromU, toU } from "./units";
@@ -110,11 +110,15 @@ function deckCompartment(
   };
   // Flat: the long side along Y, half-round cutouts through both long walls, notching the floor.
   if (storage === "flat") {
+    // Dividers of a flat deck are loose plates lying between groups of the stack, so the well is a
+    // plate taller for each (realize puts them at the groups' boundaries, splitDividers prints them).
+    const plates = dividersOf(c);
     return compartment({
       ...base,
       w: dims.S + clearance,
       d: dims.L + clearance,
-      h: stack,
+      h: stack + plates * dividerThickness(s),
+      ...(plates > 0 ? { plates } : {}),
       // As much as fits (or bigger wells) means more cards in the stack, after the layout is chosen:
       // never otherwise, the spare height is a riser's.
       grow: { h: growthMm(growthOf(c, "stack", true, s.biggerWells), stack) },

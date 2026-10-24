@@ -60,6 +60,14 @@ interface TrayObject {
 const CLICK_SLOP_PX = 5;
 
 /**
+ * The ghost slab of an area kept free on top: the box outline's neutral grey (0x888888), as a
+ * faint fill with its edges, so it reads as space, not as a part (no part is this colour or this
+ * clear).
+ */
+const SLAB_COLOR = 0x888888;
+const SLAB_OPACITY = 0.18;
+
+/**
  * The camera's first place, as a direction from the middle of the box (y toward the front, z up):
  * in front of it and above, as the view has always opened. Its length is the fit's, not this one's.
  */
@@ -120,6 +128,13 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   scene.add(sun);
 
   let trays: TrayObject[] = [];
+  // The kept-free slabs (setReserved): a translucent fill and its edges each. Not in `trays`, so
+  // never picked, never faded or hidden by the Layer cut, and not in the fit.
+  let slabs: {
+    fill: ThreeMesh;
+    edges: LineSegments;
+    materials: (MeshBasicMaterial | LineBasicMaterial)[];
+  }[] = [];
   let outline: { line: LineSegments; material: LineBasicMaterial } | null = null;
   // The box the camera is fitted to, and the distance it was last fitted at (0: not yet).
   let framed: BoxOutline | null = null;
@@ -213,6 +228,17 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       (t.depth.material as MeshBasicMaterial).dispose();
     }
     trays = [];
+  }
+
+  function clearSlabs(): void {
+    for (const s of slabs) {
+      scene.remove(s.fill);
+      scene.remove(s.edges);
+      s.fill.geometry.dispose();
+      s.edges.geometry.dispose();
+      s.materials.forEach((m) => m.dispose());
+    }
+    slabs = [];
   }
 
   function clearOutline(): void {
@@ -357,6 +383,33 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       refit();
       apply();
     },
+    setReserved(list) {
+      clearSlabs();
+      for (const { min, size } of list ?? []) {
+        const [w, d, h] = size;
+        const solid = new BoxGeometry(w, d, h);
+        const edgeGeometry = new EdgesGeometry(solid);
+        const fillMaterial = new MeshBasicMaterial({
+          color: SLAB_COLOR,
+          transparent: true,
+          opacity: SLAB_OPACITY,
+          depthWrite: false,
+        });
+        const edgeMaterial = new LineBasicMaterial({ color: SLAB_COLOR });
+        const fill = new ThreeMesh(solid, fillMaterial);
+        const edges = new LineSegments(edgeGeometry, edgeMaterial);
+        for (const o of [fill, edges]) {
+          o.position.set(min[0] + w / 2, min[1] + d / 2, min[2] + h / 2);
+          o.raycast = () => undefined;
+          scene.add(o);
+        }
+        // After the trays and their depth passes, so the see-through fill blends over them.
+        fill.renderOrder = 3;
+        edges.renderOrder = 3;
+        slabs.push({ fill, edges, materials: [fillMaterial, edgeMaterial] });
+      }
+      requestDraw();
+    },
     setExplode(f) {
       explode = f;
       refit();
@@ -401,6 +454,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       controls.dispose();
       clearTrays();
       clearOutline();
+      clearSlabs();
       release(renderer);
       dropShotsScene();
       pick = null;

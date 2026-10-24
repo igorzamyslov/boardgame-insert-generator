@@ -253,6 +253,32 @@ describe("layout warnings", () => {
     });
   });
 
+  describe("split parts whose stack cannot afford the rim (owner, 2026-10-24)", () => {
+    const cell = comp({ minW: 40, minD: 40, minH: 10, contents: "Wood" });
+    const split = req("c", [variant("v", [part("c:p0:0", [cell]), part("c:p0:1", [cell])])]);
+    const ctx = createCtx(makeInput([split], { settings: { fillToTop: false } }), fakeMeasure);
+    const at = (key: string, level: number, lip: boolean, path = "0"): TraySpec =>
+      traySpec({ key, path, level, lip, stack: 0, w: 50, d: 50, h: 20 });
+
+    it("says the top part has no rim, and that the parts only stack in that order", () => {
+      const w = layoutWarnings(ctx, [at("c:p0:0", 0, true), at("c:p0:1", 1, false)], okSummary);
+      expect(w.find((x) => x.code === NOTICE_CODES.copiesJoint)?.message).toBe(
+        "The top Wood tray has no rim, so the Wood trays only stack in this order.",
+      );
+    });
+
+    it("says nothing when every part has its rim, or when the parts stand apart", () => {
+      const rimmed = [at("c:p0:0", 0, true), at("c:p0:1", 1, true)];
+      expect(layoutWarnings(ctx, rimmed, okSummary).map((n) => n.code)).not.toContain(
+        NOTICE_CODES.copiesJoint,
+      );
+      const apart = [at("c:p0:0", 0, false, "0"), at("c:p0:1", 0, false, "1")];
+      expect(layoutWarnings(ctx, apart, okSummary).map((n) => n.code)).not.toContain(
+        NOTICE_CODES.copiesJoint,
+      );
+    });
+  });
+
   it("reports no fit as not found yet, naming the iterations, never as a proven fact", () => {
     const ctx = createCtx(makeInput(reqs), fakeMeasure);
     const n = doesNotFitNotice(ctx, { x: 12.34, y: 0, z: 0 }, [], 300_000);

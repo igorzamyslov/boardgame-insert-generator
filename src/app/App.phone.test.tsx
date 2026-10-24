@@ -447,13 +447,13 @@ describe("the phone layout", () => {
       return screen.getByRole("dialog", { name: "Ready to print" });
     };
 
-    it("is MobileDownload's on a phone: Close, the guide's short line, Send file and Download in the foot", () => {
+    it("is MobileDownload's on a phone: Close, the guide, Send file and Download in the foot", () => {
       phone();
       renderApp({ project: project() });
       const dialog = openDownload();
       expect(dialog.classList.contains("export-dialog--phone")).toBe(true);
       expect(within(dialog).getByRole("button", { name: "Close" })).toBeTruthy();
-      expect(within(dialog).getByText("Where each named tray goes")).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Packing guide" })).toBeTruthy();
       expect(
         dialog
           .querySelector(".export-foot")

@@ -18,6 +18,13 @@ export interface Level {
    */
   readonly plug: boolean;
   /**
+   * The tray carries the full joint, whatever its place: the lip on top (and the least height and
+   * wall a groove needs) as a tray in the middle of a stack has. An alike tray in a stack (`plug`),
+   * or one of the split parts of one item with another of them in the same stack (`Ctx.kinOf`), so
+   * they stack in any order. Only an alike tray is also the same size and height as its set.
+   */
+  readonly joint: boolean;
+  /**
    * The size every tray of its set is built at, in the box frame (0 for a tray of no set, or while
    * the sizes are not known): the largest its set's places ask of any of them, so they are one size.
    */
@@ -44,23 +51,35 @@ export function stackLevels(
   sizes?: ReadonlyMap<number, { w: U; d: U }>,
 ): Level[] {
   const n = stack.length;
+  // The split parts of one item that stand together: with two or more of a kin in a stack, all of
+  // them carry the joint, so any can take another's place (a part alone among other items does not).
+  const kinCount = new Map<number, number>();
+  for (const item of stack) {
+    const kin = ctx.kinOf(item);
+    if (kin >= 0) {
+      kinCount.set(kin, (kinCount.get(kin) ?? 0) + 1);
+    }
+  }
   return stack.map((item, k) => {
     // A tray of a set of alike trays is built as one in the middle of a stack when any of its set
     // stands in one, so all of them are the same size and any can take another's place.
     const alike = ctx.alikeOf(item);
     const plug = alike >= 0 && (n > 1 || plugged?.has(alike) === true);
     const own = alike >= 0 ? sizes?.get(alike) : undefined;
-    const lipped = ctx.lipOn && (k < n - 1 || plug);
-    const m = ctx.metrics(item, lipped, plug ? Math.max(k, 1) : k);
+    const kin = ctx.kinOf(item);
+    const joint = plug || (ctx.lipOn && kin >= 0 && (kinCount.get(kin) ?? 0) >= 2);
+    const lipped = ctx.lipOn && (k < n - 1 || joint);
+    const m = ctx.metrics(item, lipped, joint ? Math.max(k, 1) : k);
     const rot = item.rotated;
     const fixed = ctx.sizeLocks.get(ctx.partId(item));
-    const baseH = (k > 0 || plug) && ctx.lipOn ? Math.max(m.h, ctx.upperMinH) : m.h;
+    const baseH = (k > 0 || joint) && ctx.lipOn ? Math.max(m.h, ctx.upperMinH) : m.h;
     return {
       item,
       level: k,
       lipped,
       alike,
       plug,
+      joint,
       fitW: own ? (item.rotated ? own.d : own.w) : 0,
       fitD: own ? (item.rotated ? own.w : own.d) : 0,
       minW: Math.max(rot ? m.d : m.w, fixed ? fixed.w : 0),
@@ -191,7 +210,7 @@ export function stackHeights(ctx: Ctx, levels: readonly Level[]): StackHeights {
     return k < n - 1 || l.plug ? roundUpTo(l.minH, ctx.layer) : l.minH;
   });
   const sum = base.reduce((s, v) => s + v, 0);
-  const fill = ctx.input.settings.fillToTop;
+  const fill = ctx.fillToTop;
   // The alike trays of a stack share the surplus in whole layers, each the same, so they are one
   // height, and the riser splitRisers makes takes it all and leaves them as they were. What is left
   // is a tray of another kind's.
@@ -204,7 +223,7 @@ export function stackHeights(ctx: Ctx, levels: readonly Level[]): StackHeights {
   // joint, but both are best-effort (owner, 2026-10-23): the stack keeps them while it can afford
   // them, drops the top copy's rim first and then the riser and the groove under the bottom one, and
   // is out of height only when its trays alone are. The copies stay the same size, height and wells.
-  const rimmed = top?.plug === true && top.lipped && ctx.lipHeight > 0;
+  const rimmed = top?.joint === true && top.lipped && ctx.lipHeight > 0;
   const tiers: { rim: boolean; riser: boolean }[] = [{ rim: true, riser: true }];
   if (rimmed) {
     tiers.push({ rim: false, riser: true });
@@ -260,15 +279,36 @@ export function stackHeights(ctx: Ctx, levels: readonly Level[]): StackHeights {
       riser,
     };
   }
-  const b = levels.findIndex((l) => free(l) && l.elasticH);
-  if (b >= 0 && b !== r) {
-    // up to what the compartments that grow deeper may take (spec §5), the rest on to the top tray
-    const add = Math.min(
-      roundDownTo(extra, ctx.layer),
-      roundDownTo(levels[b]?.growH ?? 0, ctx.layer),
-    );
-    h[b] = (h[b] ?? 0) + add;
-    extra -= add;
+  // The trays set to "As much as fits" (compartments that grow deeper) share what is left in whole
+  // layers, each the same, up to what its contents may take (spec §5; owner, 2026-10-24: stacked
+  // components with the option on "should split the available space between them"). A tray at its
+  // cap leaves its share to the others; a layer that does not divide goes to the lowest of them.
+  const takers = levels.flatMap((l, k) =>
+    free(l) && l.elasticH && roundDownTo(l.growH, ctx.layer) > 0 ? [k] : [],
+  );
+  if (takers.length > 0) {
+    const room = takers.map((k) => Math.floor((levels[k]?.growH ?? 0) / ctx.layer));
+    const given = takers.map(() => 0);
+    let left = Math.floor(extra / ctx.layer);
+    let open = takers.map((_, i) => i);
+    while (left > 0 && open.length > 0) {
+      const each = Math.floor(left / open.length);
+      for (const i of open) {
+        const take =
+          each === 0 ? Math.min(1, left) : Math.min(each, (room[i] ?? 0) - (given[i] ?? 0));
+        given[i] = (given[i] ?? 0) + take;
+        left -= take;
+      }
+      open = open.filter((i) => (given[i] ?? 0) < (room[i] ?? 0));
+      if (each === 0) {
+        break;
+      }
+    }
+    takers.forEach((k, i) => {
+      const add = (given[i] ?? 0) * ctx.layer;
+      h[k] = (h[k] ?? 0) + add;
+      extra -= add;
+    });
   }
   h[r] = (h[r] ?? 0) + extra;
   return { h, overflow: 0, lockOverflow, rim: tier.rim, riser };

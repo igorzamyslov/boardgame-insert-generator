@@ -21,7 +21,7 @@ const FIXTURES: Record<string, unknown> = {
 };
 
 /**
- * One saved file per historical schema line (spec §11). Add a file here
+ * One saved file per historical schema version (spec §11). Add a file here
  * whenever SCHEMA_VERSION's line changes, and keep the old ones: they must
  * keep loading (through migrations from 1.0 on). The 0.x files are deleted
  * at 1.0, which refuses 0.x files by design.

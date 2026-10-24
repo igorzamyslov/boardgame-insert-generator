@@ -68,9 +68,9 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(misfit?.name).toBe("Heroes");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(h1().textContent).toBe(`The ${misfit?.name} tray doesn't fit yet`);
-    // the engine's whole-plan shortfall (13.7 mm in height) is the one figure
+    // the engine's whole-plan shortfall (33.7 mm in height) is the one figure
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box. The closest plan is 13.7 mm too tall.",
+      "There's no room left for it in the box. The closest plan is 33.7 mm too tall.",
     );
     // the status is in the stage as a region of its own, in the warn tone
     expect(
@@ -81,37 +81,37 @@ describe("when it doesn't fit (NoFit)", () => {
   it("says how much room the items need against the box, under the cards", () => {
     fitProblem("harbour-kings-nofit");
     expect(options().querySelector(".fp-volume")?.textContent).toBe(
-      "Your items need at least 1.9 L as trays. The box has 5.6 L.",
+      "Your items need at least 2.0 L as trays. The box has 5.6 L.",
     );
     // the cards come first: the phone's sheet shows them in its peek
     expect(options().querySelector(".fp-cards")?.firstElementChild?.tagName).toBe("BUTTON");
   });
 
   it("says very tight beside the figures when the items nearly fill the box", () => {
-    // 170 × 170 × 70: 2.0 L of box for 1.9 L of trays
+    // 175 × 175 × 70: 2.1 L of box for 2.0 L of trays
     fitProblem("harbour-kings-nofit", undefined, (p) => ({
       ...p,
-      box: { ...p.box, innerWidth: 170, innerDepth: 170 },
+      box: { ...p.box, innerWidth: 175, innerDepth: 175 },
     }));
     expect(options().querySelector(".fp-volume__line")?.textContent).toMatch(
-      /^Your items need at least 1\.9 L as trays\. The box has 2\.\d L\. Very tight: expect to change settings\.$/,
+      /^Your items need at least 2\.0 L as trays\. The box has 2\.\d L\. Very tight: expect to change settings\.$/,
     );
     expect(h1().textContent).toMatch(/tray doesn't fit yet$/);
   });
 
   it("blames no tray when the items need more than the box has, and says so in the heading", () => {
-    // 150 × 150 × 70: 1.6 L of box for 1.9 L of trays
+    // 150 × 150 × 70: 1.6 L of box for 2.0 L of trays
     fitProblem("harbour-kings-nofit", undefined, (p) => ({
       ...p,
       box: { ...p.box, innerWidth: 150, innerDepth: 150 },
     }));
     expect(h1().textContent).toBe("Not everything fits yet");
     expect(document.querySelector(".k-status__line")?.textContent).toMatch(
-      /^Your items need at least 1\.9 L as trays\. The box has 1\.\d L\. This can't fit: take something out\.$/,
+      /^Your items need at least 2\.0 L as trays\. The box has 1\.\d L\. This can't fit: take something out\.$/,
     );
     expect(names(options())).toEqual(["Try another arrangement"]);
     // the biggest items, so it is clear what to leave out
-    expect(options().querySelector(".fp-volume__list")?.textContent).toMatch(/Heroes takes 0\.6 L/);
+    expect(options().querySelector(".fp-volume__list")?.textContent).toMatch(/Heroes takes 0\.7 L/);
     expect(document.querySelector("[data-misfit]")).toBeNull();
   });
 
