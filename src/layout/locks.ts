@@ -694,13 +694,23 @@ export function completeTree(tree: Tree, env: MoveEnv, rng: Rng): Tree | null {
     }
   }
   let root: TreeNode | null = removeItems(tree.root, (item) => drop.has(item), env);
+  // the trays of a set of alike trays are turned alike: one random turn for the set
+  const turnOfSet = new Map<number, boolean>();
   ctx.input.requirements.forEach((r, i) => {
     const v = tree.variants[i] ?? 0;
     (r.variants[v]?.parts ?? []).forEach((p, k) => {
       const item: StackItem = { req: i, variant: v, part: k, rotated: false };
       if (root !== null && !seen.has(ctx.partId(item))) {
         // a turn lock decides the rotation; else a random one, if the part can rotate
-        const rotated = env.turns.get(ctx.partId(item)) ?? (p.rotatable && rng.nextInt(2) === 1);
+        const set = ctx.alikeOf(item);
+        const rotated =
+          env.turns.get(ctx.partId(item)) ??
+          (set >= 0 && turnOfSet.has(set)
+            ? turnOfSet.get(set) === true
+            : p.rotatable && rng.nextInt(2) === 1);
+        if (set >= 0) {
+          turnOfSet.set(set, rotated);
+        }
         root = insertItem(root, { ...item, rotated }, env, rng);
       }
     });
