@@ -14,6 +14,15 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 - This changelog, and a release page on GitHub for every version, with the same notes.
 
+### Fixed
+
+- **Copies face the same way, so the spare room is one spacer.** In a group with several copies
+  (like Faction in the Scythe box), one copy could stand turned a quarter turn from the others.
+  It left a thin sliver of room beside it as a spacer of its own, and the room at the end of the
+  row became a second one. Copies are now turned together, so the room gathers in one thicker
+  spacer. Pressing Try another arrangement fixes a plan you already have. Turning a tray that has
+  copies turns them all, unless one of them is pinned.
+
 ## [0.21.0] - 2026-10-24
 
 ### Added
