@@ -10,6 +10,16 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-24
+
+### Fixed
+
+- **No sharp edge beside a finger cut.** The ledge beside the lip ring (rim and groove) and the
+  floor of the socket beside the wall (stepped base) are now rounded like the top of the wall,
+  so nothing sticks out past the cut's rounded edge and a finger running along it does not catch.
+  Trays still mate with parts you printed before; print a tray again only if you want the
+  smoother edge.
+
 ## [0.23.0] - 2026-10-24
 
 ### Added
