@@ -40,6 +40,14 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 - **No fit is shown over the normal plan,** in the top view and in 3D alike, instead of on a
   screen of its own that scrolled its explanation away.
 
+## [0.22.1] - 2026-10-24
+
+### Fixed
+
+- **Hidden notes stay hidden.** When two notes of the same kind were under the plan (for example
+  two stacks that only fit in one order), hiding the second brought the first one back. Each note
+  you hide now stays hidden until its own words change.
+
 ## [0.22.0] - 2026-10-24
 
 ### Added

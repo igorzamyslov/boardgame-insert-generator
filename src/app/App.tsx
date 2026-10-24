@@ -1154,7 +1154,7 @@ export function App(props: AppProps) {
     <StageNotes
       notices={summaryNotices}
       hidden={store.notes.of(project.id)}
-      onHide={(n) => store.notes.hide(project.id, n)}
+      onHide={(n) => store.notes.hide(project.id, n, summaryNotices)}
       onShowHidden={() => store.notes.showAll(project.id)}
     />
   );
