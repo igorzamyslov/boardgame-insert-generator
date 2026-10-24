@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import owner5 from "../../test/fixtures/star-realms-owner-5.json";
 import { planTray } from "../geometry/plan";
 import { isOlderGeometryLine } from "../geometry/version";
-import { upperTrayMinH } from "../model/lip";
+import { lipAbove, upperTrayMinH } from "../model/lip";
 import { inputsHash } from "../model/hash";
 import { parseProject } from "../model/schema";
 import type { Project, TraySpec } from "../model/types";
@@ -74,15 +74,15 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const starter = trays(plan)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
-    // Counter, Deck 1, a 5-card deck (4 mm: 1.2 mm of floor, 2.65 mm of well, to a 0.2 mm layer),
-    // the other 5-card deck with the stack's padding. The optimizer stacks them in this order (with
-    // the even splits of 0.14.0 it found Deck 1 below the low deck, where it had the low deck
-    // between the Counter and Deck 1: the stack's order is the search's, not a rule).
+    // Counter, a 5-card deck (4 mm: 1.2 mm of floor, 2.65 mm of well, to a 0.2 mm layer), Deck 1,
+    // the other 5-card deck with the stack's padding. The optimizer stacks them in this order (the
+    // stack's order is the search's, not a rule). All three decks carry the rim, the top one too
+    // (0.21.0: the split parts of one item stack in any order), so the top deck stands 2 mm lower.
     expect(starter.map((t) => [t.h, t.lip])).toEqual([
       [8.2, true],
-      [7.2, true],
       [4, true],
-      [15.6, false],
+      [7.2, true],
+      [13.6, true],
     ]);
   });
 
@@ -91,9 +91,9 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
     // Counter (8.2 = 8.14 rounded up to a layer), Deck 1 (7.2 = 7.15), a 5-card deck (4 = 3.85
-    // rounded up): all on the normal floor. The other 5-card deck carries the stack's 11.6 mm of
-    // padding.
-    expect(starter.map(floors)).toEqual([[1.2], [1.2], [1.2], [12.8]]);
+    // rounded up): all on the normal floor. The other 5-card deck carries the stack's 9.6 mm of
+    // padding (the top deck's rim takes 2 mm of the 11.6 there was).
+    expect(starter.map(floors)).toEqual([[1.2], [1.2], [1.2], [10.8]]);
     const trade = trays(plan).filter((t) => t.stack === 1);
     // 35 mm for 28.57 mm of contents: 6.4 mm of padding, the 0.03 mm over a layer is headroom
     expect(trade.map(floors)).toEqual([[7.6]]);
@@ -112,12 +112,12 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const printed = trays(printableParts(plan, inputsOf(p)).trays)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
-    // riser 11.6, then 8.2, 7.2, 4 and 4 = 35 (it was 9.6, 8.2, 7.2, 5 and 5)
+    // riser 9.6, then 8.2, 4, 7.2 and 4 = 33, and the top deck's 2 mm rim to 35
     expect(printed.map((t) => [t.z, t.h])).toEqual([
-      [11.6, 8.2],
-      [19.8, 7.2],
-      [27, 4],
-      [31, 4],
+      [9.6, 8.2],
+      [17.8, 4],
+      [21.8, 7.2],
+      [29, 4],
     ]);
   });
 
@@ -138,14 +138,14 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
       expect(t.h).toBeGreaterThanOrEqual(least);
       expect(() => planTray(t, p.settings), t.key).not.toThrow();
     }
-    // 2 mm of height that was air in two trays is 2 mm more riser: 9.6 → 11.6
-    expect(stack0[0]?.z).toBe(11.6);
+    // 2 mm of height that was air in two trays is 2 mm more riser, less the 2 mm of the top deck's rim
+    expect(stack0[0]?.z).toBe(9.6);
     // every printed part is one the builder accepts, and the stack still reaches the box's top
     for (const t of printed.trays) {
       expect(() => planTray(t, p.settings), t.key).not.toThrow();
     }
     const top = Math.max(...stack0.map((t) => t.z + t.h));
-    expect(top).toBeCloseTo(35, 9);
+    expect(top + lipAbove(p.settings, true)).toBeCloseTo(35, 9);
   });
 
   it("gives a tray with headroom a finger cut as deep as its well", () => {

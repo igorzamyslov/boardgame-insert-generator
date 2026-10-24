@@ -174,10 +174,11 @@ export function layoutWarnings(
 }
 
 /**
- * The copies of a set that stand in a stack are interchangeable only with the top copy's rim and
- * the groove under the bottom one, which a stack keeps only while it can afford them (owner,
- * 2026-10-23: best-effort). Says so, per item, when a stack has gone without: the copies are still
- * one size, one height and one set of wells, but only stack in the order they were made for.
+ * The copies of a set that stand in a stack, and the split parts of one item that stand in one, are
+ * interchangeable only with the top tray's rim and the groove under the bottom one, which a stack
+ * keeps only while it can afford them (owner, 2026-10-23: best-effort). Says so, per item, when a
+ * stack has gone without: the trays are still as they were made, but only stack in the order they
+ * stand in.
  */
 function copiesJointNotices(ctx: Ctx, trays: readonly TraySpec[]): Notice[] {
   const { settings } = ctx.input;
@@ -201,6 +202,20 @@ function copiesJointNotices(ctx: Ctx, trays: readonly TraySpec[]): Notice[] {
     ([, list]) =>
       list.length > 1 && list.some((t) => real.some((o) => o !== t && o.path === t.path)),
   );
+  // the split parts of one item that stand together in a stack: the parts of one copy, by stack
+  const parts = new Map<string, TraySpec[]>();
+  for (const t of real) {
+    const m = /^(.*:p\d+):\d+$/.exec(t.key);
+    if (m !== null) {
+      const key = `${m[1]}@${t.path}`;
+      parts.set(key, [...(parts.get(key) ?? []), t]);
+    }
+  }
+  for (const [, list] of parts) {
+    if (list.length > 1) {
+      stacked.push(["", list]);
+    }
+  }
   if (stacked.length === 0) {
     return [];
   }
