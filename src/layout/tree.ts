@@ -162,6 +162,52 @@ export function splitLeafAt(
   return replaceAt(root, path, node);
 }
 
+const packed = new WeakMap<TreeNode, TreeNode>();
+
+/**
+ * The tree with the slack of every cut given where it is wanted, and nowhere else: to the cut's
+ * second child, so the trays pack together toward the front and left and what is left over lies at
+ * the end of the row, against the box wall, never between two trays (owner, 2026-10-23: a spacer in
+ * the middle of a row splits it and makes the trays harder to take out). The shares the search
+ * moved stay in the tree and decide nothing about where room goes.
+ *
+ * `grows` (the last step of planning, when trays may take room into their wells): whether a leaf's
+ * tray grows along an axis. The slack of a cut then goes to the leaves that grow, each side in
+ * proportion to how many it has along the cut, so a row of bins that each take room all grow alike
+ * and the room is theirs, not a spacer's. A cut with nothing that grows packs to the wall as before.
+ */
+export function packedToWall(
+  node: TreeNode,
+  grows?: (leaf: Leaf, axis: Axis) => boolean,
+): TreeNode {
+  if (node.kind === "leaf") {
+    return node;
+  }
+  if (grows === undefined) {
+    const hit = packed.get(node);
+    if (hit) {
+      return hit;
+    }
+    const out = cut(node.axis, packedToWall(node.a), packedToWall(node.b), 0);
+    packed.set(node, out);
+    return out;
+  }
+  // How many leaves share the slack along `axis`: those of a cut along it add, a cut across it
+  // gives its leaves the same slack, so the larger side counts.
+  const count = (n: TreeNode, axis: Axis): number =>
+    n.kind === "leaf"
+      ? grows(n, axis)
+        ? 1
+        : 0
+      : n.axis === axis
+        ? count(n.a, axis) + count(n.b, axis)
+        : Math.max(count(n.a, axis), count(n.b, axis));
+  const ca = count(node.a, node.axis);
+  const cb = count(node.b, node.axis);
+  const share = ca + cb === 0 ? 0 : Math.round((ca / (ca + cb)) * SHARE_MAX);
+  return cut(node.axis, packedToWall(node.a, grows), packedToWall(node.b, grows), share);
+}
+
 export interface PlacedLeaf {
   readonly path: string;
   readonly leaf: Leaf;

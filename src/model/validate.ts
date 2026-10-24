@@ -11,6 +11,7 @@ import {
 } from "./settings";
 import { DEFAULT_GROUP_NAME } from "./groups";
 import { rimOn, stepOn } from "./lip";
+import { MAX_ROOM, roomKindOf, roomWords } from "./room";
 import type { Component, ForeignData, Group, Lock, Notice, Project, Settings } from "./types";
 
 /**
@@ -35,6 +36,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     length: "field.length",
     lipBearing: "field.lipBearing",
     packing: "field.packing",
+    room: "field.room",
     stepPlay: "field.stepPlay",
     lockPath: "field.lockPath",
     lockStack: "field.lockStack",
@@ -52,6 +54,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     dividers: "limit.dividers",
     groups: "limit.groups",
     length: "limit.length",
+    room: "limit.room",
     separators: "limit.separators",
     volume: "limit.volume",
   },
@@ -444,12 +447,28 @@ class Checker {
     }
   }
 
-  /** `off`, `auto`, `max` or a length of 0 mm or more, per axis: an item's and a group's growth. */
-  growth(at: string, growth: Group["growth"]): void {
-    for (const [axis, mode] of Object.entries(growth ?? {})) {
-      if (typeof mode === "number") {
-        this.nonNegativeLength(`${at}/${axis}`, "Growth", mode);
-      }
+  /**
+   * "Room for more" of an item that has the row: "max", or a whole number of at least 1 and at most
+   * what the kind's unit allows (MAX_ROOM: cards, tiles, or percent more pieces).
+   */
+  room(at: string, c: Component): void {
+    const kind = roomKindOf(c);
+    if (kind === null || c.room === undefined || c.room === "max") {
+      return;
+    }
+    const label = roomWords(kind);
+    if (c.room > MAX_ROOM[kind]) {
+      this.error(
+        VALIDATION_NOTICE_CODES.limit.room,
+        at,
+        `${label} must be at most ${MAX_ROOM[kind]}.`,
+      );
+    } else if (!Number.isInteger(c.room) || c.room < 1) {
+      this.error(
+        VALIDATION_NOTICE_CODES.field.room,
+        at,
+        `${label} must be a whole number of at least 1.`,
+      );
     }
   }
 
@@ -511,7 +530,7 @@ function checkBase(ck: Checker, c: Component, at: string): void {
       );
     }
   }
-  ck.growth(`${at}/growth`, c.growth);
+  ck.room(`${at}/room`, c);
   // A curved floor bends cards and tilts upright tiles (spec §6.1).
   if (c.curvedFloor === true && (c.kind === "cards" || c.kind === "tiles")) {
     ck.error(
@@ -754,7 +773,7 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
 const GROUP_ID = /^[A-Za-z0-9_-]{1,40}$/;
 
 /**
- * The groups table (groups spec §4.4), after the items: a group's own copies and growth, then its
+ * The groups table (groups spec §4.4), after the items: a group's own copies, then its
  * structure. `foreignIds` are the ids of components of a newer 0.2.x file that this app keeps
  * verbatim and does not read: they are valid members and valid ids to avoid, but they are not in
  * `p.components`.
@@ -776,7 +795,6 @@ function checkGroups(ck: Checker, p: Project, foreignIds: ReadonlySet<string>): 
     if (g.copies !== undefined) {
       ck.copies(`${at}/copies`, g.copies);
     }
-    ck.growth(`${at}/growth`, g.growth);
     // Tray keys are `<id>:…`, so the id of a group is held to the same rule as an item's.
     if (!GROUP_ID.test(g.id)) {
       ck.error(

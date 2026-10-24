@@ -4,6 +4,7 @@ import { cleanup, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it } from "vitest";
 import { makeLayout } from "../app/test-helpers";
 import type { Box, Project, TraySpec } from "../model/types";
+import { isAddOn } from "../plan/layers";
 import { loadSeed } from "../test-support/harbourKings";
 import { BoxSideView } from "./BoxSideView";
 
@@ -37,9 +38,14 @@ describe("BoxSideView", () => {
     const p = harbour();
     const { container } = draw(p);
     const trays = p.layout?.trays ?? [];
-    // the cut is through the middle of the box depth: y = 49.9
-    const y0 = 99.8 / 2;
-    const crossed = trays.filter((t) => t.part !== "spacer" && t.y <= y0 && y0 < t.y + t.d);
+    // the cut is through the middle of the tallest stack's bottom tray (the one with the most layers):
+    // the seed's plan has Starter decks on two layers, at y = 173 to 276
+    const bottoms = trays.filter(
+      (t) => !isAddOn(t) && trays.some((o) => o.stack === t.stack && o.level > t.level),
+    );
+    const bottom = bottoms.reduce((best, t) => (t.w * t.d > best.w * best.d ? t : best));
+    const y0 = bottom.y + bottom.d / 2;
+    const crossed = trays.filter((t) => !isAddOn(t) && t.y <= y0 && y0 < t.y + t.d);
     // (the seed's plan decides how many: what is drawn is exactly the ones it crosses)
     expect(crossed.length).toBeGreaterThan(1);
     const blocks = [...container.querySelectorAll<HTMLElement>(".bx-tray")];

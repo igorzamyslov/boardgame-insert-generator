@@ -43,7 +43,8 @@ describe("bulkOptions", () => {
     expect(shallow.minD).toBe(54.78);
     expect(shallow.kind).toBe("scoop");
     expect(shallow.contents).toBe("Bits — Cubes ×30");
-    expect(shallow.elastic).toEqual({ w: true, d: true, h: true });
+    // A bin grows only when asked (owner, 2026-10-23): no room by default
+    expect(shallow.elastic).toEqual({ w: false, d: false, h: false });
     expect(shallow.maxHRatio).toBe(1.5);
     expect(shallow.features).toEqual([{ type: "scoop" }]);
     const deep = line(bulk(), s, 1);
@@ -154,32 +155,36 @@ describe("bulk shapes", () => {
 });
 
 describe("bulk growth (minimal-trays spec §5)", () => {
-  it("is `auto` on all three axes: the bin's own size, at most 50 mm", () => {
-    const small = line(bulk({ items: [{ name: "Peas", count: 5, w: 5, d: 5, h: 5 }] }));
+  const wells: Settings = { ...s, biggerWells: true };
+
+  it("is `auto` on all three axes under bigger wells: the bin's own size, at most 50 mm", () => {
+    const small = line(bulk({ items: [{ name: "Peas", count: 5, w: 5, d: 5, h: 5 }] }), wells);
     // a 25 mm minimum side, so it binds on width and length
     expect(small.elastic).toEqual({ w: true, d: true, h: true });
     expect(small.growth?.w).toBe(25);
     expect(small.growth?.d).toBe(25);
-    const big = line(bulk({ items: [{ name: "Beans", volumeMl: 600 }] }));
+    const big = line(bulk({ items: [{ name: "Beans", volumeMl: 600 }] }), wells);
     expect(big.growth?.w).toBe(50);
     expect(big.growth?.d).toBe(50);
     expect(big.growth?.h).toBeLessThanOrEqual(50);
   });
 
-  it("takes each axis from its own setting", () => {
-    const c = line(bulk({ growth: { w: "off", d: 7, h: "max" } }));
-    expect(c.elastic).toEqual({ w: false, d: true, h: true });
-    expect(c.growth).toEqual({ d: 7 });
+  it("takes a number as a percent more volume, and no axis grows after", () => {
+    const none = line(bulk());
+    const c = line(bulk({ room: 10 }));
+    expect(c.elastic).toEqual({ w: false, d: false, h: false });
+    expect(c.growth).toBeUndefined();
+    expect(c.minVolume).toBeCloseTo((none.minVolume ?? 0) * 1.1, 3);
   });
 
-  it("is off on every axis when set off, giving a content-tight bin", () => {
-    const c = line(bulk({ growth: { w: "off", d: "off", h: "off" } }));
+  it("is off on every axis by default, giving a content-tight bin", () => {
+    const c = line(bulk());
     expect(c.elastic).toEqual({ w: false, d: false, h: false });
     expect(c.growth).toBeUndefined();
   });
 
   it("has no cap on `max`, which is the absence of one", () => {
-    const c = line(bulk({ growth: { w: "max", d: "max", h: "max" } }));
+    const c = line(bulk({ room: "max" }));
     expect(c.elastic).toEqual({ w: true, d: true, h: true });
     expect(c.growth).toBeUndefined();
   });

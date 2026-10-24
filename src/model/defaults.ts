@@ -1,6 +1,7 @@
 import { deepFreeze } from "./freeze";
 import { newId } from "./ids";
 import { BAMBU_256_BED, STANDARD_CARD } from "./presets";
+import { roomOf } from "./room";
 import { DEFAULT_SETTINGS } from "./settings";
 import type {
   Access,
@@ -168,8 +169,9 @@ export function growthAxesOf(c: Component): readonly GrowthAxis[] {
 }
 
 /**
- * The growth of `axis` for a component that sets none (spec §5): `auto` wherever extra room means
- * more pieces (loose pieces on every axis, a deck or stack of tiles standing up along its stack),
+ * The growth of `axis` for a component under the fill setting "bigger wells" (`wells`), as the
+ * layout's last step gives it room (owner, 2026-10-23): `auto` wherever extra room means more
+ * pieces (loose pieces on every axis, a deck or stack of tiles standing up along its stack),
  * `off` where it only adds slop (a deck or stack lying flat grows taller only when asked: the
  * box's spare height belongs to a riser under the tray; pockets and custom wells). `lying` says a
  * card deck or tile stack lies flat, which is what the stack axis is then (its height).
@@ -196,37 +198,32 @@ export function defaultGrowth(c: Component, axis: GrowthAxis, lying = false): Gr
 }
 
 /**
- * How far the component's contents may be given more room along `axis` (spec §5): what it set,
- * else the kind's default. An axis the kind does not offer (`growthAxesOf`) is always `off`.
+ * How far the component's well may be given more room along `axis` once the layout is chosen (the
+ * last step of planning): `max` for an item set to "as much as fits", else nothing (`off`: it is
+ * a tray's walls plus its wells and grows only because a well does, and what an item set to "some"
+ * has is already in its size), or, with the fill setting "bigger wells" (`wells`), the kind's
+ * usual room (`defaultGrowth`). An axis the kind does not offer (`growthAxesOf`) is always `off`.
  */
-export function growthOf(c: Component, axis: GrowthAxis, lying = false): GrowthMode {
+export function growthOf(c: Component, axis: GrowthAxis, lying = false, wells = false): GrowthMode {
   if (!growthAxesOf(c).includes(axis)) {
     return "off";
   }
-  return c.growth?.[axis] ?? defaultGrowth(c, axis, lying);
+  if (roomOf(c).mode === "max") {
+    return "max";
+  }
+  return wells ? defaultGrowth(c, axis, lying) : "off";
 }
 
 /**
- * The growth of a component stored loose in a scoop bin, its bulk fallback (spec §7.1): what it
- * set on that axis (width, length and height are the bin's), else bulk's `auto`.
+ * The growth of a component stored loose in a scoop bin, its bulk fallback (spec §7.1): `max`
+ * when the item asks for as much as fits, else off (or bulk's `auto` under bigger wells). Width,
+ * length and height are the bin's.
  */
-export function binGrowthOf(c: Component, axis: "w" | "d" | "h"): GrowthMode {
-  return c.growth?.[axis] ?? "auto";
-}
-
-/**
- * The component with `axis` set to `mode`, or with it cleared (undefined: the kind's default).
- * An emptied `growth` is dropped, so a component that sets nothing stays as it was.
- */
-export function withGrowth<C extends Component>(
-  c: C,
-  axis: GrowthAxis,
-  mode: GrowthMode | undefined,
-): C {
-  const rest = Object.fromEntries(Object.entries(c.growth ?? {}).filter(([key]) => key !== axis));
-  const growth = mode === undefined ? rest : { ...rest, [axis]: mode };
-  const others = Object.fromEntries(Object.entries(c).filter(([key]) => key !== "growth"));
-  return (Object.keys(growth).length === 0 ? others : { ...others, growth }) as C;
+export function binGrowthOf(c: Component, _axis: "w" | "d" | "h", wells = false): GrowthMode {
+  if (roomOf(c).mode === "max") {
+    return "max";
+  }
+  return wells ? "auto" : "off";
 }
 
 /**
@@ -255,10 +252,10 @@ export function withSeparators<C extends Component>(c: C, n: number): C {
  */
 export function dividersOffered(c: Component): boolean {
   if (c.kind === "cards") {
-    return c.storage !== "flat" && growthOf(c, "stack") !== "off";
+    return c.storage !== "flat" && roomOf(c).mode !== "none";
   }
   if (c.kind === "tiles") {
-    return c.storage !== "flat" && growthOf(c, "stack") !== "off";
+    return c.storage !== "flat" && roomOf(c).mode !== "none";
   }
   return false;
 }

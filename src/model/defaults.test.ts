@@ -9,10 +9,10 @@ import {
   newComponent,
   newProject,
   binGrowthOf,
+  dividersOffered,
   growthAxesOf,
   growthOf,
   separatorsOf,
-  withGrowth,
   withSeparators,
 } from "./defaults";
 import { BAMBU_256_BED, STANDARD_CARD } from "./presets";
@@ -123,7 +123,7 @@ describe("finger cuts, curved floor and corner relief defaults", () => {
   });
 });
 
-describe("growth defaults (minimal-trays spec §5)", () => {
+describe("growth defaults (growth is the last step of planning, owner 2026-10-23)", () => {
   const upright = (kind: "cards" | "tiles"): Component =>
     kind === "cards"
       ? { ...(newComponent("cards") as CardsComponent), storage: "upright-long" }
@@ -132,39 +132,56 @@ describe("growth defaults (minimal-trays spec §5)", () => {
     kind === "cards"
       ? { ...(newComponent("cards") as CardsComponent), storage: "flat" }
       : { ...(newComponent("tiles") as TilesComponent), storage: "flat" };
-  const modes = (c: Component, lying = false) =>
-    (["w", "d", "h", "stack"] as const).map((axis) => growthOf(c, axis, lying));
-
-  it("is auto on all three axes for bulk", () => {
-    expect(modes(newComponent("bulk"))).toEqual(["auto", "auto", "auto", "off"]);
+  /** The four axes' modes; `wells` is the fill setting "bigger wells". */
+  const modes = (c: Component, lying = false, wells = false) =>
+    (["w", "d", "h", "stack"] as const).map((axis) => growthOf(c, axis, lying, wells));
+  const looseMinis = (): Component => ({
+    ...(newComponent("minis") as MinisComponent),
+    storage: "bulk",
   });
 
-  it("is auto on all three for minis stored as bulk, and off for minis in pockets", () => {
-    const loose: Component = { ...(newComponent("minis") as MinisComponent), storage: "bulk" };
-    expect(modes(loose)).toEqual(["auto", "auto", "auto", "off"]);
-    expect(modes(newComponent("minis"))).toEqual(["off", "off", "off", "off"]);
+  it("is off on every axis for every kind unless asked: a tray never grows on its own", () => {
+    for (const kind of KINDS) {
+      expect(modes(newComponent(kind)), kind).toEqual(["off", "off", "off", "off"]);
+    }
+    expect(modes(looseMinis())).toEqual(["off", "off", "off", "off"]);
+    expect(modes(upright("cards"))).toEqual(["off", "off", "off", "off"]);
+    expect(modes(upright("tiles"))).toEqual(["off", "off", "off", "off"]);
   });
 
-  it("is auto along the stack of an upright deck or stack of tiles", () => {
-    expect(modes(upright("cards"))).toEqual(["off", "off", "off", "auto"]);
-    expect(modes(upright("tiles"))).toEqual(["off", "off", "off", "auto"]);
+  it("is auto on all three axes for bulk and minis stored as bulk under bigger wells", () => {
+    expect(modes(newComponent("bulk"), false, true)).toEqual(["auto", "auto", "auto", "off"]);
+    expect(modes(looseMinis(), false, true)).toEqual(["auto", "auto", "auto", "off"]);
+    expect(modes(newComponent("minis"), false, true)).toEqual(["off", "off", "off", "off"]);
   });
 
-  it("is off for the height of a flat deck or stack of tiles: a riser takes the spare height", () => {
-    expect(modes(flat("cards"), true)).toEqual(["off", "off", "off", "off"]);
-    expect(modes(flat("tiles"), true)).toEqual(["off", "off", "off", "off"]);
+  it("is auto along the stack of an upright deck or stack of tiles under bigger wells", () => {
+    expect(modes(upright("cards"), false, true)).toEqual(["off", "off", "off", "auto"]);
+    expect(modes(upright("tiles"), false, true)).toEqual(["off", "off", "off", "auto"]);
   });
 
-  it("is off for a custom well", () => {
+  it("is off for the height of a flat deck or stack of tiles, bigger wells or not: a riser takes the spare height", () => {
+    for (const wells of [false, true]) {
+      expect(modes(flat("cards"), true, wells)).toEqual(["off", "off", "off", "off"]);
+      expect(modes(flat("tiles"), true, wells)).toEqual(["off", "off", "off", "off"]);
+    }
+  });
+
+  it("is off for a custom well, bigger wells or not", () => {
     expect(modes(newComponent("custom"))).toEqual(["off", "off", "off", "off"]);
+    expect(modes(newComponent("custom"), false, true)).toEqual(["off", "off", "off", "off"]);
   });
 
-  it("takes a set value over the default, on a flat deck too", () => {
-    const c: Component = { ...flat("cards"), growth: { stack: 12 } };
-    expect(growthOf(c, "stack", true)).toBe(12);
-    expect(growthOf({ ...newComponent("bulk"), growth: { d: "max", h: "off" } }, "d")).toBe("max");
-    expect(growthOf({ ...newComponent("bulk"), growth: { d: "max", h: "off" } }, "h")).toBe("off");
-    expect(growthOf({ ...newComponent("custom"), growth: { w: "auto" } }, "w")).toBe("auto");
+  it("is max on every axis the kind offers for an item whose room is `max`, on a flat deck too", () => {
+    const deck: Component = { ...flat("cards"), room: "max" };
+    expect(growthOf(deck, "stack", true)).toBe("max");
+    expect(modes({ ...newComponent("bulk"), room: "max" })).toEqual(["max", "max", "max", "off"]);
+    expect(modes({ ...upright("tiles"), room: "max" })).toEqual(["off", "off", "off", "max"]);
+  });
+
+  it("leaves an item whose room is a number at off: its room is part of the planned size", () => {
+    expect(modes({ ...upright("cards"), room: 12 })).toEqual(["off", "off", "off", "off"]);
+    expect(modes({ ...newComponent("bulk"), room: 25 })).toEqual(["off", "off", "off", "off"]);
   });
 
   it("offers only the axes where more room holds more or loosens a fit", () => {
@@ -180,26 +197,30 @@ describe("growth defaults (minimal-trays spec §5)", () => {
     );
   });
 
-  it("is always off on an axis a kind does not offer, whatever a file says", () => {
-    const c: Component = { ...newComponent("cards"), growth: { w: "max", d: 40, h: "auto" } };
-    expect(modes(c)).toEqual(["off", "off", "off", "auto"]);
-    const pockets: Component = { ...newComponent("minis"), growth: { h: "max", w: 3 } };
-    expect(modes(pockets)).toEqual([3, "off", "off", "off"]);
+  it("is always off on an axis a kind does not offer, whatever room says", () => {
+    const c: Component = { ...newComponent("cards"), room: "max" };
+    expect(modes(c)).toEqual(["off", "off", "off", "max"]);
+    // minis and custom items have no room row: a `room` a file holds for them is ignored
+    const pockets: Component = { ...newComponent("minis"), room: "max" };
+    expect(modes(pockets)).toEqual(["off", "off", "off", "off"]);
+    const custom: Component = { ...newComponent("custom"), room: "max" };
+    expect(modes(custom)).toEqual(["off", "off", "off", "off"]);
   });
 
-  it("gives a bin fallback bulk's auto unless the component set the axis", () => {
+  it("gives a bin fallback bulk's auto only under bigger wells, and max for an item set to max", () => {
     const tiles = newComponent("tiles");
-    expect(binGrowthOf(tiles, "w")).toBe("auto");
-    expect(binGrowthOf({ ...newComponent("custom"), growth: { h: "off" } }, "h")).toBe("off");
+    expect(binGrowthOf(tiles, "w")).toBe("off");
+    expect(binGrowthOf(tiles, "w", true)).toBe("auto");
+    expect(binGrowthOf({ ...newComponent("bulk"), room: "max" }, "h")).toBe("max");
+    expect(binGrowthOf({ ...newComponent("custom"), room: 3 }, "h", true)).toBe("auto");
   });
 
-  it("sets and clears an axis, dropping an emptied growth", () => {
-    const c = newComponent("bulk");
-    const set = withGrowth(c, "w", 5);
-    expect(set.growth).toEqual({ w: 5 });
-    expect(withGrowth(set, "d", "off").growth).toEqual({ w: 5, d: "off" });
-    expect("growth" in withGrowth(set, "w", undefined)).toBe(false);
-    expect(withGrowth(c, "w", undefined)).toEqual(c);
+  it("offers dividers for an upright deck or stack of tiles only when it has room for more", () => {
+    expect(dividersOffered(upright("cards"))).toBe(false);
+    expect(dividersOffered({ ...upright("cards"), room: 5 })).toBe(true);
+    expect(dividersOffered({ ...upright("tiles"), room: "max" })).toBe(true);
+    expect(dividersOffered({ ...flat("cards"), room: 5 })).toBe(false);
+    expect(dividersOffered({ ...newComponent("bulk"), room: 5 })).toBe(false);
   });
 });
 

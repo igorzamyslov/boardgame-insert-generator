@@ -1,5 +1,5 @@
-import { binGrowthOf, growthAxesOf, growthOf } from "../model/defaults";
 import { copiesOf, DEFAULT_GROUP_NAME } from "../model/groups";
+import { roomOf } from "../model/room";
 import { POST_MM } from "../model/settings";
 import type { Access, Component, Group, Notice, Settings } from "../model/types";
 import { settingsValid } from "../model/validate";
@@ -32,24 +32,20 @@ interface Usable {
 }
 
 /**
- * `options` of a member of a group with its Max axes made filling (group-tray-fill spec §2): in a
- * shared tray "as much as fits" can only mean "as much as this tray has", so a compartment's axis on
- * Max takes the slack the group tray already has and never asks it to grow. The axis stops being
- * elastic (the layout sees no room from it: the tray is the size it would be with the axis Off) and
- * is marked `fill` for realize. `binned`: the options are the bulk fallback, whose axes are the
- * bin's own (binGrowthOf). Cards and tiles keep today's Max (their growth axis is the stack).
+ * `options` of a member of a group set to "as much as fits", with its elastic axes made filling
+ * (group-tray-fill spec §2): in a shared tray "as much as fits" can only mean "as much as this tray
+ * has", so a compartment's axis takes the slack the group tray already has and never asks it to
+ * grow. The axis stops being elastic (the layout sees no room from it: the tray is the size it
+ * would be without the room) and is marked `fill` for realize, which still holds it to the axis's
+ * `growth` cap (a deck's retention). The member's well is the one that takes the room, so the room
+ * goes to the members that asked for it, never to the tray.
  */
-function filling(c: Component, options: StorageOption[], binned: boolean): StorageOption[] {
-  const axes = (["w", "d", "h"] as const).filter(
-    (axis) =>
-      (binned || growthAxesOf(c).includes(axis)) &&
-      (binned ? binGrowthOf(c, axis) : growthOf(c, axis)) === "max",
-  );
-  if (axes.length === 0) {
+function filling(c: Component, options: StorageOption[]): StorageOption[] {
+  if (roomOf(c).mode !== "max") {
     return options;
   }
   const fill = (req: CompartmentReq): CompartmentReq => {
-    const on = axes.filter((axis) => req.elastic[axis]);
+    const on = AXES.filter((axis) => req.elastic[axis]);
     if (on.length === 0) {
       return req;
     }
@@ -60,6 +56,34 @@ function filling(c: Component, options: StorageOption[], binned: boolean): Stora
     };
   };
   return options.map((o) => ({ ...o, blocks: o.blocks.map((block) => block.map(fill)) }));
+}
+
+const AXES = ["w", "d", "h"] as const;
+
+/**
+ * Marks the wells that may take the room a stack forces on their tray (`CompartmentReq.forcedOk`):
+ * loose pieces, pockets and custom wells, and anything stored loose in a bin (`binned`). A deck or
+ * a stack of tiles does not: in a well much wider than its stack it topples, so the room stays wall.
+ */
+function forgiving(c: Component, options: StorageOption[], binned: boolean): StorageOption[] {
+  if (!binned && (c.kind === "cards" || c.kind === "tiles")) {
+    return options;
+  }
+  const mark = (req: CompartmentReq): CompartmentReq => ({ ...req, forcedOk: true });
+  return options.map((o) => ({ ...o, blocks: o.blocks.map((block) => block.map(mark)) }));
+}
+
+/**
+ * With the fill setting "bigger wells", the wells of an item set to "as much as fits" are marked to
+ * take the room first (`CompartmentReq.first`), before the wells that only follow the setting. Without
+ * it nothing grows but those wells, so there is no order to keep.
+ */
+function ranked(c: Component, options: StorageOption[], wells: boolean): StorageOption[] {
+  if (!wells || roomOf(c).mode !== "max") {
+    return options;
+  }
+  const mark = (req: CompartmentReq): CompartmentReq => ({ ...req, first: true });
+  return options.map((o) => ({ ...o, blocks: o.blocks.map((block) => block.map(mark)) }));
 }
 
 /** Every option layout may build a part at: unlipped or lipped, on the ground or stacked. */
@@ -229,7 +253,11 @@ function sizeBuckets(
       const result = componentOptions(c, settings, index);
       notices.push(...result.notices);
       if (result.options.length > 0) {
-        const options = group ? filling(c, result.options, false) : result.options;
+        const options = ranked(
+          c,
+          forgiving(c, group ? filling(c, result.options) : result.options, false),
+          settings.biggerWells,
+        );
         usable.push({ c, index, options, binned: false });
       }
     }
@@ -484,7 +512,11 @@ function settle(sized: Sized, settings: Settings, notices: Notice[]): TrayRequir
       changed = true;
       const fallen: Usable = {
         ...u,
-        options: group ? filling(u.c, options, true) : options,
+        options: ranked(
+          u.c,
+          forgiving(u.c, group ? filling(u.c, options) : options, true),
+          settings.biggerWells,
+        ),
         binned: true,
       };
       binned.push({ u: fallen, error });

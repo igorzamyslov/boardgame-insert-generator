@@ -54,6 +54,8 @@ export interface FixedSize {
 
 export interface Ctx {
   readonly input: LayoutInput;
+  /** The context sees room for growth (the last step of planning); planning builds it without. */
+  readonly growing: boolean;
   /** Box floor minus 2·boxClearance. */
   readonly floorW: U;
   readonly floorD: U;
@@ -193,7 +195,18 @@ function extraPartsOf(parts: readonly TrayPartReq[]): number {
   return extra;
 }
 
-export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx {
+/**
+ * `growth` (default on): whether the context sees the room a tray's wells may take beyond their
+ * minimum. Planning builds its context with it off, so every gap is a spacer the score charges and
+ * the layout is chosen on natural sizes; the last step evaluates the chosen tree with it on and the
+ * wells take the room left (owner, 2026-10-23, DESIGN.md decision log).
+ */
+export function createCtx(
+  input: LayoutInput,
+  measure: Measure = minOuter,
+  opts: { growth?: boolean } = {},
+): Ctx {
+  const growing = opts.growth ?? true;
   const { box, printer, settings } = input;
   const eff = effective(settings);
   const boxClearance = toU(eff.boxClearance);
@@ -267,6 +280,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
   );
   const ctx: Ctx = {
     input,
+    growing,
     floorW: toUFloor(box.innerWidth) - 2 * boxClearance,
     floorD: toUFloor(box.innerDepth) - 2 * boxClearance,
     topPlane: toUFloor(topPlane(box, settings)),
@@ -307,8 +321,8 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
         throw new RangeError(`unknown tray ${ref.req}/${ref.variant}/${ref.part}`);
       }
       const o = measure(p, settings, { lipped, level });
-      const growW = growth(p, "w");
-      const growD = growth(p, "d");
+      const growW = growing ? growth(p, "w") : 0;
+      const growD = growing ? growth(p, "d") : 0;
       const m: PartMetrics = {
         w: toUCeil(o.w),
         d: toUCeil(o.d),
@@ -317,8 +331,8 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
         capD: Math.min(INF_U, growD + wallCap),
         growW,
         growD,
-        elasticH: p.compartments.some((c) => c.elastic.h),
-        growH: growthH(p),
+        elasticH: growing && p.compartments.some((c) => c.elastic.h),
+        growH: growing ? growthH(p) : 0,
       };
       cache.set(key, m);
       return m;

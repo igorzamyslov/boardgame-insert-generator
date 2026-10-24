@@ -8,6 +8,13 @@ the filler count term, and the perimeter lever, measured and dropped; schema 0.1
 Companion to `2026-10-11-boardgame-insert-generator-design.md`; that document is
 authoritative for everything this one does not change.
 
+**Reversed 2026-10-23 (schema 0.3.0, owner; DESIGN.md decision log, "A tray never grows on its own"):**
+§1's principle below, "a filler beside a tray is wasted space", is withdrawn, and §5's per-axis
+growth with its `auto` default is replaced. A tray never grows on its own: it is its walls plus its
+wells. Each item has one "Room for more <contents>" (None by default, Some, As much as fits), the
+layout is planned on natural sizes, and growth is the last step, after the layout is chosen
+(§5.4 at the end of §5). §1 and §5 stay as the record of what 0.5.0 to 0.18.0 did.
+
 ## 1. The intent
 
 A tray is generated as the **minimal geometry** its components and enabled
@@ -16,7 +23,9 @@ needed between them, and **risers** are added where a stack needs height. A tray
 grows beyond its minimum **only where a setting says it should**, and only where
 growing means more capacity rather than more slop.
 
-The principle that ties the two halves together:
+The principle that tied the two halves together until 2026-10-23 (withdrawn: the owner prefers a
+separate spacer to a grown tray, and a tray that grew where its well could not made solid blocks;
+see the note at the top):
 
 > A filler beside a tray is wasted space. Growing the tray instead converts that
 > space into capacity — but only for components where extra room holds more
@@ -684,6 +693,49 @@ its wells having grown with nothing to hold back.
 in a grown well (an off-centre cut would remove the bound; it changes cut placement for every tray
 with an across cut, so it was left). Stripping the spacers out of a stored 0.7.1 layout at print
 time, which would hide them without re-running the plan.
+
+### 5.4 Growth is the last step of planning (schema 0.3.0, owner, 2026-10-23)
+
+**The setting.** `Component.room`: absent (None, the default), a number (Some: that many more cards
+or tiles, or that many percent more pieces) or `"max"` (As much as fits). Cards ("Room for more
+cards"), tiles ("Room for more tiles") and bulk ("Room for more pieces") have it; minis and custom
+items have no row. The engine maps it to the right axis (`growthOf`, `model/defaults.ts`): an upright
+deck's or tile stack's room is a longer well, a flat one's a deeper well, bulk's is volume (every
+axis). Replaces `growth` (w, d, h, stack) and `stretch`.
+
+**Order.** (1) The layout is planned on natural sizes plus each item's Some room, which is part of
+its size (sizing writes it into the compartment's minimum; with spacer plates it is the spacer's
+`spacerRoom`; with dividers it is in the sections). The planning context has no room for growth
+(`createCtx(…, { growth: false })`), so every gap is a spacer or filler and the score charges it:
+the score no longer rewards growth over spacers. (2) The chosen tree is evaluated again with growth
+on (`withGrowth`, `layout/optimize.ts`): the room left goes into the wells of the items set to As
+much as fits, held by retention along a stack as before (§5.1). (3) The insert-wide "Fill the space
+that's left" decides the rest: Separate spacers (default: nothing more), Bigger wells
+(`Settings.biggerWells`: the other wells take it as far as the old `auto` cap, after the As-much-as-
+fits wells, `CompartmentReq.first`), Thicker walls or One thick wall (taken in the plan, as before,
+`wallAbsorb`, `oneWall`). A tray is bigger only because a well is.
+
+**Groups.** A member set to As much as fits takes only its group tray's own leftover room and never
+makes the tray bigger: its compartment is `fill`, not elastic (group-tray-fill spec §2), now for
+decks and tiles as well, held by the `growth` cap (retention) of its stack axis. The wells that
+asked for room are the ones that take it, before the walls.
+
+**Copies.** The trays of a set of alike trays stay alike (hard rule 9): the room a set is given is
+the least any of its places leaves beyond its size, up to what its contents may take
+(`alikeGrowth`, `layout/fill.ts`), so if one copy's well grows, every copy's does, by the same.
+
+**Forced room.** A tray under another is at least as big as it. That room goes to the wells that
+can safely take it (bins, loose pieces, pockets, custom wells; `forcedOk`), not to the walls. A deck
+or a stack of tiles keeps it as wall (retention), and `swollen` steers the search away. A size lock
+keeps its size.
+
+**Where room lies.** The last step (`packedToWall`, `layout/tree.ts`; `placeStack`, `layout/fill.ts`)
+gives each cut's slack to the trays that grow, else to the end of the row against the box wall,
+and moves a bottom tray off a wall its leaf touches. The search keeps its own shares: packing it
+cost a fit on a tight box.
+
+**Migration.** Off and Auto read as None, a set amount as Some, Max as As much as fits
+(`model/migrate-0.3.ts`); every saved plan is stale once (`PLANNING_MODEL`, `model/hash.ts`).
 
 ## 6. The objective
 

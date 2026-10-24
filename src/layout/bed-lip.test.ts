@@ -126,18 +126,29 @@ describe("the lip counts toward the bed height", () => {
         boxReq("b", 110, 70, 20, { elastic: { w: true, d: true } }),
       ],
       {
-        box: { innerWidth: 140, innerDepth: 100, innerHeight },
+        // The floor is exactly what the lower tray takes (126.8 × 86.8): growth is the last step of
+        // planning, so a tray no longer swells to the floor on its own, and any room left beside
+        // the stack would be spacers as tall as the stack (which the 60 mm bed cannot print).
+        box: { innerWidth: 126.8, innerDepth: 86.8, innerHeight },
         printer: { bedZ },
         locks: [{ kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] }],
       },
     );
 
-  it("a stack whose lipped bottom tray would print above the bed is a conflict", () => {
+  it("a stack whose lipped bottom tray would print above the bed does not build it that tall", () => {
     const fits = optimize(stacked(78), 1, 2000);
     expect(fits.lockConflicts).toEqual([]);
-    // 58.8 mm of tray plus the 2 mm lip is 60.8 mm: the lock conflicts (the flipped stack fits)
+    expect(fits.layout?.trays.find((t) => t.key === "a:p0:0")?.h).toBeCloseTo(56.8, 1);
+    // 58.8 mm of tray plus the 2 mm lip would be 60.8 mm. Since growth is the last step, the lower
+    // tray stays at its own height and the upper one takes the stack's height as padding, so the
+    // lock is kept (it used to conflict, when the lower tray swelled to fill the stack) and
+    // nothing prints above the bed.
     const tooTall = optimize(stacked(80), 1, 2000);
-    expect(tooTall.lockConflicts.length).toBeGreaterThan(0);
+    expect(tooTall.lockConflicts).toEqual([]);
+    for (const t of tooTall.layout?.trays ?? []) {
+      expect(t.h + (t.lip ? 2 : 0)).toBeLessThanOrEqual(60);
+    }
+    expect(tooTall.layout?.trays.find((t) => t.key === "a:p0:0")?.h).toBeLessThan(50);
     // nothing fits at all
     const hopeless = optimize(stacked(83), 1, 2000);
     expect(hopeless.layout).toBeNull();

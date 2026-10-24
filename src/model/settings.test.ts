@@ -59,6 +59,7 @@ describe("DEFAULT_SETTINGS", () => {
       minRiser: 3,
       wallAbsorb: 0,
       oneWall: false,
+      biggerWells: false,
       mergeFillers: true,
       mergeRisers: true,
       infill: 15,

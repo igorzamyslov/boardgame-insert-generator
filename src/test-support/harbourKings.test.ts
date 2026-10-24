@@ -185,7 +185,6 @@ describe("the groups seeds (0.7.0)", () => {
         name: "Player kit",
         copies: 4,
         access: "often",
-        growth: { w: "off", d: "off", h: "off" },
         memberIds: ["kitdeck1", "kitres01", "kithero1"],
       },
     ]);

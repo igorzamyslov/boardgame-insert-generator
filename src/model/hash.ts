@@ -80,6 +80,9 @@ function hashedGroups(groups: readonly Group[] | undefined): Group[] | undefined
   return used.length > 0 ? used : undefined;
 }
 
+/** How the layout is planned (see inputsHash): 2 = growth as the last step. Plans before it had none. */
+const PLANNING_MODEL = 2;
+
 /** cyrb53 (public domain, bryc): fast 53-bit string hash. Not cryptographic. */
 export function cyrb53(str: string, seed = 0): number {
   let h1 = 0xdeadbeef ^ seed;
@@ -114,7 +117,7 @@ export function inputsHash(p: Project): string {
   // infill only scales the filament estimate; no part depends on it, so it must not stale the plan.
   // wallAbsorb is hashed under its old name, wallGrowth: renaming the setting must not change the
   // hash of every saved project and so mark all of their plans stale.
-  const { wallAbsorb, oneWall, playLimit, lip, ...rest } = p.settings;
+  const { wallAbsorb, oneWall, biggerWells, playLimit, lip, ...rest } = p.settings;
   // The joint's kind and the step's height are hashed only for the stepped base: the rim, the only
   // joint before schema 0.2.2, is left out so every saved plan keeps its hash, and the step's
   // height changes nothing with the rim. The step is hashed as `stepBase`, a key no file holds: an
@@ -129,6 +132,9 @@ export function inputsHash(p: Project): string {
     // It moves where leaf slack goes, so it is hashed, but only when on: off is left out so every
     // project saved before the setting existed keeps its hash and its plan stays current.
     oneWall: oneWall ? true : undefined,
+    // The same for the fill setting "bigger wells": it decides which wells the last step gives the
+    // room left, so it is hashed, but only when on.
+    biggerWells: biggerWells ? true : undefined,
     infill: undefined,
     mergeFillers: undefined,
     mergeRisers: undefined,
@@ -144,6 +150,12 @@ export function inputsHash(p: Project): string {
   const groups = hashedGroups(p.groups);
   const grouped = new Set((groups ?? []).flatMap((g) => g.memberIds));
   const canonical = canonicalJson({
+    // Growth became the last step of planning in schema 0.3.0 (owner, 2026-10-23): the layout is
+    // planned on natural sizes, and room goes to the wells only after it is chosen. Every plan made
+    // before planned on grown trays and a score that treated growth as free, so it is no longer
+    // the plan these inputs make: this constant stales every saved plan once. Never change it
+    // without the same reason, and never remove it.
+    planning: PLANNING_MODEL,
     box: p.box,
     printer: p.printer,
     settings,

@@ -70,7 +70,7 @@ export const LAYER_TUNING: Tuning = {
   components: {
     market01: { clearance: 5 },
     starter1: { clearance: 6.5 },
-    events01: { clearance: 4 },
+    events01: { clearance: 7 },
     coins001: { clearance: 8 },
     resourc1: { clearance: 4 },
     dice0001: { clearance: 10 },
@@ -220,7 +220,7 @@ export function harbourKingsKitLoose(): Project {
         ["Wood", "Stone", "Grain"].map((name) => ({ name, count: 10, w: 16, d: 16, h: 2 })),
         // Max: grouped in the Player kit it fills the room its tray already has (group-tray-fill
         // spec §2) and never makes the tray bigger; loose it would take all the room there is.
-        { growth: { w: "max", d: "max", h: "max" } },
+        { room: "max" },
       ),
       {
         id: "kithero1",
@@ -250,7 +250,6 @@ export function harbourKingsKit(): Project {
     name: "Player kit",
     copies: 4,
     access: "often",
-    growth: { w: "off", d: "off", h: "off" },
     memberIds: KIT_MEMBER_IDS,
   };
   return {
@@ -272,8 +271,9 @@ export function harbourKingsKitSplit(length = 140): Project {
     ...kit,
     id: "harbkit2",
     box: { ...kit.box, innerWidth: 380 },
-    // the copies are one size, so a printer that cannot take a whole kit splits all four the same way
-    printer: { ...kit.printer, bedX: 170, bedY: 170 },
+    // the copies are one size, so a printer that cannot take a whole kit splits all four the same way (a narrow bed:
+    // a whole copy no longer grows to a square one, so only a bed short in one direction forces the split)
+    printer: { ...kit.printer, bedX: 170, bedY: 110 },
     components: kit.components.map((c) =>
       c.id === "kithero1" && c.kind === "minis"
         ? {
@@ -345,10 +345,10 @@ function trayOf(layout: readonly TraySpec[] | undefined, componentId: string): T
 /**
  * `base` with Market deck and Heroes pinned where `base`'s plan has them, and Hex tiles raised to
  * `count`. The engine only reports a pin conflict at some counts (the rest fit around the pins or
- * fit nowhere, and which ones moves with the engine), so
- * `npm run seeds` checks the outcome.
+ * fit nowhere, and which ones moves with the engine), so `npm run seeds` checks the outcome. Trays
+ * no longer grow into spare room, so the counts that conflict start higher (160, not 100).
  */
-export function harbourKingsPinConflict(base: Project, count = 100): Project {
+export function harbourKingsPinConflict(base: Project, count = 160): Project {
   let p = base;
   for (const id of ["market01", "heroes01"]) {
     p = toggleLock(p, trayOf(base.layout?.trays, id));

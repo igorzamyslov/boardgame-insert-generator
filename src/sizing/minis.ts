@@ -61,7 +61,13 @@ const ORIENTATIONS: readonly [string, 0 | 1 | 2][] = [
   ["tall", 2],
 ];
 
-function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): CompartmentReq[] {
+function pockets(
+  c: MinisComponent,
+  f: Figure,
+  dims: Dims,
+  clearance: number,
+  s: Settings,
+): CompartmentReq[] {
   const name = itemLabel(c, f.name);
   return Array.from({ length: f.count }, (_, i) =>
     compartment({
@@ -73,8 +79,8 @@ function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): C
       h: dims.h + clearance,
       // A looser pocket, only when asked: a figure's own height is fixed, so no growth in depth.
       grow: {
-        w: growthMm(growthOf(c, "w"), dims.w),
-        d: growthMm(growthOf(c, "d"), dims.d),
+        w: growthMm(growthOf(c, "w", false, s.biggerWells), dims.w),
+        d: growthMm(growthOf(c, "d", false, s.biggerWells), dims.d),
       },
       // A centred cut through the front and back walls (spec §6.1): half the pocket deep, but down
       // to the floor with a floor notch for a short figure (in this variant's orientation).
@@ -90,7 +96,12 @@ function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): C
 export function minisOptions(c: MinisComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
   if (c.storage === "bulk") {
-    const modes = { w: growthOf(c, "w"), d: growthOf(c, "d"), h: growthOf(c, "h") };
+    const wells = s.biggerWells;
+    const modes = {
+      w: growthOf(c, "w", false, wells),
+      d: growthOf(c, "d", false, wells),
+      h: growthOf(c, "h", false, wells),
+    };
     return { options: binOptions(c, c.figures, togglesOf(c), modes, s), notices: [] };
   }
   // One option per way of resting every figure (an option puts all of them the same way, a figure
@@ -111,7 +122,7 @@ export function minisOptions(c: MinisComponent, s: Settings): OptionsResult {
     seen.add(signature);
     options.push({
       id: turned ? `${id}-turned` : id,
-      blocks: c.figures.map((f, i) => pockets(c, f, dims[i] ?? f, clearance)),
+      blocks: c.figures.map((f, i) => pockets(c, f, dims[i] ?? f, clearance, s)),
     });
   };
   for (const [id, rank] of [["standing", null], ...ORIENTATIONS] as const) {

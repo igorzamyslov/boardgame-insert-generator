@@ -527,11 +527,40 @@ function wallAbsorbU(settings: Settings): number {
  * Elastic lines (rows in depth, columns in width) take `slack` as far as their contents may grow
  * (`caps`, growth) beyond what the stack asks of the tray (`forced`): each line's share.
  */
-function elasticShares(slack: number, caps: readonly number[], forced: number): number[] {
-  return fillCapped(
-    Math.min(slack, withForced(caps, forced).total),
-    caps.map((cap) => (cap > 0 ? cap + forced : 0)),
+function elasticShares(
+  slack: number,
+  caps: readonly number[],
+  forced: number,
+  first?: readonly boolean[],
+): number[] {
+  const share = (room: number, of: readonly number[], extra: number): number[] =>
+    fillCapped(
+      Math.min(room, withForced(of, extra).total),
+      of.map((cap) => (cap > 0 ? cap + extra : 0)),
+    );
+  if (first === undefined || !first.some(Boolean) || first.every(Boolean)) {
+    return share(slack, caps, forced);
+  }
+  // Lines of items that asked for as much as fits take the room first; the others (given room by the
+  // fill setting "bigger wells") take what is left of it, with nothing extra: the room the stack
+  // forces was theirs to take already.
+  const one = share(
+    slack,
+    caps.map((cap, i) => (first[i] === true ? cap : 0)),
+    forced,
   );
+  const two = share(
+    slack - sum(one),
+    caps.map((cap, i) => (first[i] === true ? 0 : cap)),
+    0,
+  );
+  return one.map((v, i) => v + (two[i] ?? 0));
+}
+
+/** A well's cap on filling a tray's own spare along an axis, units: its `growth` (retention), else none. */
+function fillCapU(req: CompartmentReq, axis: "w" | "d" | "h"): number {
+  const cap = req.growth?.[axis];
+  return cap === undefined ? UNBOUNDED_U : Math.min(UNBOUNDED_U, floorU(cap));
 }
 
 /**
@@ -568,6 +597,7 @@ function placeRows(min: MinLayout, frame: Frame, settings: Settings): Placed[] {
     slackY,
     rows.map((row) => rowDepthCapU(row)),
     forced.d,
+    rows.map((row) => row.some((c) => c.elastic.d && c.first === true)),
   );
   rowDepths.forEach((_, r) => {
     rowDepths[r] = (rowDepths[r] ?? 0) + (shares[r] ?? 0);
@@ -613,6 +643,7 @@ function placeRows(min: MinLayout, frame: Frame, settings: Settings): Placed[] {
         slack,
         elastic.map((i) => growthCapU(row[i] as CompartmentReq, "w")),
         forced.w,
+        elastic.map((i) => row[i]?.first === true),
       );
       elastic.forEach((i, k) => {
         growth[i] = shares[k] ?? 0;
@@ -627,7 +658,9 @@ function placeRows(min: MinLayout, frame: Frame, settings: Settings): Placed[] {
       // It takes no more than the deck may grow (growth: retention bounds it), the rest going on.
       const cap = req === undefined ? 0 : growthCapU(req, "w");
       const take = Math.min(slack, cap > 0 ? cap + forced.w : 0);
-      if (!spacerUsed && req !== undefined && spacerFits(req, take, settings)) {
+      // An item's "some" room is the spacer's already (`spacerRoom`, part of the well's minimum).
+      const planned = req?.spacerRoom === undefined ? 0 : ceilU(req.spacerRoom);
+      if (!spacerUsed && req !== undefined && spacerFits(req, planned + take, settings)) {
         growth[candidate] = take;
         spacerAt = candidate;
         spacerUsed = true;
@@ -640,7 +673,7 @@ function placeRows(min: MinLayout, frame: Frame, settings: Settings): Placed[] {
     if (filling.length > 0 && slack > 0) {
       const shares = fillCapped(
         slack,
-        filling.map(() => slack),
+        filling.map((i) => Math.min(slack, fillCapU(row[i] as CompartmentReq, "w"))),
       );
       filling.forEach((i, k) => {
         growth[i] = (growth[i] ?? 0) + (shares[k] ?? 0);
@@ -666,7 +699,10 @@ function placeRows(min: MinLayout, frame: Frame, settings: Settings): Placed[] {
       placed.push({
         req,
         alloc: { x, y: top, w, d },
-        spacer: i === spacerAt ? (growth[i] ?? 0) : 0,
+        spacer:
+          i === spacerAt
+            ? (growth[i] ?? 0) + (req.spacerRoom === undefined ? 0 : ceilU(req.spacerRoom))
+            : 0,
       });
       x += w;
       if (i < row.length - 1) {
@@ -704,6 +740,7 @@ function placeColumns(min: MinLayout, frame: Frame, settings: Settings): Placed[
     slackX,
     columns.map((column) => columnWidthCapU(column)),
     forced.w,
+    columns.map((column) => column.some((c) => c.elastic.w && c.first === true)),
   );
   slackX -= sum(shares);
   // Columns with a well filling in width (group Max, spec §2) take what would otherwise go to the
@@ -715,7 +752,16 @@ function placeColumns(min: MinLayout, frame: Frame, settings: Settings): Placed[
     filling.length > 0 && slackX > 0
       ? fillCapped(
           slackX,
-          filling.map(() => slackX),
+          filling.map((k) =>
+            Math.min(
+              slackX,
+              Math.max(
+                ...(columns[k] ?? [])
+                  .filter((c) => c.fill?.w === true)
+                  .map((c) => fillCapU(c, "w")),
+              ),
+            ),
+          ),
         )
       : [];
   slackX -= sum(fills);
@@ -759,6 +805,7 @@ function placeColumns(min: MinLayout, frame: Frame, settings: Settings): Placed[
       slack,
       elastic.map((i) => growthCapU(column[i] as CompartmentReq, "d")),
       forced.d,
+      elastic.map((i) => column[i]?.first === true),
     );
     elastic.forEach((i, j) => {
       growth[i] = grown[j] ?? 0;
@@ -1059,6 +1106,33 @@ export function outerCutSides(
 }
 
 /**
+ * `part` with its wells that may take the room a stack forces on the tray (`forcedOk`) made elastic on
+ * the axes that room is on, with a cap of one unit: the layout then gives them the forced room (and
+ * a hair more), and nothing else, so a well of a bin that is not set to grow gets bigger only
+ * because the stack above it asks the tray to be. The part itself when nothing is forced.
+ */
+function withForcedWells(part: TrayPartReq, forced: { w: number; d: number }): TrayPartReq {
+  if (forced.w <= 0 && forced.d <= 0) {
+    return part;
+  }
+  const take = (c: CompartmentReq): CompartmentReq => {
+    if (c.forcedOk !== true) {
+      return c;
+    }
+    const growth = { ...c.growth };
+    const elastic = { ...c.elastic };
+    for (const axis of ["w", "d"] as const) {
+      if (forced[axis] > 0 && !elastic[axis]) {
+        elastic[axis] = true;
+        growth[axis] = fromU(1);
+      }
+    }
+    return { ...c, elastic, growth };
+  };
+  return { ...part, compartments: part.compartments.map(take) };
+}
+
+/**
  * Realizes `part` in `outer` (roadmap §4.2, §4.7). Throws RangeError when `outer` is smaller than
  * minOuter, and CutFitError (sizing-internal) when a card, tile, minis or custom compartment gets
  * no wall cutout: that depends on the part's compartments and their order only, so size() leaves
@@ -1086,21 +1160,24 @@ export function realizeTray(
   };
   const padding = opts.padding === undefined ? null : Math.max(0, ceilU(opts.padding));
   const fixed = opts.fixedDepth === true;
-  const first = layoutAt(part, min, [W, D, H], settings, forced, null, padding, fixed);
+  // The room a stack forces on the tray goes to the wells that can take it, not to the walls.
+  const laid = withForcedWells(part, forced);
+  const laidMin = laid === part ? min : minLayoutOf(laid, settings, opts);
+  const first = layoutAt(laid, laidMin, [W, D, H], settings, forced, null, padding, fixed);
   if (!settings.oneWall) {
     return first.tray;
   }
   // The walls the cuts go through are only known once they are placed: where the first layout put
   // the slack against one of them, lay it out again with those walls kept clear.
   let avoid = unionOf(requestedWalls(part), first.walls);
-  let result = layoutAt(part, min, [W, D, H], settings, forced, avoid, padding, fixed);
+  let result = layoutAt(laid, laidMin, [W, D, H], settings, forced, avoid, padding, fixed);
   for (let round = 0; round < ROOM_ROUNDS; round += 1) {
     const next = unionOf(avoid, result.walls);
     if (JSON.stringify(next) === JSON.stringify(avoid)) {
       break;
     }
     avoid = next;
-    result = layoutAt(part, min, [W, D, H], settings, forced, avoid, padding, fixed);
+    result = layoutAt(laid, laidMin, [W, D, H], settings, forced, avoid, padding, fixed);
   }
   return result.tray;
 }

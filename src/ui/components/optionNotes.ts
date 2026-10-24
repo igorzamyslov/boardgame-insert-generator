@@ -4,22 +4,14 @@ import {
   curvedFloorOn,
   dividersOf,
   fingerCutsOn,
-  growthAxesOf,
-  growthOf,
   separatorsOf,
 } from "../../model/defaults";
+import { roomOf } from "../../model/room";
 import type { CardsComponent, Component } from "../../model/types";
 
-/** Whether the component leaves room to grow on any axis it offers, lying flat or not. */
-function growsOn(c: Component, lying: boolean): boolean {
-  return growthAxesOf(c).some((axis) => growthOf(c, axis, lying) !== "off");
-}
-
 function growthNote(prev: Component, next: Component): string | null {
-  // Both judged by how the next one sits (a change of storage moves the default; its note comes first).
-  const lying = (next.kind === "cards" || next.kind === "tiles") && next.storage === "flat";
-  const before = growsOn(prev, lying);
-  const after = growsOn(next, lying);
+  const before = roomOf(prev).mode !== "none";
+  const after = roomOf(next).mode !== "none";
   if (before === after) {
     return null;
   }

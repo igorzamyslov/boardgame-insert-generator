@@ -27,7 +27,7 @@ const error = (path: string, message: string, code = "field.setting") => ({
 
 /**
  * The number of rows the search can show: every exact number and the two choices, less the wall
- * thickness, which "Fill small gaps with" draws itself, and the numbers of the first screen.
+ * thickness, which "Fill the space that's left" draws itself, and the numbers of the first screen.
  */
 const ROWS = SETTING_RANGES.length + 1 - FIRST_SCREEN_PATHS.length;
 
@@ -414,7 +414,7 @@ describe("InsertSettings: Exact numbers", () => {
         if (path === "wallAbsorb") {
           // its box belongs to the choice that uses it, and shows under Thicker walls
           expect(
-            within(card(g.title)).getByRole("group", { name: "Fill small gaps with" }),
+            within(card(g.title)).getByRole("group", { name: "Fill the space that's left" }),
           ).toBeTruthy();
           continue;
         }
@@ -450,12 +450,12 @@ describe("InsertSettings: Exact numbers", () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, playLimit: 2.5 });
   });
 
-  it("keeps Unused space and Fill small gaps with under Spacers and space", () => {
+  it("keeps Unused space and Fill the space that's left under Spacers and space", () => {
     const onChange = vi.fn();
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
     // not on the first screen
     expect(screen.queryByRole("group", { name: "Unused space" })).toBeNull();
-    expect(screen.queryByRole("group", { name: "Fill small gaps with" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Fill the space that's left" })).toBeNull();
     openGroup("Spacers and space");
     const space = within(screen.getByRole("group", { name: "Unused space" }));
     expect(space.getByRole("button", { name: "Spare tray" }).getAttribute("aria-pressed")).toBe(
@@ -466,24 +466,26 @@ describe("InsertSettings: Exact numbers", () => {
   });
 });
 
-describe("InsertSettings: Fill small gaps with (thicker walls and one thick wall)", () => {
-  const gaps = () => within(screen.getByRole("group", { name: "Fill small gaps with" }));
+describe("InsertSettings: Fill the space that's left (thicker walls and one thick wall)", () => {
+  const gaps = () => within(screen.getByRole("group", { name: "Fill the space that's left" }));
   const pressed = (): string | undefined =>
     Array.from(
-      screen.getByRole("group", { name: "Fill small gaps with" }).querySelectorAll("button"),
+      screen.getByRole("group", { name: "Fill the space that's left" }).querySelectorAll("button"),
     ).find((b) => b.getAttribute("aria-pressed") === "true")?.textContent ?? undefined;
 
-  it("is one choice of three, and a spacer is the default", () => {
+  it("is one choice of four, and separate spacers are the default", () => {
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
     openGroup("Spacers and space");
     expect(
       Array.from(
-        screen.getByRole("group", { name: "Fill small gaps with" }).querySelectorAll("button"),
+        screen
+          .getByRole("group", { name: "Fill the space that's left" })
+          .querySelectorAll("button"),
       ).map((b) => b.textContent),
-    ).toEqual(["A spacer", "Thicker walls", "One thick wall"]);
-    expect(pressed()).toBe("A spacer");
+    ).toEqual(["Separate spacers", "Bigger wells", "Thicker walls", "One thick wall"]);
+    expect(pressed()).toBe("Separate spacers");
     expect(
-      screen.getByText("A gap a tray can't use is printed as a separate spacer."),
+      screen.getByText("Room left beside a tray is printed as separate spacers."),
     ).toBeTruthy();
     // the two old rows are gone, and the number is not a row of its own
     expect(screen.queryByRole("checkbox", { name: /One thick wall/ })).toBeNull();
@@ -507,7 +509,7 @@ describe("InsertSettings: Fill small gaps with (thicker walls and one thick wall
     ).toBeTruthy();
     fireEvent.input(field(/^Extra thickness per wall/), { target: { value: "1,5" } });
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, wallAbsorb: 1.5 });
-    // 0 is "A spacer", so the box refuses it rather than flipping the choice while a number is typed
+    // 0 is "Separate spacers", so the box refuses it rather than flipping the choice while a number is typed
     fireEvent.input(field(/^Extra thickness per wall/), { target: { value: "0" } });
     expect(screen.getByRole("alert").textContent).toBe("Must be more than 0.");
   });
@@ -544,17 +546,63 @@ describe("InsertSettings: Fill small gaps with (thicker walls and one thick wall
     });
   });
 
-  it("has the dot and Back to a spacer only while another choice is made, and Back puts both settings back", () => {
+  it("writes biggerWells for Bigger wells, and says what it does", () => {
+    const onChange = vi.fn();
+    const view = render(
+      <InsertSettings
+        settings={changedFrom({ oneWall: true, wallAbsorb: 2 })}
+        onChange={onChange}
+      />,
+    );
+    openGroup("Spacers and space");
+    fireEvent.click(gaps().getByRole("button", { name: "Bigger wells" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      biggerWells: true,
+      oneWall: false,
+      wallAbsorb: 2,
+    });
+    view.rerender(
+      <InsertSettings settings={changedFrom({ biggerWells: true })} onChange={onChange} />,
+    );
+    expect(pressed()).toBe("Bigger wells");
+    expect(
+      screen.getByText(/^Room left goes into the wells of items set to As much as fits/),
+    ).toBeTruthy();
+    // the wall thickness is not shown, and every other choice turns Bigger wells off
+    expect(screen.queryByLabelText(/Extra thickness per wall/)).toBeNull();
+    fireEvent.click(gaps().getByRole("button", { name: "Thicker walls" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      biggerWells: false,
+      wallAbsorb: 1,
+    });
+    fireEvent.click(gaps().getByRole("button", { name: "One thick wall" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      biggerWells: false,
+      oneWall: true,
+    });
+  });
+
+  it("has the dot and Back to separate spacers only while another choice is made, and Back puts both settings back", () => {
     const onChange = vi.fn();
     const view = render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
     openGroup("Spacers and space");
-    expect(screen.queryByRole("button", { name: /^Back to a spacer/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Back to separate spacers/ })).toBeNull();
     expect(view.container.querySelector(".st-dot")).toBeNull();
-    for (const over of [{ wallAbsorb: 2 }, { oneWall: true }, { oneWall: true, wallAbsorb: 2 }]) {
+    for (const over of [
+      { wallAbsorb: 2 },
+      { biggerWells: true },
+      { oneWall: true },
+      { oneWall: true, wallAbsorb: 2 },
+    ]) {
       view.rerender(<InsertSettings settings={changedFrom(over)} onChange={onChange} />);
       expect(view.container.querySelectorAll(".st-dot")).toHaveLength(1);
       fireEvent.click(
-        screen.getByRole("button", { name: "Back to a spacer for Fill small gaps with" }),
+        screen.getByRole("button", {
+          name: "Back to separate spacers for Fill the space that's left",
+        }),
       );
       expect(onChange).toHaveBeenLastCalledWith(DEFAULT_SETTINGS);
     }
@@ -650,7 +698,7 @@ describe("InsertSettings: what differs from the default", () => {
     expect(within(card("Walls and floors")).getByText("1 changed")).toBeTruthy();
   });
 
-  it("marks Fill small gaps with by a dot when one thick wall is chosen", () => {
+  it("marks Fill the space that's left by a dot when one thick wall is chosen", () => {
     const { container } = render(
       <InsertSettings settings={changedFrom({ oneWall: true })} onChange={vi.fn()} />,
     );
@@ -658,7 +706,7 @@ describe("InsertSettings: what differs from the default", () => {
     expect(container.querySelectorAll(".st-dot")).toHaveLength(1);
   });
 
-  it("counts Unused space and Fill small gaps with among the group's changes, the choice once", () => {
+  it("counts Unused space and Fill the space that's left among the group's changes, the choice once", () => {
     render(
       <InsertSettings
         settings={changedFrom({ leftover: "solid", oneWall: true, wallAbsorb: 2 })}

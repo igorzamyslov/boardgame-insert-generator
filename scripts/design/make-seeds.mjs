@@ -461,7 +461,7 @@ try {
   );
   const pinsRun = tune(
     "harbour-kings-pins (Hex tiles)",
-    100,
+    160,
     (count) => kit.harbourKingsPinConflict(base, count),
     (_project, result) => result.lockConflicts.length > 0 && result.layout !== null,
   );

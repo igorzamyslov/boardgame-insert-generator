@@ -2,6 +2,7 @@ import { DEFAULT_BOX, DEFAULT_PRINTER } from "./defaults";
 import { deepFreeze } from "./freeze";
 import type { Json } from "./json";
 import { migrateTo020 } from "./migrate-0.2";
+import { migrateTo030 } from "./migrate-0.3";
 import {
   isArrayIndex,
   isRecord,
@@ -63,6 +64,8 @@ export interface Migration {
 export const MIGRATIONS: Migration[] = deepFreeze([
   // 0.1 → 0.2.0: text groups become `groups`, `perPlayer` becomes `copies` (migrate-0.2.ts).
   { from: "0.1", to: "0.2.0", migrate: migrateTo020 },
+  // 0.2 → 0.3.0: per-axis `growth` becomes one `room` per item (migrate-0.3.ts).
+  { from: "0.2", to: "0.3.0", migrate: migrateTo030 },
 ]);
 
 export interface ParseOptions {
@@ -327,6 +330,9 @@ function compactSettings(out: Json): void {
   }
   if (settings.oneWall === DEFAULT_SETTINGS.oneWall) {
     delete settings.oneWall;
+  }
+  if (settings.biggerWells === DEFAULT_SETTINGS.biggerWells) {
+    delete settings.biggerWells;
   }
 }
 

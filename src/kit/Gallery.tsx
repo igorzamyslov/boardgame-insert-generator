@@ -257,7 +257,7 @@ function DisclosureDemo() {
   return (
     <>
       <Disclosure title="More options" summary="Finger cuts on, stands upright">
-        <Pick label="Room for expansions" options={SLEEVES} start="none" stretch />
+        <Pick label="Room for more cards" options={SLEEVES} start="none" stretch />
       </Disclosure>
       <Disclosure title="More options" summary="Finger cuts on, stands upright" open>
         <Pick label="How often you reach for it" options={SLEEVES} start="standard" stretch />

@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, FINGER_ROOM_MM, applyFingerRoom } from "../model/settings";
-import type {
-  CardsComponent,
-  CompartmentSpec,
-  Component,
-  FeatureSpec,
-  Settings,
-} from "../model/types";
+import type { CardsComponent, CompartmentSpec, FeatureSpec, Settings } from "../model/types";
 import { DIVIDER_GROOVE } from "./constants";
 import { dividerSlotWidth } from "./dividers";
 import { CutFitError } from "./errors";
@@ -33,11 +27,8 @@ const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabl
 const ground: RealizeOptions = { lipped: false, level: 0 };
 // Spacers appear only when the component asks for them (`separators`), so the tests of a spacer
 // ask; `bare` is the same deck asking for none.
-const single = partOf(
-  [cards({ growth: { stack: "max" }, separators: 1 })],
-  "upright-long|strip|split1",
-);
-const bare = partOf([cards({ growth: { stack: "max" } })], "upright-long|strip|split1");
+const single = partOf([cards({ room: "max", separators: 1 })], "upright-long|strip|split1");
+const bare = partOf([cards({ room: "max" })], "upright-long|strip|split1");
 const cutout = (side: "left" | "right", atMm: number, depth: number, width = 25) => ({
   type: "wallCutout",
   side,
@@ -96,12 +87,14 @@ describe("realizeTray", () => {
     }
   });
 
-  it("takes a spacer as long as the growth setting says, and the walls take what is left", () => {
-    // 30 mm beyond the deck, a 12 mm growth setting: 12 mm of spacer, the rest in the walls
-    const capped = partOf(
-      [cards({ growth: { stack: 12 }, separators: 1 })],
-      "upright-long|strip|split1",
-    );
+  it("takes a spacer as long as the growth cap says, and the walls take what is left", () => {
+    // 30 mm beyond the deck, a layout cap of 12 mm on the deck's width: 12 mm of spacer, the rest
+    // in the walls. A mm cap is what the layout hands realize (a deck's retention, say); no
+    // setting of an item's is one any more, so the requirement is capped by hand.
+    const capped: TrayPartReq = {
+      ...single,
+      compartments: single.compartments.map((c) => ({ ...c, growth: { w: 12 } })),
+    };
     const outer = { w: 26.7 + 30, d: 95.7, h: 69.2 };
     const r = realizeTray(capped, outer, s, ground);
     expect(r.spacers.map((sp) => sp.w)).toEqual([12]);
@@ -119,29 +112,36 @@ describe("realizeTray", () => {
     }
   });
 
-  it("prints no spacer for a deck or a stack of tiles at any growth setting, unless asked", () => {
-    const growths = ["auto", "max", 3, 30, 300] as const;
-    for (const growth of growths) {
+  it("prints no spacer for a deck or a stack of tiles at any room, unless asked", () => {
+    // as much as fits, a number (some: more cards or tiles), and "auto" (bigger wells)
+    const rooms: { room?: "max" | number; wells?: boolean }[] = [
+      { room: "max" },
+      { room: 3 },
+      { room: 30 },
+      { room: 300 },
+      { wells: true },
+    ];
+    for (const { room, wells } of rooms) {
+      const settings: Settings = { ...s, biggerWells: wells === true };
       for (const component of [
-        cards({ growth: { stack: growth } }),
-        tiles({ storage: "upright", growth: { stack: growth } }),
+        cards(room === undefined ? {} : { room }),
+        tiles({ storage: "upright", ...(room === undefined ? {} : { room }) }),
       ]) {
         const id =
           component.kind === "cards" ? "upright-long|strip|split1" : "upright-c1|strip|split1";
-        const part = partOf([component], id);
+        const part = partOf([component], id, settings);
         const min = minOuter(part, s, ground);
         for (const extra of [4, 12, 40, 200]) {
           const outer = { ...min, w: min.w + extra };
           const r = realizeTray(part, outer, s, ground);
-          expect(r.spacers, `${component.kind} ${growth} +${extra}`).toEqual([]);
+          expect(r.spacers, `${component.kind} ${String(room)} +${extra}`).toEqual([]);
           assertTrayInvariants(r, outer, s, ground);
         }
-        // and with it asked for, the same room is a spacer
-        const asked = partOf([{ ...component, separators: 1 }], id);
-        const outer = { ...min, w: min.w + 12 };
-        if (growth !== 3) {
-          expect(realizeTray(asked, outer, s, ground).spacers).toHaveLength(1);
-        }
+        // and with it asked for, the same room is a spacer (a number's own room is one already)
+        const asked = partOf([{ ...component, separators: 1 }], id, settings);
+        const askedMin = minOuter(asked, s, ground);
+        const outer = { ...askedMin, w: askedMin.w + 12 };
+        expect(realizeTray(asked, outer, s, ground).spacers).toHaveLength(1);
       }
     }
   });
@@ -156,10 +156,7 @@ describe("realizeTray", () => {
   });
 
   it("makes a spacer of any length up to six stacks with plates", () => {
-    const plated = partOf(
-      [cards({ growth: { stack: "max" }, separators: 2 })],
-      "upright-long|strip|split1",
-    );
+    const plated = partOf([cards({ room: "max", separators: 2 })], "upright-long|strip|split1");
     // 60 and 140 mm beyond a 23.5 mm deck: far past what a pocket would have taken, still one spacer
     for (const extra of [60, 140]) {
       const outer = { w: 26.7 + extra, d: 95.7, h: 69.2 };
@@ -174,10 +171,7 @@ describe("realizeTray", () => {
   });
 
   describe("a deck whose component asks for spacer plates", () => {
-    const plates = partOf(
-      [cards({ growth: { stack: "max" }, separators: 3 })],
-      "upright-long|strip|split1",
-    );
+    const plates = partOf([cards({ room: "max", separators: 3 })], "upright-long|strip|split1");
     const outer = { w: 56.7, d: 95.7, h: 69.2 };
 
     it("gets one spacer for the long slack", () => {
@@ -193,10 +187,7 @@ describe("realizeTray", () => {
 
     it("builds the same tray for any count of two or more: the count only changes how it prints", () => {
       for (const n of [2, 3, 10]) {
-        const part = partOf(
-          [cards({ growth: { stack: "max" }, separators: n })],
-          "upright-long|strip|split1",
-        );
+        const part = partOf([cards({ room: "max", separators: n })], "upright-long|strip|split1");
         const r = realizeTray(part, outer, s, ground);
         expect(r.compartments.map((c) => c.kind)).toEqual(["well"]);
         expect(r.spacers.map((sp) => sp.w)).toEqual([30]);
@@ -204,10 +195,7 @@ describe("realizeTray", () => {
     });
 
     it("fills the same 30 mm with one block (1 asks for a spacer too)", () => {
-      const one = partOf(
-        [cards({ growth: { stack: "max" }, separators: 1 })],
-        "upright-long|strip|split1",
-      );
+      const one = partOf([cards({ room: "max", separators: 1 })], "upright-long|strip|split1");
       expect(realizeTray(one, outer, s, ground).spacers.map((sp) => sp.w)).toEqual([30]);
     });
   });
@@ -317,7 +305,7 @@ describe("realizeTray", () => {
     const part = partOf(
       [
         cards({
-          growth: { stack: "max" },
+          room: "max",
           separators: 1,
           decks: [
             { name: "A", count: 52 },
@@ -384,9 +372,11 @@ describe("realizeTray", () => {
   });
 
   describe("bulk", () => {
+    // as much as fits: these test how a bin takes the slack a tray has (it grew by default once)
     const part = partOf(
       [
         bulk({
+          room: "max",
           items: [
             { name: "Cubes", count: 30, w: 10, d: 10, h: 10 },
             { name: "Coins", volumeMl: 50 },
@@ -450,7 +440,7 @@ describe("realizeTray", () => {
           bulk({
             fingerCuts: true,
             curvedFloor: false,
-            growth: { h: "max" },
+            room: "max",
             items: [
               { name: "Cubes", count: 30, w: 10, d: 10, h: 10 },
               { name: "Coins", volumeMl: 50 },
@@ -581,6 +571,7 @@ describe("realizeTray", () => {
     const part = partOf(
       [
         bulk({
+          room: "max",
           items: [
             { name: "Cubes", count: 30, w: 10, d: 10, h: 10 },
             { name: "Coins", volumeMl: 50 },
@@ -599,10 +590,10 @@ describe("realizeTray", () => {
     // A narrow bin (25 mm across) runs out of width before the 20 mm depth of its pile: the ramp
     // goes at most half the way across.
     const narrow = partOf(
-      // free to grow, so any outer is filled, whatever the default `auto` would allow
+      // free to grow (as much as fits), so any outer is filled
       [
         bulk({
-          growth: { w: "max", d: "max", h: "max" },
+          room: "max",
           items: [{ name: "Tiny", count: 5, w: 5, d: 5, h: 5 }],
         }),
       ],
@@ -614,11 +605,28 @@ describe("realizeTray", () => {
 
   describe("growth: the room contents may take, and no more (minimal-trays spec §5)", () => {
     const peas = { name: "Peas", count: 5, w: 5, d: 5, h: 5 };
-    const part = (growth: Component["growth"]) =>
-      partOf([bulk({ items: [peas], ...(growth ? { growth } : {}) })], "shallow|strip|split1");
+    // "auto" is what the fill setting "bigger wells" gives a bin that asked for nothing
+    const wells: Settings = { ...s, biggerWells: true };
+    /** The part with a mm cap by hand: a requirement's cap is the layout's, no item sets one now. */
+    const cap = (p: TrayPartReq, growth: NonNullable<CompartmentReq["growth"]>): TrayPartReq => ({
+      ...p,
+      compartments: p.compartments.map((c) => ({ ...c, growth })),
+    });
+    const part = (room?: "max" | number, settings: Settings = s) =>
+      partOf(
+        [bulk({ items: [peas], ...(room === undefined ? {} : { room }) })],
+        "shallow|strip|split1",
+        settings,
+      );
     // The well of a bin given `extra` mm more width than its minimum, wallAbsorb off
-    const well = (growth: Component["growth"], extra: number, stackMin?: number) => {
-      const p = part(growth);
+    const well = (
+      room: "max" | number | undefined,
+      extra: number,
+      stackMin?: number,
+      settings: Settings = s,
+      adjust: (p: TrayPartReq) => TrayPartReq = (p) => p,
+    ) => {
+      const p = adjust(part(room, settings));
       const min = minOuter(p, s, ground);
       const outer = { ...min, w: min.w + extra };
       const opts =
@@ -630,48 +638,54 @@ describe("realizeTray", () => {
       return { well: at(r.compartments, 0), min, outer };
     };
 
-    it("takes up to `auto` (the 25 mm minimum side) and leaves the rest to the walls", () => {
-      const { well: w, min } = well(undefined, 40);
+    it("takes up to `auto` (the 25 mm minimum side) under bigger wells and leaves the rest to the walls", () => {
+      const { well: w, min } = well(undefined, 40, undefined, wells);
       expect(w.w).toBeCloseTo(min.w - 3.2 + 25, 9);
     });
 
-    it("takes a number exactly", () => {
-      const { well: w, min } = well({ w: 6 }, 40);
+    it("takes a cap of mm exactly, as the layout hands it", () => {
+      const { well: w, min } = well("max", 40, undefined, s, (p) => cap(p, { w: 6 }));
       expect(w.w).toBeCloseTo(min.w - 3.2 + 6, 9);
     });
 
-    it("takes nothing when off", () => {
-      const { well: w, min } = well({ w: "off" }, 40);
+    it("takes nothing by default, and nothing of a number: that is already in its size", () => {
+      const { well: w, min } = well(undefined, 40);
       expect(w.w).toBeCloseTo(min.w - 3.2, 9);
+      const some = well(25, 40);
+      expect(some.well.w).toBeCloseTo(some.min.w - 3.2, 9);
     });
 
     it("takes everything on `max`", () => {
-      const { well: w, min } = well({ w: "max" }, 40);
+      const { well: w, min } = well("max", 40);
       expect(w.w).toBeCloseTo(min.w - 3.2 + 40, 9);
     });
 
     it("takes all of a small slack: a few millimetres need no filler", () => {
-      const { well: w, min } = well(undefined, 4);
+      const { well: w, min } = well(undefined, 4, undefined, wells);
       expect(w.w).toBeCloseTo(min.w - 3.2 + 4, 9);
     });
 
     it("takes the room a stack asks of its tray without counting it against the cap", () => {
       // the tray must be 30 mm wider to carry what stands on it: all of that is room for the bin,
       // and its 25 mm cap counts from there
-      expect(well(undefined, 35, 30).well.w).toBeCloseTo(well(undefined, 0).well.w + 35, 9);
-      const past = well(undefined, 60, 30);
-      expect(past.well.w).toBeCloseTo(well(undefined, 0).well.w + 30 + 25, 9);
+      const none = well(undefined, 0, undefined, wells).well.w;
+      expect(well(undefined, 35, 30, wells).well.w).toBeCloseTo(none + 35, 9);
+      const past = well(undefined, 60, 30, wells);
+      expect(past.well.w).toBeCloseTo(none + 30 + 25, 9);
     });
 
     it("gives a tray whose contents cannot grow thicker walls for the room a stack asks of it", () => {
-      const off = well({ w: "off" }, 35, 30);
-      expect(off.well.w).toBeCloseTo(well({ w: "off" }, 0).well.w, 9);
+      const off = well(undefined, 35, 30);
+      expect(off.well.w).toBeCloseTo(well(undefined, 0).well.w, 9);
     });
 
     it("grows rows in depth by their own caps: the least tolerant compartment of a row binds", () => {
-      const two = partOf(
-        [bulk({ items: [peas, { ...peas, name: "Seeds" }], growth: { d: 5 } })],
-        "shallow|rows2|split1",
+      const two = cap(
+        partOf(
+          [bulk({ items: [peas, { ...peas, name: "Seeds" }], room: "max" })],
+          "shallow|rows2|split1",
+        ),
+        { d: 5 },
       );
       const min = minOuter(two, s, ground);
       const outer = { ...min, d: min.d + 30 };
@@ -684,16 +698,19 @@ describe("realizeTray", () => {
     });
 
     it("never deepens a bin past its height cap", () => {
-      const p = partOf(
-        [
-          bulk({
-            fingerCuts: true,
-            curvedFloor: false,
-            growth: { h: 4 },
-            items: [{ name: "Cubes", count: 30, w: 10, d: 10, h: 10 }],
-          }),
-        ],
-        "shallow|strip|split1",
+      const p = cap(
+        partOf(
+          [
+            bulk({
+              fingerCuts: true,
+              curvedFloor: false,
+              room: "max",
+              items: [{ name: "Cubes", count: 30, w: 10, d: 10, h: 10 }],
+            }),
+          ],
+          "shallow|strip|split1",
+        ),
+        { h: 4 },
       );
       const min = minOuter(p, s, ground);
       const r = realizeTray(p, { ...min, h: min.h + 30 }, s, ground);
@@ -704,10 +721,19 @@ describe("realizeTray", () => {
   });
 
   describe("a flat deck's height (minimal-trays spec §5: riser, not a taller tray)", () => {
-    const flat = (growth?: Component["growth"]) =>
-      partOf([cards({ storage: "flat", ...(growth ? { growth } : {}) })], "flat|strip|split1");
-    const well = (growth: Component["growth"] | undefined, extra: number) => {
-      const part = flat(growth);
+    const flat = (room?: "max", settings: Settings = s) =>
+      partOf(
+        [cards({ storage: "flat", ...(room ? { room } : {}) })],
+        "flat|strip|split1",
+        settings,
+      );
+    const well = (
+      room: "max" | undefined,
+      extra: number,
+      settings: Settings = s,
+      adjust: (p: TrayPartReq) => TrayPartReq = (p) => p,
+    ) => {
+      const part = adjust(flat(room, settings));
       const min = minOuter(part, s, ground);
       const outer = { ...min, h: min.h + extra };
       const r = realizeTray(part, outer, s, ground);
@@ -721,26 +747,29 @@ describe("realizeTray", () => {
       expect(spare.depth).toBeCloseTo(none.depth, 9);
     });
 
-    it("deepens it by the number of mm asked, no more", () => {
-      expect(well({ stack: 12 }, 30).depth).toBeCloseTo(well(undefined, 0).depth + 12, 9);
+    it("deepens it by a cap of mm, no more", () => {
+      // a mm cap is the layout's, so it is put on the requirement by hand
+      const capped = well("max", 30, s, (p) => ({
+        ...p,
+        compartments: p.compartments.map((c) => ({ ...c, growth: { h: 12 } })),
+      }));
+      expect(capped.depth).toBeCloseTo(well(undefined, 0).depth + 12, 9);
     });
 
-    it("takes all the height on `max`, and the stack (at most 50 mm) on `auto`", () => {
-      expect(well({ stack: "max" }, 30).depth).toBeCloseTo(well(undefined, 0).depth + 30, 9);
-      const stack = at(flat().compartments, 0).minH;
-      expect(well({ stack: "auto" }, 30).depth).toBeCloseTo(
-        well(undefined, 0).depth + Math.min(stack, 50),
-        1,
-      );
+    it("takes all the height on `max`, and none under bigger wells (a flat deck's height is a riser's)", () => {
+      expect(well("max", 30).depth).toBeCloseTo(well(undefined, 0).depth + 30, 9);
+      // was `auto`: the stack (at most 50 mm). The fill setting never gives a flat deck room now.
+      const wells: Settings = { ...s, biggerWells: true };
+      expect(well(undefined, 30, wells).depth).toBeCloseTo(well(undefined, 0).depth, 9);
     });
   });
 
   describe("scoop walls", () => {
     const tiny = partOf(
-      // free to grow, so any outer is filled, whatever the default `auto` would allow
+      // free to grow (as much as fits), so any outer is filled
       [
         bulk({
-          growth: { w: "max", d: "max", h: "max" },
+          room: "max",
           items: [{ name: "Tiny", count: 5, w: 5, d: 5, h: 5 }],
         }),
       ],

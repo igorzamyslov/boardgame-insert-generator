@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.2.4: 0.2.0 made groups their own list and Copies replace perPlayer, 0.2.1 adds minRiser, 0.2.2 the rim's kind and the step's height, 0.2.3 a figure's keepUpright, 0.2.4 a bulk or minis item's own packing (additive PATCHes)", () => {
-    expect(SCHEMA_VERSION).toBe("0.2.4");
+  it("is at schema 0.3.0: 0.2.0 made groups their own list and Copies replace perPlayer, 0.2.1 adds minRiser, 0.2.2 the rim's kind and the step's height, 0.2.3 a figure's keepUpright, 0.2.4 a bulk or minis item's own packing (additive PATCHes), 0.3.0 replaces per-axis growth and stretch with one `room` per item and drops group growth (a MINOR with a migration, while 0.x)", () => {
+    expect(SCHEMA_VERSION).toBe("0.3.0");
   });
 
   it("parses strict semver", () => {

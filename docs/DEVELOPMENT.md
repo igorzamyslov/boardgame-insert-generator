@@ -175,6 +175,13 @@ it only with a written reason in the code or the PR.
   and wells: go through `Level.plug` and `RealizeOptions.fixedDepth`, not around them. Run
   `checkHardRules` (`layout/test-hard-rules.ts`) on a layout with copies when you add such a
   thing; it compares the printed trays of every set.
+- MUST keep growth the last step of planning (owner, 2026-10-23, DESIGN.md decision log): the
+  search (`startPhase` in `layout/optimize.ts`) builds its context with
+  `createCtx(input, measure, { growth: false })`, so no tray has room to grow, every gap is a spacer
+  and the score charges it; only `withGrowth`, once the best tree is chosen, evaluates it again with
+  growth on. Never score a plan that grew, never give a tray room in the plan that an item did not
+  ask for in its size (its "Some" room is part of the size sizing writes, `CompartmentReq.minW`), and
+  keep the trays of a set of alike trays growing together (`alikeGrowth`, `layout/fill.ts`).
 - MUST keep `src/layout/` deterministic. eslint bans `Math.random` there; use the seeded PRNG
   (`layout/prng.ts`).
 - MUST keep the geometry kernel off the main thread. eslint enforces it: outside `geometry/` you

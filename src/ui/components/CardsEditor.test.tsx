@@ -443,34 +443,32 @@ describe("CardsEditor", () => {
     });
   });
 
-  describe("room to grow (minimal-trays spec §5)", () => {
-    it("offers one choice, along the stack, set to auto by default for a deck that stands up", () => {
-      const { last } = setup(cards({ storage: "upright-long" }));
-      openMore();
-      expect(pressedIn("Room for expansions")).toBe("Auto");
-      const labels = Array.from(
-        screen.getByRole("group", { name: "Room for expansions" }).querySelectorAll("button"),
-      ).map((b) => b.textContent);
-      expect(labels).toEqual(["None", "Auto", "A set amount", "Max"]);
-      choose("Room for expansions", "None");
-      expect(last().growth).toEqual({ stack: "off" });
-      expect("stretch" in last()).toBe(false);
+  describe("room for more cards", () => {
+    it("is one row, None by default, for a deck of any stand", () => {
+      for (const storage of ["upright-long", "flat", "auto"] as const) {
+        const { view } = setup(cards({ storage }));
+        openMore();
+        expect(pressedIn("Room for more cards"), storage).toBe("None");
+        const labels = Array.from(
+          screen.getByRole("group", { name: "Room for more cards" }).querySelectorAll("button"),
+        ).map((b) => b.textContent);
+        expect(labels).toEqual(["None", "Some", "As much as fits"]);
+        view.unmount();
+      }
     });
 
-    it("names the default only in the way back, and only while the choice differs from it", () => {
+    it("names the default only in the way back, and only while a room is set", () => {
       const { view } = setup(cards({ storage: "upright-long" }));
       openMore();
       expect(screen.queryByText(/is the default/)).toBeNull();
       expect(
-        screen.queryByRole("button", { name: /^Back to .* for Room for expansions/ }),
+        screen.queryByRole("button", { name: /^Back to .* for Room for more cards/ }),
       ).toBeNull();
       view.unmount();
-      // a deck that lies flat: None is its default, so None chosen is no news and Auto is
-      setup(cards({ storage: "flat", growth: { stack: "auto" } }));
+      setup(cards({ storage: "upright-long", room: 20 }));
       openMore();
-      expect(screen.queryByText(/is the default/)).toBeNull();
       expect(
-        screen.getByRole("button", { name: "Back to None for Room for expansions" }),
+        screen.getByRole("button", { name: "Back to None for Room for more cards" }),
       ).toBeTruthy();
     });
 
@@ -480,44 +478,36 @@ describe("CardsEditor", () => {
       expect(screen.queryByRole("group", { name: /Extra (width|length|height)/ })).toBeNull();
     });
 
-    it("is none by default for a deck lying flat", () => {
-      const { last } = setup(cards({ storage: "flat" }));
-      openMore();
-      expect(pressedIn("Room for expansions")).toBe("None");
-      choose("Room for expansions", "Auto");
-      expect(last().growth).toEqual({ stack: "auto" });
-    });
-
-    it("stores nothing when the choice is the default, and removes a stored one", () => {
-      const { last } = setup(cards({ storage: "upright-long", growth: { stack: "max" } }));
-      openMore();
-      choose("Room for expansions", "Auto");
-      expect("growth" in last()).toBe(false);
-    });
-
-    it("takes a number of mm, starting at 10, and keeps it as typed", () => {
+    it("starts Some at 20 cards and keeps the number as typed", () => {
       const { last, view } = setup(cards({ storage: "upright-long" }));
       openMore();
-      choose("Room for expansions", "A set amount");
-      expect(last().growth).toEqual({ stack: 10 });
+      choose("Room for more cards", "Some");
+      expect(last().room).toBe(20);
       view.unmount();
-      const next = setup(cards({ storage: "upright-long", growth: { stack: 10 } }));
+      const next = setup(cards({ storage: "upright-long", room: 20 }));
       openMore();
-      expect(pressedIn("Room for expansions")).toBe("A set amount");
-      fireEvent.input(screen.getByLabelText(/Room for expansions, amount/), {
-        target: { value: "7,5" },
+      expect(pressedIn("Room for more cards")).toBe("Some");
+      fireEvent.input(screen.getByLabelText(/Room for more cards, amount/), {
+        target: { value: "35" },
       });
-      expect(next.last().growth).toEqual({ stack: 7.5 });
+      expect(next.last().room).toBe(35);
+    });
+
+    it("stores nothing for None", () => {
+      const { last } = setup(cards({ storage: "upright-long", room: "max" }));
+      openMore();
+      choose("Room for more cards", "None");
+      expect("room" in last()).toBe(false);
     });
   });
 
   describe("the spacer plates and the dividers", () => {
     it("offers spacer plates only while the stack may grow", () => {
-      const { view } = setup(cards({ growth: { stack: "off" } }));
+      const { view } = setup(cards());
       openRows();
       expect(screen.queryByLabelText("Spacer plates")).toBeNull();
       view.unmount();
-      const { last } = setup(cards());
+      const { last } = setup(cards({ room: 20 }));
       openRows();
       const field = screen.getByLabelText("Spacer plates") as HTMLInputElement;
       expect(field.value).toBe("0");
@@ -526,7 +516,7 @@ describe("CardsEditor", () => {
     });
 
     it("stores nothing when the count goes back to 0, and one block when it is 1", () => {
-      const { last } = setup(cards({ separators: 3 }));
+      const { last } = setup(cards({ room: 20, separators: 3 }));
       openRows();
       fireEvent.input(screen.getByLabelText("Spacer plates"), { target: { value: "1" } });
       expect(last().separators).toBe(1);
@@ -535,13 +525,13 @@ describe("CardsEditor", () => {
     });
 
     it("shows a stored count of spacer plates", () => {
-      setup(cards({ separators: 4 }));
+      setup(cards({ room: 20, separators: 4 }));
       openRows();
       expect((screen.getByLabelText("Spacer plates") as HTMLInputElement).value).toBe("4");
     });
 
     it("offers one removable divider as a chip, and a number of them in the exact values", () => {
-      const { last } = setup(cards({ storage: "upright-long" }));
+      const { last } = setup(cards({ room: 20, storage: "upright-long" }));
       openRows();
       const chip = screen.getByRole("button", { name: "Removable dividers" });
       expect(chip.getAttribute("aria-pressed")).toBe("false");
@@ -554,7 +544,7 @@ describe("CardsEditor", () => {
     });
 
     it("are offered to a deck of auto storage, which may stand", () => {
-      setup(cards({ storage: "auto" }));
+      setup(cards({ room: 20, storage: "auto" }));
       openRows();
       expect(screen.queryByRole("button", { name: "Removable dividers" })).not.toBeNull();
     });
@@ -564,7 +554,7 @@ describe("CardsEditor", () => {
       document.getElementById(el.getAttribute("aria-describedby") ?? "")?.textContent ?? "";
 
     it("blocks the dividers of a flat deck and says why, instead of dropping them", () => {
-      const { onChange } = setup(cards({ storage: "flat" }));
+      const { onChange } = setup(cards({ room: 20, storage: "flat" }));
       openRows();
       const chip = screen.getByRole("button", { name: "Removable dividers" });
       expect(chip.getAttribute("aria-disabled")).toBe("true");
@@ -586,7 +576,7 @@ describe("CardsEditor", () => {
         { name: "A", count: 20 },
         { name: "B", count: 20 },
       ];
-      setup(cards({ storage: "flat", decks }));
+      setup(cards({ room: 20, storage: "flat", decks }));
       openRows();
       const chip = within(screen.getByRole("group", { name: "Tray shape" })).getByRole("button", {
         name: "Removable dividers",
@@ -599,21 +589,21 @@ describe("CardsEditor", () => {
     });
 
     it("blocks the spacer plates and the dividers of a deck with no room to grow, with the reasons", () => {
-      setup(cards({ growth: { stack: "off" } }));
+      setup(cards());
       openRows();
       expect(screen.getByRole("button", { name: /^Spacer plates/ }).textContent).toContain(
-        "Spacer plates need room for expansions.",
+        "Spacer plates need Room for more cards.",
       );
       const chip = screen.getByRole("button", { name: "Removable dividers" });
       expect(chip.getAttribute("aria-disabled")).toBe("true");
-      expect(reasonOf(chip)).toBe("Dividers need room for expansions.");
+      expect(reasonOf(chip)).toBe("Dividers need Room for more cards.");
       expect(screen.getByRole("button", { name: /^Dividers/ }).textContent).toContain(
-        "Dividers need room for expansions.",
+        "Dividers need Room for more cards.",
       );
     });
 
     it("blocks the spacer plates while the well has dividers", () => {
-      setup(cards({ storage: "upright-long", dividers: 2, separators: 4 }));
+      setup(cards({ room: 20, storage: "upright-long", dividers: 2, separators: 4 }));
       openRows();
       const row = screen.getByRole("button", { name: /^Spacer plates/ });
       expect(row.getAttribute("aria-disabled")).toBe("true");
@@ -625,7 +615,7 @@ describe("CardsEditor", () => {
     });
 
     it("blocks nothing where the deck can have both", () => {
-      setup(cards({ storage: "upright-long" }));
+      setup(cards({ room: 20, storage: "upright-long" }));
       openRows();
       for (const name of [/^Spacer plates/, /^Dividers/, /^Removable dividers$/]) {
         expect(screen.getByRole("button", { name }).getAttribute("aria-disabled")).toBeNull();
@@ -633,14 +623,14 @@ describe("CardsEditor", () => {
     });
 
     it("stores nothing when the count goes back to 0", () => {
-      const { last } = setup(cards({ storage: "upright-long", dividers: 3 }));
+      const { last } = setup(cards({ room: 20, storage: "upright-long", dividers: 3 }));
       openRows();
       fireEvent.input(screen.getByLabelText("Number of dividers"), { target: { value: "0" } });
       expect("dividers" in last()).toBe(false);
     });
 
     it("are held to the bound", () => {
-      const { onChange } = setup(cards({ storage: "upright-long" }));
+      const { onChange } = setup(cards({ room: 20, storage: "upright-long" }));
       openRows();
       fireEvent.input(screen.getByLabelText("Number of dividers"), { target: { value: "99" } });
       expect(onChange).not.toHaveBeenCalled();

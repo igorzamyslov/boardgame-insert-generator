@@ -4,7 +4,6 @@ import type { CustomComponent } from "../../model/types";
 import { LENGTH } from "../limits";
 import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { CountField, Group, NumField } from "./controls";
-import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
 import { BinNotes, TrayShape } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -51,7 +50,6 @@ export function CustomEditor({ component: c, index, onChange }: EditorProps<Cust
       />
       <BinNotes component={c} index={index} />
       <MoreOptions component={c} errorPaths={commonOptionPaths(index)}>
-        <GrowthOptions component={c} index={index} onChange={onChange} />
         <AccessChoice component={c} index={index} onChange={onChange} />
         <TrayShape component={c} index={index} onChange={onChange} />
         <CommonRows component={c} index={index} onChange={onChange} />

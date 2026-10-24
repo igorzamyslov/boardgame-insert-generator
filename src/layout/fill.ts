@@ -1,4 +1,4 @@
-import { bedExcess, bedOrientations, splitForBed } from "./bed";
+import { bedExcess, bedOrientations, fitsBed, splitForBed } from "./bed";
 import { GRIP_U, printedHeight, type Ctx } from "./context";
 import {
   levelAbsorb,
@@ -11,7 +11,15 @@ import {
   type Level,
 } from "./stack";
 import type { OuterCutSides } from "../sizing";
-import { placeLeaves, type Leaf, type StackItem, type Tree, type TreeNode } from "./tree";
+import {
+  packedToWall,
+  placeLeaves,
+  type Leaf,
+  type PlacedLeaf,
+  type StackItem,
+  type Tree,
+  type TreeNode,
+} from "./tree";
 import type { Ext, Rect, U } from "./units";
 
 const NO_CUTS: OuterCutSides = { left: false, right: false, front: false, back: false };
@@ -142,6 +150,67 @@ function axisExtent(ctx: Ctx, minFiller: U, L: U, F: U, a: U, g: U, c: U): { b: 
   return { b, over: 0 };
 }
 
+/** An alike tray's footprint: its set's size, and the room its set was given (`alikeGrowth`), turned as the tray is. */
+function alikeFoot(l: Level, F: Ext, extras: ReadonlyMap<number, Ext> | undefined): Ext {
+  const e = extras?.get(l.alike);
+  if (e === undefined) {
+    return F;
+  }
+  return l.item.rotated ? { w: F.w + e.d, d: F.d + e.w } : { w: F.w + e.w, d: F.d + e.d };
+}
+
+/**
+ * The room each set of alike trays may be given beyond its size, in the tray's own frame: what its
+ * least roomy place leaves it, up to what its contents may take (`levelGrowth`), so every tray of a
+ * set grows by the same and stays one size, with the same wells (owner, 2026-10-23: copies are
+ * alike, "if one copy's well grows, every copy's does"). A set that stands in a stack with another of
+ * its own gets none, as the tray above stands flush in the one below. Nothing without room for
+ * growth in the context (planning) or for a tray on a size lock.
+ */
+export function alikeGrowth(
+  ctx: Ctx,
+  leaves: readonly PlacedLeaf[],
+  levelsOf: (leaf: Leaf) => Level[],
+): Map<number, Ext> | undefined {
+  const given = new Map<number, Ext>();
+  for (const pl of leaves) {
+    const levels = levelsOf(pl.leaf);
+    const mins = levelMinFootprints(levels);
+    let region: Ext = { w: pl.rect.w, d: pl.rect.d };
+    levels.forEach((l, k) => {
+      const F = mins[k];
+      if (F === undefined) {
+        return;
+      }
+      if (l.alike >= 0) {
+        const g = levelGrowth(l);
+        const lock = levelLockCap(l);
+        let e: Ext = {
+          w: Math.max(0, Math.min(g.w, Math.min(region.w, lock.w) - F.w)),
+          d: Math.max(0, Math.min(g.d, Math.min(region.d, lock.d) - F.d)),
+        };
+        if (!fitsBed(ctx.bed, F.w + e.w, F.d + e.d, 0)) {
+          e = { w: 0, d: 0 };
+        }
+        const own = l.item.rotated ? { w: e.d, d: e.w } : e;
+        const had = given.get(l.alike);
+        given.set(
+          l.alike,
+          had === undefined ? own : { w: Math.min(had.w, own.w), d: Math.min(had.d, own.d) },
+        );
+      }
+      // the next tray stands flush in this one, at its size
+      region = { w: F.w, d: F.d };
+    });
+  }
+  for (const [set, e] of given) {
+    if (e.w <= 0 && e.d <= 0) {
+      given.delete(set);
+    }
+  }
+  return given.size > 0 ? given : undefined;
+}
+
 /** The tray of one level inside the `rect` its level has: its extent, trying each bed orientation. */
 function chooseTray(
   ctx: Ctx,
@@ -229,7 +298,13 @@ function beside(ctx: Ctx, region: Rect, foot: Ext, highX = false, highY = false)
  *   absorbed), so a tray's walls never depend on what it is stacked on.
  * Heights come from stackHeights.
  */
-export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): StackPlacement {
+export function placeStack(
+  ctx: Ctx,
+  levels: readonly Level[],
+  rect: Rect,
+  /** The room each set of alike trays is given beyond its size, in the tray's own frame (`alikeGrowth`). */
+  extras?: ReadonlyMap<number, Ext>,
+): StackPlacement {
   if (levels.length === 0) {
     return {
       trays: [],
@@ -267,15 +342,24 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
     // An alike tray is as big as its set asks and no bigger, wherever it stands and whatever room
     // it has: what is left of its room is for fillers (owner, 2026-10-23: "where a copy's slot has
     // spare room, spacers take it, not the tray"), so every tray of the set is the same size.
-    const foot = l.alike >= 0 ? F : chooseTray(ctx, l, F, region, minFiller).foot;
+    const foot =
+      l.alike >= 0 ? alikeFoot(l, F, extras) : chooseTray(ctx, l, F, region, minFiller).foot;
     const h = heights.h[k] ?? 0;
     // An upper tray with slack beside it stands at the end of its axis that keeps the filler off
     // the walls a finger cut goes through, when only one of the two ends has one (spec §6.4). The
     // trays above stand inside it, so their cuts count too. The bottom tray stays in its corner:
     // a cut there faces the neighbouring leaf or the box wall either way.
     const cuts = k > 0 ? cutsFrom[k] : undefined;
-    const highX = cuts !== undefined && foot.w < region.w && cuts.right && !cuts.left;
-    const highY = cuts !== undefined && foot.d < region.d && cuts.back && !cuts.front;
+    // In the last step the bottom tray also moves away from a box wall its leaf touches, when the room
+    // beside it would otherwise lie between it and its neighbours: the room goes against the wall
+    // (owner, 2026-10-23), unless a cut goes through that wall's side of the tray.
+    const own = cutsFrom[k] ?? NO_CUTS;
+    const wallX =
+      k === 0 && ctx.growing && region.x === 0 && region.x + region.w < ctx.floorW && !own.left;
+    const wallY =
+      k === 0 && ctx.growing && region.y === 0 && region.y + region.d < ctx.floorD && !own.front;
+    const highX = foot.w < region.w && (wallX || (cuts !== undefined && cuts.right && !cuts.left));
+    const highY = foot.d < region.d && (wallY || (cuts !== undefined && cuts.back && !cuts.front));
     const at = {
       x: highX ? region.x + region.w - foot.w : region.x,
       y: highY ? region.y + region.d - foot.d : region.y,
@@ -459,8 +543,19 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
     return lv;
   };
   const floor: Rect = { x: 0, y: 0, w: ctx.floorW, d: ctx.floorD };
-  const placement = placeLeaves(tree.root, floor, ctx.gap, (leaf) =>
-    stackMinFootprint(ctx, levelsOf(leaf)),
+  // The last step of planning (the context may grow trays) puts the room left where it belongs: with
+  // the trays that grow, else at the wall (`packedToWall`). The search itself keeps the shares it
+  // moves: it scores the same tree, and packing is no part of finding a fit (measured: with it in
+  // the search, a tight box lost its fit on the default seed).
+  const growsIn = ctx.growing
+    ? (leaf: Leaf, axis: "x" | "y"): boolean =>
+        levelsOf(leaf).some((l) => (axis === "x" ? l.growW > 0 : l.growD > 0))
+    : undefined;
+  const placement = placeLeaves(
+    growsIn === undefined ? tree.root : packedToWall(tree.root, growsIn),
+    floor,
+    ctx.gap,
+    (leaf) => stackMinFootprint(ctx, levelsOf(leaf)),
   );
   const trays: PlacedTray[] = [];
   const leftovers: PlacedLeftover[] = [];
@@ -473,9 +568,10 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
   const leftoverH = Math.max(0, ctx.topPlane);
   const pending: { path: string; rect: Rect }[] = [];
   const inLevel: { path: string; stack: number; filler: LevelFiller }[] = [];
+  const extras = withAlike.length > 0 ? alikeGrowth(ctx, placement.leaves, levelsOf) : undefined;
   for (const pl of placement.leaves) {
     const levels = levelsOf(pl.leaf);
-    const sp = placeStack(ctx, levels, pl.rect);
+    const sp = placeStack(ctx, levels, pl.rect, extras);
     z += sp.overflowZ;
     zMax = Math.max(zMax, sp.overflowZ);
     lock += sp.overflowLock;

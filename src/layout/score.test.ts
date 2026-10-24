@@ -659,6 +659,9 @@ describe("score", () => {
     const ctx = createCtx(
       makeInput([set], { box: { innerWidth: 56, innerDepth: 46 } }),
       fakeMeasure,
+      // the plan as the search scores it: growth is the last step, and with it on the copy would
+      // be given the 2 mm (a copy of a set grows with its set) and nothing would be left over
+      { growth: false },
     );
     const plan = evaluate(ctx, {
       root: leaf([{ req: 0, variant: 0, part: 0, rotated: false }]),

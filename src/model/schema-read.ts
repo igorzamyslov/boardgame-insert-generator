@@ -223,6 +223,7 @@ function readSettings(r: Reader | undefined): Settings {
     minRiser: r.num("minRiser", d.minRiser),
     wallAbsorb: r.num("wallAbsorb", legacyWallAbsorb),
     oneWall: r.bool("oneWall", d.oneWall),
+    biggerWells: r.bool("biggerWells", d.biggerWells),
     mergeFillers: r.bool("mergeFillers", d.mergeFillers),
     mergeRisers: r.bool("mergeRisers", d.mergeRisers),
     infill: r.num("infill", d.infill),

@@ -2,7 +2,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { newComponent, withGrowth } from "../../model/defaults";
+import { newComponent } from "../../model/defaults";
 import type { CardsComponent, Component, ComponentKind } from "../../model/types";
 import { EditorPanel } from "./EditorPanel";
 import { choose, openMore, openRows } from "./test-editors";
@@ -50,31 +50,31 @@ const OPTIONS: Record<
       "Cards stand",
       /^Correct the estimated thickness/,
       /^Measure a stack of cards/,
-      "Room for expansions",
+      "Room for more cards",
       "Spacer plates",
       "Removable dividers",
       "Number of dividers",
     ],
-    component: () => of("cards"),
+    component: () => ({ ...of("cards"), room: 20 }),
   },
   bulk: {
     basics: ["Name", "Piece 1", "How many of piece 1", /^Height mm of piece 1/],
-    more: [...COMMON, "Curved floor", "Extra width", "Extra length", "Extra height"],
+    more: [...COMMON, "Curved floor", "Room for more pieces"],
     component: () => of("bulk"),
   },
   tiles: {
     basics: ["Name", "Shape", "Side mm", "Thickness (mm)", "Number of tiles", "Tiles stand"],
-    more: [...COMMON, "Room for expansions", "Spacer plates", "Removable dividers"],
-    component: () => of("tiles"),
+    more: [...COMMON, "Room for more tiles", "Spacer plates", "Removable dividers"],
+    component: () => ({ ...of("tiles"), room: 10 }),
   },
   minis: {
     basics: ["Name", "Name of figure 1", /^Wide/, /^Tall/, "How they're stored"],
-    more: [...COMMON, "Curved floor", "Looser pockets: width", "Looser pockets: length"],
+    more: [...COMMON, "Curved floor"],
     component: () => of("minis"),
   },
   custom: {
     basics: ["Name", /^Width mm/, /^Depth mm/, /^Height mm/, "Number of items"],
-    more: [...COMMON, "Curved floor", "Extra width", "Extra length", "Extra height"],
+    more: [...COMMON, "Curved floor"],
     component: () => of("custom"),
   },
 };
@@ -245,19 +245,19 @@ describe("EditorPanel", () => {
   });
 
   describe("telling the stage what an option change did", () => {
-    const grown = (): CardsComponent => withGrowth(of("cards"), "stack", "off");
+    const grown = (): CardsComponent => of("cards");
 
     it("says what room to grow does, once, to the owner of the stage's slot", () => {
       const { onChange, onNote } = panel(grown());
       openMore();
-      choose("Room for expansions", "Auto");
+      choose("Room for more cards", "Some");
       expect(onChange).toHaveBeenCalledTimes(1);
       expect(onNote).toHaveBeenCalledTimes(1);
       expect(onNote).toHaveBeenCalledWith("Leaves room to grow. The deck stands in a wider well.");
     });
 
     it("explains the spacer when the number goes from 0 to 1", () => {
-      const { onNote } = panel(of("cards"));
+      const { onNote } = panel({ ...of("cards"), room: 20 });
       openRows();
       fireEvent.input(screen.getByLabelText("Spacer plates"), { target: { value: "1" } });
       expect(onNote).toHaveBeenCalledWith("A removable spacer fills the gap.");

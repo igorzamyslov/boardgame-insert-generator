@@ -64,9 +64,9 @@ type RowSpec =
 
 const LEFTOVER_WORDS = "Unused space spare tray solid block";
 const SPARE_ROOM_WORDS =
-  "Fill small gaps with a spacer thicker walls one thick wall instead of a spacer extra thickness per wall";
+  "Fill the space that's left separate spacers bigger wells thicker walls one thick wall instead of a spacer extra thickness per wall";
 
-/** The numbers a choice draws itself (Fill small gaps with draws the wall thickness), so they are no row of their own. */
+/** The numbers a choice draws itself (Fill the space that's left draws the wall thickness), so they are no row of their own. */
 const NESTED_PATHS: readonly string[] = ["wallAbsorb"];
 
 function rowsOf(g: ExactGroup): RowSpec[] {
@@ -290,10 +290,11 @@ function LeftoverRow({ settings, onChange }: SettingsFormProps) {
   );
 }
 
-const SPARE_ROOM_LABEL = "Fill small gaps with";
+const SPARE_ROOM_LABEL = "Fill the space that's left";
 
 const SPARE_ROOM_CHOICES: readonly { value: SpareRoom; label: string }[] = [
-  { value: "spacer", label: "A spacer" },
+  { value: "spacer", label: "Separate spacers" },
+  { value: "wells", label: "Bigger wells" },
   { value: "walls", label: "Thicker walls" },
   { value: "one", label: "One thick wall" },
 ];
@@ -302,7 +303,9 @@ const SPARE_ROOM_CHOICES: readonly { value: SpareRoom; label: string }[] = [
 function spareRoomLine(s: Settings): string {
   switch (spareRoomOf(s)) {
     case "spacer":
-      return "A gap a tray can't use is printed as a separate spacer.";
+      return "Room left beside a tray is printed as separate spacers.";
+    case "wells":
+      return "Room left goes into the wells of items set to As much as fits first, then into the others' wells as far as each can use it. What is still left is a separate spacer.";
     case "walls":
       return `Instead of a spacer, every wall and divider may get up to ${formatNumber(s.wallAbsorb)} mm thicker.`;
     case "one":
@@ -310,7 +313,7 @@ function spareRoomLine(s: Settings): string {
   }
 }
 
-/** The wall thickness box of "Thicker walls": above 0, as 0 is "A spacer". */
+/** The wall thickness box of "Thicker walls": above 0, as 0 is "Separate spacers". */
 const WALL_THICKNESS_RULES: NumberRules = {
   min: 0,
   minExclusive: true,
@@ -330,7 +333,7 @@ function SpareRoomRow({ settings, onChange }: SettingsFormProps) {
   const range = rangeOf("wallAbsorb");
   return (
     <>
-      <div class="st-row__choice" ref={wrap}>
+      <div class="st-row__choice st-row__choice--wrap" ref={wrap}>
         <span class="st-row__label">
           {SPARE_ROOM_LABEL}
           {changed ? <Dot /> : null}
@@ -349,14 +352,14 @@ function SpareRoomRow({ settings, onChange }: SettingsFormProps) {
           <button
             type="button"
             class="st-back"
-            aria-label={`Back to a spacer for ${SPARE_ROOM_LABEL}`}
+            aria-label={`Back to separate spacers for ${SPARE_ROOM_LABEL}`}
             onClick={() => {
               onChange(applySpareRoom(settings, "spacer"));
               // The button goes with the difference: keep the keyboard on the choice.
               wrap.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus();
             }}
           >
-            Back to a spacer
+            Back to separate spacers
           </button>
         ) : null}
       </div>
@@ -392,7 +395,7 @@ function changedIn(g: ExactGroup, s: Settings): number {
   };
   // Room for fingers writes two numbers (wall and divider room): one setting, as the header counts it.
   const room = ["fingerPocket/wallRoom", "fingerPocket/dividerRoom"];
-  // Fill small gaps with writes the wall thickness and the one-wall switch: one choice, drawn as one row.
+  // Fill the space that's left writes the wall thickness, the one-wall switch and bigger wells: one choice, drawn as one row.
   const numbers =
     g.paths.filter((p) => !room.includes(p) && !NESTED_PATHS.includes(p) && differs(p)).length +
     (g.paths.some((p) => room.includes(p)) && room.some(differs) ? 1 : 0);

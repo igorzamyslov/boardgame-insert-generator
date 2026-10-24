@@ -131,8 +131,8 @@ describe("SettingsSheet", () => {
     for (const r of SETTING_RANGES) {
       fireEvent.input(screen.getByRole("searchbox"), { target: { value: r.label } });
       if (r.path === "wallAbsorb") {
-        // its box is drawn by "Fill small gaps with", under Thicker walls
-        expect(screen.getByRole("group", { name: "Fill small gaps with" })).toBeTruthy();
+        // its box is drawn by "Fill the space that's left", under Thicker walls
+        expect(screen.getByRole("group", { name: "Fill the space that's left" })).toBeTruthy();
         continue;
       }
       // a unit is part of a number's name: "Wall (mm)"
@@ -143,9 +143,12 @@ describe("SettingsSheet", () => {
     expect(screen.getByRole("group", { name: "Unused space" })).toBeTruthy();
     fireEvent.input(screen.getByRole("searchbox"), { target: { value: "one thick wall" } });
     expect(
-      within(screen.getByRole("group", { name: "Fill small gaps with" })).getByRole("button", {
-        name: "One thick wall",
-      }),
+      within(screen.getByRole("group", { name: "Fill the space that's left" })).getByRole(
+        "button",
+        {
+          name: "One thick wall",
+        },
+      ),
     ).toBeTruthy();
     // My printer: the bed, its details, and what changes only the printing
     fireEvent.click(tab(/^My printer/));

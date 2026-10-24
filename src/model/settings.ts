@@ -115,6 +115,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   minRiser: 3,
   wallAbsorb: 0,
   oneWall: false,
+  biggerWells: false,
   mergeFillers: true,
   // On by default (owner, 2026-10-21): a file that says nothing about it reads on too.
   mergeRisers: true,

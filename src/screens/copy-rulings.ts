@@ -243,7 +243,7 @@ const EDITOR_SIZES = "Card sizes are the engine's presets";
 const EDITOR_SUMMARY = "More options says what is inside it";
 const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
 const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
-const EDITOR_MAX = "A growth choice on Max says what Max means";
+const EDITOR_ROOM_MORE = "Room for more is one row per item, in the contents' terms";
 const RESIZE = "The rail's handle is named";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_CHANGED = "More options marks what differs from its default";
@@ -272,16 +272,8 @@ const EDITOR_LABELS: readonly string[] = [
   "Remove…",
   "Remove {name}…",
   // groups and their choices
-  "Room for expansions",
-  "Extra width",
-  "Extra length",
-  "Extra height",
-  "Looser pockets: width",
-  "Looser pockets: length",
   "None",
   "Auto",
-  "A set amount",
-  "Max",
   "How often you reach for it",
   "Often",
   "Sometimes",
@@ -407,7 +399,7 @@ const SET_RISERS = "Settings' first screen also has two riser rows";
 const SET_INTRO = "My printer's intro names the values it covers";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
-const SET_GAPS = "Fill small gaps with is one choice of what the engine does with spare room";
+const SET_GAPS = "Fill the space that's left is one choice of what the engine does with spare room";
 const SET_KIND = "Rim between layers is a rim and groove or a stepped base";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
@@ -424,12 +416,18 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Unused space", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Solid block", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "Fill small gaps with", states: SETTINGS_STATES, ruling: SET_GAPS },
-  { text: "A spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "Fill the space that's left", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "Separate spacers", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "Bigger wells", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "Thicker walls", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "One thick wall", states: SETTINGS_STATES, ruling: SET_GAPS },
   {
-    text: "A gap a tray can't use is printed as a separate spacer.",
+    text: "Room left beside a tray is printed as separate spacers.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS,
+  },
+  {
+    text: "Room left goes into the wells of items set to As much as fits first, then into the others' wells as far as each can use it. What is still left is a separate spacer.",
     states: SETTINGS_STATES,
     ruling: SET_GAPS,
   },
@@ -445,7 +443,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   { text: "{name} stays upright", states: MINIS_STATES, ruling: UPRIGHT },
   { text: "Never laid on its side", states: MINIS_STATES, ruling: UPRIGHT },
-  { text: "Back to a spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "Back to separate spacers", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
   { text: "Thin", states: SETTINGS_STATES, ruling: THIN_WALLS },
   { text: "You set the floor or the dividers below.", states: SETTINGS_STATES, ruling: THIN_WALLS },
@@ -799,8 +797,10 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   ...[
     "Flat decks have no dividers.",
     "Flat stacks have no dividers.",
-    "Dividers need room for expansions.",
-    "Spacer plates need room for expansions.",
+    "Dividers need Room for more cards.",
+    "Dividers need Room for more tiles.",
+    "Spacer plates need Room for more cards.",
+    "Spacer plates need Room for more tiles.",
     "Dividers take the place of spacer plates.",
   ].map((text) => ({ text, states: EDITING, ruling: EDITOR_BLOCKED })),
   // the engine's presets, as the chips and the size line say them
@@ -891,7 +891,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // the stage sentence: Edit's, for the kinds and the counts it does not draw
   {
     text: "tray, {name} × {name} mm.",
-    states: [...EDITS, ...PHONE_EDITS],
+    states: [...EDITS, ...PHONE_EDITS, "workspace-failed", "no-fit", "pin-conflict"],
     ruling: EDITOR_SENTENCE,
   },
   {
@@ -918,13 +918,22 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["editor-note", ...PHONE_EDITS] as readonly string[],
     ruling: EDITOR_NOTES,
   })),
-  // what Max means, under a growth choice that is on Max (the editors' growth options)
-  {
-    text: "As much as fits beside the other trays and on your printer's bed.",
-    states: EDITING,
-    ruling: EDITOR_MAX,
-  },
-  { text: "As tall as the box allows.", states: EDITING, ruling: EDITOR_MAX },
+  // Room for more (cards, tiles, pieces): the row, its choices, its amount and its line
+  ...[
+    "Room for more cards",
+    "Room for more tiles",
+    "Room for more pieces",
+    "Room for more cards, amount",
+    "Room for more tiles, amount",
+    "Room for more pieces, amount",
+    "Some",
+    "As much as fits",
+    "The tray is planned with room for {n} more cards.",
+    "The tray is planned with room for {n} more tiles.",
+    "The tray is planned with room for {n}% more pieces.",
+    "Takes the room left over once the layout is chosen.",
+    "Fills the room left in {name}'s tray. The tray doesn't get bigger.",
+  ].map((text) => ({ text, states: EDITING, ruling: EDITOR_ROOM_MORE })),
   // asking before a removal, and the note after it (it sits in the stage slot, as the option notes do)
   { text: "Remove “{name}” from the box?", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Remove", states: EDITING, ruling: EDITOR_REMOVE },
