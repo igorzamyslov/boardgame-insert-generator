@@ -154,8 +154,7 @@ describe("finger cuts and curved floor toggles", () => {
       bottomChamfer: 0,
       fingerPocket: { width: 5.002, floorNotch: 0, wallRoom: 0.891, dividerRoom: 12.611 },
       lip: {
-        enabled: false,
-        kind: "rim" as const,
+        joint: "off" as const,
         height: 1,
         thickness: 0.9,
         ledge: 0.5,

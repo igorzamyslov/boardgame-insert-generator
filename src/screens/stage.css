@@ -37,6 +37,11 @@
   flex: 1;
 }
 
+/* Under the plan (board 9): the column centres its children, this row takes its width. */
+.plan-col > .stage-segs--phone {
+  align-self: stretch;
+}
+
 /*
  * Stop, after "Searching…": a 44 px target on a title line that is shorter, so it takes no height
  * of its own (the row is as tall searching as it is not: nothing below moves).
@@ -129,50 +134,28 @@
 }
 
 /*
- * The slot above the plan's box (Main): the tray bar while a tray is selected, a toast; empty (and
- * held) while nothing is. 52 px tall, taller when what it holds is.
+ * The slot over the plan's box (Main, until board 4 of the 2026-10-23 review): it holds no room any
+ * more, the tray dock has its own place at the foot of the column. It is the anchor of what is said
+ * for a moment: a swap's prompt, a refusal, the note about a removal. Those float over the top of the
+ * box, so saying something moves and resizes nothing.
  */
 .stage-slot {
   position: relative;
-  display: flex;
-  flex: none;
-  align-items: center;
-  align-self: stretch;
-  min-height: var(--stage-slot);
-}
-
-/*
- * Over the plan the slot is as tall as the tray bar, so choosing a tray (the bar replaces the hint)
- * moves and resizes nothing below it: with the plan's frame limited by the height the stage has
- * left (0.6.0: it is up to 900 px now), a slot that grew would shrink the frame.
- */
-.plan-col .stage-slot {
-  min-height: var(--stage-slot-bar);
-}
-
-/*
- * A phone's plan has no slot while nothing is said (MobileWorkspace goes from the segments straight
- * to the box): the idle slot is only for a reader, out of the flow and with no height, whatever the
- * desktop slot above gives it. (`.visually-hidden` is declared before this file, so the slot's own
- * `position: relative` and min-height won, and an 80 px empty band sat above the box.)
- */
-.stage-slot.visually-hidden {
-  position: absolute;
-  min-height: 0;
-}
-
-/*
- * What the plan says while a swap is chosen, with the tray bar in the slot: a small pill over the
- * top of the box, so the slot keeps its height and the plan does not move. It lets presses through
- * to the tiles under it.
- */
-.stage-slot[data-held="true"] > [role="status"]:not(:empty) {
-  position: absolute;
-  top: calc(100% + var(--s-2));
-  left: 50%;
   z-index: 5;
+  align-self: stretch;
+  height: 0;
+}
+
+.stage-slot > * {
+  position: absolute;
+  top: var(--s-4);
+  left: 50%;
   box-sizing: border-box;
   max-width: calc(100% - 2 * var(--s-12));
+  transform: translateX(-50%);
+}
+
+.stage-slot > [role="status"]:not(:empty) {
   padding: var(--s-2) var(--s-12);
   border: 1px solid var(--rule);
   border-radius: var(--r-pill);
@@ -180,11 +163,81 @@
   box-shadow: var(--shadow-toast);
   font-size: var(--text-xs);
   text-align: center;
-  white-space: nowrap;
-  transform: translateX(-50%);
   pointer-events: none;
+}
+
+.stage-slot > [role="status"]:empty {
+  display: none;
 }
 
 .stage-slot p {
   margin: 0;
+}
+
+/*
+ * The tray dock (board 4): the selected tray's label, Edit and ⋯, docked over the foot of the
+ * plan's column, centred, one place in Top and in 3D. It floats, so selecting a tray moves nothing.
+ * On a phone it is fixed above the sheet's peek, still at the bottom centre.
+ */
+.plan-col {
+  position: relative;
+  padding-bottom: var(
+    --s-40
+  ); /* the dock's place, always: the plan is as big with a tray picked as without */
+}
+
+.tray-dock {
+  position: absolute;
+  bottom: var(--s-4);
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  width: min(calc(100% - 2 * var(--s-12)), 480px);
+  transform: translateX(-50%);
+}
+
+@media (width < 760px) {
+  .tray-dock {
+    position: fixed;
+    bottom: calc(var(--sheet-foot) + var(--s-8));
+    width: min(calc(100% - 2 * var(--s-12)), 480px);
+  }
+}
+
+/* The folded phone sheet's chips (board 9): one per item or group, in its shade; 44 px to press. */
+.item-chips {
+  display: flex;
+  flex: none;
+  gap: var(--s-8);
+  align-items: center;
+  margin: 0;
+  padding: 0 var(--s-8) 0 0;
+  list-style: none;
+}
+
+.item-chips > li {
+  flex: none;
+}
+
+.item-chip {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 150px;
+  min-height: var(--control-h);
+  margin: 0;
+  padding: 0 var(--s-14);
+  border: 1.5px solid var(--chip-line);
+  border-radius: var(--r-pill);
+  background: var(--chip-fill);
+  color: var(--chip-ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.item-chip[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
 }

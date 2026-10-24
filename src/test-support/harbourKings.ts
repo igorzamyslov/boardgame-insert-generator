@@ -108,7 +108,13 @@ function untuned(): Project {
       storedOnSide: false,
     },
     printer: { bedX: 256, bedY: 256, bedZ: 256, bedMargin: 5, layerHeight: 0.2 },
-    settings: structuredClone(DEFAULT_SETTINGS),
+    // The rim and groove, which every plan, seed and board of the game was made with. New inserts
+    // start with Auto, which plans this game with the stepped base and a full-height Heroes tray;
+    // the states made from it need the short bottom layer (see LAYER_TUNING), so it names the joint.
+    settings: {
+      ...structuredClone(DEFAULT_SETTINGS),
+      lip: { ...DEFAULT_SETTINGS.lip, joint: "rim" as const },
+    },
     components: [
       cards("market01", "Market deck", "often", [{ name: "Market deck", count: 80 }]),
       cards("starter1", "Starter decks", "setup", [

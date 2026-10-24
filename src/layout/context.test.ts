@@ -21,7 +21,9 @@ describe("createCtx", () => {
   // With the lip on a tray above level 0 has a groove along its outer edge for the lip below, and
   // so a thicker wall; with the lip off it has neither, and is as the tray under it.
   it("gives upper levels the groove's wall with the lip on, and the plain wall with it off", () => {
-    const off = makeInput([], { settings: { lip: { ...DEFAULT_SETTINGS.lip, enabled: false } } });
+    const off = makeInput([], {
+      settings: { lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const } },
+    });
     const ctx = createCtx(off, fakeMeasure);
     expect(ctx.upperWall).toBe(ctx.wall);
     expect(ctx.minFillerUpper).toBe(Math.max(ctx.wall, 2 * Math.round(100 * (0.5 + 0.8))));

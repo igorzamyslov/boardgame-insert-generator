@@ -22,41 +22,63 @@ function raw(p: Project): Json {
 }
 
 describe("the rim's kind", () => {
-  it("is the rim by default, with a 1.5 mm step for the stepped base", () => {
-    expect(DEFAULT_SETTINGS.lip.kind).toBe("rim");
+  it("is Auto by default, with a 1.5 mm step for the stepped base; unresolved, Auto builds as the rim", () => {
+    expect(DEFAULT_SETTINGS.lip.joint).toBe("auto");
     expect(DEFAULT_SETTINGS.lip.stepHeight).toBe(1.5);
     expect(rimOn(DEFAULT_SETTINGS)).toBe(true);
     expect(stepOn(DEFAULT_SETTINGS)).toBe(false);
   });
 
-  it("reads a file without a kind as the rim, and keeps the step and its height", () => {
+  it("reads a file with the switch on and no kind as the rim, and keeps the step and its height", () => {
     const file = raw(sampleProject());
     const lip = (file.settings as Json).lip as Json;
-    delete lip.kind;
+    delete lip.joint;
+    lip.enabled = true;
     delete lip.stepHeight;
     const old = parseProject(file);
-    expect(old.ok && old.project.settings.lip).toMatchObject({ kind: "rim", stepHeight: 1.5 });
-    const stepped = parseProject(raw(withLip(sampleProject(), { kind: "step", stepHeight: 2.2 })));
+    expect(old.ok && old.project.settings.lip).toMatchObject({ joint: "rim", stepHeight: 1.5 });
+    const stepped = parseProject(raw(withLip(sampleProject(), { joint: "step", stepHeight: 2.2 })));
     expect(stepped.ok && stepped.project.settings.lip).toMatchObject({
-      kind: "step",
+      joint: "step",
       stepHeight: 2.2,
     });
   });
 
   it("keeps the hash of every rim project, and changes it for the step and its height", () => {
-    const p = sampleProject();
+    const p = withLip(sampleProject(), { joint: "rim" });
     const before = inputsHash(p);
     expect(inputsHash(withLip(p, { stepHeight: 2.5 }))).toBe(before);
-    const stepped = inputsHash(withLip(p, { kind: "step" }));
+    const stepped = inputsHash(withLip(p, { joint: "step" }));
     expect(stepped).not.toBe(before);
-    expect(inputsHash(withLip(p, { kind: "step", stepHeight: 2.5 }))).not.toBe(stepped);
+    expect(inputsHash(withLip(p, { joint: "step", stepHeight: 2.5 }))).not.toBe(stepped);
+  });
+
+  it("hashes Auto as a joint of its own, with the step's height, so only a switch to it plans again", () => {
+    const p = sampleProject();
+    const hashed = (joint: "off" | "auto" | "rim" | "step", stepHeight?: number) =>
+      inputsHash(withLip(p, { joint, ...(stepHeight === undefined ? {} : { stepHeight }) }));
+    const all = [hashed("off"), hashed("auto"), hashed("rim"), hashed("step")];
+    expect(new Set(all).size).toBe(4);
+    expect(hashed("auto", 2.5)).not.toBe(hashed("auto"));
+    expect(hashed("rim", 2.5)).toBe(hashed("rim"));
+    expect(hashed("off", 2.5)).toBe(hashed("off"));
+  });
+
+  it("hashes off, the rim and the step as the switch and kind they were, so no saved plan goes stale", () => {
+    const rest = { height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 };
+    const wasOff = lipForHash({ ...DEFAULT_SETTINGS.lip, joint: "off" });
+    const wasRim = lipForHash({ ...DEFAULT_SETTINGS.lip, joint: "rim" });
+    const wasStep = lipForHash({ ...DEFAULT_SETTINGS.lip, joint: "step" });
+    expect(wasOff).toEqual({ ...rest, enabled: false });
+    expect(wasRim).toEqual({ ...rest, enabled: true });
+    expect(wasStep).toEqual({ ...rest, enabled: true, stepBase: 1.5 });
   });
 
   it("hashes the step under a key no file holds, so an older app sees a stepped plan as stale", () => {
-    // An older app keeps a newer file's lip.kind and lip.stepHeight as they are and hashes them so.
-    const stepped = { ...DEFAULT_SETTINGS.lip, kind: "step" as const };
+    // An older app keeps a newer file's lip.joint and lip.stepHeight as they are and hashes them so.
+    const stepped = { ...DEFAULT_SETTINGS.lip, joint: "step" as const };
     expect(canonicalJson(lipForHash(stepped))).not.toBe(canonicalJson(stepped));
-    expect(lipForHash(stepped)).not.toHaveProperty("kind");
+    expect(lipForHash(stepped)).not.toHaveProperty("joint");
     expect(lipForHash(stepped)).not.toHaveProperty("stepHeight");
     expect(lipForHash(stepped)).toHaveProperty("stepBase", 1.5);
   });
@@ -64,9 +86,9 @@ describe("the rim's kind", () => {
   it("asks the step to be the lip play (times Fit) and MIN_FEATURE_MM high, at least", () => {
     const at = (fit: number, play: number, stepHeight: number) =>
       validateProject({
-        ...withLip(sampleProject(), { kind: "step", play, stepHeight }),
+        ...withLip(sampleProject(), { joint: "step", play, stepHeight }),
         settings: {
-          ...withLip(sampleProject(), { kind: "step", play, stepHeight }).settings,
+          ...withLip(sampleProject(), { joint: "step", play, stepHeight }).settings,
           fit,
         },
       }).filter((n) => n.code === "field.stepPlay");
@@ -76,25 +98,25 @@ describe("the rim's kind", () => {
     expect(at(1, 0.25, 1.5)).toHaveLength(0);
     // the rim asks nothing of the step's height
     const rimmed = validateProject({
-      ...withLip(sampleProject(), { kind: "rim", play: 0.5, stepHeight: 1 }),
+      ...withLip(sampleProject(), { joint: "rim", play: 0.5, stepHeight: 1 }),
     }).filter((n) => n.code === "field.stepPlay");
     expect(rimmed).toHaveLength(0);
     expect(at(3, 0.4, 1)[0]?.path).toBe("/settings/lip/stepHeight");
   });
 
   it("validates the step's height, and asks no lip ledge of the step", () => {
-    const p = withLip(sampleProject(), { kind: "step", stepHeight: 0.5 });
+    const p = withLip(sampleProject(), { joint: "step", stepHeight: 0.5 });
     expect(validateProject(p).map((n) => n.path)).toContain("/settings/lip/stepHeight");
     // a ledge too narrow for the rim's bearing is no error with the step
-    const narrow = withLip(sampleProject(), { kind: "step", ledge: 0.5, play: 0.25 });
+    const narrow = withLip(sampleProject(), { joint: "step", ledge: 0.5, play: 0.25 });
     expect(validateProject(narrow).filter((n) => n.level === "error")).toEqual([]);
-    const rimmed = withLip(narrow, { kind: "rim" });
+    const rimmed = withLip(narrow, { joint: "rim" });
     expect(validateProject(rimmed).map((n) => n.path)).toContain("/settings/bottomChamfer");
   });
 });
 
 describe("the step's numbers at the defaults", () => {
-  const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, kind: "step" } };
+  const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, joint: "step" } };
 
   it("insets the slab by the wall and the play, 1.5 mm high, with no groove", () => {
     expect(stepOf(s, 0)).toBeNull();

@@ -29,7 +29,7 @@ beforeAll(async () => {
 const GAP = DEFAULT_SETTINGS.trayGap;
 const plain: Settings = {
   ...DEFAULT_SETTINGS,
-  lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
   mergeRisers: true,
 };
 
@@ -112,7 +112,10 @@ describe("the owner's printable parts (star-realms-owner-5)", { timeout: 120_000
   for (const lip of [true, false]) {
     it(`every merged part is a closed solid of genus 0 (rim ${lip ? "on" : "off"})`, () => {
       expect(layout).not.toBeNull();
-      const settings: Settings = { ...p.settings, lip: { ...p.settings.lip, enabled: lip } };
+      const settings: Settings = {
+        ...p.settings,
+        lip: { ...p.settings.lip, joint: lip ? ("rim" as const) : ("off" as const) },
+      };
       const printed = printableParts(layout?.trays ?? [], {
         components: p.components,
         settings,

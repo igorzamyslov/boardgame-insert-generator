@@ -30,7 +30,7 @@ function solid(mesh: Mesh): Manifold {
 }
 
 const RIM: Settings = GEO;
-const STEP: Settings = { ...GEO, lip: { ...GEO.lip, kind: "step" } };
+const STEP: Settings = { ...GEO, lip: { ...GEO.lip, joint: "step" } };
 
 const SIZE = 60; // the part is square, so a cut through any side is the same
 const H = 30;

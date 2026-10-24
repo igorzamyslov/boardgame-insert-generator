@@ -17,8 +17,7 @@ describe("plan 1 values that sizing relies on", () => {
       scoopRadius: 12,
       fingerPocket: { width: 25 },
       lip: {
-        enabled: true,
-        kind: "rim",
+        joint: "auto" as const,
         height: 2,
         thickness: 1.2,
         ledge: 1.7,

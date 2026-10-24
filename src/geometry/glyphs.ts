@@ -1,156 +1,108 @@
-// The block font of engraved tray names (spec §6.1 "Part names"). There is no font file here: each
-// character is a 3 by 5 bitmap, and each lit cell is one stroke wide, so every stroke is `u` wide
-// and every gap between strokes is `u` too. The geometry layer cuts each rectangle as a recess
-// (engrave.ts). Letters are drawn as capitals only; a diagonal is a step of cells, so M, N, V, W,
-// X, K, S and Z read as the block letters of a small display, and 0 and O differ only by their
-// corners.
+// src/geometry/glyphs.ts
+// The font of engraved tray names (spec §6.1 "Part names"): outlines of Overpass Bold (SIL OFL 1.1),
+// a subset (name-font-data.ts) of capitals, digits, hyphen and space. Pure geometry, no kernel:
+// the planners measure a name here, and the geometry layer cuts its polygons as a CrossSection
+// (engrave.ts). Text is set in capitals only; its size is its capital height.
 
-/** A rectangle in stroke units: x along the line of text, z up, from the text's lower left. */
-export interface GlyphRect {
-  x0: number;
-  x1: number;
-  z0: number;
-  z1: number;
+import { FONT_CAP_HEIGHT, FONT_GLYPHS, FONT_KERNING } from "./name-font-data";
+
+/** A point, mm. */
+export type Point = [number, number];
+
+/**
+ * The capital heights a name may have, mm, largest first. The planners take the largest that fits,
+ * so a name is as large as the room allows; the smallest is the least that reads (the owner printed
+ * all four, 2026-10-24).
+ */
+export const CAP_SIZES_MM = [8, 6, 5, 4] as const;
+/** The largest and the smallest of them. */
+export const CAP_MAX_MM = 8;
+export const CAP_MIN_MM = 4;
+/** A capital height at least this large is a good size; the smallest sizes are only a last resort. */
+export const CAP_GOOD_MM = 6;
+
+/** A text laid out at one size: closed polygons in mm, x along the line, y up, from its ink's lower left. */
+export interface TextLayout {
+  polygons: Point[][];
+  /** The width and height of the ink, mm (an accent or a descender makes it taller than the cap). */
+  width: number;
+  height: number;
 }
 
-/** A character is this many strokes wide and tall; strokes and the gaps between them are one each. */
-export const GLYPH_COLS = 3;
-export const GLYPH_ROWS = 5;
-/** The space between two characters of a text, in strokes. */
-export const GLYPH_GAP = 1.5;
-/** A space is this wide, in strokes (the gaps on both sides come on top of it). */
-const SPACE_WIDTH = 1;
+interface Glyph {
+  adv: number;
+  contours: [number, number][][];
+}
 
-// Each glyph is five rows of three cells, top row first; "#" is a stroke.
-const BITMAPS: Readonly<Record<string, readonly string[]>> = {
-  "0": ["###", "#.#", "#.#", "#.#", "###"],
-  "1": ["..#", "..#", "..#", "..#", "..#"],
-  "2": ["###", "..#", "###", "#..", "###"],
-  "3": ["###", "..#", "###", "..#", "###"],
-  "4": ["#.#", "#.#", "###", "..#", "..#"],
-  "5": ["###", "#..", "###", "..#", "###"],
-  "6": ["###", "#..", "###", "#.#", "###"],
-  "7": ["###", "..#", "..#", "..#", "..#"],
-  "8": ["###", "#.#", "###", "#.#", "###"],
-  "9": ["###", "#.#", "###", "..#", "###"],
-  A: [".#.", "#.#", "###", "#.#", "#.#"],
-  B: ["##.", "#.#", "##.", "#.#", "##."],
-  C: [".##", "#..", "#..", "#..", ".##"],
-  D: ["##.", "#.#", "#.#", "#.#", "##."],
-  E: ["###", "#..", "##.", "#..", "###"],
-  F: ["###", "#..", "##.", "#..", "#.."],
-  G: [".##", "#..", "#.#", "#.#", ".##"],
-  H: ["#.#", "#.#", "###", "#.#", "#.#"],
-  I: ["###", ".#.", ".#.", ".#.", "###"],
-  J: ["..#", "..#", "..#", "#.#", ".#."],
-  K: ["#.#", "#.#", "##.", "#.#", "#.#"],
-  L: ["#..", "#..", "#..", "#..", "###"],
-  M: ["#.#", "###", "###", "#.#", "#.#"],
-  N: ["##.", "#.#", "#.#", "#.#", "#.#"],
-  O: [".#.", "#.#", "#.#", "#.#", ".#."],
-  P: ["###", "#.#", "###", "#..", "#.."],
-  Q: ["###", "#.#", "#.#", "###", "..#"],
-  R: ["##.", "#.#", "##.", "#.#", "#.#"],
-  S: [".##", "#..", ".#.", "..#", "##."],
-  T: ["###", ".#.", ".#.", ".#.", ".#."],
-  U: ["#.#", "#.#", "#.#", "#.#", "###"],
-  V: ["#.#", "#.#", "#.#", ".#.", ".#."],
-  W: ["#.#", "#.#", "###", "###", "#.#"],
-  X: ["#.#", "#.#", ".#.", "#.#", "#.#"],
-  Y: ["#.#", "#.#", ".#.", ".#.", ".#."],
-  Z: ["###", "..#", ".#.", "#..", "###"],
-  "-": ["...", "...", "###", "...", "..."],
-  " ": [".", ".", ".", ".", "."],
-};
+const parsed = new Map<string, Glyph>();
+
+function glyphOf(ch: string): Glyph {
+  const cached = parsed.get(ch);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const raw = FONT_GLYPHS[ch];
+  if (raw === undefined) {
+    throw new RangeError(`"${ch}" has no glyph`);
+  }
+  const glyph: Glyph = {
+    adv: raw.adv,
+    contours:
+      raw.c === ""
+        ? []
+        : raw.c.split("|").map((contour) =>
+            contour.split(" ").map((pair) => {
+              const [x, y] = pair.split(",");
+              return [Number(x), Number(y)] as [number, number];
+            }),
+          ),
+  };
+  parsed.set(ch, glyph);
+  return glyph;
+}
 
 /** Whether the font has a glyph for every character of the text (case is folded: capitals only). */
 export function isEngravable(text: string): boolean {
-  return [...text.toUpperCase()].every((ch) => BITMAPS[ch] !== undefined);
+  return [...text.toUpperCase()].every((ch) => FONT_GLYPHS[ch] !== undefined);
 }
 
-function bitmapOf(ch: string): readonly string[] {
-  const bitmap = BITMAPS[ch.toUpperCase()];
-  if (bitmap === undefined) {
-    throw new RangeError(`"${ch}" has no glyph`);
-  }
-  return bitmap;
-}
+const layouts = new Map<string, TextLayout | null>();
 
 /**
- * The strokes of one character, from its lower left corner: every maximal horizontal run of lit
- * cells, and every maximal vertical run of two or more (a cell that is only part of one of those
- * has no stroke of its own). Two lit cells that share an edge always lie
- * in one run, so no two strokes meet along a bare face (the cutter of such a pair would leave a
- * sliver of wall standing between them); strokes overlap where runs cross.
+ * A text set at capital height `cap`, mm: advances and the font's kerning pairs, as the font sets
+ * it. Null when it has no ink (empty, or only spaces). Throws a RangeError for a character the
+ * font lacks (check with `isEngravable`). The result is cached and must not be changed.
  */
-export function glyphRects(ch: string): GlyphRect[] {
-  const bitmap = bitmapOf(ch);
-  const rects: GlyphRect[] = [];
-  const lit = (col: number, row: number): boolean => bitmap[row]?.[col] === "#";
-  // `row` counts down from the top; z counts up from the bottom.
-  const zOf = (row: number): number => GLYPH_ROWS - 1 - row;
-  for (let row = 0; row < GLYPH_ROWS; row += 1) {
-    for (let col = 0; col < GLYPH_COLS; col += 1) {
-      if (!lit(col, row) || lit(col - 1, row)) {
-        continue;
-      }
-      let end = col;
-      while (lit(end + 1, row)) {
-        end += 1;
-      }
-      // A lone cell that a vertical run of two or more covers is that run's.
-      if (end === col && (lit(col, row - 1) || lit(col, row + 1))) {
-        continue;
-      }
-      rects.push({ x0: col, x1: end + 1, z0: zOf(row), z1: zOf(row) + 1 });
+export function layoutText(text: string, cap: number): TextLayout | null {
+  const key = `${cap}:${text}`;
+  const cached = layouts.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const scale = cap / FONT_CAP_HEIGHT;
+  const chars = [...text.toUpperCase()];
+  const placed: Point[][] = [];
+  let pen = 0;
+  chars.forEach((ch, i) => {
+    const glyph = glyphOf(ch);
+    for (const contour of glyph.contours) {
+      placed.push(contour.map(([x, y]): Point => [(pen + x) * scale, y * scale]));
     }
+    const next = chars[i + 1];
+    pen += glyph.adv + (next === undefined ? 0 : (FONT_KERNING[ch + next] ?? 0));
+  });
+  let result: TextLayout | null = null;
+  if (placed.length > 0) {
+    const xs = placed.flatMap((c) => c.map((p) => p[0]));
+    const ys = placed.flatMap((c) => c.map((p) => p[1]));
+    const x0 = Math.min(...xs);
+    const y0 = Math.min(...ys);
+    result = {
+      polygons: placed.map((c) => c.map(([x, y]): Point => [x - x0, y - y0])),
+      width: Math.max(...xs) - x0,
+      height: Math.max(...ys) - y0,
+    };
   }
-  for (let col = 0; col < GLYPH_COLS; col += 1) {
-    for (let row = 0; row < GLYPH_ROWS; row += 1) {
-      if (!lit(col, row) || lit(col, row - 1)) {
-        continue;
-      }
-      let end = row;
-      while (lit(col, end + 1)) {
-        end += 1;
-      }
-      if (end > row) {
-        rects.push({ x0: col, x1: col + 1, z0: zOf(end), z1: zOf(row) + 1 });
-      }
-    }
-  }
-  return rects;
-}
-
-function widthOf(ch: string): number {
-  bitmapOf(ch);
-  return ch === " " ? SPACE_WIDTH : GLYPH_COLS;
-}
-
-/**
- * Width in strokes of a text; 0 for the empty text. Throws a RangeError for a character the font
- * lacks (check with `isEngravable`).
- */
-export function textWidth(text: string): number {
-  const chars = [...text];
-  if (chars.length === 0) {
-    return 0;
-  }
-  return chars.reduce((sum, ch) => sum + widthOf(ch), 0) + (chars.length - 1) * GLYPH_GAP;
-}
-
-/**
- * The strokes of a text, in strokes from the lower left corner of its first character. Throws a
- * RangeError for a character the font lacks (check with `isEngravable`).
- */
-export function textRects(text: string): GlyphRect[] {
-  let at = 0;
-  const out: GlyphRect[] = [];
-  for (const ch of text) {
-    for (const r of glyphRects(ch)) {
-      out.push({ ...r, x0: r.x0 + at, x1: r.x1 + at });
-    }
-    at += widthOf(ch) + GLYPH_GAP;
-  }
-  return out;
+  layouts.set(key, result);
+  return result;
 }

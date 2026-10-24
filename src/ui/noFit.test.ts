@@ -39,11 +39,13 @@ describe("misfitOf", () => {
         holding([boards], { key: "b", x: 100, y: 0, w: 120, d: 80 }),
       ],
     };
-    expect(misfitOf(attempt, box, settings, all)).toEqual({
+    expect(misfitOf(attempt, box, settings, all)).toMatchObject({
       componentId: boards.id,
       trayKey: "b",
       name: "Boards",
       reason: "box",
+      // the box's width is the limit: the attempt needs 220 mm of it, the box has 200
+      limit: { axis: "width", need: 220, have: 200 },
     });
   });
 
@@ -80,7 +82,7 @@ describe("misfitOf", () => {
     const attempt = {
       trays: [holding([deck, boards], { key: "g", x: 100, y: 0, w: 120, d: 80 })],
     };
-    expect(misfitOf(attempt, box, settings, all)).toEqual({
+    expect(misfitOf(attempt, box, settings, all)).toMatchObject({
       componentId: deck.id,
       trayKey: "g",
       name: "Deck + Boards",
@@ -103,7 +105,7 @@ describe("misfitOf", () => {
         holding([deck, boards], { key: "kit:p1:0", x: 100, y: 0, w: 120, d: 80 }),
       ],
     };
-    expect(misfitOf(attempt, box, settings, all, [kit])).toEqual({
+    expect(misfitOf(attempt, box, settings, all, [kit])).toMatchObject({
       componentId: deck.id,
       groupId: "kit",
       groupName: "Player kit",
@@ -114,6 +116,25 @@ describe("misfitOf", () => {
     // an unnamed group is called Group; an ungrouped item's tray has no group
     expect(misfitOf(attempt, box, settings, all, [{ ...kit, name: "" }])?.groupName).toBe("Group");
     expect(misfitOf(attempt, box, settings, all)?.groupId).toBeUndefined();
+  });
+
+  it("gives the one limit the attempt overhangs by furthest: height, width or length, with its figures", () => {
+    const tall = { trays: [holding([deck], { key: "d", x: 0, y: 0, w: 100, d: 80, h: 83.7 })] };
+    // the box is 60 mm high with no headroom (and the top press fit)
+    expect(misfitOf(tall, box, settings, all)?.limit).toMatchObject({ axis: "height", have: 60 });
+    expect(misfitOf(tall, box, settings, all)?.limit?.need).toBeCloseTo(83.7, 5);
+    const long = { trays: [holding([deck], { key: "d", x: 0, y: 100, w: 100, d: 80, h: 10 })] };
+    expect(misfitOf(long, box, settings, all)?.limit).toEqual({
+      axis: "length",
+      need: 180,
+      have: 150,
+    });
+    // a bed problem is the printer's, not a side of the box
+    const bed = {
+      trays: [holding([deck], { key: "d", x: 0, y: 0, w: 100, d: 80 })],
+      overBedKeys: ["d"],
+    };
+    expect(misfitOf(bed, box, settings, all)?.limit).toBeUndefined();
   });
 
   it("is null when nothing stands out, or there is no attempt", () => {

@@ -95,7 +95,7 @@ describe("splitRisers: the riser follows the lip setting", () => {
   });
 
   it("has no lip and no groove with the lip off", () => {
-    const settings: Settings = { ...DEFAULT_SETTINGS, lip: { ...LIP, enabled: false } };
+    const settings: Settings = { ...DEFAULT_SETTINGS, lip: { ...LIP, joint: "off" as const } };
     const parts = splitRisers(stack(), base({ settings }));
     expect(parts.find((t) => t.part === "riser")?.lip).toBe(false);
     expect(parts.some((t) => t.onRiser)).toBe(false);
@@ -243,7 +243,7 @@ describe("the owner's Star Realms file: risers follow the rim setting", { timeou
   const risersOf = (parts: readonly TraySpec[]) => parts.filter((t) => t.part === "riser");
 
   it("has the lip on (the setting the owner means by the rim between layers)", () => {
-    expect(p.settings.lip.enabled).toBe(true);
+    expect(p.settings.lip.joint !== "off").toBe(true);
   });
 
   it("gives the Starter stack's riser the lip and its Counter the groove", () => {
@@ -300,7 +300,7 @@ describe("the owner's Star Realms file: risers follow the rim setting", { timeou
   });
 
   it("prints no lip and no groove with the lip off", () => {
-    const settings: Settings = { ...p.settings, lip: { ...p.settings.lip, enabled: false } };
+    const settings: Settings = { ...p.settings, lip: { ...p.settings.lip, joint: "off" as const } };
     const parts = splitRisers(plan, { ...inputs, settings });
     expect(risersOf(parts).every((r) => !r.lip)).toBe(true);
     expect(parts.some((t) => t.onRiser)).toBe(false);

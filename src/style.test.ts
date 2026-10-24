@@ -220,7 +220,6 @@ describe("tokens.css", () => {
       "--stage-pad-focus": "28px 40px",
       "--row-min": "52px",
       "--kind-tile-h": "56px",
-      "--stage-slot": "52px",
       "--status-icon": "40px",
       "--status-icon-phone": "32px",
       "--menu-w": "260px",

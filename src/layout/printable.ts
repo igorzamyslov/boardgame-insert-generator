@@ -1,6 +1,6 @@
 import type { Component, Lock, Notice, Printer, Settings, TraySpec } from "../model/types";
 import { splitDividers } from "./dividers";
-import { addFingerDips } from "./dips";
+import { addTopChamfers } from "./chamfers";
 import { mergeParts } from "./merge";
 import { splitRisers } from "./risers";
 import { splitSeparators } from "./separators";
@@ -19,8 +19,8 @@ export interface PrintableInputs {
  * split off as a riser under it (spec §3 rule 2), each stretch spacer split into its component's
  * plates (spec §6.2), a divider for each slot in a tray's floor (minimal-trays spec §5), each spacer or plate opened into a walled box where the `leftover` style and
  * its size allow, and last the connected fillers (and, with `mergeRisers`, the risers) merged into
- * the largest parts that fit the bed. Then a finger dip is cut in each solid filler where it touches
- * a tray, so the tray beside it can be gripped (`addFingerDips`, on the parts' own `features`). All
+ * the largest parts that fit the bed. Then a top chamfer is cut along each solid filler's edge where it touches
+ * a tray, so the tray beside it can be gripped (`addTopChamfers`, on the parts' own `features`). All
  * of it derived: none of it is stored, so the stored layout and a share link are the same however
  * it is split.
  */
@@ -31,5 +31,5 @@ export function printableParts(
   const risered = splitRisers(trays, o);
   const split = splitSeparators(risered, o);
   const opened = openSpacers(splitDividers(split.trays, o.settings), o);
-  return { trays: addFingerDips(mergeParts(opened, o), o), notices: split.notices };
+  return { trays: addTopChamfers(mergeParts(opened, o), o), notices: split.notices };
 }

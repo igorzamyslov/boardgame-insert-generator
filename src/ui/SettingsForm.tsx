@@ -15,8 +15,8 @@ import {
   wallChoiceOf,
 } from "../model/settings";
 import type { FitChoice, WallChoice } from "../model/settings";
-import { socketOf } from "../model/lip";
-import type { LipKind, Settings } from "../model/types";
+import { socketOf, withJoint } from "../model/lip";
+import type { Joint, LipJoint, Settings } from "../model/types";
 import { SETTING_RANGES } from "../model/validate";
 import { CheckRow, DisclosureRow, SearchField, Segmented } from "../kit";
 import { ONE_WALL_MAX_MM } from "../sizing/constants";
@@ -556,48 +556,70 @@ function Labelled({
   );
 }
 
-/** What the rim and groove cost, under "Kind of rim". */
+/** What the rim and groove cost, under "Rim between layers". */
 export const RIM_KIND_RIM_LINE = "Trays with one on top get thicker walls.";
-/** Why "Kind of rim" is blocked. */
-export const RIM_KIND_BLOCKED = "Needs Rim between layers.";
+/** What Auto does, before a plan says which joint it chose. */
+export const RIM_AUTO_LINE = "Plans with both and uses the better one.";
+/** What the choice Off means for a stack. */
+export const RIM_OFF_LINE = "Stacked trays are not held in place.";
 
-/** What the least riser does, under its box: the trays carry any smaller padding as a thicker floor. */
-const MIN_RISER_LINE = "Smaller padding stays a thicker tray floor.";
+/** What Auto chose for the plan, and why it is worth having: the one thing each joint gives. */
+export function rimAutoLine(planned: Joint | undefined): string {
+  switch (planned) {
+    case "rim":
+      return "Auto: rim and groove (trays stay full depth)";
+    case "step":
+      return "Auto: stepped base (walls stay thin)";
+    default:
+      return RIM_AUTO_LINE;
+  }
+}
+
+/** The joints of "Rim between layers", in the order the board shows them. */
+const RIM_CHOICES: readonly { value: LipJoint; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "auto", label: "Auto" },
+  { value: "rim", label: "Rim and groove" },
+  { value: "step", label: "Stepped base" },
+];
 
 /**
- * The rim's kind, under its switch (2026-10-23): the rim and groove, or the stepped base, with a
- * line that says what each costs. Blocked, with its reason, while the rim is off.
+ * Rim between layers (owner, 2026-10-24): one choice, Off, Auto (the default: the planner tries
+ * the rim and groove and the stepped base and uses the better plan), or one joint. The line under
+ * it says what the choice costs, or which joint Auto chose for the plan.
  */
-function RimKind({ settings, onChange }: SettingsFormProps) {
-  const kind = settings.lip.kind;
-  const blockedReason = settings.lip.enabled ? undefined : RIM_KIND_BLOCKED;
-  const socket = socketOf(
-    { ...settings, lip: { ...settings.lip, enabled: true, kind: "step" } },
-    true,
-  );
+function RimBetweenLayers({
+  settings,
+  planned,
+  onChange,
+}: SettingsFormProps & { planned?: Joint }) {
+  const joint = settings.lip.joint;
+  const socket = socketOf(withJoint(settings, "step"), true);
+  const line =
+    joint === "off"
+      ? RIM_OFF_LINE
+      : joint === "auto"
+        ? rimAutoLine(planned)
+        : joint === "rim"
+          ? RIM_KIND_RIM_LINE
+          : `Walls stay thin; a tray with one on top is ${formatNumber(socket?.depth ?? 0)} mm deeper.`;
   return (
-    <Labelled
-      label="Kind of rim"
-      changed={kind !== DEFAULT_SETTINGS.lip.kind}
-      line={
-        kind === "step"
-          ? `Walls stay thin; a tray with one on top is ${formatNumber(socket?.depth ?? 0)} mm deeper.`
-          : RIM_KIND_RIM_LINE
-      }
-    >
-      <Segmented<LipKind>
-        label="Kind of rim"
+    <Labelled label="Rim between layers" changed={joint !== DEFAULT_SETTINGS.lip.joint} line={line}>
+      <Segmented<LipJoint>
+        label="Rim between layers"
         stretch
-        options={[
-          { value: "rim", label: "Rim and groove", blockedReason },
-          { value: "step", label: "Stepped base", blockedReason, changed: true },
-        ]}
-        value={kind}
-        onChange={(k) => onChange({ ...settings, lip: { ...settings.lip, kind: k } })}
+        options={RIM_CHOICES.map((o) =>
+          o.value === DEFAULT_SETTINGS.lip.joint ? o : { ...o, changed: true },
+        )}
+        value={joint}
+        onChange={(next) => onChange({ ...settings, lip: { ...settings.lip, joint: next } })}
       />
     </Labelled>
   );
 }
+
+/** What the least riser does, under its box: the trays carry any smaller padding as a thicker floor. */
+const MIN_RISER_LINE = "Smaller padding stays a thicker tray floor.";
 
 /** "Separate risers from": the one number of the first screen, beside the switches it belongs with. */
 function MinRiserRow({ settings, onChange }: SettingsFormProps) {
@@ -623,9 +645,12 @@ function customWallsLine(s: Settings): string {
 
 function HowTheTraysSit({
   settings,
+  planned,
   onChange,
   onCustom,
 }: SettingsFormProps & {
+  /** The joint Auto chose for the current plan, when there is one. */
+  planned?: Joint;
   /** "Custom" takes the person to the number: open this group and focus this field. */
   onCustom: (group: string, fieldId: string) => void;
 }) {
@@ -694,25 +719,7 @@ function HowTheTraysSit({
             onChange(applyFingerRoom(settings, fingerRoomOf(DEFAULT_SETTINGS) !== false))
           }
         />
-        <SwitchRow
-          label="Rim between layers"
-          hint={
-            settings.lip.kind === "step"
-              ? "A step under each tray keeps the top layer from sliding"
-              : "A small rim on each tray keeps the top layer from sliding"
-          }
-          checked={settings.lip.enabled}
-          changed={settings.lip.enabled !== DEFAULT_SETTINGS.lip.enabled}
-          defaultOn={DEFAULT_SETTINGS.lip.enabled}
-          onChange={(enabled) => onChange({ ...settings, lip: { ...settings.lip, enabled } })}
-          onBack={() =>
-            onChange({
-              ...settings,
-              lip: { ...settings.lip, enabled: DEFAULT_SETTINGS.lip.enabled },
-            })
-          }
-        />
-        <RimKind settings={settings} onChange={onChange} />
+        <RimBetweenLayers settings={settings} planned={planned} onChange={onChange} />
         <SwitchRow
           label="Fill to the lid"
           hint="Keeps everything snug if the box is stored on its side"
@@ -730,7 +737,14 @@ function HowTheTraysSit({
 }
 
 /** The sheet's "This insert" tab: how the trays sit, then the exact numbers. */
-export function InsertSettings({ settings, onChange }: SettingsFormProps) {
+export function InsertSettings({
+  settings,
+  planned,
+  onChange,
+}: SettingsFormProps & {
+  /** The joint the current plan was made with, so Auto can say which it chose. */
+  planned?: Joint;
+}) {
   const notices = useContext(ValidationContext);
   const [open, setOpen] = useState(() => {
     const first = notices.find(
@@ -764,6 +778,7 @@ export function InsertSettings({ settings, onChange }: SettingsFormProps) {
   return (
     <div class="st-stack">
       <HowTheTraysSit
+        planned={planned}
         settings={settings}
         onChange={onChange}
         onCustom={(group, fieldId) => {

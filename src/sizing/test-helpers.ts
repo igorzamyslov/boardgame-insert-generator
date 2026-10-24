@@ -1,6 +1,7 @@
 // Test-only builders. Production code never imports this file.
 import { expect } from "vitest";
 import { planTray } from "../geometry/plan";
+import { lipEnabled } from "../model/lip";
 import { DEFAULT_SETTINGS, MIN_CUT_MM, MIN_FEATURE_MM, POST_MM } from "../model/settings";
 import type {
   BulkComponent,
@@ -251,7 +252,7 @@ export function assertTrayInvariants(
     rotated: false,
     wall: realized.wall,
     floor: fromU(minFloor),
-    lip: opts.lipped && settings.lip.enabled,
+    lip: opts.lipped && lipEnabled(settings),
     solid: false,
     compartments: list,
   };

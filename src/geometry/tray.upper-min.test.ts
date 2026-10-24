@@ -50,7 +50,7 @@ describe("upperTrayMinH: what the groove needs and nothing more", () => {
     expect(upperTrayMinH(tall)).toBeCloseTo(0.6 + 3 + 0.25 + MIN_FEATURE_MM, 9);
     const loose: Settings = { ...GEO, fit: 1.4 };
     expect(upperTrayMinH(loose)).toBeGreaterThan(MIN_H);
-    expect(upperTrayMinH({ ...GEO, lip: { ...GEO.lip, enabled: false } })).toBe(0);
+    expect(upperTrayMinH({ ...GEO, lip: { ...GEO.lip, joint: "off" as const } })).toBe(0);
   });
 
   it("is the least planTray accepts: a hair less is refused", () => {
@@ -114,7 +114,8 @@ describe("a tray at exactly the minimum, with the groove", () => {
 
   it("builds a closed printable solid with nothing thinner than 0.8 mm, at every height", () => {
     expect(problemsOf(m, spec, GEO)).toEqual([]);
-    const { mesh } = buildTray(m, spec, GEO);
+    // the tray's own walls and floors: a name leaves the font's own gaps and tips (engrave.test.ts)
+    const { mesh } = buildTray(m, { ...spec, partName: undefined }, GEO);
     expect(thinSlices(m, mesh, sliceHeights(MIN_H))).toEqual([]);
   });
 
@@ -190,7 +191,7 @@ describe("what sizing makes at the minimum, built", () => {
         };
         expect(() => planTray(spec, GEO)).not.toThrow();
         expect(problemsOf(m, spec, GEO)).toEqual([]);
-        const { mesh } = buildTray(m, spec, GEO);
+        const { mesh } = buildTray(m, { ...spec, partName: undefined }, GEO);
         expect(thinSlices(m, mesh, sliceHeights(Math.min(spec.h, 12)))).toEqual([]);
       });
     }
@@ -226,7 +227,7 @@ describe("what sizing makes at the minimum, built", () => {
     }
     // on the ground (or with the lip off) it is the content that sets the height, as before
     expect(minOuter(part, GEO, { lipped: false, level: 0 }).h).toBeCloseTo(3.2, 9);
-    const off: Settings = { ...GEO, lip: { ...GEO.lip, enabled: false } };
+    const off: Settings = { ...GEO, lip: { ...GEO.lip, joint: "off" as const } };
     expect(minOuter(plainPiece(off), off, opts).h).toBeCloseTo(3.2, 9);
   });
 });

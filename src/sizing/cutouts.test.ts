@@ -24,7 +24,10 @@ import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
 // These cover sizing with a locating lip available (the lipped wall, upper-tray
 // minimums), so they turn it on; the app's own default is off.
-const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
+const s: Settings = {
+  ...DEFAULT_SETTINGS,
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "rim" as const },
+};
 const ground: RealizeOptions = { lipped: false, level: 0 };
 const roomy = applyFingerRoom(s, true);
 const wallOnly: Settings = { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: 10 } };

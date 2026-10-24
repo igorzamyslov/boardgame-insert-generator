@@ -5,6 +5,7 @@ import { isOlderGeometryLine } from "../geometry/version";
 import { NOTICE_CODES, summarize } from "../layout";
 import type { LayoutResult, LayoutSummary, LockConflict } from "../layout/types";
 import { inputsHash } from "../model/hash";
+import { jointOf } from "../model/lip";
 import { noForeign } from "../model/schema";
 import type { ForeignData, Notice, Project } from "../model/types";
 import { validateProject } from "../model/validate";
@@ -192,7 +193,7 @@ export function createState(
     return summarize(layout.trays, {
       box: p.box,
       printer: p.printer,
-      settings: p.settings,
+      settings: jointOf(p.settings, layout),
       locks: p.locks,
     });
   });

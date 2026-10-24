@@ -44,8 +44,7 @@ describe("DEFAULT_SETTINGS", () => {
       scoopRadius: 12,
       fingerPocket: { width: 25, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
       lip: {
-        enabled: true,
-        kind: "rim",
+        joint: "auto" as const,
         height: 2,
         thickness: 1.2,
         ledge: 1.7,

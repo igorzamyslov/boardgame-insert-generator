@@ -8,6 +8,7 @@ import {
   applyFitChoice,
   applyWallChoice,
 } from "../model/settings";
+import type { LipJoint } from "../model/types";
 import { SETTING_RANGES } from "../model/validate";
 import { ValidationContext } from "./validation";
 import { InsertSettings, PrintingOptions, changedRanges } from "./SettingsForm";
@@ -34,7 +35,16 @@ const ROWS = SETTING_RANGES.length + 1 - FIRST_SCREEN_PATHS.length;
 const WALL = /^Wall( \(mm\))?$/;
 const field = (name: RegExp | string): HTMLInputElement =>
   screen.getByLabelText(name) as HTMLInputElement;
-const card = (title: string): HTMLElement => screen.getByRole("group", { name: title });
+/** The card of an exact-numbers group: Rim between layers is also the name of the first screen's choice. */
+const card = (title: string): HTMLElement => {
+  const found = screen
+    .getAllByRole("group", { name: title })
+    .find((el) => el.classList.contains("st-card"));
+  if (found === undefined) {
+    throw new Error(`no card named ${title}`);
+  }
+  return found;
+};
 /** The row that opens a closed group: a button named by its title, then its meta. */
 const groupRow = (title: string): HTMLElement =>
   screen.getByRole("button", { name: new RegExp(`^${title}`) });
@@ -182,34 +192,25 @@ describe("InsertSettings: how the trays sit", () => {
     expect(document.activeElement?.id).toBe("settings-fit");
   });
 
-  it("offers Room for fingers, Rim between layers and Fill to the lid with the board's hints", () => {
+  it("offers Room for fingers and Fill to the lid with the board's hints", () => {
     const onChange = vi.fn();
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const fingers = screen.getByRole("checkbox", { name: "Room for fingers" }) as HTMLInputElement;
     expect(fingers.checked).toBe(false);
     fireEvent.click(fingers);
     expect(onChange).toHaveBeenLastCalledWith(applyFingerRoom(DEFAULT_SETTINGS, true));
-    const rim = screen.getByRole("checkbox", { name: /^Rim between layers/ }) as HTMLInputElement;
-    expect(rim.checked).toBe(true);
-    fireEvent.click(rim);
-    expect(onChange).toHaveBeenLastCalledWith({
-      ...DEFAULT_SETTINGS,
-      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
-    });
     const lid = screen.getByRole("checkbox", { name: "Fill to the lid" }) as HTMLInputElement;
     expect(lid.checked).toBe(true);
     fireEvent.click(lid);
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, fillToTop: false });
-    expect(
-      screen.getByText("A small rim on each tray keeps the top layer from sliding"),
-    ).toBeTruthy();
     expect(screen.getByText("Keeps everything snug if the box is stored on its side")).toBeTruthy();
     expect(screen.queryByText(/Top layer stays put/)).toBeNull();
   });
 
-  it("uses Rim between layers", () => {
+  it("uses Rim between layers, a choice and no longer a switch", () => {
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
-    expect(screen.getByRole("checkbox", { name: /^Rim between layers/ })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Rim between layers" })).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: /^Rim between layers/ })).toBeNull();
     expect(screen.queryByText("Top layer stays put")).toBeNull();
   });
 
@@ -226,45 +227,60 @@ describe("InsertSettings: how the trays sit", () => {
   });
 });
 
-describe("InsertSettings: Kind of rim, under Rim between layers", () => {
+describe("InsertSettings: Rim between layers is one choice", () => {
   const section = (): HTMLElement =>
     screen.getByRole("region", { name: "How the trays sit" }) as HTMLElement;
-  const stepped = {
+  const choice = (joint: LipJoint) => ({
     ...DEFAULT_SETTINGS,
-    lip: { ...DEFAULT_SETTINGS.lip, kind: "step" as const },
-  };
+    lip: { ...DEFAULT_SETTINGS.lip, joint },
+  });
+  const group = () => within(section()).getByRole("group", { name: "Rim between layers" });
 
-  it("offers the rim and groove (pressed by default) and the stepped base, with what each costs", () => {
+  it("offers Off, Auto, Rim and groove and Stepped base, Auto pressed by default", () => {
     const onChange = vi.fn();
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
-    const kind = within(section()).getByRole("group", { name: "Kind of rim" });
-    const rim = within(kind).getByRole("button", { name: "Rim and groove" });
-    expect(rim.getAttribute("aria-pressed")).toBe("true");
-    expect(within(section()).getByText("Trays with one on top get thicker walls.")).toBeTruthy();
-    fireEvent.click(within(kind).getByRole("button", { name: "Stepped base" }));
-    expect(onChange).toHaveBeenCalledWith(stepped);
+    const names = within(group())
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+    expect(names).toEqual(["Off", "Auto", "Rim and groove", "Stepped base"]);
+    expect(within(group()).getByRole("button", { name: "Auto" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    for (const [name, joint] of [
+      ["Off", "off"],
+      ["Rim and groove", "rim"],
+      ["Stepped base", "step"],
+    ] as const) {
+      fireEvent.click(within(group()).getByRole("button", { name }));
+      expect(onChange).toHaveBeenLastCalledWith(choice(joint));
+    }
   });
 
-  it("says what the step costs, and the switch's hint names the step", () => {
-    render(<InsertSettings settings={stepped} onChange={vi.fn()} />);
-    const here = within(section());
+  it("says what each choice costs", () => {
+    const line = (joint: LipJoint) => {
+      const { unmount } = render(<InsertSettings settings={choice(joint)} onChange={vi.fn()} />);
+      const text = within(section()).getByText(
+        /thicker walls|Walls stay thin|not held in place|better one/,
+      ).textContent;
+      unmount();
+      return text;
+    };
+    expect(line("rim")).toBe("Trays with one on top get thicker walls.");
+    expect(line("step")).toBe("Walls stay thin; a tray with one on top is 1.75 mm deeper.");
+    expect(line("off")).toBe("Stacked trays are not held in place.");
+    expect(line("auto")).toBe("Plans with both and uses the better one.");
+  });
+
+  it("says which joint Auto chose for the plan", () => {
+    const { unmount } = render(
+      <InsertSettings settings={DEFAULT_SETTINGS} planned="step" onChange={vi.fn()} />,
+    );
+    expect(within(section()).getByText("Auto: stepped base (walls stay thin)")).toBeTruthy();
+    unmount();
+    render(<InsertSettings settings={DEFAULT_SETTINGS} planned="rim" onChange={vi.fn()} />);
     expect(
-      here.getByText("Walls stay thin; a tray with one on top is 1.75 mm deeper."),
+      within(section()).getByText("Auto: rim and groove (trays stay full depth)"),
     ).toBeTruthy();
-    expect(here.getByText("A step under each tray keeps the top layer from sliding")).toBeTruthy();
-    const step = here.getByRole("button", { name: "Stepped base" });
-    expect(step.getAttribute("aria-pressed")).toBe("true");
-  });
-
-  it("stays, blocked with its reason, while the rim is off", () => {
-    const onChange = vi.fn();
-    const off = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: false } };
-    render(<InsertSettings settings={off} onChange={onChange} />);
-    const step = within(section()).getByRole("button", { name: "Stepped base" });
-    expect(step.getAttribute("aria-disabled")).toBe("true");
-    fireEvent.click(step);
-    expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getAllByText("Needs Rim between layers.").length).toBeGreaterThan(0);
   });
 });
 

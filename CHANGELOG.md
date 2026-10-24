@@ -10,15 +10,49 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-24
+
 ### Added
 
-- This changelog, and a release page on GitHub for every version, with the same notes.
+- **A chamfered grip on spacers.** A spacer wedged beside a tray now has a sloped edge along its
+  top, up to 5 mm across, where it touches the tray, so a fingertip can get in and lift the tray
+  out. It replaces the rounded finger dip. Trays still mate with parts you printed before; print
+  a spacer again only if you want the new grip.
+- **Rim between layers is one choice.** Off, Auto, Rim and groove, or Stepped base. New inserts
+  start with Auto, which plans with both joints and keeps the better plan; the plan says which
+  one it used. Projects you saved keep the joint they had.
+- **Names in a clearer font, on the well floor too.** Names are cut in Overpass Bold, sized
+  8, 6, 5 or 4 mm to fit the room on a face. A name is also engraved on the floor of each well,
+  so you can tell the trays apart once their contents are out, and the name underneath is a
+  flat recess that prints cleanly. Trays still mate with parts you printed before.
+- **The no-fit bar says what the real limit is.** When something does not fit, one bar stays
+  pinned over the plan and names the cause, for example "Heroes needs 103.7 mm of height. The
+  box has 70 mm." The room the items need overall only leads when that is the reason.
+- **A docked tray toolbar.** Select a tray and its toolbar sits at the bottom centre of the
+  stage, the same in the top view, in 3D and on a phone. Edit is the main button.
+- **Item chips on the phone.** The folded list sheet is one row of chips, one for each item or
+  group, in its own colour, instead of a title and the first rows.
+
+### Changed
+
+- **The ⋯ menu appears only when it adds something.** A tray whose actions are all on screen
+  already has no menu; the no-fit bar has none.
+- **No fit is shown over the normal plan,** in the top view and in 3D alike, instead of on a
+  screen of its own that scrolled its explanation away.
+
+## [0.22.1] - 2026-10-24
 
 ### Fixed
 
 - **Hidden notes stay hidden.** When two notes of the same kind were under the plan (for example
   two stacks that only fit in one order), hiding the second brought the first one back. Each note
   you hide now stays hidden until its own words change.
+
+## [0.22.0] - 2026-10-24
+
+### Added
+
+- This changelog, and a release page on GitHub for every version, with the same notes.
 
 ## [0.21.0] - 2026-10-24
 

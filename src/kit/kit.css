@@ -749,6 +749,17 @@
   --status-fg: var(--focus);
 }
 
+/* The arc of a search under way turns, so a long search does not look like a stuck page. */
+.k-status[data-tone="info"] .k-status__icon > svg {
+  animation: k-spin 0.9s linear infinite;
+}
+
+@keyframes k-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .k-status[data-tone="warn"] .k-status__icon {
   --status-bg: var(--warn-bg);
   --status-fg: var(--warn-icon);
@@ -1320,6 +1331,38 @@ html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
   cursor: pointer;
 }
 
+/*
+ * Folded with chips (board 9): the grip is a 20 px row on top, then one 44 px row of chips and the
+ * Add button, 76 px in all (`--sheet-peek` is set so by the workspace). Open, it is the full list.
+ */
+.k-sheet[data-chips="true"] {
+  padding-top: var(--s-20);
+  padding-bottom: var(--s-8);
+}
+
+.k-sheet[data-chips="true"] > .k-sheet__bar > .k-sheet__grip--button {
+  height: var(--s-20);
+}
+
+.k-sheet[data-chips="true"][data-expanded="true"] {
+  padding-top: calc(var(--control-h) + var(--s-4));
+}
+
+.k-sheet[data-chips="true"][data-expanded="true"] > .k-sheet__bar > .k-sheet__grip--button {
+  height: var(--control-h);
+}
+
+.k-sheet__chips {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: var(--s-12);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  touch-action: pan-x; /* a swipe up is the sheet's: the row only scrolls sideways */
+}
+
 /* The title's button sits in an h2 of its own: the head row is the title and then Add. */
 .k-sheet__head {
   flex: 1 1 0;
@@ -1444,6 +1487,11 @@ html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* slower, not stopped: it is the one sign that work is going on */
+  .k-status[data-tone="info"] .k-status__icon > svg {
+    animation-duration: 3s;
+  }
+
   .k-sheet,
   .k-sheet__chevron,
   .k-sheet[data-expanded="false"]:not([data-peek="true"]) .k-sheet__body,

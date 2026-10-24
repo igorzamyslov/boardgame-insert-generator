@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Does not fit decision</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="review.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+</helmet>
+<div class="b">
+<div class="hd">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div class="kick">Board 6 · Nothing fits · chosen: pinned problem strip, Top and 3D</div>
+<h1>The explanation stays put, in both views</h1>
+</div>
+<ul class="prob">
+<li>The strip is the status row's expanded state. It never scrolls away and says by how much the layout is off.</li>
+<li>The failing tray is marked the same way in Top (dashed orange) and in 3D (orange, others dimmed). It is the same selection as in the list.</li>
+<li>First fix is the primary button; "Keep searching" is the second. Quick fixes with numbers (earlier option 3) come later, once the optimizer can estimate the saving.</li>
+<li>The dock from board 4 is not shown here; nothing is selected in this state.</li>
+</ul>
+</div>
+<div class="opts">
+<div class="opt cur">
+<div class="ot"><span class="ol">1</span>Today · Top<span class="sub">scrolls, fix below the fold</span></div>
+<div class="mock">
+<div class="note" style="left:16px;top:12px">heading scrolled away</div>
+<div class="box" style="left:50px;top:-50px;width:340px;height:340px"><div class="t tg p1"></div><div class="t bad-t p2">Heroes</div><div class="t ts p3"></div><div class="t to p5"></div><div class="t tl p6"></div><div class="t to p7"></div></div>
+<div class="ab" style="left:90px;right:90px;top:340px;background:#fff;border:1px solid #e3e0d9;border-radius:12px;padding:12px"><b>Ways to make it fit</b><div class="field" style="margin-top:8px">Edit Heroes</div><div class="field" style="margin-top:6px">Keep searching</div></div>
+</div>
+<div class="why">Reference.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">2</span>Chosen · Top</div>
+<div class="mock">
+<div class="ab" style="left:12px;right:12px;top:12px;background:#fff3e8;border:1px solid #e8a37a;border-radius:12px;padding:12px">
+<div class="fx"><span class="ck bad">!</span><div style="flex:1"><div class="h2" style="font-size:17px">Heroes doesn't fit yet</div><div class="sm">The box is 114 mm short in length for six figures.</div></div><span class="seg"><span class="on">Top</span><span>3D</span></span></div>
+<div class="fx" style="margin-top:10px"><span class="pill dark">Edit Heroes</span><span class="pill">Keep searching</span></div>
+</div>
+<div class="box" style="left:70px;top:134px;width:300px;height:300px"><div class="t tg p1"></div><div class="t bad-t p2">Heroes</div><div class="t ts p3"></div><div class="t to p5"></div><div class="t tl p6"></div><div class="t to p7"></div></div>
+</div>
+<div class="why"><b>Pinned strip, Top.</b> The plan sizes itself to what is left, as it does today.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">2</span>Chosen · 3D</div>
+<div class="mock">
+<div class="ab" style="left:12px;right:12px;top:12px;background:#fff3e8;border:1px solid #e8a37a;border-radius:12px;padding:12px">
+<div class="fx"><span class="ck bad">!</span><div style="flex:1"><div class="h2" style="font-size:17px">Heroes doesn't fit yet</div><div class="sm">The box is 114 mm short in length for six figures.</div></div><span class="seg"><span>Top</span><span class="on">3D</span></span></div>
+<div class="fx" style="margin-top:10px"><span class="pill dark">Edit Heroes</span><span class="pill">Keep searching</span></div>
+</div>
+<div class="persp" style="top:120px;height:330px"><div class="scn" style="left:90px;top:60px;width:230px;height:230px"><div class="box" style="width:230px;height:230px"><div class="t tg p1 dim"></div><div class="t bad-t p2" style="transform:translateZ(14px)">Heroes</div><div class="t ts p3 dim"></div><div class="t to p5 dim"></div><div class="t tl p6 dim"></div><div class="t to p7 dim"></div></div></div></div>
+</div>
+<div class="why"><b>Same strip, 3D.</b> The tray that does not fit sticks out of its slot so the overflow is visible.</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1560,"height":940}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -12,7 +12,10 @@ import { minOuter, realizeTray } from "./realize";
 import { assertTrayInvariants, at, bulk, cards, partOf } from "./test-helpers";
 import type { RealizeOptions } from "./types";
 
-const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
+const s: Settings = {
+  ...DEFAULT_SETTINGS,
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "rim" as const },
+};
 const upper: RealizeOptions = { lipped: true, level: 2 };
 const flat = (count: number, room?: "max") =>
   partOf(

@@ -103,7 +103,6 @@ function bar(selectedKey: string, over: Partial<SelectedTrayBarProps> = {}) {
     trays: project.layout?.trays ?? [],
     selectedKey,
     inPlan: true,
-    phone: false,
     swapFrom: null,
     edit: vi.fn(),
     onSelect: vi.fn(),

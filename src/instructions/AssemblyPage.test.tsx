@@ -547,8 +547,8 @@ describe("AssemblyPage: taking it out", () => {
     expect(tray?.querySelector(".assembly-flag")).toBeNull();
   });
 
-  it("lifts a tray with no finger cut by the dip in the strip beside it, and does not flag it", () => {
-    // Deck A's finger cut is off; the strip beside it is 10 mm across, so its dip is cut through
+  it("lifts a tray with no finger cut by the chamfer on the strip beside it, and does not flag it", () => {
+    // Deck A's finger cut is off; the strip beside it is 10 mm across, chamfered on both long edges
     const bare = makeTray({ key: "a:p0:0" });
     const thin = makeTray({
       key: "leftover:0",
@@ -560,7 +560,10 @@ describe("AssemblyPage: taking it out", () => {
       y: 0,
       w: 10,
       d: 80,
-      features: [{ type: "fingerDip", side: "left", at: 40, width: 25, depth: 15 }],
+      features: [
+        { type: "topChamfer", side: "left", from: 0, to: 80, size: 4 },
+        { type: "topChamfer", side: "right", from: 0, to: 80, size: 4 },
+      ],
     });
     render(
       <AssemblyPage
@@ -572,8 +575,8 @@ describe("AssemblyPage: taking it out", () => {
     expect(screen.queryByRole("note")).toBeNull();
     expect(document.querySelector(".assembly-flag")).toBeNull();
     expect(liftCells().sort()).toEqual([
-      "Lift it by the finger dip",
-      "Lift it by the finger dip beside it",
+      "Lift it by the chamfer beside it",
+      "Pinch it by its chamfered edges",
     ]);
     const rulings = COPY_RULINGS.filter(
       (r) => r.states === "all" || r.states.includes("packing-guide"),
@@ -621,7 +624,7 @@ describe("AssemblyPage: taking it out", () => {
     ).toEqual([]);
   });
 
-  it("lifts the strip beside the Event cards by its finger dip, and flags the one spacer left without a grip", () => {
+  it("pinches the strip beside the Event cards by its chamfers, and flags the one spacer left without a grip", () => {
     const { project } = loadSeed("harbour-kings", true);
     const trays = printableParts(project.layout?.trays ?? [], {
       components: project.components,
@@ -636,7 +639,7 @@ describe("AssemblyPage: taking it out", () => {
         onBack={vi.fn()}
       />,
     );
-    // the spacer by Starter decks 1 is 7.4 mm of filler with no side a dip can use: the page says so
+    // the spacer by Starter decks 1 is 7.4 mm of filler too thin for two chamfers: the page says so
     const flag = document.querySelector(".assembly-takeout__flag");
     expect(flag?.textContent).toContain("Spacer by Starter decks 1");
     expect(flag?.textContent).not.toContain("Spacer by Event cards");
@@ -645,7 +648,7 @@ describe("AssemblyPage: taking it out", () => {
       tr.querySelector("th")?.textContent,
       tr.querySelector('td[data-label="Lift"]')?.textContent,
     ]);
-    expect(lines).toContainEqual(["Spacer by Event cards", "Lift it by the finger dip"]);
+    expect(lines).toContainEqual(["Spacer by Event cards", "Pinch it by its chamfered edges"]);
     expect(lines).toContainEqual(["Event cards", "Lift it by the finger cut"]);
   });
 

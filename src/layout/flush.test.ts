@@ -20,7 +20,10 @@ function squeezed(lipOn: boolean): LayoutInput {
       innerDepth: Math.round(input.box.innerDepth * 0.6),
       innerHeight: input.box.innerHeight * 3,
     },
-    settings: { ...input.settings, lip: { ...input.settings.lip, enabled: lipOn } },
+    settings: {
+      ...input.settings,
+      lip: { ...input.settings.lip, joint: lipOn ? ("rim" as const) : ("off" as const) },
+    },
   };
 }
 

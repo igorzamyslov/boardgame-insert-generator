@@ -17,6 +17,7 @@ import { mmUp } from "../layout/warnings";
 import type { Component, Notice as NoticeData, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { mm } from "../ui/identity";
+import { FitStrip } from "./FitStrip";
 import { HeaderMenu } from "./Header";
 import type { Misfit } from "../ui/noFit";
 import type { VolumeNote } from "../ui/volumeFit";
@@ -109,6 +110,10 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
 function sentence(message: string): string {
   return /[.!?…]$/.test(message) ? message : `${message}.`;
 }
+
+/** The volume is the binding reason: the items' trays need more than the tight share of the box (`volumeNote`). */
+export const volumeBinds = (volume: VolumeNote | null | undefined): boolean =>
+  volume !== null && volume !== undefined && volume.verdict !== "roomy";
 
 export const SEARCHING_TITLE = "Searching…";
 const FIX_ERRORS = "Fix the errors marked in the inputs";
@@ -265,7 +270,10 @@ export function statusOf(s: StatusInput): Status {
           ? figure
           : misfit.reason === "bed"
             ? "It's too big for your printer's bed."
-            : `There's no room left for it in the box.${figure === "" ? "" : ` ${figure}`}`;
+            : misfit.limit !== undefined && !volumeBinds(volume)
+              ? // one dimension is the cause: say which, in the engine's own figures
+                `${misfit.name} needs ${mmUp(misfit.limit.need)} mm of ${misfit.limit.axis}. The box has ${mm(misfit.limit.have)} mm.`
+              : `There's no room left for it in the box.${figure === "" ? "" : ` ${figure}`}`;
     return {
       tone: "warn",
       fit: "noFit",
@@ -395,6 +403,57 @@ export function WebGlNote() {
   );
 }
 
+/** What the Layer switch (and, on a phone, the 3D toggle) needs: a subset of the stage's props. */
+export type StageSwitchesProps = Pick<
+  StageTopProps,
+  "trays" | "levels" | "layer" | "onLayerChange" | "view" | "onViewChange" | "webgl" | "phone"
+>;
+
+/**
+ * The Layer switch's row (board 2): "Layer 1 | Layer 2 | All", the same in both views. On a desktop it
+ * is the row under the toolbar; on a phone it is the row under the plan (board 9), with the one "3D"
+ * toggle beside it, since the Top / 3D switch is not in a toolbar there.
+ */
+export function StageSwitches(p: StageSwitchesProps) {
+  const options = p.trays === undefined ? [] : layerOptions(p.trays, p.levels);
+  const layers = options.length - 1;
+  const layerValue = layerValueOf(p.layer, layers);
+  const layer =
+    layers > 1 ? (
+      <Segmented
+        label="Layer"
+        tone="track"
+        stretch={p.phone}
+        options={options}
+        value={layerValue}
+        onChange={(v) => p.onLayerChange(v === ALL_LAYERS ? null : Number(v))}
+      />
+    ) : null;
+  const toggle =
+    p.trays === undefined ? null : (
+      <Button
+        aria-pressed={p.view === "3d"}
+        blockedReason={p.webgl ? undefined : WEBGL_REASON}
+        onClick={() => p.onViewChange(p.view === "3d" ? "plan" : "3d")}
+      >
+        3D
+      </Button>
+    );
+  if (p.phone) {
+    return layer === null && toggle === null ? null : (
+      <div class="stage-segs stage-segs--phone" data-region="switches">
+        {layer}
+        {toggle}
+      </div>
+    );
+  }
+  return layer === null ? null : (
+    <div class="stage-segs" data-region="switches">
+      <div class="stage-segs__layer">{layer}</div>
+    </div>
+  );
+}
+
 export interface StageTopProps extends StatusInput {
   /** The stored plan's trays (`layout.trays`), for the Layer switch; without them (no plan) there are no switches. */
   trays?: readonly TraySpec[];
@@ -456,13 +515,15 @@ export function StageTop(p: StageTopProps) {
   // "Make a plan" (no plan yet) is the one thing the row asks for; searching on is a menu item.
   const searchOn = keep !== undefined && keep.label !== "Make a plan";
   const stopping = status.actions.some((a) => a.kind === "stop");
-  // A fit problem's actions are the cards of its own panel (FitProblem), not pills in the heading.
+  // No fit: the status row is the pinned problem strip (board 6), its two actions under the heading.
+  const strip = status.fit === "noFit";
+  // The pins' actions are the cards of FitProblem's panel, not pills in the heading.
   const actions = status.actions
     .filter((a) => a.kind !== "unpin")
     .map((a) => {
       switch (a.kind) {
         case "keep":
-          return searchOn ? null : (
+          return searchOn || strip ? null : (
             <Button
               key="keep"
               onClick={() => {
@@ -481,7 +542,7 @@ export function StageTop(p: StageTopProps) {
             </Button>
           );
         case "show":
-          return (
+          return strip ? null : (
             <Button key={a.id} title={a.label} onClick={() => p.onShow(a.id)}>
               <span class="ellipsis">{a.label}</span>
             </Button>
@@ -489,37 +550,13 @@ export function StageTop(p: StageTopProps) {
       }
     });
 
-  const options = p.trays === undefined ? [] : layerOptions(p.trays, p.levels);
-  const layers = options.length - 1;
-  const layerValue = layerValueOf(p.layer, layers);
-  const layer =
-    layers > 1 ? (
-      <Segmented
-        label="Layer"
-        tone="track"
-        stretch={p.phone}
-        options={options}
-        value={layerValue}
-        onChange={(v) => p.onLayerChange(v === ALL_LAYERS ? null : Number(v))}
-      />
-    ) : null;
   const showView = p.trays !== undefined;
-  const blocked = p.webgl ? undefined : WEBGL_REASON;
-  // On a phone the View switch is the one "3D" toggle beside the Layer switch (board 9 draws it).
-  const phoneView = !showView ? null : (
-    <Button
-      aria-pressed={p.view === "3d"}
-      blockedReason={blocked}
-      onClick={() => p.onViewChange(p.view === "3d" ? "plan" : "3d")}
-    >
-      3D
-    </Button>
-  );
   const desktopView = !showView ? null : (
     <ViewSwitch view={p.view} onViewChange={p.onViewChange} webgl={p.webgl} />
   );
 
-  const more = (
+  // The menu is for what is not on screen already: in the no-fit strip its one entry is a button.
+  const more = strip ? null : (
     <span key="more">
       <HeaderMenu
         label="Plan options"
@@ -587,9 +624,11 @@ export function StageTop(p: StageTopProps) {
       status.line
     );
 
+  const stripEdit = status.actions.find((a) => a.kind === "show");
+  const stripKeep = status.actions.find((a) => a.kind === "keep");
   return (
     <>
-      <div data-region="status" ref={row}>
+      <div data-region="status" ref={row} class={strip ? "stage-fit" : undefined}>
         <StatusHeading
           tone={status.tone}
           title={status.title}
@@ -597,17 +636,24 @@ export function StageTop(p: StageTopProps) {
           titleExtra={stop}
           extra={extra}
         />
+        {strip ? (
+          <FitStrip
+            edit={
+              stripEdit?.kind === "show"
+                ? { label: stripEdit.label, onClick: () => p.onShow(stripEdit.id) }
+                : undefined
+            }
+            keep={
+              stripKeep === undefined
+                ? undefined
+                : { label: TRY_ANOTHER, onClick: p.onKeepSearching }
+            }
+            volume={p.noFit?.volume}
+            phone={p.phone}
+          />
+        ) : null}
       </div>
-      {p.phone && (layer !== null || phoneView !== null) ? (
-        <div class="stage-segs stage-segs--phone" data-region="switches">
-          {layer}
-          {phoneView}
-        </div>
-      ) : !p.phone && layer !== null ? (
-        <div class="stage-segs" data-region="switches">
-          <div class="stage-segs__layer">{layer}</div>
-        </div>
-      ) : null}
+      {p.phone ? null : <StageSwitches {...p} />}
       {showView && !p.webgl ? <WebGlNote /> : null}
       {status.alert === true ? (
         <p class="visually-hidden" role="alert">

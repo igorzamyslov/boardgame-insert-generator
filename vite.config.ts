@@ -18,7 +18,12 @@ export default defineConfig({
   // WASM loader, so keep it out of dependency pre-bundling; the worker passes
   // the `?url`-imported WASM to locateFile.
   worker: { format: "es" },
-  optimizeDeps: { exclude: ["manifold-3d"] },
+  // three is only imported when the 3D view opens: without it here a cold dev server finds it then,
+  // re-bundles, and answers the page's request with "Outdated Optimize Dep" (the 3D view fails once).
+  optimizeDeps: {
+    exclude: ["manifold-3d"],
+    include: ["three", "three/addons/controls/OrbitControls.js"],
+  },
   build: {
     // The 3D view's chunk (three.js, ~550 kB) is loaded lazily, only when WebGL is there, so the
     // main chunk stays well under it; the default 500 kB warning would only repeat that on every build.
