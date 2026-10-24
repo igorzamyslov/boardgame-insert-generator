@@ -20,7 +20,7 @@ describe("hidden notes", () => {
   });
 
   it("tells one tray's note from another's by its path", () => {
-    const hidden = { [noteKey(note("x", "/components/0"))]: "x" };
+    const hidden = { [noteKey(note("x", "/components/0"))]: ["x"] };
     expect(isHidden(hidden, note("x", "/components/0"))).toBe(true);
     expect(isHidden(hidden, note("x", "/components/1"))).toBe(false);
   });
@@ -29,6 +29,44 @@ describe("hidden notes", () => {
     const store = createHiddenNotesStore(new MemoryStorage());
     store.hide("p", note("Cut by 2 mm."));
     expect(isHidden(store.of("p"), note("Cut by 3 mm."))).toBe(false);
+  });
+
+  it("keeps every note hidden that shares one key, in either order", () => {
+    const a = note("The top Gold tray has no rim.");
+    const b = note("The top Ships tray has no rim.");
+    for (const order of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      const store = createHiddenNotesStore(new MemoryStorage());
+      for (const n of order) {
+        store.hide("p", n, [a, b]);
+      }
+      expect(isHidden(store.of("p"), a)).toBe(true);
+      expect(isHidden(store.of("p"), b)).toBe(true);
+    }
+  });
+
+  it("drops words no note says any more, so an old value does not come back hidden", () => {
+    const store = createHiddenNotesStore(new MemoryStorage());
+    store.hide("p", note("Cut by 2 mm."), [note("Cut by 2 mm.")]);
+    store.hide("p", note("Cut by 3 mm."), [note("Cut by 3 mm.")]);
+    expect(isHidden(store.of("p"), note("Cut by 2 mm."))).toBe(false);
+    expect(isHidden(store.of("p"), note("Cut by 3 mm."))).toBe(true);
+  });
+
+  it("reads what 0.21.0 stored: one string for a key", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      "insert-generator:hidden-notes:p",
+      JSON.stringify({ [noteKey(note("x", "/components/0"))]: "Cut by 2 mm." }),
+    );
+    const store = createHiddenNotesStore(storage);
+    expect(isHidden(store.of("p"), note("Cut by 2 mm.", "/components/0"))).toBe(true);
+    store.hide("p", note("More.", "/components/0"));
+    expect(isHidden(createHiddenNotesStore(storage).of("p"), note("More.", "/components/0"))).toBe(
+      true,
+    );
   });
 
   it("brings notes back, and forgets a deleted project", () => {

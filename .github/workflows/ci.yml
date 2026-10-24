@@ -137,7 +137,8 @@ jobs:
 
   # Every merge to main is a release, so a pull request must raise package.json's version
   # (the one the footer shows) above main's. Renovate lock-file-only updates are exempt
-  # (see scripts/check-version-bump.mjs).
+  # (see scripts/check-version-bump.mjs). It must also say what changed: an entry in
+  # CHANGELOG.md under "Unreleased" or under the new version (scripts/check-changelog.mjs).
   version-bump:
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
@@ -160,3 +161,6 @@ jobs:
         env:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           CHANGED_FILES: ${{ steps.changed.outputs.files }}
+      - run: node scripts/check-changelog.mjs "$RUNNER_TEMP/base-package.json" package.json CHANGELOG.md
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}

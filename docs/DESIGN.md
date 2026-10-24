@@ -246,7 +246,9 @@ technical palette. The owner called it unusable. Everything below exists so it d
   last changes.", "Made with an older version of the app.") keep their pills, because Download is off
   until the person answers them ("Use the old plan" is that banner's own way to put it aside). A
   hidden note is the viewer's, per project and per note (its code and field, so another tray's note
-  still shows), kept in localStorage (`src/share/hiddenNotes.ts`), not in the project file. It shows
+  still shows), kept in localStorage (`src/share/hiddenNotes.ts`), not in the project file. Two notes
+  can share a code and field (the stacking notes have no field), so a key holds the words of every
+  note hidden under it, and closing one never brings another back. It shows
   again when its words change (its numbers changed) and "Show n hidden" brings the rest back. Tested
   in `src/screens/StageNotes.test.tsx` and `src/app/App.hiddenNotes.test.tsx`.
 - MUST keep Download off, with its reason, while there is no plan yet, the plan is stale, a run is
