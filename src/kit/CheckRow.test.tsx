@@ -75,4 +75,11 @@ describe("CheckRow blocked", () => {
     expect(box.getAttribute("aria-describedby")?.split(" ")).toContain("why");
     expect(box.getAttribute("aria-invalid")).toBe("true");
   });
+
+  it("puts the box before its words with boxFirst", () => {
+    const { container, rerender } = render(<CheckRow label="Fill" checked onChange={vi.fn()} />);
+    expect(container.querySelector(".k-check")?.hasAttribute("data-lead")).toBe(false);
+    rerender(<CheckRow label="Fill" checked boxFirst onChange={vi.fn()} />);
+    expect(container.querySelector(".k-check")?.hasAttribute("data-lead")).toBe(true);
+  });
 });

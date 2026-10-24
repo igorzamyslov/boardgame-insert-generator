@@ -102,10 +102,16 @@ export function chamferRoom(h: number, edgeTop: number): number {
  * tall, whose bottom edge (chamfer, groove or step) stands whole above `edgeTop`: CHAMFER_MM, less
  * where the strip is thin (CHAMFER_LAND_MM of the top stays flat across it, shared by the two
  * faces) or low (MIN_FEATURE_MM of wall stays above the bottom edge where the chamfer leaves
- * through the face). Whole hundredths, rounded down; 0 when under CHAMFER_MIN_MM.
+ * through the face), and `cap` (the one size the whole layout shares). Whole hundredths, rounded down; 0 when under CHAMFER_MIN_MM.
  */
-export function chamferSize(across: number, h: number, edgeTop: number, faces: 1 | 2): number {
-  const most = Math.min(CHAMFER_MM, (across - CHAMFER_LAND_MM) / faces, chamferRoom(h, edgeTop));
+export function chamferSize(
+  across: number,
+  h: number,
+  edgeTop: number,
+  faces: 1 | 2,
+  cap: number = CHAMFER_MM,
+): number {
+  const most = Math.min(cap, (across - CHAMFER_LAND_MM) / faces, chamferRoom(h, edgeTop));
   const size = Math.floor(most * 100 + 1e-6) / 100;
   return size >= CHAMFER_MIN_MM ? size : 0;
 }

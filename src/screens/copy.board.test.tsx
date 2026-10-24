@@ -330,7 +330,7 @@ const failsOnePart = (): MeshSource => {
   };
 };
 
-/** The project menu's Settings opens the drawer; its tabs and groups are buttons. */
+/** The project menu's Settings opens the drawer; its pages and groups are buttons. */
 const openSettings = (): void => {
   openMenu();
   fireEvent.click(
@@ -348,10 +348,14 @@ const inDrawer = (name: string | RegExp): void => {
 };
 const openPrinter = (): void => {
   openSettings();
-  inDrawer("My printer");
+  inDrawer(/^My printer/);
+};
+const openNumbers = (): void => {
+  openSettings();
+  inDrawer(/^Exact numbers/);
 };
 const searchSettings = (text: string) => (): void => {
-  openSettings();
+  openNumbers();
   fireEvent.input(screen.getByRole("searchbox", { name: "Find a setting" }), {
     target: { value: text },
   });
@@ -363,6 +367,15 @@ const CASES: readonly Case[] = [
   // with another printer on the insert and with a printer that was not saved.
   { state: "settings", board: "Settings", region: "drawer", steps: openSettings },
   { state: "settings-printer", board: "Settings", region: "drawer", steps: openPrinter },
+  {
+    state: "settings-display",
+    board: "Settings",
+    region: "drawer",
+    steps: () => {
+      openSettings();
+      inDrawer(/^Display/);
+    },
+  },
   {
     state: "settings-printer-details",
     board: "Settings",
@@ -407,7 +420,7 @@ const CASES: readonly Case[] = [
     board: "Settings",
     region: "drawer",
     steps: () => {
-      openSettings();
+      openNumbers();
       inDrawer(/^Spacers and space/);
       inDrawer("Thicker walls");
     },
@@ -417,7 +430,7 @@ const CASES: readonly Case[] = [
     board: "Settings",
     region: "drawer",
     steps: () => {
-      openSettings();
+      openNumbers();
       inDrawer(new RegExp(`^${g.title}`));
     },
   })),

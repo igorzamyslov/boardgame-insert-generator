@@ -391,6 +391,7 @@ const HOLDS: readonly string[] = [
 export const SETTINGS_STATES: readonly string[] = [
   "settings",
   "settings-printer",
+  "settings-display",
   "settings-printer-details",
   "settings-printer-other",
   "settings-printer-unsaved",
@@ -405,6 +406,8 @@ const SET_PRINTER = "My printer shows another printer on this insert as a row wi
 const SET_DETAILS = "Printer details holds the own bed size, margin and layer height";
 const SET_RISERS = "Settings' first screen also has two riser rows";
 const SET_INTRO = "My printer's intro names the values it covers";
+const SET_PAGES = "Settings is one page and three doors, not three tabs";
+const SET_DISPLAY = "A project opens in the view the person chose: Display";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
 const SET_GAPS = "Fill the space that's left is one choice of what the engine does with spare room";
@@ -415,6 +418,16 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // The phone's tray sheet says the filament where its board says "Printing: about 3.5 h, 58 g".
   { text: "Filament", states: SHEET_STATES, ruling: NO_TIME },
   { text: "about {n} g", states: SHEET_STATES, ruling: NO_TIME },
+  // 0.25.0: the rows that open Settings' pages, and Display.
+  { text: "{n} values, for fine-tuning", states: SETTINGS_STATES, ruling: SET_PAGES },
+  { text: "A number needs fixing", states: SETTINGS_STATES, ruling: SET_PAGES },
+  { text: "The printer needs fixing", states: SETTINGS_STATES, ruling: SET_PAGES },
+  { text: "Bed {x} × {y} mm, kept in this browser", states: SETTINGS_STATES, ruling: SET_PAGES },
+  { text: "{projection}, opens in {view}", states: SETTINGS_STATES, ruling: SET_PAGES },
+  { text: "Top", states: SETTINGS_STATES, ruling: SET_DISPLAY },
+  { text: "3D", states: SETTINGS_STATES, ruling: SET_DISPLAY },
+  { text: "Open plans in", states: SETTINGS_STATES, ruling: SET_DISPLAY },
+  { text: "Switching in the plan still works.", states: SETTINGS_STATES, ruling: SET_DISPLAY },
   // Task 14: Settings. The board's words, except where the Words table or the owner rules otherwise.
   ...SETTING_RANGES.map((r) => ({ text: r.label, states: SETTINGS_STATES, ruling: SET_EXACT })),
   { text: "Room around trays and pieces", states: SETTINGS_STATES, ruling: SET_WORDS },

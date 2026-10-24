@@ -37,7 +37,7 @@ export function StatusHeading({
 }: StatusHeadingProps) {
   const Heading = `h${level}` as const;
   return (
-    <div class="k-status" data-tone={tone}>
+    <div class="k-status" data-tone={tone} data-line={line === undefined ? "none" : undefined}>
       <div class="k-status__lead">
         <span class="k-status__icon" aria-hidden="true">
           <Icon name={ICONS[tone]} size={20} />

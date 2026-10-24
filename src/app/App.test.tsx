@@ -318,10 +318,9 @@ describe("App", () => {
     // The field is in the sheet, so the heading lists no error of its own for it.
     expect(within(results).queryByRole("list", { name: "Errors without a field" })).toBeNull();
     fireEvent.click(within(results).getByRole("button", { name: "Settings" }));
-    const sheet = screen.getByRole("dialog", { name: "Settings" });
-    expect(screen.getByRole("button", { name: /^This insert/ }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
+    const sheet = screen.getByRole("dialog", { name: "Exact numbers" });
+    // a number with an error opens the page that holds it
+    expect(within(sheet).getByRole("heading", { level: 1, name: "Exact numbers" })).toBeTruthy();
     const message = within(sheet).getByText(/Bottom chamfer must be at most/);
     // The message is on screen: its group is open, and nothing between it and the drawer hides it.
     expect(message.closest("[hidden], [inert]")).toBeNull();
@@ -336,9 +335,7 @@ describe("App", () => {
     fireEvent.click(
       await within(screen.getByRole("main")).findByRole("button", { name: "Settings" }),
     );
-    expect(screen.getByRole("button", { name: /^My printer/ }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
+    expect(screen.getByRole("heading", { level: 1, name: "My printer" })).toBeTruthy();
   });
 
   it("removes a component with an Undo toast that puts it back where it was", async () => {
@@ -818,7 +815,7 @@ describe("App", () => {
       fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
       expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
       const dialog = screen.getByRole("dialog", { name: "Settings" });
-      expect(within(dialog).getByRole("button", { name: /^This insert/ })).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: /^Exact numbers/ })).toBeTruthy();
       fireEvent(dialog, new Event("cancel", { cancelable: true }));
       expect(screen.queryByRole("dialog")).toBeNull();
       expect(document.activeElement).toBe(button);
@@ -869,7 +866,7 @@ describe("App", () => {
       const before = store.state.project.value.printer;
       openMenu();
       fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
-      fireEvent.click(screen.getByRole("button", { name: "My printer" }));
+      fireEvent.click(screen.getByRole("button", { name: /^My printer/ }));
       // the insert and the browser agree: nothing to apply
       expect(screen.queryByText("This insert uses another printer")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: /^Printer details/ }));
@@ -897,7 +894,7 @@ describe("App", () => {
       vi.setSystemTime(Date.now() + 5000);
       openMenu();
       fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
-      fireEvent.click(screen.getByRole("button", { name: "My printer" }));
+      fireEvent.click(screen.getByRole("button", { name: /^My printer/ }));
       expect(screen.getByText("This insert uses another printer")).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Apply" }));
       expect(store.state.project.value.printer.bedX).toBe(256);

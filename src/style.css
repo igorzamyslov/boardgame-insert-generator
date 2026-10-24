@@ -439,16 +439,18 @@ input[aria-invalid="true"] {
   background: var(--sheet);
 }
 
+/* The 3D view building its models: the kit's bar, and its count in the Download dialog's caption style. */
 .run-status {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  align-items: center;
+  flex-direction: column;
+  gap: var(--s-6);
+  width: 340px;
+  max-width: 100%;
 }
 
-.run-status progress {
-  flex: 1 1 10rem;
-  accent-color: var(--focus);
+.viewer-build__caption {
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 
 .run-error {

@@ -76,6 +76,13 @@ describe("the lights", () => {
     expect(litShare([0, 0, 1])).toBeCloseTo(1, 12);
   });
 
+  it("put a top face on the screen as the plan's fill, byte for byte (measured in the running app, top-down: #74C2B8, #C0D3F7, #F0C2D6 and #FBDEAB in both views)", () => {
+    for (const fill of ["#74C2B8", "#93C0B5", "#9ECFC6", "#E0C4CC", "#EED3DC", "#C0D3F7"]) {
+      const shown = litColor(fill).multiplyScalar(litShare([0, 0, 1]));
+      expect(hexOf(shown), fill).toBe(fill.toLowerCase());
+    }
+  });
+
   it("leave a side facing the sun lighter than one facing away, and none black", () => {
     const toSun = litShare(
       [-1, -2, 0.2].map((v) => v / Math.hypot(1, 2, 0.2)) as [number, number, number],
@@ -90,5 +97,17 @@ describe("the lights", () => {
   it("use an ambient light that is part of the whole, and a sun that is the rest", () => {
     expect(AMBIENT_INTENSITY).toBeGreaterThan(0);
     expect(SUN_INTENSITY).toBeGreaterThan(0);
+  });
+});
+
+describe("a dimmed tray", () => {
+  it("shows the colour the plan's dimmed tile does: the fill at 0.6 over the box, measured as #99C6BA for the teal #74C2B8", () => {
+    const shown = fadedColor(new Color(), new Color("#74C2B8"), new Color("#d3cdbf"), 0.4);
+    // one level of a byte is the plan's own rounding of the blend
+    const [r, g, b] = [0, 2, 4].map((i) => Number.parseInt(hexOf(shown).slice(1 + i, 3 + i), 16));
+    const [er, eg, eb] = [0x99, 0xc6, 0xba];
+    expect(Math.abs((r ?? 0) - er)).toBeLessThanOrEqual(1);
+    expect(Math.abs((g ?? 0) - eg)).toBeLessThanOrEqual(1);
+    expect(Math.abs((b ?? 0) - eb)).toBeLessThanOrEqual(1);
   });
 });

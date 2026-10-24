@@ -180,9 +180,13 @@
  */
 .ws-rail > .ws-interim {
   margin-right: calc(-1 * var(--rail-pad));
+
+  /* the panel's own 4 px for a focus ring: this wrapper clips, so it reaches over the rail's padding for them */
+  margin-left: calc(-1 * var(--s-4));
 }
 
 .ws-rail > .ws-interim > .ed {
+  margin-left: 0;
   padding-right: calc(var(--rail-pad) - var(--scroll-gutter));
   scrollbar-gutter: stable;
   scrollbar-width: thin;

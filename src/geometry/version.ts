@@ -285,8 +285,15 @@ import type { Semver } from "../model/version";
  * fillet (`CutPlan.ledgeFillets`). A mesh-only change beside a cut; outer size, footprint, lip,
  * groove, step, socket and fit are as before, so trays printed before and after still mate and
  * stack. A PATCH.
+ *
+ * 0.9.12 gives every top chamfer of a layout one size, the smallest any spacer can take, and
+ * chamfers a spacer a little taller than the stack beside it (owner, 2026-10-24: it "looks ugly
+ * when one spacer has a top chamfer and the one next to it doesn't"). The same wedge, the same
+ * rules for a strip or a low part, only a size changed and a face that was left square cut. A
+ * mesh-only change on a derived filler (planTray accepts what it did); outer size, footprint, fit
+ * and every tray are as before, so printed parts still mate. A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.11";
+export const GEOMETRY_VERSION = "0.9.12";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

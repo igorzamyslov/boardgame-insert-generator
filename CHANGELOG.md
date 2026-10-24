@@ -10,6 +10,39 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-24
+
+### Changed
+
+- **Settings opens on one page, with three rows that open the rest.** The three tabs are gone. "This
+  insert" is the drawer: how the trays sit, then the printing options. Exact numbers, My printer and
+  Display are rows under it that open a page each, with a back button. Switches now have their box on
+  the left of their words. Every setting is still reachable on a phone.
+- **Open plans in Top or 3D.** The new Display page chooses the view a project opens in. It is kept
+  in this browser, and switching in the plan still works.
+- **The 3D view's progress looks like Download's.** While the models are built you see the same bar
+  and "12 of 28 models built" under it.
+- **The item list's drag handle has its own gutter.** The six dots sit to the left of the icon and
+  show only when you point at a row or move the keyboard to it. On a touch screen there is no handle:
+  hold a row to lift it.
+- **Every spacer's top chamfer is the same size.** A spacer next to a tray that stood a little
+  lower was left square beside spacers with a slope. Now each spacer beside a tray gets the slope,
+  and all of them share the smallest size any spacer can take. A spacer too thin for that stays
+  square. Printed parts change, so re-export inserts you want to print.
+
+### Fixed
+
+- **The 3D camera stays where you turned it.** Switching to Top and back brought the 3D view back at
+  its first framing every time. It now returns as you left it, and still starts again for another
+  project and on "Reset view".
+- **Dimmed trays in 3D match the plan.** With a tray selected, the others in 3D were paler than the
+  same trays in the plan, because they faded toward the page instead of the box. They now fade
+  toward the box, as the plan's dimmed tiles do.
+- **A field's focus ring is no longer cut off at the left** in the box and item editors (for
+  example "Keep space free on top").
+- **The heading of a plan being made lines up.** With no second line ("Making a new plan…"), the round
+  icon, the title and Stop sit on one centre instead of the icon hanging low.
+
 ## [0.24.0] - 2026-10-24
 
 ### Added

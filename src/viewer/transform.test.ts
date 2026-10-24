@@ -11,6 +11,7 @@ import {
   EXPLODE_MM,
   FADE_BLEND,
   LIT_EMISSIVE,
+  DIM_TOWARD_HEX,
   PAGE_HEX,
   SELECTED_EMISSIVE,
   boxOutline,
@@ -240,5 +241,12 @@ describe("viewer transforms", () => {
       expect(reservedSlabs([], box)).toEqual([]);
       expect(reservedSlabs(undefined, box)).toEqual([]);
     });
+  });
+});
+
+describe("the dimming of the other trays", () => {
+  it("is the plan's: its tile at opacity 0.6 over the box's colour, not over the page", () => {
+    expect(tokens).toContain(`--box: ${DIM_TOWARD_HEX};`);
+    expect(DIM_TOWARD_HEX).not.toBe(PAGE_HEX);
   });
 });

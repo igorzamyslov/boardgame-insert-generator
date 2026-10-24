@@ -240,6 +240,7 @@ function SwitchRow({
   return (
     <div class="st-switch" ref={wrap}>
       <CheckRow
+        boxFirst
         label={label}
         hint={hint}
         compact={compact}
@@ -475,13 +476,8 @@ function ExactNumbers({ settings, onChange, open, onOpen, query, onQuery }: Exac
     .filter(({ rows }) => rows.length > 0);
   const count = shown.reduce((n, g) => n + g.rows.length, 0);
   return (
-    <section class="st-sec st-sec--exact" aria-labelledby="settings-exact-title">
-      <div class="st-sec__head">
-        <h2 class="st-h2" id="settings-exact-title">
-          Exact numbers
-        </h2>
-        <span class="st-note">For fine-tuning. All in mm.</span>
-      </div>
+    <section class="st-sec st-sec--exact" aria-label="Exact numbers">
+      <span class="st-note">For fine-tuning. All in mm.</span>
       <div class="st-search">
         <SearchField
           label="Find a setting"
@@ -520,6 +516,74 @@ function ExactNumbers({ settings, onChange, open, onOpen, query, onQuery }: Exac
         )}
       </div>
     </section>
+  );
+}
+
+/** What the page "Exact numbers" starts on: the group to open, and the number to give the focus to. */
+export interface ExactStart {
+  group?: string;
+  fieldId?: string;
+}
+
+/** How many exact numbers (and the choices among them) differ from their defaults, as the doorway says. */
+export function changedExact(s: Settings): number {
+  return EXACT_GROUPS.reduce((n, g) => n + changedIn(g, s), 0);
+}
+
+/** How many values the page "Exact numbers" holds. */
+export const EXACT_VALUES = EXACT_GROUPS.reduce((n, g) => n + rowsOf(g).length, 0);
+
+/** The page "Exact numbers": the search and the groups. */
+export function ExactNumbersPage({
+  settings,
+  onChange,
+  start,
+}: SettingsFormProps & { start?: ExactStart }) {
+  const notices = useContext(ValidationContext);
+  const [open, setOpen] = useState(() => {
+    const first = notices.find(
+      (n) => n.level === "error" && groupOfPath(n.path ?? "") !== undefined,
+    );
+    return (
+      start?.group ??
+      (first === undefined ? undefined : groupOfPath(first.path ?? ""))?.id ??
+      "walls"
+    );
+  });
+  const [query, setQuery] = useState("");
+  // What to give the focus to once the render that opens it is done: the group's first control, or
+  // the control with this id (a button that goes when its group opens must not drop the focus).
+  const pending = useRef<{ group?: string; id?: string } | null>(
+    start?.fieldId !== undefined ? { id: start.fieldId } : null,
+  );
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    const want = pending.current;
+    pending.current = null;
+    if (want === null) {
+      return;
+    }
+    const target =
+      want.id !== undefined
+        ? document.getElementById(want.id)
+        : document.querySelector<HTMLElement>(
+            `[data-group="${want.group ?? ""}"] :is(input, button)`,
+          );
+    target?.focus();
+  });
+  return (
+    <ExactNumbers
+      settings={settings}
+      onChange={onChange}
+      open={open}
+      onOpen={(id) => {
+        setOpen(id);
+        pending.current = { group: id };
+        redraw((n) => n + 1);
+      }}
+      query={query}
+      onQuery={setQuery}
+    />
   );
 }
 
@@ -736,68 +800,32 @@ function HowTheTraysSit({
   );
 }
 
-/** The sheet's "This insert" tab: how the trays sit, then the exact numbers. */
+/** The sheet's own page, "This insert": how the trays sit, then the printing options; the doorways go after them. */
 export function InsertSettings({
   settings,
   planned,
+  nameExample,
   onChange,
+  onCustom,
+  children,
 }: SettingsFormProps & {
-  /** The joint the current plan was made with, so Auto can say which it chose. */
+  /** The joint Auto chose for the current plan, when there is one. */
   planned?: Joint;
+  nameExample?: NameExample;
+  /** "Custom" takes the person to the number: open Exact numbers on this group and focus this field. */
+  onCustom: (group: string, fieldId: string) => void;
+  children?: preact.ComponentChildren;
 }) {
-  const notices = useContext(ValidationContext);
-  const [open, setOpen] = useState(() => {
-    const first = notices.find(
-      (n) => n.level === "error" && groupOfPath(n.path ?? "") !== undefined,
-    );
-    return (first === undefined ? undefined : groupOfPath(first.path ?? ""))?.id ?? "walls";
-  });
-  const [query, setQuery] = useState("");
-  // What to give the focus to once the render that opens it is done: the group's first control, or
-  // the control with this id (a button that goes when its group opens must not drop the focus).
-  const pending = useRef<{ group?: string; id?: string } | null>(null);
-  const [, redraw] = useState(0);
-  useEffect(() => {
-    const want = pending.current;
-    pending.current = null;
-    if (want === null) {
-      return;
-    }
-    const target =
-      want.id !== undefined
-        ? document.getElementById(want.id)
-        : document.querySelector<HTMLElement>(
-            `[data-group="${want.group ?? ""}"] :is(input, button)`,
-          );
-    target?.focus();
-  });
-  const focusAfter = (want: { group?: string; id?: string }): void => {
-    pending.current = want;
-    redraw((n) => n + 1);
-  };
   return (
     <div class="st-stack">
       <HowTheTraysSit
         planned={planned}
         settings={settings}
         onChange={onChange}
-        onCustom={(group, fieldId) => {
-          setQuery("");
-          setOpen(group);
-          focusAfter({ id: fieldId });
-        }}
+        onCustom={onCustom}
       />
-      <ExactNumbers
-        settings={settings}
-        onChange={onChange}
-        open={open}
-        onOpen={(id) => {
-          setOpen(id);
-          focusAfter({ group: id });
-        }}
-        query={query}
-        onQuery={setQuery}
-      />
+      <PrintingOptions settings={settings} onChange={onChange} nameExample={nameExample} />
+      {children}
     </div>
   );
 }

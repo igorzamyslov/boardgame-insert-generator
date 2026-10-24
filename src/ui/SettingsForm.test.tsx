@@ -1,6 +1,7 @@
 // src/ui/SettingsForm.test.tsx
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
+import { useState } from "preact/hooks";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_SETTINGS,
@@ -11,11 +12,37 @@ import {
 import type { LipJoint } from "../model/types";
 import { SETTING_RANGES } from "../model/validate";
 import { ValidationContext } from "./validation";
-import { InsertSettings, PrintingOptions, changedRanges } from "./SettingsForm";
+import {
+  ExactNumbersPage,
+  InsertSettings as InsertPage,
+  PrintingOptions,
+  changedRanges,
+} from "./SettingsForm";
+import type { ExactStart } from "./SettingsForm";
 import { EXACT_GROUPS, FIRST_SCREEN_PATHS } from "./settingsGroups";
 import { SETTING_SETTERS, settingUnit } from "./settingsFields";
 
 afterEach(cleanup);
+
+/** The drawer's page "This insert" and its page "Exact numbers" side by side: "Custom" opens the numbers on its group, as the sheet does. */
+function InsertSettings(p: {
+  settings: typeof DEFAULT_SETTINGS;
+  planned?: "rim" | "step";
+  onChange: (s: typeof DEFAULT_SETTINGS) => void;
+}) {
+  const [start, setStart] = useState<ExactStart | undefined>();
+  return (
+    <>
+      <InsertPage {...p} onCustom={(group, fieldId) => setStart({ group, fieldId })} />
+      <ExactNumbersPage
+        key={`${start?.group ?? ""}${start?.fieldId ?? ""}`}
+        settings={p.settings}
+        onChange={p.onChange}
+        start={start}
+      />
+    </>
+  );
+}
 
 const changedFrom = (over: Partial<typeof DEFAULT_SETTINGS>) => ({ ...DEFAULT_SETTINGS, ...over });
 
@@ -80,10 +107,10 @@ describe("SETTING_SETTERS", () => {
 });
 
 describe("InsertSettings: how the trays sit", () => {
-  it("puts the plain choices first, and Exact numbers after them", () => {
+  it("puts the plain choices first, and the printing options after them", () => {
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
     const headings = screen.getAllByRole("heading").map((h) => h.textContent);
-    expect(headings).toEqual(["How the trays sit", "Exact numbers"]);
+    expect(headings).toEqual(["How the trays sit", "PrintingDoesn't move any trays"]);
   });
 
   it("offers Fit in the box as Snug, Standard, Loose and Custom, and writes the resolved value", () => {
@@ -369,9 +396,9 @@ describe("InsertSettings: the riser rows beside Fill to the lid", () => {
 });
 
 describe("InsertSettings: Exact numbers", () => {
-  it("draws the title, its line, the search and the first group open", () => {
+  it("draws its line, the search and the first group open (the page's title is the drawer's)", () => {
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
-    expect(screen.getByRole("heading", { name: "Exact numbers" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Exact numbers" })).toBeTruthy();
     expect(screen.getByText("For fine-tuning. All in mm.")).toBeTruthy();
     expect(
       screen.getByRole("searchbox", { name: "Find a setting" }).getAttribute("placeholder"),
