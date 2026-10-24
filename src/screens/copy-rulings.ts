@@ -369,6 +369,7 @@ const DOWNLOAD = DOWNLOAD_STATES;
 const DL_COUNT = "The Download dialog counts trays and spacers";
 const DL_FLOW = "The Download dialog's title and body follow the build";
 const DL_NOT = "Exporting's report, partial download and Start again are not built";
+const DL_PLAN = "The Download dialog is a print plan by layer";
 const DL_BLOCKED = "The Download dialog says why it is blocked in its caption line";
 /** "8 trays and 2 spacers for Harbour Kings" in each of its forms: the board has the plural one. */
 const HOLDS: readonly string[] = [
@@ -499,6 +500,23 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 13: Export, Exporting and MobileDownload have the plural forms only, and no failure of a whole build
   ...HOLDS.map((text) => ({ text, states: DOWNLOAD, ruling: DL_COUNT })),
   { text: "1 spacer", states: DOWNLOAD, ruling: DL_COUNT },
+  // 2026-10-24 board 8: the print plan (a layer's card, its pills, the total and the support line);
+  // the copy check judges each part of a " · " line on its own
+  ...[
+    "Layer {n}",
+    "Layer {n} (bottom)",
+    "Layer {n} (top)",
+    "{n} trays",
+    "1 tray",
+    "{n} spacers",
+    "Total about {n} g",
+    "{n} spacers included",
+    "1 spacer included",
+    "+ {n}",
+    "about {n} g",
+    "Support this tool",
+    "·",
+  ].map((text) => ({ text, states: DOWNLOAD, ruling: DL_PLAN })),
   { text: "One file with the part.", states: DOWNLOAD, ruling: DL_COUNT },
   { text: "The part is ready", states: DOWNLOAD, ruling: DL_FLOW },
   { text: "{n} of 1 part built", states: DOWNLOAD, ruling: DL_FLOW },
