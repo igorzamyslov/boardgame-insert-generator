@@ -40,6 +40,12 @@ function smallestOf(ctx: Ctx, req: number): number {
   return Number.isFinite(best) ? best : 0;
 }
 
+/** What the kept-free areas take out of the volume under the lid, mm³ (0 without areas). */
+function keptMm3(ctx: Ctx): number {
+  const headroom = ctx.input.box.headroom;
+  return ctx.areas.reduce((sum, a) => sum + toMm(a.w) * toMm(a.d) * headroom, 0);
+}
+
 /** `nameOf` calls an item by what the person named it (the plan's contents text is long); absent or undefined: the contents. */
 export function volumeBudget(ctx: Ctx, nameOf?: (key: string) => string | undefined): VolumeBudget {
   const items = ctx.input.requirements
@@ -57,7 +63,7 @@ export function volumeBudget(ctx: Ctx, nameOf?: (key: string) => string | undefi
     .sort((a, b) => b.mm3 - a.mm3);
   return {
     needMm3: items.reduce((s, i) => s + i.mm3, 0),
-    boxMm3: toMm(ctx.floorW) * toMm(ctx.floorD) * toMm(ctx.topPlane),
+    boxMm3: toMm(ctx.floorW) * toMm(ctx.floorD) * toMm(ctx.topPlane) - keptMm3(ctx),
     items,
   };
 }

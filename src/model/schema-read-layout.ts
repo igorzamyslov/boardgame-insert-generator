@@ -2,7 +2,7 @@ import type { Json } from "./json";
 import { isRecord, shorten, summarize } from "./json";
 import type { Ctx } from "./schema-reader";
 import { absorbErrors, adopt, childCtx, Reader, SCHEMA_NOTICE_CODES } from "./schema-reader";
-import type { CompartmentSpec, FeatureSpec, StoredLayout, TraySpec } from "./types";
+import type { CompartmentSpec, FeatureSpec, ReservedSpec, StoredLayout, TraySpec } from "./types";
 import { UNKNOWN_APP_VERSION } from "./version";
 
 const SIDES = ["front", "back", "left", "right"] as const;
@@ -59,6 +59,18 @@ function readFeature(r: Reader): FeatureSpec {
     case "cornerRelief":
       return r.finish({ type, d: r.strictNum("d") });
   }
+}
+
+function readReserved(r: Reader): ReservedSpec {
+  return r.finish({
+    area: r.strictNum("area"),
+    name: r.str("name", ""),
+    x: r.strictNum("x"),
+    y: r.strictNum("y"),
+    w: r.strictNum("w"),
+    d: r.strictNum("d"),
+    z: r.strictNum("z"),
+  });
 }
 
 function readCompartment(r: Reader): CompartmentSpec {
@@ -204,6 +216,7 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
     iterations: r.strictNum("iterations"),
     capped: r.bool("capped", false),
     trays,
+    ...(r.has("reserved") ? { reserved: r.objects("reserved").map(readReserved) } : {}),
   });
   if (sub.errors.length > 0 || sub.unknownValues.length > 0) {
     const problems = [...sub.errors, ...sub.unknownValues.map((p) => `${p}: unknown value`)];

@@ -52,9 +52,102 @@ describe("BoxPanel", () => {
     expect(text).not.toMatch(/Loose pieces stay out of top trays/);
     // the board's own lines stay
     expect(screen.getByText("For the rulebook, boards or player mats")).toBeTruthy();
-    expect(
-      screen.getByText("Part of it: only where the rulebook lies. Trays fill the rest."),
-    ).toBeTruthy();
+    // the line under the choice is true of the choice (ruled 2026-10-24: the board's was not)
+    expect(screen.getByText("Trays stop 8 mm below the lid, everywhere.")).toBeTruthy();
+    expect(screen.queryByText(/only where the rulebook lies/)).toBeNull();
+  });
+
+  describe("Part of it asks for what lies there", () => {
+    const partial = (over: Partial<typeof DEFAULT_BOX> = {}) => ({
+      ...DEFAULT_BOX,
+      headroom: 14,
+      headroomCoverage: "partial" as const,
+      ...over,
+    });
+
+    it("shows no size fields for Whole top or for 0 mm", () => {
+      render(<BoxPanel {...props({ box: { ...DEFAULT_BOX, headroom: 8 } })} />);
+      expect(screen.queryByText("What lies there")).toBeNull();
+      cleanup();
+      render(<BoxPanel {...props({ box: partial({ headroom: 0 }) })} />);
+      expect(screen.queryByText("What lies there")).toBeNull();
+      expect(document.querySelector(".bx-top__line")).toBeNull();
+    });
+
+    it("says, with no size yet, that the whole top is reserved until there is one", () => {
+      render(<BoxPanel {...props({ box: partial() })} />);
+      expect(screen.getByText("What lies there")).toBeTruthy();
+      expect(
+        screen.getByText(
+          "Give its width and length to reserve only that much. Until then the whole top is reserved.",
+        ),
+      ).toBeTruthy();
+    });
+
+    it("commits width and length into the first area, keeping the other side", () => {
+      const onChange = vi.fn();
+      const box = partial({
+        headroomAreas: [
+          { name: "Mats", w: 280, d: 100 },
+          { w: 5, d: 5 },
+        ],
+      });
+      render(<BoxPanel {...props({ box, onChange })} />);
+      fireEvent.input(screen.getByRole("textbox", { name: /^Width.*of what lies there/ }), {
+        target: { value: "300" },
+      });
+      expect(onChange).toHaveBeenLastCalledWith({
+        headroomAreas: [
+          { name: "Mats", w: 300, d: 100 },
+          { w: 5, d: 5 },
+        ],
+      });
+      fireEvent.input(screen.getByRole("textbox", { name: /^Length.*of what lies there/ }), {
+        target: { value: "90" },
+      });
+      expect(onChange).toHaveBeenLastCalledWith({
+        headroomAreas: [
+          { name: "Mats", w: 280, d: 90 },
+          { w: 5, d: 5 },
+        ],
+      });
+    });
+
+    it("starts the list from nothing when there is none", () => {
+      const onChange = vi.fn();
+      render(<BoxPanel {...props({ box: partial(), onChange })} />);
+      fireEvent.input(screen.getByRole("textbox", { name: /^Width.*of what lies there/ }), {
+        target: { value: "220" },
+      });
+      expect(onChange).toHaveBeenLastCalledWith({ headroomAreas: [{ w: 220, d: 0 }] });
+    });
+
+    it("says where the sized area goes and that trays reach the lid elsewhere", () => {
+      render(<BoxPanel {...props({ box: partial({ headroomAreas: [{ w: 220, d: 290 }] }) })} />);
+      expect(
+        screen.getByText(
+          "Reserved: 220 × 290 mm, in a corner the plan picks. Trays reach the lid everywhere else.",
+        ),
+      ).toBeTruthy();
+    });
+
+    it("keeps the unit in the phone's fields and drops the line above them", () => {
+      const { container } = render(<BoxPanel {...props({ box: partial(), phone: true })} />);
+      expect(container.querySelectorAll(".bx-area .k-field__unit")).toHaveLength(2);
+      expect(screen.queryByText("In mm")).toBeNull();
+    });
+
+    it("shows the engine's message when the area is larger than the floor", () => {
+      const message = "The space kept on top is larger than the floor of the box.";
+      render(
+        <ValidationContext.Provider
+          value={[{ level: "error", code: "field.topArea", path: "/box/headroomAreas/0", message }]}
+        >
+          <BoxPanel {...props({ box: partial({ headroomAreas: [{ w: 999, d: 5 }] }) })} />
+        </ValidationContext.Provider>,
+      );
+      expect(screen.getByText(message)).toBeTruthy();
+    });
   });
 
   it("box headroom is always visible", () => {

@@ -347,7 +347,8 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     leftoverMm3 += volMm3(t.w, t.d, t.h) - volMm3(usableW, usableD, t.h);
     filamentMm3 += shell(ctx, t.w, t.d, t.h);
     const r = ctx.input.requirements[t.item.req];
-    if (covers && t.top && r?.loose) {
+    // a loose tray under a kept-free area has the paper over it
+    if (covers && t.top && r?.loose && !t.under) {
       coverage++;
     }
     if (!t.top && r?.access === "often") {

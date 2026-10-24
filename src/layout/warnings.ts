@@ -1,9 +1,10 @@
 import { rimOn } from "../model/lip";
 import { FIT_CHOICES } from "../model/settings";
-import type { Notice, TraySpec } from "../model/types";
+import type { Notice, ReservedSpec, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
 import { printedHeight, type Ctx, type PartRef } from "./context";
 import { partLabel, requirementLabel } from "./labels";
+import { stacksUnder } from "./reserve";
 import { coverageApplies } from "./score";
 import { splitRisers } from "./risers";
 import type { LayoutSummary } from "./types";
@@ -79,13 +80,17 @@ export function layoutWarnings(
   ctx: Ctx,
   trays: readonly TraySpec[],
   summary: LayoutSummary,
+  /** Where the plan put the kept-free areas: the stacks under one have the paper over them. */
+  reserved: readonly ReservedSpec[] = [],
 ): Notice[] {
   const out: Notice[] = [];
   const { box, settings } = ctx.input;
   const real = trays.filter((t) => t.part === "tray");
+  const under = stacksUnder(trays, reserved);
   if (coverageApplies(ctx)) {
     const exposed = real.filter((t) => {
-      const covered = real.some((o) => o.path === t.path && o.level > t.level);
+      const covered =
+        real.some((o) => o.path === t.path && o.level > t.level) || under.has(t.stack);
       const r = ctx.input.requirements[ctx.refsOfKey(t.key)[0]?.req ?? -1];
       return !covered && r?.loose === true;
     });
@@ -106,7 +111,9 @@ export function layoutWarnings(
         code: NOTICE_CODES.coverage,
         message: box.storedOnSide
           ? `The box is stored on its side, so loose pieces in the top layer can spill: ${labels}. Pin them below other trays.`
-          : `The boards don't cover the whole top layer, so these loose pieces may not stay in place: ${labels}. Pin them below other trays.`,
+          : reserved.length > 0
+            ? `${reserved.map((r) => r.name).join(" and ")} covers only some of the top layer, so these loose pieces may not stay in place: ${labels}. Pin them below other trays.`
+            : `The boards don't cover the whole top layer, so these loose pieces may not stay in place: ${labels}. Pin them below other trays.`,
       });
     }
   }
@@ -145,9 +152,10 @@ export function layoutWarnings(
   }
   if (!settings.fillToTop) {
     // Each stack's height, from its stored trays.
+    // A stack under a kept-free area is filled to its plane whatever this says: the paper lies on it.
     const heights = new Map<number, number>();
     for (const t of trays) {
-      if (t.part === "tray") {
+      if (t.part === "tray" && !under.has(t.stack)) {
         heights.set(t.stack, (heights.get(t.stack) ?? 0) + toU(t.h));
       }
     }
@@ -458,7 +466,9 @@ export function doesNotFitNotice(
     "use unsleeved cards or thinner sleeves",
     "store cards flat or upright (Storage: auto tries both)",
   ];
-  if (ctx.input.box.headroom > 0) {
+  if (ctx.areas.length > 0) {
+    tips.push("reserve less space on top (a smaller area, or less height)");
+  } else if (ctx.input.box.headroom > 0) {
     tips.push("move the rulebook or boards elsewhere (less headroom)");
   }
   if (ctx.input.settings.fit > FIT_CHOICES.tight) {

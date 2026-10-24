@@ -10,6 +10,7 @@ import {
   stackMinFootprint,
   type Level,
 } from "./stack";
+import { overlaps, reserveClash, reservedOf, snapOf, type PlacedReserve } from "./reserve";
 import type { OuterCutSides } from "../sizing";
 import {
   packedToWall,
@@ -49,6 +50,8 @@ export interface PlacedTray {
   readonly plug: boolean;
   /** Nothing is stacked on it. */
   readonly top: boolean;
+  /** Its stack stands under a kept-free area, so it stops at the low plane (`Ctx.lowPlane`). */
+  readonly under: boolean;
   readonly minW: U;
   readonly minD: U;
   /** The smallest footprint the stack asks of the tray (box frame): its own minimum, or more under others. */
@@ -102,6 +105,8 @@ export interface Plan {
   readonly air: Air[];
   /** Per axis: how much larger the box would have to be (z: worst stack). */
   readonly shortfall: { readonly x: U; readonly y: U; readonly z: U };
+  /** Where each kept-free area lies in this plan (empty without areas). */
+  readonly reserved: PlacedReserve[];
   /** Most bottom-level parts crossed by a line along X / along Y. */
   readonly crossX: number;
   readonly crossY: number;
@@ -247,7 +252,7 @@ export interface LevelFiller {
 }
 
 export interface StackPlacement {
-  readonly trays: Omit<PlacedTray, "path" | "stack">[];
+  readonly trays: Omit<PlacedTray, "path" | "stack" | "under">[];
   /** Beside the whole stack, as tall as the box. */
   readonly leftovers: Rect[];
   /** Beside a tray of level 1 and up, from that level's floor to the top of the stack. */
@@ -528,6 +533,13 @@ function setSizes(
   return sizes;
 }
 
+/** The context for a stack under a kept-free area: it stops at the low plane, filled up to it. */
+function underCtx(ctx: Ctx): Ctx {
+  return ctx.areas.length === 0
+    ? ctx
+    : { ...ctx, topPlane: ctx.lowPlane, fillToTop: true, riserMin: ctx.riserMinFilled };
+}
+
 /** Turns a tree into concrete integer placements, leftovers and overflow (the "fill" step). */
 export function evaluate(ctx: Ctx, tree: Tree): Plan {
   const { plugged, leaves: withAlike } = alikeIn(ctx, tree.root);
@@ -547,16 +559,24 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
   // the trays that grow, else at the wall (`packedToWall`). The search itself keeps the shares it
   // moves: it scores the same tree, and packing is no part of finding a fit (measured: with it in
   // the search, a tight box lost its fit on the default seed).
-  const growsIn = ctx.growing
-    ? (leaf: Leaf, axis: "x" | "y"): boolean =>
-        levelsOf(leaf).some((l) => (axis === "x" ? l.growW > 0 : l.growD > 0))
-    : undefined;
+  const reserved = ctx.areas.length > 0 ? reservedOf(ctx, tree) : [];
+  // With areas the trays stay where the search put them: its cuts were drawn to the areas' edges,
+  // and packing the room to the wall would move stacks across them.
+  const growsIn =
+    ctx.growing && reserved.length === 0
+      ? (leaf: Leaf, axis: "x" | "y"): boolean =>
+          levelsOf(leaf).some((l) => (axis === "x" ? l.growW > 0 : l.growD > 0))
+      : undefined;
   const placement = placeLeaves(
     growsIn === undefined ? tree.root : packedToWall(tree.root, growsIn),
     floor,
     ctx.gap,
     (leaf) => stackMinFootprint(ctx, levelsOf(leaf)),
+    reserved.length > 0 ? snapOf(ctx, reserved) : undefined,
   );
+  // The stacks under an area stop at the low plane and are filled to it, whatever the fill setting
+  // says: the paper needs one level top. The leaves tile the floor, so nothing under it is bare.
+  const under = underCtx(ctx);
   const trays: PlacedTray[] = [];
   const leftovers: PlacedLeftover[] = [];
   let z = 0;
@@ -565,20 +585,21 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
   let lock = 0;
   const air: Air[] = [];
   let stack = 0;
-  const leftoverH = Math.max(0, ctx.topPlane);
-  const pending: { path: string; rect: Rect }[] = [];
+  const pending: { path: string; rect: Rect; h: U }[] = [];
   const inLevel: { path: string; stack: number; filler: LevelFiller }[] = [];
   const extras = withAlike.length > 0 ? alikeGrowth(ctx, placement.leaves, levelsOf) : undefined;
   for (const pl of placement.leaves) {
     const levels = levelsOf(pl.leaf);
-    const sp = placeStack(ctx, levels, pl.rect, extras);
+    const below = reserved.some((r) => overlaps(r.rect, pl.rect));
+    const sctx = below ? under : ctx;
+    const sp = placeStack(sctx, levels, pl.rect, extras);
     z += sp.overflowZ;
     zMax = Math.max(zMax, sp.overflowZ);
     lock += sp.overflowLock;
     air.push(...sp.air);
     if (sp.trays.length > 0) {
       for (const t of sp.trays) {
-        trays.push({ ...t, path: pl.path, stack });
+        trays.push({ ...t, path: pl.path, stack, under: below });
         bed += bedExcess(ctx.bed, t.w, t.d, printedHeight(ctx, t.h, t.rim, t.level > 0 || t.plug));
       }
       for (const filler of sp.fillers) {
@@ -587,7 +608,7 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
       stack++;
     }
     for (const r of sp.leftovers) {
-      pending.push({ path: pl.path, rect: r });
+      pending.push({ path: pl.path, rect: r, h: Math.max(0, sctx.topPlane) });
     }
   }
   // A spare leftover needs a grip (≥ 25 mm inside) and a floor below its rim (roadmap §4.6); one
@@ -604,10 +625,10 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
         level: 0,
         z: 0,
         ...piece,
-        h: leftoverH,
-        solid: solidFor(piece, leftoverH),
+        h: p.h,
+        solid: solidFor(piece, p.h),
       });
-      bed += bedExcess(ctx.bed, piece.w, piece.d, leftoverH);
+      bed += bedExcess(ctx.bed, piece.w, piece.d, p.h);
       stack++;
     }
   }
@@ -635,8 +656,9 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
   return {
     trays,
     leftovers,
-    overflow: { x: ox, y: oy, z, bed, lock },
+    overflow: { x: ox + reserveClash(reserved), y: oy, z, bed, lock },
     air,
+    reserved,
     shortfall: { x: ox, y: oy, z: zMax },
     crossX: maxCrossing(bottoms, true),
     crossY: maxCrossing(bottoms, false),

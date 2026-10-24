@@ -8,7 +8,16 @@ import { readLayout } from "./schema-read-layout";
 import type { Ctx } from "./schema-reader";
 import { addError, adopt, childCtx, newCtx, Reader, SCHEMA_NOTICE_CODES } from "./schema-reader";
 import { DEFAULT_SETTINGS } from "./settings";
-import type { Box, ForeignData, Lock, ParseResult, Printer, Project, Settings } from "./types";
+import type {
+  Box,
+  ForeignData,
+  Lock,
+  ParseResult,
+  Printer,
+  Project,
+  Settings,
+  TopArea,
+} from "./types";
 import { UNKNOWN_APP_VERSION } from "./version";
 
 // Turns untrusted project JSON of a known schema line into a typed Project.
@@ -137,7 +146,26 @@ function readBox(r: Reader | null): Box {
       DEFAULT_BOX.headroomCoverage,
     ),
     storedOnSide: r.bool("storedOnSide", DEFAULT_BOX.storedOnSide),
+    ...readTopAreas(r),
   });
+}
+
+/** `headroomAreas`, only when the file has the list (absent stays absent: no area). */
+function readTopAreas(r: Reader): { headroomAreas?: TopArea[] } {
+  if (!r.has("headroomAreas")) {
+    r.take("headroomAreas");
+    return {};
+  }
+  return {
+    headroomAreas: r.objects("headroomAreas").map((a) => {
+      const name = a.optStr("name");
+      return a.finish({
+        ...(name === undefined ? {} : { name }),
+        w: a.num("w"),
+        d: a.num("d"),
+      });
+    }),
+  };
 }
 
 function readPrinter(r: Reader | null): Printer {

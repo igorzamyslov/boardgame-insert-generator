@@ -67,7 +67,7 @@ export function createAnnealer(
       while (done < end) {
         const t = temperature(done, total);
         done++;
-        const move = pickMove(rng);
+        const move = pickMove(rng, env);
         const next = move(current.tree, env, rng);
         if (next === null) {
           continue;

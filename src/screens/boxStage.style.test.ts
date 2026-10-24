@@ -108,6 +108,20 @@ describe("boxPanel.css", () => {
     expect(ruleFor(".bx-top .k-seg", panel)).toMatch(/flex:\s*1 1 0/);
   });
 
+  it("lays the size of what lies on top out as two fields side by side", () => {
+    const area = ruleFor(".bx-area", panel);
+    expect(area).toMatch(/grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+    expect(area).toMatch(/gap:\s*var\(--s-10\)/);
+  });
+
+  it("draws the kept-free slab dashed and cut by an ellipsis, hung from the top of the plane", () => {
+    const slab = ruleFor(".bx-reserve", stage);
+    expect(slab).toMatch(/border:\s*2px dashed var\(--spacer-dash\)/);
+    expect(slab).toMatch(/top:\s*0/);
+    expect(slab).toMatch(/overflow:\s*hidden/);
+    expect(slab).toMatch(/text-overflow:\s*ellipsis/);
+  });
+
   it("puts Done at the foot on the right, in sight", () => {
     const foot = ruleFor(".bx-foot", panel);
     expect(foot).toMatch(/margin-top:\s*auto/);

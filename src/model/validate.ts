@@ -7,6 +7,7 @@ import {
   effective,
   effectiveBottomChamfer,
   maxBottomChamfer,
+  topAreasOf,
   topPlane,
 } from "./settings";
 import { DEFAULT_GROUP_NAME } from "./groups";
@@ -44,6 +45,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     setting: "field.setting",
     turnLock: "field.turnLock",
     topPlane: "field.topPlane",
+    topArea: "field.topArea",
     thicknessScale: "field.thicknessScale",
     volume: "field.volume",
   },
@@ -889,6 +891,23 @@ export function validateProject(p: Project, foreign?: ForeignData): Notice[] {
       );
     }
   }
+
+  (box.headroomAreas ?? []).forEach((a, i) => {
+    const wOk = ck.nonNegativeLength(`/box/headroomAreas/${i}/w`, "Width of the kept space", a.w);
+    const dOk = ck.nonNegativeLength(`/box/headroomAreas/${i}/d`, "Length of the kept space", a.d);
+    if (wOk && dOk && a.w > 0 && a.d > 0 && topAreasOf(box).includes(a)) {
+      const floorW = box.innerWidth - 2 * effective(settings).boxClearance;
+      const floorD = box.innerDepth - 2 * effective(settings).boxClearance;
+      const fits = (a.w <= floorW && a.d <= floorD) || (a.d <= floorW && a.w <= floorD);
+      if (!fits) {
+        ck.error(
+          VALIDATION_NOTICE_CODES.field.topArea,
+          `/box/headroomAreas/${i}`,
+          "The space kept on top is larger than the floor of the box.",
+        );
+      }
+    }
+  });
 
   const bedXOk = ck.length("/printer/bedX", "Bed X", printer.bedX);
   const bedYOk = ck.length("/printer/bedY", "Bed Y", printer.bedY);
