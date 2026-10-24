@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.3.0",
+  "schemaVersion": "0.3.1",
   "createdWith": "0.2.0",
   "id": "fxtile01",
   "name": "Fixture: tiles and minis",
@@ -34,7 +34,7 @@
       "dividerRoom": 0
     },
     "lip": {
-      "enabled": true,
+      "joint": "rim",
       "height": 2,
       "thickness": 1.2,
       "ledge": 1.7,

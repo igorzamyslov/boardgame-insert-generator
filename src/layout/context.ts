@@ -1,5 +1,12 @@
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
-import { bottomMinimums, leastRiser, lipAbove, stepBelow, upperTrayMinH } from "../model/lip";
+import {
+  bottomMinimums,
+  leastRiser,
+  lipAbove,
+  lipEnabled,
+  stepBelow,
+  upperTrayMinH,
+} from "../model/lip";
 import type { Settings } from "../model/types";
 import { minOuter, outerCutSides, wallFor, type OuterCutSides } from "../sizing";
 import { growthCapU, partGrowthCapOf } from "../sizing/growth";
@@ -289,12 +296,12 @@ export function createCtx(
     gap: toU(eff.trayGap),
     playLimit: toU(settings.playLimit),
     layer: Math.max(1, toU(printer.layerHeight)),
-    lipOn: settings.lip.enabled,
+    lipOn: lipEnabled(settings),
     lipHeight: toU(lipAbove(settings, true)),
     stepHeight: toU(stepBelow(settings, 1)),
     upperMinH: toUCeil(upperTrayMinH(settings)),
     riserMin:
-      settings.lip.enabled && settings.fillToTop
+      lipEnabled(settings) && settings.fillToTop
         ? roundUpTo(toUCeil(leastRiser(settings)), Math.max(1, toU(printer.layerHeight)))
         : 0,
     wall,

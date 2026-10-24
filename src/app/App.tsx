@@ -4,6 +4,7 @@ import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Access, ComponentKind, Lock, Project } from "../model/types";
 import { groupById, requirementKeyOf } from "../model/groups";
+import { engineProject } from "../model/lip";
 import { topPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
@@ -115,7 +116,11 @@ export function App(props: AppProps) {
   // The project the assembly page was opened for: another project, or one without a layout,
   // never shows it (a later layout must not pop the page back open on its own).
   const [assemblyFor, setAssemblyFor] = useState<string | null>(null);
-  const project = s.project.value;
+  // What is saved and edited, and what is built from: the same, but for Auto, which the engine
+  // sees as the joint the plan was made with (engineProject). Only `saved` is written out.
+  const saved = s.project.value;
+  const noFitJoint = s.noFitAttempt.value ?? undefined;
+  const project = useMemo(() => engineProject(saved, noFitJoint), [saved, noFitJoint]);
   const layout = project.layout;
   // The parts to print: the stored trays, with the height a stack doesn't need split off as a
   // riser under it (spec §3 rule 2) and each stretch spacer split into its component's plates
@@ -516,13 +521,13 @@ export function App(props: AppProps) {
     store.importJson(text);
   }
   const saveFile = (): void => {
-    download(exportJsonFile(project, s.foreign.value), jsonFileName(project));
+    download(exportJsonFile(saved, s.foreign.value), jsonFileName(saved));
     store.markSavedToFile();
   };
   // Phone: the share sheet takes the file; where it can't, Send file is Save file.
   const sendFile = async (): Promise<void> => {
-    const name = jsonFileName(project);
-    const file = new File([exportJsonFile(project, s.foreign.value)], name, {
+    const name = jsonFileName(saved);
+    const file = new File([exportJsonFile(saved, s.foreign.value)], name, {
       type: "application/json",
     });
     const result = await (props.share ?? shareFile)(file);
@@ -1349,7 +1354,8 @@ export function App(props: AppProps) {
           {settingsOpen !== null ? (
             <SettingsSheet
               initialTab={settingsOpen.tab}
-              settings={project.settings}
+              settings={saved.settings}
+              plannedJoint={s.stale.value ? undefined : layout?.joint}
               nameExample={nameExampleOf(printable, project.components, project.groups)}
               onSettingsChange={(next) => store.edit((q) => setSettings(q, next))}
               printer={project.printer}

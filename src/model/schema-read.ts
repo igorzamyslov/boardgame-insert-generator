@@ -8,7 +8,16 @@ import { readLayout } from "./schema-read-layout";
 import type { Ctx } from "./schema-reader";
 import { addError, adopt, childCtx, newCtx, Reader, SCHEMA_NOTICE_CODES } from "./schema-reader";
 import { DEFAULT_SETTINGS } from "./settings";
-import type { Box, ForeignData, Lock, ParseResult, Printer, Project, Settings } from "./types";
+import type {
+  Box,
+  ForeignData,
+  LipJoint,
+  Lock,
+  ParseResult,
+  Printer,
+  Project,
+  Settings,
+} from "./types";
 import { UNKNOWN_APP_VERSION } from "./version";
 
 // Turns untrusted project JSON of a known schema line into a typed Project.
@@ -156,22 +165,38 @@ function readPrinter(r: Reader | null): Printer {
 /** Every missing setting gets its spec §5 default (older-minor files, spec §9). */
 /**
  * What a file with no `lip` (or no `lip.enabled`) means: the rim between layers is off. New inserts
- * start with it on (DEFAULT_SETTINGS), but older and hand-written files were made when the default
- * was off and keep that meaning. Saved projects carry the value, so this only reaches such files.
+ * start with Auto (DEFAULT_SETTINGS), but older and hand-written files were made when the default
+ * was off and keep that meaning.
  */
 export const LIP_ENABLED_WHEN_ABSENT = false;
 
 /**
  * What a file with no `lip.kind` means: the rim (a lip and groove), the only joint there was
- * before schema 0.2.2. It is also the default, so a saved insert keeps its trays and its plan.
+ * before schema 0.2.2.
  */
 export const LIP_KIND_WHEN_ABSENT = "rim";
+
+/**
+ * A file from before the single choice (schema 0.3.1) said `enabled` and `kind`: off, the rim or
+ * the stepped base map to the choice of the same name, so every one keeps its trays and its hash.
+ */
+function readJoint(lip: Reader): LipJoint {
+  const enabled = lip.bool("enabled", LIP_ENABLED_WHEN_ABSENT);
+  // Not an enum field: the writer no longer has a `kind` to write back, so an unknown one is the rim.
+  const kind = lip.optStr("kind") === "step" ? "step" : LIP_KIND_WHEN_ABSENT;
+  // An unknown joint reads as the default, which is what the writer takes for "unchanged".
+  return lip.has("joint")
+    ? lip.oneOf("joint", ["off", "auto", "rim", "step"], DEFAULT_SETTINGS.lip.joint)
+    : enabled
+      ? kind
+      : "off";
+}
 
 function readSettings(r: Reader | undefined): Settings {
   const d = DEFAULT_SETTINGS;
   if (!r) {
     const whole = structuredClone(d);
-    whole.lip.enabled = LIP_ENABLED_WHEN_ABSENT;
+    whole.lip.joint = "off";
     return whole;
   }
   const fp = r.optChild("fingerPocket");
@@ -207,15 +232,14 @@ function readSettings(r: Reader | undefined): Settings {
       : { ...d.fingerPocket },
     lip: lip
       ? lip.finish({
-          enabled: lip.bool("enabled", LIP_ENABLED_WHEN_ABSENT),
-          kind: lip.oneOf("kind", ["rim", "step"], LIP_KIND_WHEN_ABSENT),
+          joint: readJoint(lip),
           height: lip.num("height", d.lip.height),
           thickness: lip.num("thickness", d.lip.thickness),
           ledge: lip.num("ledge", d.lip.ledge),
           play: lip.num("play", d.lip.play),
           stepHeight: lip.num("stepHeight", d.lip.stepHeight),
         })
-      : { ...d.lip, enabled: LIP_ENABLED_WHEN_ABSENT },
+      : { ...d.lip, joint: "off" },
     topPressFit: r.num("topPressFit", d.topPressFit),
     packingFactor: r.num("packingFactor", d.packingFactor),
     leftover: r.oneOf("leftover", ["spare", "solid"], d.leftover),

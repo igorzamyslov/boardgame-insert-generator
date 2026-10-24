@@ -72,6 +72,10 @@ describe("schema history", () => {
 
   it("has a file for the current schema version", () => {
     expect(Object.keys(HISTORY)).toContain(`../../test/fixtures/schema/${SCHEMA_VERSION}.json`);
+    const current = HISTORY[`../../test/fixtures/schema/${SCHEMA_VERSION}.json`] as {
+      schemaVersion: string;
+    };
+    expect(current.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
   it.each(Object.entries(HISTORY))("%s still loads", (_path, raw) => {

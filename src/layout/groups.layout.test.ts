@@ -81,7 +81,7 @@ describe("a group that fits whole is never split", () => {
       [0, 1].map((c) => part(`g:p${c}:0`, [well("a"), well("b")])),
     ),
   ]);
-  const noLip = { lip: { ...makeInput([]).settings.lip, enabled: false } };
+  const noLip = { lip: { ...makeInput([]).settings.lip, joint: "off" as const } };
   const box = { innerWidth: 92, innerDepth: 140, innerHeight: 45 };
 
   it("holds for copies: the whole variant, and the split term charges per copy", () => {

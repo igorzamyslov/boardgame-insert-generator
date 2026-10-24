@@ -35,7 +35,7 @@ function solid(mesh: Mesh): Manifold {
   );
 }
 
-const lipOff: Settings = { ...GEO, lip: { ...GEO.lip, enabled: false } };
+const lipOff: Settings = { ...GEO, lip: { ...GEO.lip, joint: "off" as const } };
 
 describe("which trays get a groove", () => {
   it("only a tray above level 0, with the lip on: the one on a lipped tray", () => {

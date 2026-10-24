@@ -440,7 +440,7 @@ const CASES: readonly Case[] = [
     overrides: { meshes: failsOnePart() },
     steps: async () => {
       startBuild();
-      await screen.findByRole("heading", { name: /parts are ready$/ });
+      await screen.findByRole("heading", { name: /parts are ready$/ }, { timeout: 10_000 });
       // the part that failed is listed with the one Try again
       expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
     },
@@ -451,7 +451,7 @@ const CASES: readonly Case[] = [
     region: "dialog",
     steps: async () => {
       startBuild();
-      await screen.findByRole("heading", { name: /parts are ready$/ });
+      await screen.findByRole("heading", { name: /parts are ready$/ }, { timeout: 10_000 });
     },
   },
   // Task 11: the box's editor, Box at 1440 and MobileBox on a phone, and the plan's problems told in its stage

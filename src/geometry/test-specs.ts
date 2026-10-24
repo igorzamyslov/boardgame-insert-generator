@@ -23,6 +23,7 @@ import {
   effective,
   maxBottomChamfer,
 } from "../model/settings";
+import { lipEnabled } from "../model/lip";
 import { parseProject } from "../model/schema";
 import { planTray } from "./plan";
 import type { OuterSize, RealizedTray, RealizeOptions } from "../sizing/types";
@@ -38,8 +39,7 @@ export const GEO: Settings = {
   scoopRadius: 12,
   fingerPocket: { width: 22, floorNotch: 11, wallRoom: 0, dividerRoom: 0 },
   lip: {
-    enabled: true,
-    kind: "rim",
+    joint: "rim",
     height: 2,
     thickness: 1.2,
     ledge: 1.7,
@@ -360,7 +360,7 @@ export function traySpecFrom(
     wall: realized.wall,
     floor: fromU(ceilU(settings.floor)),
     // RealizeOptions.lipped takes effect only with lips enabled (roadmap §4.7).
-    lip: opts.lipped && settings.lip.enabled,
+    lip: opts.lipped && lipEnabled(settings),
     solid: false,
     compartments: realized.compartments,
   };
@@ -493,11 +493,11 @@ export const THINNEST: Profile = (s) =>
     wall: MIN_WALL_MM,
     floor: MIN_FEATURE_MM,
     divider: MIN_FEATURE_MM,
-    lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM, height: 1 },
+    lip: { ...s.lip, joint: "rim" as const, thickness: MIN_WALL_MM, height: 1 },
   });
 
-/** The stepped base (lip.kind "step") on the fixture's settings. */
-export const STEPPED: Profile = (s) => ({ ...s, lip: { ...s.lip, enabled: true, kind: "step" } });
+/** The stepped base (lip.joint "step") on the fixture's settings. */
+export const STEPPED: Profile = (s) => ({ ...s, lip: { ...s.lip, joint: "step" as const } });
 
 // Settings at the SETTING_RANGES extremes; each is valid (settingsValid), so the chamfer profiles
 // sit exactly on maxBottomChamfer.
@@ -521,10 +521,10 @@ export const PROFILES: readonly [string, Profile][] = [
   ],
   ["largest chamfer, wall and floor 1.2", (s) => largestChamfer({ ...s, wall: 1.2, floor: 1.2 })],
   ["largest chamfer, thick wall and floor", (s) => largestChamfer({ ...s, wall: 3, floor: 3 })],
-  ["lip height 1", (s) => ({ ...s, lip: { ...s.lip, enabled: true, height: 1 } })],
+  ["lip height 1", (s) => ({ ...s, lip: { ...s.lip, joint: "rim" as const, height: 1 } })],
   [
     "lip thickness 0.9",
-    (s) => ({ ...s, lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM } }),
+    (s) => ({ ...s, lip: { ...s.lip, joint: "rim" as const, thickness: MIN_WALL_MM } }),
   ],
   ["finger room in the cut walls (Extra finger room switch on)", (s) => applyFingerRoom(s, true)],
   ["the stepped base", STEPPED],
@@ -556,7 +556,7 @@ export const PROFILES: readonly [string, Profile][] = [
         wallRoom: 3.333,
         dividerRoom: 1.111,
       },
-      lip: { ...s.lip, enabled: true, height: 2.001, thickness: 1.003, ledge: 1.707 },
+      lip: { ...s.lip, joint: "rim" as const, height: 2.001, thickness: 1.003, ledge: 1.707 },
     }),
   ],
 ];

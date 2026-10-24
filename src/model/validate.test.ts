@@ -852,7 +852,12 @@ describe("setting ranges", () => {
   // and no lip, so no chamfer, ledge, play or fit is too large for upper trays to bear on it.
   const roomy = (): Project => {
     const p = newProject();
-    p.settings = { ...p.settings, wall: 2, floor: 3, lip: { ...p.settings.lip, enabled: false } };
+    p.settings = {
+      ...p.settings,
+      wall: 2,
+      floor: 3,
+      lip: { ...p.settings.lip, joint: "off" as const },
+    };
     return p;
   };
   const rangeCases: [string, SettingRange][] = SETTING_RANGES.map((r) => [r.path, r]);
@@ -957,7 +962,11 @@ describe("setting ranges", () => {
     const withLip = (over: Partial<Settings>, lip: Partial<Settings["lip"]> = {}): Project => {
       const p = newProject();
       // The rule only bites on a tray that has a lip, and the lip is off by default.
-      p.settings = { ...p.settings, ...over, lip: { ...p.settings.lip, enabled: true, ...lip } };
+      p.settings = {
+        ...p.settings,
+        ...over,
+        lip: { ...p.settings.lip, joint: "rim" as const, ...lip },
+      };
       return p;
     };
     const bearing = [[field.lipBearing, "/settings/bottomChamfer"]];
@@ -971,7 +980,7 @@ describe("setting ranges", () => {
     expect(validateProject(withLip({ bottomChamfer: 0 }, { ledge: 1.01 }))).toEqual([]);
     expect(codes(validateProject(withLip({ bottomChamfer: 0 }, { ledge: 1 })))).toEqual(bearing);
     // Without a lip nothing rests on a ledge.
-    expect(validateProject(withLip({ bottomChamfer: 1.2 }, { enabled: false }))).toEqual([]);
+    expect(validateProject(withLip({ bottomChamfer: 1.2 }, { joint: "off" }))).toEqual([]);
   });
 
   it("checks the lip bearing only with the chamfer, ledge, play and fit in range", () => {

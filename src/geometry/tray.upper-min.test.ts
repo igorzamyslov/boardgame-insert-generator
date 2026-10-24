@@ -50,7 +50,7 @@ describe("upperTrayMinH: what the groove needs and nothing more", () => {
     expect(upperTrayMinH(tall)).toBeCloseTo(0.6 + 3 + 0.25 + MIN_FEATURE_MM, 9);
     const loose: Settings = { ...GEO, fit: 1.4 };
     expect(upperTrayMinH(loose)).toBeGreaterThan(MIN_H);
-    expect(upperTrayMinH({ ...GEO, lip: { ...GEO.lip, enabled: false } })).toBe(0);
+    expect(upperTrayMinH({ ...GEO, lip: { ...GEO.lip, joint: "off" as const } })).toBe(0);
   });
 
   it("is the least planTray accepts: a hair less is refused", () => {
@@ -226,7 +226,7 @@ describe("what sizing makes at the minimum, built", () => {
     }
     // on the ground (or with the lip off) it is the content that sets the height, as before
     expect(minOuter(part, GEO, { lipped: false, level: 0 }).h).toBeCloseTo(3.2, 9);
-    const off: Settings = { ...GEO, lip: { ...GEO.lip, enabled: false } };
+    const off: Settings = { ...GEO, lip: { ...GEO.lip, joint: "off" as const } };
     expect(minOuter(plainPiece(off), off, opts).h).toBeCloseTo(3.2, 9);
   });
 });

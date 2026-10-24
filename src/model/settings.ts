@@ -92,16 +92,15 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   cornerRadius: 3,
   scoopRadius: 12,
   fingerPocket: { width: 25, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
-  // On for new inserts: every upper tray has a groove that takes the lip below it, flush (geometry
-  // 0.8.0), so the trays key together and do not rattle. The cost is a wall of about 2.56 mm beside
-  // the groove. Files that say nothing about the lip read it off (LIP_ENABLED_WHEN_ABSENT).
-  // The joint is the rim (a lip and groove) unless the insert asks for the stepped base, so every
-  // project saved before the choice existed keeps its trays (LIP_KIND_WHEN_ABSENT). The step's
-  // slab is 1.5 mm: two or three layers more than the floor, at the cost of that much room in the
-  // tray below.
+  // Auto for new inserts (owner, 2026-10-24): the optimizer plans with both joints, the lip and
+  // groove (geometry 0.8.0: every upper tray has a groove that takes the lip below it, flush, at
+  // the cost of a wall of about 2.56 mm beside the groove) and the stepped base (geometry 0.9.2:
+  // walls stay thin, at the cost of about 1.5 mm of room per joint), and keeps the better plan.
+  // Files made before the choice read as what they had (readSettings), so every saved insert
+  // keeps its trays and its plan. The step's slab is 1.5 mm: two or three layers more than the
+  // floor, at the cost of that much room in the tray below.
   lip: {
-    enabled: true,
-    kind: "rim",
+    joint: "auto",
     height: 2,
     thickness: 1.2,
     ledge: 1.7,

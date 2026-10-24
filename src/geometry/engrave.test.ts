@@ -810,7 +810,7 @@ describe("an engraved merged part", () => {
   // Rim off: a filler in a stack level has a groove with it on, and is not merged.
   const settings: Settings = {
     ...DEFAULT_SETTINGS,
-    lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+    lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
     mergeRisers: true,
   };
   const filler = (o: Partial<TraySpec> & Pick<TraySpec, "w" | "d">): TraySpec =>

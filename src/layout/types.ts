@@ -1,4 +1,13 @@
-import type { Box, Printer, Settings, Lock, StoredLayout, TraySpec, Notice } from "../model/types";
+import type {
+  Box,
+  Joint,
+  Printer,
+  Settings,
+  Lock,
+  StoredLayout,
+  TraySpec,
+  Notice,
+} from "../model/types";
 import type { TrayRequirement } from "../sizing/types";
 
 export interface LayoutInput {
@@ -49,6 +58,8 @@ export interface LayoutResult {
     shortfall: { x: number; y: number; z: number };
     /** Keys of the trays of this attempt that no print bed orientation can hold (`overBedParts`); absent means none known. */
     overBedKeys?: string[];
+    /** The joint the attempt was planned with, when the settings say Auto (StoredLayout.joint). */
+    joint?: Joint;
   } | null;
   summary: LayoutSummary | null;
   notices: Notice[]; // warnings (coverage, play, lip off, capped, bed, doesNotFit)

@@ -150,8 +150,7 @@ describe("checkHardRules catches broken layouts", () => {
       box: { innerWidth: 135, innerDepth: 95, innerHeight: 40 },
       settings: {
         lip: {
-          enabled: false,
-          kind: "rim",
+          joint: "off" as const,
           height: 2,
           thickness: 1.2,
           ledge: 1.7,

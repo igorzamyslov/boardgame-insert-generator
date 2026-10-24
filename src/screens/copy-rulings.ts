@@ -400,7 +400,7 @@ const SET_INTRO = "My printer's intro names the values it covers";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
 const SET_GAPS = "Fill the space that's left is one choice of what the engine does with spare room";
-const SET_KIND = "Rim between layers is a rim and groove or a stepped base";
+const SET_KIND = "Rim between layers is one choice: Off, Auto, a rim and groove or a stepped base";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
@@ -478,7 +478,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   { text: "Fold risers into the joined spacers", states: SETTINGS_STATES, ruling: SET_RISERS },
   { text: "Needs joined spacers.", states: SETTINGS_STATES, ruling: SET_RISERS },
-  { text: "Kind of rim", states: SETTINGS_STATES, ruling: SET_KIND },
+  { text: "Off", states: SETTINGS_STATES, ruling: SET_KIND },
+  { text: "Auto", states: SETTINGS_STATES, ruling: SET_KIND },
   { text: "Rim and groove", states: SETTINGS_STATES, ruling: SET_KIND },
   { text: "Stepped base", states: SETTINGS_STATES, ruling: SET_KIND },
   { text: "Trays with one on top get thicker walls.", states: SETTINGS_STATES, ruling: SET_KIND },
@@ -487,12 +488,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: SETTINGS_STATES,
     ruling: SET_KIND,
   },
-  { text: "Needs Rim between layers.", states: SETTINGS_STATES, ruling: SET_KIND },
+  { text: "Stacked trays are not held in place.", states: SETTINGS_STATES, ruling: SET_KIND },
+  { text: "Plans with both and uses the better one.", states: SETTINGS_STATES, ruling: SET_KIND },
   {
-    text: "A step under each tray keeps the top layer from sliding",
+    text: "Auto: rim and groove (trays stay full depth)",
     states: SETTINGS_STATES,
     ruling: SET_KIND,
   },
+  { text: "Auto: stepped base (walls stay thin)", states: SETTINGS_STATES, ruling: SET_KIND },
   { text: "Not saved: {name}", states: SETTINGS_STATES, ruling: SET_DETAILS },
   // Task 13: Export, Exporting and MobileDownload have the plural forms only, and no failure of a whole build
   ...HOLDS.map((text) => ({ text, states: DOWNLOAD, ruling: DL_COUNT })),

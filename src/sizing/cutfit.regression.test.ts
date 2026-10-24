@@ -30,8 +30,7 @@ const BASE = {
   cornerRadius: 3,
   scoopRadius: 12,
   lip: {
-    enabled: false,
-    kind: "rim",
+    joint: "off" as const,
     height: 1,
     thickness: 0.9,
     ledge: 0.5,

@@ -70,7 +70,7 @@ function roomsOf(out: Json): unknown[] {
 
 describe("the migration from 0.2 to 0.3", () => {
   it("is registered for the line 0.2 and is the one the schema version needs", () => {
-    expect(SCHEMA_VERSION).toBe("0.3.0");
+    expect(SCHEMA_VERSION).toBe("0.3.1");
     expect(MIGRATIONS.find((m) => m.from === "0.2")).toMatchObject({ to: "0.3.0" });
   });
 

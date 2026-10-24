@@ -1,5 +1,7 @@
 import { GEOMETRY_VERSION } from "../geometry/version";
-import type { Notice, StoredLayout } from "../model/types";
+import { withJoint } from "../model/lip";
+import { jointAllowed } from "../model/validate";
+import type { Joint, Notice, StoredLayout } from "../model/types";
 import { createAnnealer, type Annealer, type Candidate } from "./anneal";
 import { createCtx, withSizeLocks, type Ctx, type Measure } from "./context";
 import { evaluate, overflowTotal, type Plan } from "./fill";
@@ -54,6 +56,8 @@ export interface RunOptions {
   /** Injection points for unit tests (default: sizing's minOuter / realizeTray). */
   measure?: Measure;
   realize?: Realize;
+  /** Put the joint the run plans with in the layout and the attempt it reports (an Auto run's). */
+  recordJoint?: boolean;
 }
 
 /** An optimization in progress; step() runs one chunk and returns true when finished. */
@@ -72,6 +76,11 @@ export interface Run {
   snapshot(): LayoutResult;
   /** Final result; marks the run capped if called before it finished. */
   result(): LayoutResult;
+  /**
+   * How good the run's best is, lower first: [0, score] for the best layout that fits, else
+   * [how much overflows, score] of the closest attempt. What Auto compares two joints by.
+   */
+  rank(): readonly [number, number];
 }
 
 interface Phase {
@@ -170,11 +179,15 @@ function startPhase(
   };
 }
 
-export function createRun(
+/**
+ * One search, with the joint the settings name ("auto" is `createRun`'s to resolve). Set
+ * `opts.recordJoint` and the layout says which joint it was planned with.
+ */
+function createSingleRun(
   input: LayoutInput,
   seed: number,
   iterations: number,
-  opts: RunOptions = {},
+  opts: RunOptions,
 ): Run {
   const now = opts.now ?? Date.now;
   const started = now();
@@ -220,6 +233,10 @@ export function createRun(
       ? { ctx: phase.ctx, plan: best.plan }
       : { ctx, plan };
   };
+
+  // The joint of this run, for the layout and the attempt, when asked for (an Auto run's).
+  const jointOf = (): { joint?: Joint } =>
+    opts.recordJoint ? { joint: input.settings.lip.joint as Joint } : {};
 
   const build = (): LayoutResult => {
     const phase = feasible();
@@ -275,6 +292,7 @@ export function createRun(
           // the iterations the producing chain ran (all of its budget unless it was stopped)
           iterations: carried + phase.annealer.done,
           capped,
+          ...jointOf(),
           trays,
         },
         bestAttempt: null,
@@ -305,6 +323,7 @@ export function createRun(
         trays: attemptTrays,
         shortfall,
         overBedKeys: overBed.filter((o) => !o.filler).map((o) => o.key),
+        ...jointOf(),
       },
       summary: null,
       notices,
@@ -358,7 +377,153 @@ export function createRun(
       }
       return build();
     },
+    rank() {
+      const best = feasible()?.annealer.bestFeasible;
+      if (best) {
+        return [0, best.score.total];
+      }
+      const closest = derived !== null && overflowOf(derived) < overflowOf(main) ? derived : main;
+      const least = closest.annealer.leastOverflow.score;
+      return [least.overflow, least.total];
+    },
   };
+}
+
+/** The joints Auto plans with, the rim first: it wins a tie, being what every plan before had. */
+const AUTO_JOINTS = ["rim", "step"] as const;
+
+/** Share of the budget each joint's probe gets in an Auto run, at least one chunk. */
+const PROBE_SHARE = 0.15;
+
+/**
+ * Auto plans with both joints and keeps the better plan: one that fits over one that does not, then
+ * the lower score. It does not search twice. Each joint gets a short probe (a seventh of the budget,
+ * run in turn), the better probe is searched with the whole budget, from the seed a single joint
+ * would use, and the other joint is searched in full only if that one finds no layout. So the plan
+ * is exactly the one the winning joint alone would make, Auto fits whenever either joint does at
+ * this budget, and it costs 1.3 searches where the worse case of both would cost 2. "Improve
+ * more" (a warm start from this very plan) goes on with the joint the plan used. Deterministic:
+ * each search is, and every choice depends only on their results.
+ */
+function createAutoRun(
+  input: LayoutInput,
+  seed: number,
+  iterations: number,
+  opts: RunOptions,
+): Run {
+  const now = opts.now ?? Date.now;
+  const started = now();
+  const cap =
+    opts.timeCapMs === undefined || Number.isNaN(opts.timeCapMs)
+      ? DEFAULT_TIME_CAP_MS
+      : Math.max(0, opts.timeCapMs);
+  const warm = opts.warmStart;
+  const kept = warm?.inputsHash === input.inputsHash ? warm.joint : undefined;
+  const allowed = AUTO_JOINTS.filter((j) => jointAllowed(input.settings, j));
+  const joints: readonly (typeof AUTO_JOINTS)[number][] =
+    kept === "rim" || kept === "step" ? [kept] : allowed.length > 0 ? allowed : AUTO_JOINTS;
+  const budget = Number.isFinite(iterations) ? Math.max(0, Math.floor(iterations)) : 0;
+  const probeBudget = Math.min(budget, Math.max(CHUNK, Math.ceil(budget * PROBE_SHARE)));
+  // Each search gets what is left of the one time cap.
+  const search = (joint: Joint, its: number): Run =>
+    createSingleRun({ ...input, settings: withJoint(input.settings, joint) }, seed, its, {
+      ...opts,
+      recordJoint: true,
+      timeCapMs: Math.max(0, cap - (now() - started)),
+    });
+
+  const probes = new Map<Joint, Run>();
+  const finals = new Map<Joint, Run>();
+  const fits = (r: Run): boolean => r.rank()[0] === 0;
+  const better = (list: readonly Run[]): Run => {
+    let pick = list[0] as Run;
+    for (const r of list) {
+      const [a, b] = r.rank();
+      const [pa, pb] = pick.rank();
+      if (a < pa || (a === pa && b < pb)) {
+        pick = r;
+      }
+    }
+    return pick;
+  };
+  // The first of the runs that is better than the others, as (joint, run) in the joints' order.
+  const winner = (from: ReadonlyMap<Joint, Run>): Joint => {
+    const pick = better([...from.values()]);
+    return [...from].find(([, r]) => r === pick)?.[0] as Joint;
+  };
+  const only = joints.length === 1;
+  for (const j of joints) {
+    (only ? finals : probes).set(j, only ? search(j, budget) : search(j, probeBudget));
+  }
+  let finished = false;
+  const active = (): Run[] => {
+    const from = finals.size > 0 ? finals : probes;
+    return [...from.values()].filter((r) => !isDone.has(r));
+  };
+  const isDone = new Set<Run>();
+  const all = (): Run[] => [...probes.values(), ...finals.values()];
+  const candidates = (): Run[] => (finals.size > 0 ? [...finals.values()] : [...probes.values()]);
+  let lastTotal = Number.POSITIVE_INFINITY;
+
+  return {
+    step() {
+      if (finished) {
+        return true;
+      }
+      for (const r of active()) {
+        if (r.step()) {
+          isDone.add(r);
+        }
+      }
+      if (active().length === 0) {
+        if (finals.size === 0) {
+          // the probes are in: search the better one in full
+          const joint = winner(probes);
+          finals.set(joint, search(joint, budget));
+        } else if (![...finals.values()].some(fits) && finals.size < joints.length) {
+          // the one searched in full found nothing: the other may
+          const other = joints.find((j) => !finals.has(j));
+          if (other !== undefined) {
+            finals.set(other, search(other, budget));
+          }
+        } else {
+          finished = true;
+        }
+      }
+      return finished;
+    },
+    get done() {
+      return all().reduce((sum, r) => sum + r.done, 0);
+    },
+    get total() {
+      // Announced up front, so it only ever shrinks (the worker's progress never goes backwards):
+      // the probes, the full search of one joint and, until one fits, that of the other.
+      const ahead = [...finals.values()].some(fits) || only ? 0 : budget;
+      const full = finals.size > 0 ? 0 : budget;
+      const raw = all().reduce((sum, r) => sum + r.total, 0) + full + ahead;
+      lastTotal = Math.max(this.done, Math.min(lastTotal, raw));
+      return lastTotal;
+    },
+    snapshot: () => better(candidates()).snapshot(),
+    result() {
+      // Every search is closed, so a cancelled run reports each one as stopped.
+      const results = new Map(candidates().map((r) => [r, r.result()]));
+      finished = true;
+      return results.get(better(candidates())) as LayoutResult;
+    },
+    rank: () => better(candidates()).rank(),
+  };
+}
+
+export function createRun(
+  input: LayoutInput,
+  seed: number,
+  iterations: number,
+  opts: RunOptions = {},
+): Run {
+  return input.settings.lip.joint === "auto"
+    ? createAutoRun(input, seed, iterations, opts)
+    : createSingleRun(input, seed, iterations, opts);
 }
 
 /**

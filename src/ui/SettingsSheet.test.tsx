@@ -115,12 +115,11 @@ describe("SettingsSheet", () => {
   it("every setting is reachable", () => {
     sheet({ myPrinter: { ...MINE, bedX: 123 } });
     // This insert: the plain choices, the switches, and every exact number from its group
-    for (const name of ["Fit in the box", "Walls", "Walls and floors"]) {
+    for (const name of ["Fit in the box", "Walls", "Rim between layers", "Walls and floors"]) {
       expect(screen.getByRole("group", { name }), name).toBeTruthy();
     }
     for (const name of [
       "Room for fingers",
-      /^Rim between layers/,
       "Fill to the lid",
       "Fold risers into the joined spacers",
     ]) {
@@ -421,10 +420,14 @@ describe("This insert", () => {
     expect(props.onSettingsChange).toHaveBeenLastCalledWith(
       applyWallChoice(DEFAULT_SETTINGS, "sturdy"),
     );
-    fireEvent.click(screen.getByRole("checkbox", { name: /^Rim between layers/ }));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Rim between layers" })).getByRole("button", {
+        name: "Off",
+      }),
+    );
     expect(props.onSettingsChange).toHaveBeenLastCalledWith({
       ...DEFAULT_SETTINGS,
-      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+      lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
     });
   });
 
@@ -463,15 +466,6 @@ describe("every switch shows when it was changed, and the way back", () => {
       tab: "This insert",
       changed: applyFingerRoom(DEFAULT_SETTINGS, true),
       to: "off",
-    },
-    {
-      label: "Rim between layers",
-      tab: "This insert",
-      changed: {
-        ...DEFAULT_SETTINGS,
-        lip: { ...DEFAULT_SETTINGS.lip, enabled: !DEFAULT_SETTINGS.lip.enabled },
-      },
-      to: word(DEFAULT_SETTINGS.lip.enabled),
     },
     {
       label: "Fill to the lid",

@@ -12,7 +12,7 @@
  */
 import { planTray } from "../geometry/plan";
 import { effective } from "../model/settings";
-import { builtLevel, grooveOf, lipAbove, rimOn } from "../model/lip";
+import { builtLevel, grooveOf, jointOf, lipAbove, lipEnabled, rimOn } from "../model/lip";
 import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
 import { hasGrip, needsGrip, wallFor } from "../sizing";
@@ -106,13 +106,15 @@ export function isDropped(lock: Lock, conflicts: readonly LockConflict[]): boole
 }
 
 export function checkHardRules(
-  input: LayoutInput,
+  planned: LayoutInput,
   layout: StoredLayout,
   notices: readonly Notice[],
   /** The result's `lockConflicts`: locks the layout ignored are not checked. */
   conflicts: readonly LockConflict[] = [],
 ): string[] {
   const v: string[] = [];
+  // an Auto plan is checked with the joint it was made with
+  const input = { ...planned, settings: jointOf(planned.settings, layout) };
   const ctx = createCtx(input);
   const { settings } = input;
   const trays = layout.trays;
@@ -244,7 +246,7 @@ export function checkHardRules(
       z += toU(t.h);
       const top = k === stack.length - 1;
       const topCopy = top && plug(t);
-      if (t.lip !== (settings.lip.enabled && (!top || plug(t))) && !(topCopy && jointDropped)) {
+      if (t.lip !== (lipEnabled(settings) && (!top || plug(t))) && !(topCopy && jointDropped)) {
         v.push(`${t.key}: lip flag wrong`);
       }
       if (base && k > 0) {
@@ -264,7 +266,7 @@ export function checkHardRules(
         ) {
           v.push(`${t.key}: level ${k} not flush in the tray below`);
         }
-        if (settings.lip.enabled && toU(t.h) < ctx.upperMinH) {
+        if (lipEnabled(settings) && toU(t.h) < ctx.upperMinH) {
           v.push(`${t.key}: upper tray lower than its groove needs`);
         }
         const lower = stack[k - 1];
@@ -357,10 +359,10 @@ export function checkHardRules(
   // Rule 4 with the lip off: stacked trays are loose, so the lip-off warning is required
   // exactly when something stacks.
   const stacked = real.some((t) => t.level > 0);
-  if (!settings.lip.enabled && stacked && !has("layout.lipOff")) {
+  if (!lipEnabled(settings) && stacked && !has("layout.lipOff")) {
     v.push("the lip is off and trays stack but there is no layout.lipOff notice");
   }
-  if ((settings.lip.enabled || !stacked) && has("layout.lipOff")) {
+  if ((lipEnabled(settings) || !stacked) && has("layout.lipOff")) {
     v.push("layout.lipOff notice without a stack that needs it");
   }
 

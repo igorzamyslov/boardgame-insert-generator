@@ -193,8 +193,14 @@ export type Lock =
   // Turn only: fixes the tray's rotation, and nothing else (it stays free to move).
   | { kind: "turn"; trayKey: string; rotated: boolean };
 
-/** The joint between stacked trays (Settings.lip.kind): a lip and groove, or a stepped base. */
-export type LipKind = "rim" | "step";
+/**
+ * The joint a plan is made with: none, a lip and groove ("rim"), or a stepped base ("step").
+ * A stored layout carries the one it was planned with (StoredLayout.joint).
+ */
+export type Joint = "off" | "rim" | "step";
+
+/** What Settings.lip.joint holds: a joint, or "auto", which plans with both and keeps the better. */
+export type LipJoint = Joint | "auto";
 
 export interface Settings {
   wall: number;
@@ -218,15 +224,16 @@ export interface Settings {
     dividerRoom: number;
   };
   /**
-   * Rim between layers: how a tray stacked on another keys into it, while `enabled`. `kind` "rim"
-   * (the default): a lip on the lower tray's rim and a groove under the upper tray's edge (lipped
-   * walls of thickness + ledge). "step": a solid slab `stepHeight` tall under the upper part's
-   * floor drops into the opening of the part below, which keeps that much room above its contents;
-   * walls stay at `wall` (model/lip.ts stepOf).
+   * Rim between layers: how a tray stacked on another keys into it. `joint` "rim": a lip on the
+   * lower tray's rim and a groove under the upper tray's edge (lipped walls of thickness +
+   * ledge). "step": a solid slab `stepHeight` tall under the upper part's floor drops into the
+   * opening of the part below, which keeps that much room above its contents; walls stay at
+   * `wall` (model/lip.ts stepOf). "off": trays are not keyed. "auto" (the default): the optimizer
+   * plans with both and keeps the better plan (layout/auto.ts); the layout then says which it
+   * used (StoredLayout.joint), and everything downstream sees that one (model/lip.ts jointOf).
    */
   lip: {
-    enabled: boolean;
-    kind: LipKind;
+    joint: LipJoint;
     height: number;
     thickness: number;
     ledge: number;
@@ -308,6 +315,11 @@ export interface StoredLayout {
   seed: number;
   iterations: number;
   capped: boolean;
+  /**
+   * The joint the layout was planned with, set when `settings.lip.joint` is "auto" (the settings
+   * alone do not say which one was chosen). Absent otherwise: the settings are the joint.
+   */
+  joint?: Joint;
   trays: TraySpec[];
 }
 
@@ -366,7 +378,7 @@ export interface TraySpec {
   rotated: boolean;
   wall: number;
   floor: number;
-  // true when another tray is stacked on this one and settings.lip.enabled: it carries the lower
+  // true when another tray is stacked on this one and the rim between layers is on: it carries the lower
   // half of the joint, the lip (rim) or the socket the slab above drops into (step). Also true of
   // the top tray of a stack of alike trays (copies), which any of them may be: it carries them too
   lip: boolean;

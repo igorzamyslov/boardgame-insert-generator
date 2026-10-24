@@ -78,8 +78,7 @@ describe("layout warnings", () => {
       makeInput(reqs, {
         settings: {
           lip: {
-            enabled: false,
-            kind: "rim",
+            joint: "off" as const,
             height: 2,
             thickness: 1.2,
             ledge: 1.7,
@@ -237,7 +236,7 @@ describe("layout warnings", () => {
       expect(rimmed.map((n) => n.code)).not.toContain(NOTICE_CODES.copiesJoint);
       const off = createCtx(
         makeInput([copies], {
-          settings: { lip: { ...makeInput([]).settings.lip, enabled: false } },
+          settings: { lip: { ...makeInput([]).settings.lip, joint: "off" as const } },
         }),
         fakeMeasure,
       );
@@ -310,8 +309,7 @@ describe("layout warnings", () => {
       ...small,
       settings: {
         lip: {
-          enabled: false,
-          kind: "rim",
+          joint: "off" as const,
           height: 2,
           thickness: 1.2,
           ledge: 1.7,
@@ -404,8 +402,7 @@ describe("layout warnings", () => {
         ...small,
         settings: {
           lip: {
-            enabled: false,
-            kind: "rim",
+            joint: "off" as const,
             height: 2,
             thickness: 1.2,
             ledge: 1.7,

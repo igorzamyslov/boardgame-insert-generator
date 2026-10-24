@@ -580,3 +580,31 @@ describe("schema 0.3.0: room for more replaces growth and stretch", () => {
     expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
   });
 });
+
+describe("schema 0.3.1: one joint for the rim between layers", () => {
+  const HISTORY = import.meta.glob<unknown>("../../test/fixtures/schema/*.json", {
+    eager: true,
+    import: "default",
+  });
+  const fixtureAt = (version: string): Json =>
+    structuredClone(HISTORY[`../../test/fixtures/schema/${version}.json`]) as Json;
+
+  it("reads the 0.3.1 fixture with no notices, and it round-trips", () => {
+    const first = expectOk(parseProject(fixtureAt("0.3.1")));
+    expect(first.notices).toEqual([]);
+    expect(first.project.settings.lip.joint).toBe("auto");
+    const again = expectOk(
+      parseProject(JSON.parse(serializeProject(first.project, first.foreign))),
+    );
+    expect(again.notices).toEqual([]);
+    expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
+  });
+
+  it("reads the 0.3.0 fixture's switch and kind as the joint they meant, with its hash", () => {
+    const first = expectOk(parseProject(fixtureAt("0.3.0")));
+    expect(first.notices).toEqual([]);
+    expect(first.project.settings.lip.joint).toBe("step");
+    expect(first.project.settings.lip).not.toHaveProperty("enabled");
+    expect(first.project.settings.lip).not.toHaveProperty("kind");
+  });
+});
