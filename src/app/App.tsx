@@ -1061,7 +1061,14 @@ export function App(props: AppProps) {
     </div>
   );
   // The layout and sizing notices, under the plan caption.
-  const stageNotes = <StageNotes notices={summaryNotices} />;
+  const stageNotes = (
+    <StageNotes
+      notices={summaryNotices}
+      hidden={store.notes.of(project.id)}
+      onHide={(n) => store.notes.hide(project.id, n)}
+      onShowHidden={() => store.notes.showAll(project.id)}
+    />
+  );
   const stageSlot = (
     <>
       {notices}
