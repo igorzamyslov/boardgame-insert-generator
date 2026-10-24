@@ -6,4 +6,4 @@ export { exportJsonFile, importJsonText, jsonFileName } from "./file";
 export { RAIL_WIDTH, clampRailWidth, createPrefsStore, printerProblems } from "./prefs";
 export type { PrefsStore } from "./prefs";
 export { createHiddenNotesStore, isHidden, noteKey } from "./hiddenNotes";
-export type { HiddenNotesStore } from "./hiddenNotes";
+export type { HiddenNotes, HiddenNotesStore } from "./hiddenNotes";
