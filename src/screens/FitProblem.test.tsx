@@ -73,7 +73,7 @@ describe("when it doesn't fit (the strip)", () => {
     expect(h1().textContent).toBe(`The ${misfit?.name} tray doesn't fit yet`);
     // one dimension is the cause (a figure 80 mm tall in a 70 mm box): the line says which, in the engine's figures
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "Heroes needs 83.7 mm of height. The box has 70 mm.",
+      "Heroes needs 103.7 mm of height. The box has 70 mm.",
     );
     // the status is in the stage as a region of its own, in the warn tone
     expect(
@@ -83,13 +83,13 @@ describe("when it doesn't fit (the strip)", () => {
 
   it("says how much room the items need against the box, under the buttons", () => {
     fitProblem("harbour-kings-nofit");
-    // volume is not the cause here (1.9 L of 5.6 L): it is not the headline, only behind a fold-out
+    // volume is not the cause here (2.0 L of 5.6 L): it is not the headline, only behind a fold-out
     expect(strip().querySelector(".fit-strip__line")?.closest("details")).not.toBeNull();
     expect(strip().querySelector(".fit-strip__volume summary")?.textContent).toBe(
       "What the items need",
     );
     expect(strip().querySelector(".fit-strip__volume")?.textContent).toContain(
-      "Your items need at least 1.9 L as trays. The box has 5.6 L.",
+      "Your items need at least 2.0 L as trays. The box has 5.6 L.",
     );
     // the buttons come first
     expect(strip().querySelector(".fit-strip__actions + .fit-strip__volume")).not.toBeNull();
@@ -102,7 +102,7 @@ describe("when it doesn't fit (the strip)", () => {
       box: { ...p.box, innerWidth: 175, innerDepth: 175 },
     }));
     expect(strip().querySelector(".fit-strip__line")?.textContent).toMatch(
-      /^Your items need at least 1\.9 L as trays\. The box has 2\.\d L\. Very tight: expect to change settings\.$/,
+      /^Your items need at least 2\.0 L as trays\. The box has 2\.\d L\. Very tight: expect to change settings\.$/,
     );
     expect(h1().textContent).toMatch(/tray doesn't fit yet$/);
   });
@@ -123,7 +123,7 @@ describe("when it doesn't fit (the strip)", () => {
       "What takes the room",
     );
     expect(strip().querySelector(".fit-strip__more ul")?.textContent).toMatch(
-      /Heroes takes 0\.6 L/,
+      /Heroes takes 0\.7 L/,
     );
     expect(document.querySelector("[data-misfit]")).toBeNull();
   });
@@ -175,10 +175,10 @@ describe("when it doesn't fit (the strip)", () => {
   });
 
   it("keeps the volume line as the headline only where volume is the reason", () => {
-    // tight: 1.9 L of trays in 2.0 L of box: the figures show, the biggest items are folded away
+    // tight: 2.0 L of trays in 2.1 L of box: the figures show, the biggest items are folded away
     fitProblem("harbour-kings-nofit", undefined, (p) => ({
       ...p,
-      box: { ...p.box, innerWidth: 170, innerDepth: 170 },
+      box: { ...p.box, innerWidth: 175, innerDepth: 175 },
     }));
     expect(strip().querySelector(":scope > .fit-strip__volume > .fit-strip__line")).not.toBeNull();
     cleanup();
@@ -605,7 +605,7 @@ describe("on a phone (MobileFix)", () => {
     fitProblem("harbour-kings-nofit");
     const more = strip().querySelector("details.fit-strip__more") as HTMLElement;
     expect(more.querySelector("summary")?.textContent).toBe("What the items need");
-    expect(more.textContent).toContain("Your items need at least 1.9 L as trays.");
+    expect(more.textContent).toContain("Your items need at least 2.0 L as trays.");
     expect(strip().querySelector(":scope > .fit-strip__volume > .fit-strip__line")).toBeNull();
   });
 
