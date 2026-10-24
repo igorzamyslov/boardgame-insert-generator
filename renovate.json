@@ -4,6 +4,7 @@
   "labels": ["dependencies"],
   "platformAutomerge": true,
   "bumpVersion": "patch",
+  "rangeStrategy": "bump",
   "lockFileMaintenance": {
     "enabled": true
   },

@@ -262,7 +262,10 @@ uses the relative base `./`, so it works under that subpath without configuratio
 Pull requests to `main` also run the `version-bump` job in `.github/workflows/ci.yml`
 (`scripts/check-version-bump.mjs`), which fails unless `version` in `package.json` is a higher
 semver than on `main`. Renovate raises the patch version itself (`bumpVersion` in
-`renovate.json`) on the pull requests that change `package.json`.
+`renovate.json`) on the pull requests that change `package.json`; `rangeStrategy: bump` makes
+every dependency update change it. `lockFileMaintenance` changes only `package-lock.json`, so
+`bumpVersion` cannot act there, and the check lets a Renovate pull request that changes nothing
+else through without a bump.
 
 ### One-time setup
 
@@ -273,7 +276,7 @@ semver than on `main`. Renovate raises the patch version itself (`bumpVersion` i
 
 ### Releasing
 
-Every pull request to `main` must bump `version` in `package.json` (the project menu's version line and every saved
+Every pull request to `main` (except Renovate's `package-lock.json`-only updates, see above) must bump `version` in `package.json` (the project menu's version line and every saved
 project's `createdWith` read it; CI enforces it). The menu's build id shows the commit even if you forget, but
 `createdWith` does not, so do not skip it. This is separate from `SCHEMA_VERSION` and
 `GEOMETRY_VERSION`, which change when the file format or the printed geometry does, not on a
