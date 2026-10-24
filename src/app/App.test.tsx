@@ -92,8 +92,14 @@ function press(el: HTMLElement, key: "Enter" | " "): void {
 
 /** The tray bar's More (it holds Swap with… and Lock size): opens its panel. */
 function openMore(): void {
-  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  fireEvent.click(screen.getByRole("button", { name: "More about this tray" }));
 }
+
+/** An entry of the dock's ⋯ menu: its name, then its one line (so a name is matched by its start). */
+const entry = (name: string): HTMLElement =>
+  within(screen.getByRole("group", { name: "More about this tray" })).getByRole("button", {
+    name: new RegExp(`^${name}`),
+  });
 
 /** The stage's View segment: "Top" shows the plan, "3D" the 3D view (only the chosen one is mounted). */
 function openView(name: "Top" | "3D"): void {
@@ -241,7 +247,7 @@ describe("App", () => {
     expect(viewPressed("Top")).toBe(true);
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     openMore();
-    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+    fireEvent.click(entry("Swap places with…"));
     fireEvent.keyDown(tile("b:p0:0"), { key: "Enter" });
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "a:p0:0", path: "1", rotated: false },
@@ -264,25 +270,24 @@ describe("App", () => {
     expect(tile("a:p0:0")).toBeTruthy();
   });
 
-  it("ends a swap when the view leaves the plan, whatever is selected meanwhile", () => {
+  it("keeps a swap under way when the view changes: the next tray is picked in 3D too", async () => {
     const { store } = renderApp({ project: withLayoutProject(), overrides: withWebGL() });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     openMore();
-    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+    fireEvent.click(entry("Swap places with…"));
     expect(screen.getByText(/Choose the tray to swap with/)).toBeTruthy();
-    // the swap under way keeps More open on the pressed Swap with…
-    expect(screen.getByRole("button", { name: "Swap with…" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
+    // the swap under way keeps ⋯ open on the pressed Swap places with…
+    expect(entry("Swap places with…").getAttribute("aria-pressed")).toBe("true");
     openView("3D");
-    expect(store.state.swapFrom.value).toBeNull();
-    store.state.selection.value = "b:p0:0";
+    await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
+    expect(store.state.swapFrom.value).toBe("a:p0:0");
+    expect(screen.getByText(/Choose the tray to swap with/)).toBeTruthy();
     openView("Top");
-    expect(screen.queryByText(/Choose the tray to swap with/)).toBeNull();
+    expect(store.state.swapFrom.value).toBe("a:p0:0");
+    expect(screen.getByText(/Choose the tray to swap with/)).toBeTruthy();
+    // pressing the view switch shut the menu; the swap is still pressed in it
     openMore();
-    expect(screen.getByRole("button", { name: "Swap with…" }).getAttribute("aria-pressed")).toBe(
-      "false",
-    );
+    expect(entry("Swap places with…").getAttribute("aria-pressed")).toBe("true");
   });
 
   it("blocks exporting while the inputs differ from the layout, even before a run starts", async () => {
@@ -446,17 +451,19 @@ describe("App", () => {
     expect(viewPressed("Top")).toBe(true);
   });
 
-  it("shows the tray bar once in the 3D tab", async () => {
+  it("shows the tray dock once in the 3D tab, with the same menu as the plan's", async () => {
     renderApp({ project: withLayoutProject(), overrides: withWebGL() });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     openView("3D");
     await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
     expect(screen.getAllByRole("region", { name: "Selected tray" })).toHaveLength(1);
     openMore();
-    expect(screen.getAllByRole("button", { name: "Lock size" })).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: /^Pin this (tray|stack)/ })).toHaveLength(1);
-    // A swap is made on the plan, so the 3D view's bar has no Swap with….
-    expect(screen.queryByRole("button", { name: "Swap with…" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /^Keep this size/ })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Keep here/ })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Rotate 90°/ })).toHaveLength(1);
+    // Swap places with… and Put on… work in 3D too: the next tray is picked in the scene.
+    expect(screen.getAllByRole("button", { name: /^Swap places with…/ })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Put on…/ })).toHaveLength(1);
     expect(document.querySelectorAll(".tray-bar")).toHaveLength(1);
   });
 
@@ -506,17 +513,17 @@ describe("App", () => {
     });
   });
 
-  it("locks and unlocks a tray's size from the tray bar", () => {
+  it("keeps and frees a tray's size from the dock's menu", () => {
     const { store } = renderApp({ project: withLayoutProject() });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     openMore();
-    fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
+    fireEvent.click(entry("Keep this size"));
     expect(store.state.project.value.locks).toEqual([
       { kind: "size", trayKey: "a:p0:0", w: 100, d: 80, h: 40 },
     ]);
     expect(tile("a:p0:0").getAttribute("aria-label")).toMatch(/, layer 1, size locked$/);
     openMore();
-    fireEvent.click(screen.getByRole("button", { name: "Unlock size" }));
+    fireEvent.click(entry("Let the size change"));
     expect(store.state.project.value.locks).toEqual([]);
   });
 
@@ -1696,7 +1703,7 @@ describe("App", () => {
     });
   });
 
-  it("pins the whole stack from the tray bar's Pin button", () => {
+  it("pins the whole stack from the dock menu's Keep here", () => {
     const p = fixtureProject();
     const trays = [
       makeTray({ key: "a:p0:0", path: "0", level: 0, z: 0 }),
@@ -1705,7 +1712,8 @@ describe("App", () => {
     ];
     const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p), trays) } });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: /^Pin this (tray|stack)/ }));
+    openMore();
+    fireEvent.click(entry("Keep here"));
     const locks = store.state.project.value.locks;
     expect(locks.filter((l) => l.kind === "position").map((l) => l.trayKey)).toEqual([
       "a:p0:0",
@@ -1713,7 +1721,7 @@ describe("App", () => {
     ]);
     expect(locks.some((l) => l.kind === "stack")).toBe(true);
     expect(screen.getByText("Pinned")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /^Unpin this (tray|stack)/ }));
+    fireEvent.click(entry("Unpin"));
     expect(store.state.project.value.locks).toEqual([]);
   });
 
@@ -1728,24 +1736,20 @@ describe("App", () => {
     expect(a.getAttribute("tabindex")).toBe("0");
     fireEvent.keyDown(a, { key: " " });
     expect(store.state.selection.value).toBe("a:p0:0");
-    // The bar's buttons are in the Tab order, and Space or Enter on one presses it.
+    // The dock's buttons are in the Tab order, and Space or Enter on one presses it.
     for (const b of within(trayBar()).getAllByRole("button")) {
       expect(b.getAttribute("tabindex")).not.toBe("-1");
     }
-    press(within(trayBar()).getByRole("button", { name: /^Pin this (tray|stack)/ }), " ");
+    press(within(trayBar()).getByRole("button", { name: "More about this tray" }), "Enter");
+    // Opened with the keyboard, ⋯ puts the focus on its first item
+    expect(document.activeElement).toBe(entry("Keep here"));
+    press(entry("Keep here"), " ");
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
     ]);
     expect(within(trayBar()).getByText("Pinned")).toBeTruthy();
-    press(within(trayBar()).getByRole("button", { name: "More" }), "Enter");
-    // Opened with the keyboard, More puts the focus on its first item
-    expect(document.activeElement).toBe(
-      within(trayBar()).getByRole("button", { name: "Swap with…" }),
-    );
-    press(within(trayBar()).getByRole("button", { name: "Swap with…" }), "Enter");
-    expect(
-      within(trayBar()).getByRole("button", { name: "Swap with…" }).getAttribute("aria-pressed"),
-    ).toBe("true");
+    press(entry("Swap places with…"), "Enter");
+    expect(entry("Swap places with…").getAttribute("aria-pressed")).toBe("true");
     // Enter on the other tray: both stacks are pinned where the other stood.
     fireEvent.keyDown(tile("b:p0:0"), { key: "Enter" });
     expect(store.state.project.value.locks).toEqual([
@@ -1754,9 +1758,8 @@ describe("App", () => {
     ]);
     // The swap leaves the first tray selected, pinned, with its chip.
     expect(store.state.swapFrom.value).toBeNull();
-    expect(
-      within(trayBar()).getByRole("button", { name: /^Unpin this (tray|stack)/ }),
-    ).toBeTruthy();
+    openMore();
+    expect(entry("Unpin")).toBeTruthy();
     expect(within(trayBar()).getByText("Pinned")).toBeTruthy();
   });
 
@@ -1774,30 +1777,32 @@ describe("App", () => {
   it("turns a tray from the bar without pinning it; Pin then agrees, and Unpin leaves the turn", () => {
     const { store } = renderApp({ project: turnable() });
     fireEvent.keyDown(tile("fxcrd003:p0:0"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: /^Turn this (tray|stack) 90°/ }));
+    openMore();
+    fireEvent.click(entry("Rotate 90°"));
     const turn = { kind: "turn", trayKey: "fxcrd003:p0:0", rotated: true };
     expect(store.state.project.value.locks).toEqual([turn]);
     expect(within(trayBar()).queryByText(/^Pinned/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /^Pin this (tray|stack)/ }));
+    fireEvent.click(entry("Keep here"));
     expect(store.state.project.value.locks).toEqual([
       turn,
       { kind: "position", trayKey: "fxcrd003:p0:0", path: "0", rotated: true },
     ]);
     expect(within(trayBar()).getByText("Pinned, turned")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /^Unpin this (tray|stack)/ }));
+    fireEvent.click(entry("Unpin"));
     expect(store.state.project.value.locks).toEqual([turn]);
   });
 
   it("reads Pinned, turned for a tray the optimizer had already turned, and Turn flips it back", () => {
     const { store } = renderApp({ project: turnable({ rotated: true }) });
     fireEvent.keyDown(tile("fxcrd003:p0:0"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: /^Pin this (tray|stack)/ }));
+    openMore();
+    fireEvent.click(entry("Keep here"));
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "fxcrd003:p0:0", path: "0", rotated: true },
     ]);
     // The chip reads the pin's rotation, so a pin of a tray that was laid turned says so too.
     expect(within(trayBar()).getByText("Pinned, turned")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /^Turn this (tray|stack) 90°/ }));
+    fireEvent.click(entry("Rotate 90°"));
     // a pinned tray turns with its pin, and the turn lock holds the same rotation
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "fxcrd003:p0:0", path: "0", rotated: false },
@@ -1812,12 +1817,11 @@ describe("App", () => {
     const trays = [makeTray({ key: "a:p0:0", w: 80, d: 80 })];
     const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p), trays) } });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
-    const turn = screen.getByRole("button", { name: /^Turn this (tray|stack) 90°/ });
+    openMore();
+    const turn = entry("Rotate 90°");
     expect(turn.getAttribute("aria-disabled")).toBe("true");
     expect(
-      within(trayBar()).getByText("This tray is square, so turning changes nothing.", {
-        selector: ".tray-bar__why p",
-      }),
+      within(trayBar()).getByText("This tray is square, so turning changes nothing."),
     ).toBeTruthy();
     fireEvent.click(turn);
     expect(store.state.project.value.locks).toEqual([]);
@@ -1887,7 +1891,7 @@ describe("App", () => {
       const { store } = renderApp({ project: withLayoutProject() });
       fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
       openMore();
-      fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+      fireEvent.click(entry("Swap places with…"));
       expect(store.state.swapFrom.value).toBe("a:p0:0");
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
       expect(store.state.swapFrom.value).toBeNull();

@@ -31,7 +31,15 @@ import { RunAnnouncer } from "../screens/RunAnnouncer";
 import { StageSlot } from "../screens/StageSlot";
 import { StageNotes } from "../screens/StageNotes";
 import { stageView } from "../screens/stageView";
-import { PlanBanner, StageTop, editorProblem, problemAreas, statusOf } from "../screens/StageTop";
+import {
+  PlanBanner,
+  StageSwitches,
+  StageTop,
+  editorProblem,
+  problemAreas,
+  statusOf,
+} from "../screens/StageTop";
+import { ItemChips, trayOfChip } from "../screens/ItemChips";
 import type { StageView, StatusInput } from "../screens/StageTop";
 import { Workspace } from "../screens/Workspace";
 import { BoxPanel } from "../ui/BoxPanel";
@@ -79,6 +87,7 @@ import {
   putTrayOn,
   takeOff,
   swapTrays,
+  isLockable,
   sizeLockedKeys,
   takeOutOfGroup,
   applyPrinter,
@@ -220,11 +229,11 @@ export function App(props: AppProps) {
   }, []);
   // The browser can draw the 3D view: asked once, when the app opens.
   const [webgl] = useState(() => (props.viewerProps?.webgl ?? hasWebGL)());
-  // A swap belongs to the plan: it ends when the view moves away from it.
+  // What the 3D view says while a swap or a put-on is chosen there, or why a pick was refused (the
+  // plan says the same in its own slot).
+  const [pickNote, setPickNote] = useState<string | null>(null);
   function showView(next: StageView): void {
-    if (next !== "plan") {
-      s.swapFrom.value = null;
-    }
+    setPickNote(null);
     stageView.value = next;
   }
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
@@ -970,15 +979,62 @@ export function App(props: AppProps) {
   ) : (
     whatsInside
   );
-  // A phone's tray bar is a modal sheet (MobileTray). It gives way to an editor in the sheet below, and
-  // to the plan while a swap is chosen (SelectedTrayBar). It is in the top layer: where it is in the tree does not matter.
-  const traySheet =
-    phone && hasSelectedTray && !editingAny && !boxOpen && !showFit ? (
+  // A tray picked in 3D: the next one of a swap or a put-on that is under way (the plan's `choose`, for
+  // the picture that has no tile per tray), else the selection.
+  const pickIn3d = (key: string | null): void => {
+    const from = s.swapFrom.value;
+    if (from === null || key === null || key === from) {
+      setPickNote(null);
+      s.selection.value = key;
+      return;
+    }
+    const putting = s.pickMode.value === "putOn";
+    const target = printable.find((t) => t.key === key);
+    if (target === undefined || !isLockable(target)) {
+      setPickNote(
+        putting
+          ? "Spare trays and spacers can't be stood on. Pick another tray."
+          : "Spare trays and spacers can't be swapped. Choose another tray, or press Escape.",
+      );
+      return;
+    }
+    if (putting) {
+      const why = planProps?.onPutOn(from, key) ?? null;
+      if (why !== null) {
+        setPickNote(why);
+        return;
+      }
+    } else {
+      store.edit((q) => swapTrays(q, from, key));
+    }
+    setPickNote(null);
+    s.swapFrom.value = null;
+    s.selection.value = from;
+  };
+  const pickMessage =
+    s.swapFrom.value === null || view === "plan"
+      ? null
+      : (pickNote ??
+        (s.pickMode.value === "putOn"
+          ? `Pick the tray to put ${trayNames(numberParts(printable), project.components, project.groups).get(s.swapFrom.value)?.full ?? "this tray"} on.`
+          : "Choose the tray to swap with, or press Escape."));
+  // A chip of the folded phone sheet: its tray is selected on the plan; with no plan to show it on, its editor opens.
+  const pickChip = (id: string): void => {
+    const tray = trayOfChip(id, printable, project.components, project.groups);
+    if (tray === undefined) {
+      showSection(id);
+      return;
+    }
+    s.selection.value = s.selection.value === tray.key ? null : tray.key;
+  };
+  // The dock of the selected tray (board 4): one place, the bottom centre of the stage, in Top, in 3D
+  // and on a phone. Nothing is selected while the closest attempt of a failed search is shown.
+  const dock =
+    hasSelectedTray && !noFitStage ? (
       <SelectedTrayBar
         {...barProps}
-        phone
         inPlan={view === "plan"}
-        swapFrom={view === "plan" ? s.swapFrom.value : null}
+        swapFrom={s.swapFrom.value}
         pickMode={s.pickMode.value}
       />
     ) : null;
@@ -1084,7 +1140,6 @@ export function App(props: AppProps) {
   const stageSlot = (
     <>
       {notices}
-      {traySheet}
       {boxOpen ? (
         // While the box is edited the stage is Box's: its side view, labelled as the page's h1. (A
         // phone's sheet has the h1 and the side view; the stage is the plan alone.)
@@ -1220,19 +1275,7 @@ export function App(props: AppProps) {
                   onSelect={(key) => {
                     s.selection.value = key;
                   }}
-                  bar={
-                    hasSelectedTray && !phone ? (
-                      <SelectedTrayBar
-                        {...barProps}
-                        phone={false}
-                        inPlan
-                        swapFrom={s.swapFrom.value}
-                        pickMode={s.pickMode.value}
-                      />
-                    ) : phone ? undefined : (
-                      (removedToast ?? undefined)
-                    )
-                  }
+                  bar={phone ? undefined : (removedToast ?? undefined)}
                 />
               ) : (
                 <>
@@ -1269,18 +1312,14 @@ export function App(props: AppProps) {
                 : planProps !== null && view !== "plan"
                   ? {
                       slot: {
-                        idle: phone,
-                        children:
-                          hasSelectedTray && !phone ? (
-                            <SelectedTrayBar
-                              {...barProps}
-                              phone={false}
-                              inPlan={false}
-                              swapFrom={null}
-                            />
-                          ) : phone ? undefined : (
-                            (removedToast ?? undefined)
-                          ),
+                        idle: phone && pickMessage === null,
+                        live: (
+                          // always mounted, so a reader hears a note arrive
+                          <div role="status">
+                            {pickMessage === null ? null : <p>{pickMessage}</p>}
+                          </div>
+                        ),
+                        children: phone ? undefined : (removedToast ?? undefined),
                       },
                       viewer: {
                         trays: printable,
@@ -1294,13 +1333,30 @@ export function App(props: AppProps) {
                         topLayer: layerNow,
                         levels: planLevels,
                         tapHint: true,
-                        onSelect: (key) => {
-                          s.selection.value = key;
+                        onSelect: pickIn3d,
+                        onEscape: () => {
+                          s.swapFrom.value = null;
+                          setPickNote(null);
                         },
                         ...props.viewerProps,
                       },
                     }
                   : null,
+            under: phone ? (
+              <StageSwitches
+                trays={noFitStage ? (noFitTrays ?? undefined) : layout?.trays}
+                levels={noFitStage ? noFitLevels : planLevels}
+                layer={stageLayer}
+                onLayerChange={(l) => {
+                  s.viewLayer.value = l;
+                }}
+                view={view}
+                onViewChange={showView}
+                webgl={webgl}
+                phone
+              />
+            ) : undefined,
+            dock,
             after: stageNotes,
           }}
         />
@@ -1374,14 +1430,22 @@ export function App(props: AppProps) {
                       label: showFit ? FIT_TITLE : "The box and what's inside",
                       title: showFit ? FIT_TITLE : "What's inside",
                       summary: showFit ? undefined : String(project.components.length),
+                      // folded, the list is one row of chips: a tap selects that tray (board 9)
+                      chips:
+                        showFit || sheetFull || project.components.length === 0 ? undefined : (
+                          <ItemChips
+                            components={project.components}
+                            groups={project.groups}
+                            selectedIds={selectedIds}
+                            onPick={pickChip}
+                          />
+                        ),
                       handleLabel: "Show everything",
                       expanded: sheetOpen,
                       full: sheetFull,
                       // an editor and the box each bring their own header (Back, the h1, Done)
                       editing: sheetFull,
                       handleRef: sheetHandle,
-                      // a tray's sheet in front of it has the region's name
-                      region: traySheet === null ? "sheet" : "sheet-behind",
                       onExpandedChange: (open) => {
                         setSheetOpen(open);
                         // An editor, or the box, has the sheet to itself: folding it comes back to the list.

@@ -30,23 +30,26 @@ export const FIT_MORE = "What takes the room";
 export const FIT_NEED = "What the items need";
 
 /**
- * What the items need against the box: the figures and the judgement (over the box's volume, the
- * heading has them), then, folded away, the biggest items and the one item whose leaving out would do.
+ * What the items need against the box. It is the headline only where volume is the binding reason
+ * (tight or over; over the box's volume the heading has it): then the figures and the judgement show,
+ * and the biggest items and the item whose leaving out would do are folded away. Otherwise the
+ * heading names the real limit, and the whole note waits behind "What the items need". On a phone
+ * the whole note is folded either way, so the pinned strip leaves the plan its room.
  */
 function Volume(p: { note: VolumeNote; phone: boolean }) {
   const { note } = p;
-  const figures =
-    note.verdict === "over" ? null : (
-      <p class="fit-strip__line">
-        {note.line}
-        {note.judgement === null ? null : (
-          <>
-            {" "}
-            <strong class="fit-strip__judgement">{note.judgement}</strong>
-          </>
-        )}
-      </p>
-    );
+  const binds = note.verdict !== "roomy";
+  const figures = (
+    <p class="fit-strip__line">
+      {note.line}
+      {note.judgement === null ? null : (
+        <>
+          {" "}
+          <strong class="fit-strip__judgement">{note.judgement}</strong>
+        </>
+      )}
+    </p>
+  );
   const more =
     note.biggest.length === 0 && note.leaveOut === null ? null : (
       <>
@@ -60,27 +63,24 @@ function Volume(p: { note: VolumeNote; phone: boolean }) {
         {note.leaveOut === null ? null : <p>{note.leaveOut}</p>}
       </>
     );
-  if (figures === null && more === null) {
+  const shown = binds && !p.phone && note.verdict !== "over";
+  if (!shown && more === null && note.verdict === "over" && !p.phone) {
     return null;
   }
   return (
     <div class="fit-strip__volume" data-verdict={note.verdict}>
-      {p.phone ? (
+      {shown ? figures : null}
+      {p.phone || !binds ? (
         <details class="fit-strip__more">
           <summary>{FIT_NEED}</summary>
-          {figures}
+          {note.verdict === "over" && !p.phone ? null : figures}
           {more}
         </details>
-      ) : (
-        <>
-          {figures}
-          {more === null ? null : (
-            <details class="fit-strip__more">
-              <summary>{FIT_MORE}</summary>
-              {more}
-            </details>
-          )}
-        </>
+      ) : more === null ? null : (
+        <details class="fit-strip__more">
+          <summary>{FIT_MORE}</summary>
+          {more}
+        </details>
       )}
     </div>
   );

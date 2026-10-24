@@ -23,7 +23,6 @@ import {
 } from "../instructions/lift";
 import { SETTING_RANGES } from "../model/validate";
 import { OPTION_NOTE_TEXTS } from "../ui/components/optionNotes";
-import { COMPARTMENT_WORDS } from "../ui/identity";
 import { EXACT_GROUPS } from "../ui/settingsGroups";
 
 const FOOTER = "The footer moves into the project menu";
@@ -124,6 +123,7 @@ const NOFIT = "The no-fit heading names the tray";
 const PINS =
   "Pins in the way: the first conflict names the heading, the engine's reasons are its line, and each conflict is a card";
 const FIT_STRIP = "No fit is a pinned strip over the normal stage";
+const FIT_LIMIT = "The no-fit line names the real limit";
 const NOFIT_FIGURE = "The no-fit line gives the closest plan's shortfall";
 const VOLUME = "The no-fit screen says how much room the items need";
 const FIT_ROW = "The rail marks the tray that does not fit: Doesn't fit";
@@ -164,15 +164,13 @@ const VOLUME_RULINGS: readonly CopyRuling[] = [
 ];
 const PIN_CONFLICT = ["pin-conflict", "m-pin-conflict"] as const;
 // Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
-const MORE = "More holds Swap with… and Lock size";
+const DOCK = "The tray dock keeps Edit and one menu";
 // 0.15.0: Put on… (a stack lock without a position: the pair moves anywhere together)
 const PUT_ON = "Put on… stands one tray on another";
 /** The states that draw a put-on: the plan's prompt while the base is chosen, and the rail after it. */
 const PUT_ON_PICK = ["workspace-put-on-pick", "m-put-on-pick"] as const;
 const PUT_ON_CHIP = ["workspace-put-on", "m-put-on"] as const;
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
-const PIN_WORDS = "Pin and Turn say what they hold";
-const TRAY_SHEET = "A phone's tray bar is a modal sheet";
 // 0.7.0 Task 10: "kit-rail" has the bar of a group's tray selected (G1), the same buttons and words.
 const BAR_STATES = [
   "workspace-tray",
@@ -182,9 +180,12 @@ const BAR_STATES = [
   "kit-rail",
 ] as const;
 const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
+/** The states with the dock's ⋯ menu open. */
+const MENU_STATES = ["workspace-tray-more", "m-tray-more"] as const;
 /** Every stage-top case that has a plan under it, so a Layer switch. */
 const SWITCHED = [
   ...BAR_STATES,
+  "m-workspace-rules",
   ...SHEET_STATES,
   ...PLAN_STATES,
   ...ERRORS,
@@ -622,6 +623,12 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   { text: "Edit {name}", states: [...ERRORS, ...FIT_PROBLEMS], ruling: HOMES },
   // Task 12: the fit problems' panel offers what the engine can do, in its own words
+  // 0.21.0: when one side of the box is the cause, the line says which, in the engine's own figures
+  {
+    text: "{name} needs {name} mm of {name}. The box has {name} mm.",
+    states: NO_FIT,
+    ruling: FIT_LIMIT,
+  },
   { text: "Try another arrangement", states: NO_FIT, ruling: FIT_STRIP },
   // the strip is the status row: it has the stage's own switches, and says where 3D cannot be drawn
   { text: "Top", states: NO_FIT, ruling: FIT_STRIP },
@@ -719,22 +726,24 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Must be more than {n}.", states: ["first-visit-error"], ruling: ERROR_CARD },
   { text: "Must be at most {n}.", states: ["first-visit-error"], ruling: ERROR_CARD },
   // Task 8: the tray bar (desktop) and the tray sheet (phone)
-  { text: "More", states: [...BAR_STATES, ...SHEET_STATES], ruling: MORE },
-  {
-    text: "Swap with…",
-    states: ["workspace-tray-more", "m-tray-more", "m-tray-market"],
-    ruling: MORE,
-  },
-  {
-    text: "Put on…",
-    states: ["workspace-tray-more", "m-tray-more", "m-tray-market", ...PUT_ON_PICK],
-    ruling: PUT_ON,
-  },
-  {
-    text: "Lock size",
-    states: ["workspace-tray-more", "m-tray-more", "m-tray-market"],
-    ruling: MORE,
-  },
+  { text: "Edit", states: [...BAR_STATES, ...SHEET_STATES], ruling: DOCK },
+  { text: "Keep here", states: MENU_STATES, ruling: DOCK },
+  { text: "Unpin", states: MENU_STATES, ruling: DOCK },
+  { text: "The plan will not move it", states: MENU_STATES, ruling: DOCK },
+  { text: "The plan will not move these {n} trays", states: MENU_STATES, ruling: DOCK },
+  { text: "The plan may move it again", states: MENU_STATES, ruling: DOCK },
+  { text: "The plan may move these {n} trays again", states: MENU_STATES, ruling: DOCK },
+  { text: "Rotate 90°", states: MENU_STATES, ruling: DOCK },
+  { text: "Stays free to move", states: MENU_STATES, ruling: DOCK },
+  { text: "Stays where it is kept", states: MENU_STATES, ruling: DOCK },
+  { text: "Swap places with…", states: MENU_STATES, ruling: DOCK },
+  { text: "Then pick the other tray", states: MENU_STATES, ruling: DOCK },
+  { text: "Put on…", states: [...MENU_STATES, ...PUT_ON_PICK], ruling: PUT_ON },
+  { text: "Stands it on another tray", states: MENU_STATES, ruling: DOCK },
+  { text: "Keep this size", states: MENU_STATES, ruling: DOCK },
+  { text: "Let the size change", states: MENU_STATES, ruling: DOCK },
+  { text: "The plan will not resize it", states: MENU_STATES, ruling: DOCK },
+  { text: "The plan may resize it", states: MENU_STATES, ruling: DOCK },
   { text: "Pick the tray to put {name} on.", states: PUT_ON_PICK, ruling: PUT_ON },
   {
     text: "Spare trays and spacers can't be stood on. Pick another tray.",
@@ -763,7 +772,6 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: PUT_ON,
   },
   { text: "Pick another tray to put it on.", states: PUT_ON_PICK, ruling: PUT_ON },
-  { text: "Unlock size", states: ["workspace-tray-more", "m-tray-more"], ruling: MORE },
   {
     text: "Fills the gap so the trays can't slide. Print it too. {size}",
     states: ["workspace-tray-spacer", "m-tray-spacer"],
@@ -775,21 +783,6 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["workspace-tray-riser"],
     ruling: NO_ACTIONS,
   },
-  { text: "Edit {name}", states: SHEET_STATES, ruling: TRAY_SHEET },
-  // the buttons say what they hold: this tray alone, or the stack it is in (its tray count follows, for a reader)
-  ...["tray", "stack"].flatMap((what) =>
-    [`Pin this ${what}`, `Unpin this ${what}`, `Turn this ${what} 90°`].map((text) => ({
-      text,
-      states: [...BAR_STATES, ...SHEET_STATES],
-      ruling: PIN_WORDS,
-    })),
-  ),
-  { text: ", {n} trays", states: [...BAR_STATES, ...SHEET_STATES], ruling: PIN_WORDS },
-  // "6 figure pockets" is MobileTray's own; the others say the same of the other kinds
-  ...Object.values(COMPARTMENT_WORDS).flatMap(([one, many]) => [
-    { text: `{n} ${one}`, states: SHEET_STATES, ruling: TRAY_SHEET },
-    { text: `{n} ${many}`, states: SHEET_STATES, ruling: TRAY_SHEET },
-  ]),
   // Task 11: Box's hint is "Trays then fill up to the lid, so nothing falls out" (in COPY_DENIED: not what the engine does)
   {
     text: "Loose pieces go under other trays where they can, so nothing spills.",

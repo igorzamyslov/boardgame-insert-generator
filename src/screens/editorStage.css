@@ -19,11 +19,6 @@
   align-items: center;
 }
 
-/* The tray bar's slot, empty: the band stays so the frame is where the normal stage's is (no tray is picked while an editor is open). */
-.ed-band {
-  display: block;
-}
-
 /* A failed run, a tray that does not fit or pins in the way, in the status heading's words (no heading: the sentence is the h1). */
 .ed-problem {
   display: flex;

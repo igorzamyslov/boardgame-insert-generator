@@ -47,6 +47,8 @@ export interface ViewerProps {
    * scene tinted in the warn colour and lifted out of its slot, the same marking the plan gives it.
    */
   misfitKey?: string | null;
+  /** Escape on the canvas: it ends a swap that is chosen in this view. */
+  onEscape?: () => void;
   /** The caption says what a click does ("tap a tray for details"): the normal stage, not the editor's. */
   tapHint?: boolean;
   webgl?: () => boolean;
@@ -311,6 +313,10 @@ export function Viewer(p: ViewerProps) {
   // The arrow keys step through the trays the scene shows, ends wrapping round: a keyboard route
   // to every tray, now that the scene has no row of chips for it.
   const stepTray = (e: KeyboardEvent): void => {
+    if (e.key === "Escape" && p.onEscape !== undefined) {
+      p.onEscape();
+      return;
+    }
     const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
     if (
       (!forward && e.key !== "ArrowLeft" && e.key !== "ArrowUp") ||

@@ -111,6 +111,10 @@ function sentence(message: string): string {
   return /[.!?…]$/.test(message) ? message : `${message}.`;
 }
 
+/** The volume is the binding reason: the items' trays need more than the tight share of the box (`volumeNote`). */
+export const volumeBinds = (volume: VolumeNote | null | undefined): boolean =>
+  volume !== null && volume !== undefined && volume.verdict !== "roomy";
+
 export const SEARCHING_TITLE = "Searching…";
 const FIX_ERRORS = "Fix the errors marked in the inputs";
 const FAILED = "The plan couldn't be updated";
@@ -266,7 +270,10 @@ export function statusOf(s: StatusInput): Status {
           ? figure
           : misfit.reason === "bed"
             ? "It's too big for your printer's bed."
-            : `There's no room left for it in the box.${figure === "" ? "" : ` ${figure}`}`;
+            : misfit.limit !== undefined && !volumeBinds(volume)
+              ? // one dimension is the cause: say which, in the engine's own figures
+                `${misfit.name} needs ${mmUp(misfit.limit.need)} mm of ${misfit.limit.axis}. The box has ${mm(misfit.limit.have)} mm.`
+              : `There's no room left for it in the box.${figure === "" ? "" : ` ${figure}`}`;
     return {
       tone: "warn",
       fit: "noFit",
@@ -396,6 +403,57 @@ export function WebGlNote() {
   );
 }
 
+/** What the Layer switch (and, on a phone, the 3D toggle) needs: a subset of the stage's props. */
+export type StageSwitchesProps = Pick<
+  StageTopProps,
+  "trays" | "levels" | "layer" | "onLayerChange" | "view" | "onViewChange" | "webgl" | "phone"
+>;
+
+/**
+ * The Layer switch's row (board 2): "Layer 1 | Layer 2 | All", the same in both views. On a desktop it
+ * is the row under the toolbar; on a phone it is the row under the plan (board 9), with the one "3D"
+ * toggle beside it, since the Top / 3D switch is not in a toolbar there.
+ */
+export function StageSwitches(p: StageSwitchesProps) {
+  const options = p.trays === undefined ? [] : layerOptions(p.trays, p.levels);
+  const layers = options.length - 1;
+  const layerValue = layerValueOf(p.layer, layers);
+  const layer =
+    layers > 1 ? (
+      <Segmented
+        label="Layer"
+        tone="track"
+        stretch={p.phone}
+        options={options}
+        value={layerValue}
+        onChange={(v) => p.onLayerChange(v === ALL_LAYERS ? null : Number(v))}
+      />
+    ) : null;
+  const toggle =
+    p.trays === undefined ? null : (
+      <Button
+        aria-pressed={p.view === "3d"}
+        blockedReason={p.webgl ? undefined : WEBGL_REASON}
+        onClick={() => p.onViewChange(p.view === "3d" ? "plan" : "3d")}
+      >
+        3D
+      </Button>
+    );
+  if (p.phone) {
+    return layer === null && toggle === null ? null : (
+      <div class="stage-segs stage-segs--phone" data-region="switches">
+        {layer}
+        {toggle}
+      </div>
+    );
+  }
+  return layer === null ? null : (
+    <div class="stage-segs" data-region="switches">
+      <div class="stage-segs__layer">{layer}</div>
+    </div>
+  );
+}
+
 export interface StageTopProps extends StatusInput {
   /** The stored plan's trays (`layout.trays`), for the Layer switch; without them (no plan) there are no switches. */
   trays?: readonly TraySpec[];
@@ -492,37 +550,13 @@ export function StageTop(p: StageTopProps) {
       }
     });
 
-  const options = p.trays === undefined ? [] : layerOptions(p.trays, p.levels);
-  const layers = options.length - 1;
-  const layerValue = layerValueOf(p.layer, layers);
-  const layer =
-    layers > 1 ? (
-      <Segmented
-        label="Layer"
-        tone="track"
-        stretch={p.phone}
-        options={options}
-        value={layerValue}
-        onChange={(v) => p.onLayerChange(v === ALL_LAYERS ? null : Number(v))}
-      />
-    ) : null;
   const showView = p.trays !== undefined;
-  const blocked = p.webgl ? undefined : WEBGL_REASON;
-  // On a phone the View switch is the one "3D" toggle beside the Layer switch (board 9 draws it).
-  const phoneView = !showView ? null : (
-    <Button
-      aria-pressed={p.view === "3d"}
-      blockedReason={blocked}
-      onClick={() => p.onViewChange(p.view === "3d" ? "plan" : "3d")}
-    >
-      3D
-    </Button>
-  );
   const desktopView = !showView ? null : (
     <ViewSwitch view={p.view} onViewChange={p.onViewChange} webgl={p.webgl} />
   );
 
-  const more = (
+  // The menu is for what is not on screen already: in the no-fit strip its one entry is a button.
+  const more = strip ? null : (
     <span key="more">
       <HeaderMenu
         label="Plan options"
@@ -619,16 +653,7 @@ export function StageTop(p: StageTopProps) {
           />
         ) : null}
       </div>
-      {p.phone && (layer !== null || phoneView !== null) ? (
-        <div class="stage-segs stage-segs--phone" data-region="switches">
-          {layer}
-          {phoneView}
-        </div>
-      ) : !p.phone && layer !== null ? (
-        <div class="stage-segs" data-region="switches">
-          <div class="stage-segs__layer">{layer}</div>
-        </div>
-      ) : null}
+      {p.phone ? null : <StageSwitches {...p} />}
       {showView && !p.webgl ? <WebGlNote /> : null}
       {status.alert === true ? (
         <p class="visually-hidden" role="alert">

@@ -14,6 +14,7 @@ import {
   problemAreas,
   statusOf,
 } from "./StageTop";
+import { StageSwitches } from "./StageTop";
 import type { PlanBannerProps, StageTopProps, StatusInput } from "./StageTop";
 
 afterEach(cleanup);
@@ -325,6 +326,23 @@ describe("StageTop", () => {
       expect(buttons[0]?.classList.contains("k-btn--primary")).toBe(true);
     });
 
+    it("has no ⋯ menu: its one entry, Try another arrangement, is a button in the strip", () => {
+      render(<StageTop {...noFit()} />);
+      expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Try another arrangement" })).toBeTruthy();
+    });
+
+    it("never draws a menu whose entries are all on screen already", () => {
+      // every state that has a strip, and the ones that have none keep the menu for what is only there
+      for (const state of [noFit(), noFit({ noFit: { misfit: null } })]) {
+        const { unmount } = render(<StageTop {...state} />);
+        expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
+        unmount();
+      }
+      render(<StageTop {...props()} />);
+      expect(screen.getByRole("button", { name: "Plan options" })).toBeTruthy();
+    });
+
     it("keeps no strip for a plan that fits", () => {
       const { container } = render(<StageTop {...props()} />);
       expect(container.querySelector(".stage-fit")).toBeNull();
@@ -394,10 +412,13 @@ describe("StageTop", () => {
     it("says no height, on any width: the status line holds the plan's height", () => {
       expect(layerOptions(TWO_LAYERS).map((o) => o.label)).toEqual(["Layer 1", "Layer 2", "All"]);
       for (const phone of [false, true]) {
+        const p = props({ phone, fits: { trays: 3, layers: 2, height: 66, boxHeight: 70 } });
+        // a phone's switches are under the plan (board 9), drawn beside the stage's top by the app
         render(
-          <StageTop
-            {...props({ phone, fits: { trays: 3, layers: 2, height: 66, boxHeight: 70 } })}
-          />,
+          <>
+            <StageTop {...p} />
+            {phone ? <StageSwitches {...p} /> : null}
+          </>,
         );
         expect(line()).toBe("3 trays · 2 layers · 66 of 70 mm");
         expect(screen.getByRole("group", { name: "Layer" }).textContent).not.toMatch(/mm/);
@@ -541,7 +562,12 @@ describe("StageTop", () => {
   describe("on a phone", () => {
     it("puts the switches in their own row, 3D as a toggle button", () => {
       const p = props({ phone: true, view: "3d" });
-      const { container } = render(<StageTop {...p} />);
+      const { container } = render(
+        <>
+          <StageTop {...p} />
+          <StageSwitches {...p} />
+        </>,
+      );
       const row = container.querySelector(".stage-segs") as HTMLElement;
       expect(row).not.toBeNull();
       expect(row.classList.contains("stage-segs--phone")).toBe(true);
@@ -563,7 +589,12 @@ describe("StageTop", () => {
 
     it("keeps the ⋯ menu beside the heading, with Try another arrangement in it", () => {
       const p = props({ phone: true });
-      const { container } = render(<StageTop {...p} />);
+      const { container } = render(
+        <>
+          <StageTop {...p} />
+          <StageSwitches {...p} />
+        </>,
+      );
       expect(more().closest(".k-status")).not.toBeNull();
       expect(container.querySelector(".stage-segs")?.contains(more())).toBe(false);
       tryAnother();
@@ -572,7 +603,12 @@ describe("StageTop", () => {
 
     it("blocks the 3D toggle without WebGL", () => {
       const p = props({ phone: true, webgl: false });
-      render(<StageTop {...p} />);
+      render(
+        <>
+          <StageTop {...p} />
+          <StageSwitches {...p} />
+        </>,
+      );
       const toggle = screen.getByRole("button", { name: "3D" });
       expect(toggle.getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(toggle);

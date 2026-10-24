@@ -71,9 +71,9 @@ describe("when it doesn't fit (the strip)", () => {
     expect(misfit?.name).toBe("Heroes");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(h1().textContent).toBe(`The ${misfit?.name} tray doesn't fit yet`);
-    // the engine's whole-plan shortfall (13.7 mm in height) is the one figure
+    // one dimension is the cause (a figure 80 mm tall in a 70 mm box): the line says which, in the engine's figures
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box. The closest plan is 13.7 mm too tall.",
+      "Heroes needs 83.7 mm of height. The box has 70 mm.",
     );
     // the status is in the stage as a region of its own, in the warn tone
     expect(
@@ -83,7 +83,12 @@ describe("when it doesn't fit (the strip)", () => {
 
   it("says how much room the items need against the box, under the buttons", () => {
     fitProblem("harbour-kings-nofit");
-    expect(strip().querySelector(".fit-strip__volume")?.textContent).toBe(
+    // volume is not the cause here (1.9 L of 5.6 L): it is not the headline, only behind a fold-out
+    expect(strip().querySelector(".fit-strip__line")?.closest("details")).not.toBeNull();
+    expect(strip().querySelector(".fit-strip__volume summary")?.textContent).toBe(
+      "What the items need",
+    );
+    expect(strip().querySelector(".fit-strip__volume")?.textContent).toContain(
       "Your items need at least 1.9 L as trays. The box has 5.6 L.",
     );
     // the buttons come first
@@ -131,33 +136,65 @@ describe("when it doesn't fit (the strip)", () => {
     );
   });
 
-  it("names every axis that is short, the largest first, rounded up", () => {
+  it("names every axis that is short, the largest first, rounded up, when no tray is named", () => {
     fitProblem("harbour-kings-nofit", (r) => {
-      if (r.bestAttempt !== null) {
-        r.bestAttempt.shortfall = { x: 2.951, y: 0, z: 17.2 };
-      }
+      r.bestAttempt = { trays: [], shortfall: { x: 2.951, y: 0, z: 17.2 } };
     });
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box. The closest plan is 17.2 mm too tall and 3.0 mm too wide.",
+      "The closest plan is 17.2 mm too tall and 3.0 mm too wide.",
     );
   });
 
   it("names a shortfall in length, and says nothing of one that is not there", () => {
     fitProblem("harbour-kings-nofit", (r) => {
-      if (r.bestAttempt !== null) {
-        r.bestAttempt.shortfall = { x: 0, y: 4, z: 0 };
-      }
+      r.bestAttempt = { trays: [], shortfall: { x: 0, y: 4, z: 0 } };
     });
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box. The closest plan is 4.0 mm too long.",
+      "The closest plan is 4.0 mm too long.",
     );
     cleanup();
     fitProblem("harbour-kings-nofit", (r) => {
-      if (r.bestAttempt !== null) {
-        r.bestAttempt.shortfall = { x: 0, y: 0, z: 0.01 };
-      }
+      r.bestAttempt = { trays: [], shortfall: { x: 0, y: 0, z: 0.01 } };
     });
     expect(document.querySelector(".k-status__line")?.textContent).toMatch(/0\.1 mm too tall/);
+  });
+
+  it("names the one side of the box that is the limit, with the engine's own figures", () => {
+    // Heroes laid low but pushed past the box's right edge: width is the cause, not height
+    fitProblem("harbour-kings-nofit", (r) => {
+      const heroes = r.bestAttempt?.trays.find((t) => t.part === "tray" && t.h > 70);
+      if (heroes === undefined) {
+        throw new Error("no tall tray in the seed");
+      }
+      heroes.h = 20;
+      heroes.x = 285 - heroes.w + 12.3;
+    });
+    expect(document.querySelector(".k-status__line")?.textContent).toMatch(
+      /^Heroes needs 297\.3 mm of width\. The box has 285 mm\.$/,
+    );
+  });
+
+  it("keeps the volume line as the headline only where volume is the reason", () => {
+    // tight: 1.9 L of trays in 2.0 L of box: the figures show, the biggest items are folded away
+    fitProblem("harbour-kings-nofit", undefined, (p) => ({
+      ...p,
+      box: { ...p.box, innerWidth: 170, innerDepth: 170 },
+    }));
+    expect(strip().querySelector(":scope > .fit-strip__volume > .fit-strip__line")).not.toBeNull();
+    cleanup();
+    // roomy: the line waits behind "What the items need"
+    fitProblem("harbour-kings-nofit");
+    expect(strip().querySelector(":scope > .fit-strip__volume > .fit-strip__line")).toBeNull();
+  });
+
+  it("has no ⋯ menu in the strip: its one entry is a button there", () => {
+    fitProblem("harbour-kings-nofit");
+    expect(screen.queryByRole("button", { name: "Plan options" })).toBeNull();
+    cleanup();
+    // the normal plan keeps it
+    const { project } = loadSeed("harbour-kings");
+    renderApp({ project });
+    expect(screen.getByRole("button", { name: "Plan options" })).toBeTruthy();
   });
 
   it("does not repeat the engine's no-fit paragraph, and keeps the other notices", () => {

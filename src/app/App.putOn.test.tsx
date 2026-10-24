@@ -2,8 +2,9 @@
 // @vitest-environment jsdom
 // Put on… (0.15.0): More's item, the plan's prompt, the stack lock it writes (no pin), the dry run's
 // refusals in the pill, and the rail's "On <base>" chip with its ×.
-import { act, cleanup, fireEvent, screen, within } from "@testing-library/preact";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SceneFactory, SceneHandle } from "../viewer/types";
 import { loadSeed } from "../test-support/harbourKings";
 import { renderApp } from "./test-app";
 
@@ -25,8 +26,8 @@ const press = (name: RegExp): void => {
 };
 const putOn = (name: RegExp): void => {
   press(name);
-  fireEvent.click(screen.getByRole("button", { name: "More" }));
-  fireEvent.click(screen.getByRole("button", { name: "Put on…" }));
+  fireEvent.click(screen.getByRole("button", { name: "More about this tray" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Put on…/ }));
 };
 
 function seeded() {
@@ -47,12 +48,12 @@ describe("Put on…", () => {
     putOn(/^Market deck/);
     expect(screen.getByText("Pick the tray to put Market deck on.")).toBeTruthy();
     // the panel is shut so the prompt can be read; it says on reopening that the put-on is under way
-    expect(screen.queryByRole("button", { name: "Put on…" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "More" }));
-    expect(screen.getByRole("button", { name: "Put on…" }).getAttribute("aria-pressed")).toBe(
+    expect(screen.queryByRole("button", { name: /^Put on…/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More about this tray" }));
+    expect(screen.getByRole("button", { name: /^Put on…/ }).getAttribute("aria-pressed")).toBe(
       "true",
     );
-    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("button", { name: "More about this tray" }));
     expect(store.canUndo.peek()).toBe(false);
     press(/^Dice/);
     const locks = store.state.project.value.locks;
@@ -86,10 +87,11 @@ describe("Put on…", () => {
     expect(store.state.project.value.locks).toEqual(locks);
   });
 
-  it("is the one choice that ends with Escape, and is off again after it", () => {
+  it("is the one choice that ends with Escape on the plan, and is off again after it", () => {
     const { store } = seeded();
     putOn(/^Market deck/);
-    fireEvent.keyDown(screen.getByRole("button", { name: "More" }), { key: "Escape" });
+    // the dock is not inside the plan: its Escape does not reach the plan's, a tray's does
+    fireEvent.keyDown(tile(/^Market deck/), { key: "Escape" });
     expect(store.state.swapFrom.value).toBeNull();
     expect(store.state.project.value.locks).toEqual([]);
   });
@@ -123,16 +125,44 @@ describe("Put on…", () => {
     expect(store.state.project.value.locks).toEqual(before);
   });
 
-  it("has no Put on… in the 3D view's bar", () => {
-    renderApp({
-      project: loadSeed("harbour-kings").project,
-      overrides: { viewerProps: { webgl: () => true } },
+  it("works in the 3D view too: the base is picked by clicking its tray in the scene", async () => {
+    const project = loadSeed("harbour-kings").project;
+    let picked: ((key: string | null) => void) | null = null;
+    const handle: SceneHandle = {
+      setBox: vi.fn(),
+      setTrays: vi.fn(),
+      setExplode: vi.fn(),
+      setMaxLevel: vi.fn(),
+      setSelected: vi.fn(),
+      setLit: vi.fn(),
+      setMisfit: vi.fn(),
+      onPick: vi.fn((cb: (key: string | null) => void) => {
+        picked = cb;
+      }),
+      resize: vi.fn(),
+      dispose: vi.fn(),
+    };
+    const factory: SceneFactory = () => handle;
+    const { store } = renderApp({
+      project,
+      overrides: { viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(factory) } },
     });
+    const dice = project.components.find((c) => c.name === "Dice");
     press(/^Market deck/);
     fireEvent.click(
       within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "3D" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "More" }));
-    expect(screen.queryByRole("button", { name: "Put on…" })).toBeNull();
+    await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
+    // the same dock, with the same entry
+    fireEvent.click(screen.getByRole("button", { name: "More about this tray" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Put on…/ }));
+    expect(screen.getByText("Pick the tray to put Market deck on.")).toBeTruthy();
+    act(() => picked?.(`${dice?.id}:p0:0`));
+    const stack = store.state.project.value.locks.find((l) => l.kind === "stack");
+    expect(stack?.kind === "stack" ? stack.trayKeys.slice(-2) : []).toEqual([
+      `${dice?.id}:p0:0`,
+      `${project.components.find((c) => c.name === "Market deck")?.id}:p0:0`,
+    ]);
+    expect(store.state.swapFrom.value).toBeNull();
   });
 });
