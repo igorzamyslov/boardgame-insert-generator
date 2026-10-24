@@ -182,6 +182,7 @@ export function WellRows<C extends Component>({ component: c, index, onChange }:
         <NumField
           id={`${c.id}-separators`}
           label="Spacer plates"
+          hideLabel
           value={separatorsOf(c)}
           {...SEPARATORS}
           path={`/components/${index}/separators`}
@@ -200,6 +201,7 @@ export function WellRows<C extends Component>({ component: c, index, onChange }:
         <NumField
           id={`${c.id}-dividers`}
           label="Number of dividers"
+          hideLabel
           value={dividers}
           {...DIVIDERS}
           path={`/components/${index}/dividers`}

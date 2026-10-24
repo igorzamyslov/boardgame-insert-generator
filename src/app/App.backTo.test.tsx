@@ -24,8 +24,8 @@ describe("Back to <default> in More options", () => {
     const rail = screen.getByRole("complementary", { name: "What's inside" });
     const first = store.state.project.value.components[0];
     expect(first).toBeDefined();
-    fireEvent.click(within(rail).getByRole("button", { name: new RegExp(`^${first?.name}, `) }));
-    fireEvent.click(screen.getByRole("button", { name: /^More options/ }));
+    fireEvent.click(within(rail).getByRole("button", { name: `Edit ${first?.name}` }));
+    fireEvent.click(screen.getByRole("button", { name: /^Shape/ }));
     const cuts = (): boolean | undefined => store.state.project.value.components[0]?.fingerCuts;
     // finger cuts are on by default for the first item's kind: turning them off is a change
     const chip = screen.getByRole("button", { name: /^Finger cuts/ });

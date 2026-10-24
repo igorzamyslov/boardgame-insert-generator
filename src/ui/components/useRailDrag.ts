@@ -15,8 +15,12 @@ export interface Rect {
   bottom: number;
 }
 
-/** Where a drop puts an item: a group at a place among its other members, or out of any group. */
-export type DropTarget = { groupId: string; index: number } | { out: true };
+/**
+ * Where a drop puts an item: a group at a place among its other members, or in the list itself,
+ * out of any group, at a place (`index`) among the list's other entries (items and group cards).
+ * Without an `index` the item only leaves its group.
+ */
+export type DropTarget = { groupId: string; index: number } | { out: true; index?: number };
 
 export interface GroupGeometry {
   id: string;
@@ -31,6 +35,8 @@ export interface GroupGeometry {
 export interface RailGeometry {
   list: Rect;
   groups: readonly GroupGeometry[];
+  /** The list's entries (an item's row, or a group's card), in order, the dragged item's own included. */
+  entries?: readonly { id: string; rect: Rect }[];
 }
 
 /** Whether a drop is wanted: the pointer is nowhere (outside the list) or here. */
@@ -56,7 +62,13 @@ export function hitTest(
   }
   const card = geometry.groups.find((g) => within(g.rect, point.x, point.y));
   if (card === undefined) {
-    return { out: true };
+    if (geometry.entries === undefined) {
+      return { out: true };
+    }
+    const before = geometry.entries.filter(
+      (e) => e.id !== itemId && (e.rect.top + e.rect.bottom) / 2 < point.y,
+    );
+    return { out: true, index: before.length };
   }
   const above = others(card, itemId).filter((r) => (r.rect.top + r.rect.bottom) / 2 < point.y);
   return { groupId: card.id, index: above.length };
@@ -73,7 +85,21 @@ export function dragLineAt(
   itemId: string,
 ): { y: number; left: number; right: number } | null {
   if ("out" in target) {
-    return null;
+    if (target.index === undefined || geometry.entries === undefined) {
+      return null;
+    }
+    const rest = geometry.entries.filter((e) => e.id !== itemId);
+    const prev = rest[target.index - 1];
+    const next = rest[target.index];
+    let y = geometry.list.top;
+    if (prev !== undefined && next !== undefined) {
+      y = (prev.rect.bottom + next.rect.top) / 2;
+    } else if (next !== undefined) {
+      y = next.rect.top - 1;
+    } else if (prev !== undefined) {
+      y = prev.rect.bottom + 1;
+    }
+    return { y, left: geometry.list.left + 4, right: geometry.list.right - 4 };
   }
   const card = geometry.groups.find((g) => g.id === target.groupId);
   if (card === undefined) {
@@ -93,22 +119,28 @@ export function dragLineAt(
   return { y, left: card.rect.left + 4, right: card.rect.right - 4 };
 }
 
-export type DropChange = "none" | "into" | "out" | "order";
+export type DropChange = "none" | "into" | "out" | "order" | "place";
 
 /**
  * What a drop does to the project: an item goes into a group (another's, or from the list), a
- * member goes out to the list, a member takes another place in its group's order; and nothing when
- * the item is not in a group and is dropped on the list (there is no reordering of ungrouped rows)
- * or when a member is dropped on the place it has.
+ * member goes out to the list (at a place in it), a member takes another place in its group's order,
+ * an item of the list takes another place in it; and nothing when an item is dropped on the place
+ * it has.
  */
 export function dropChange(
   groups: readonly Group[],
   itemId: string,
   target: DropTarget,
+  /** Where the item stands now among the list's other entries (its entry's place), when it is in the list itself. */
+  listPlace?: number,
 ): DropChange {
   const own = groups.find((g) => g.memberIds.includes(itemId));
   if ("out" in target) {
-    return own === undefined ? "none" : "out";
+    if (own !== undefined) {
+      return "out";
+    }
+    // an item in the list moves when its place among the others changes
+    return target.index !== undefined && target.index !== listPlace ? "place" : "none";
   }
   const into = groups.find((g) => g.id === target.groupId);
   if (into === undefined) {
@@ -199,7 +231,11 @@ function measure(root: HTMLElement): RailGeometry {
       rows,
     };
   });
-  return { list: root.getBoundingClientRect(), groups };
+  const entries = [...root.querySelectorAll<HTMLElement>(":scope > li[data-entry]")].map((li) => ({
+    id: li.dataset.entry ?? "",
+    rect: li.getBoundingClientRect(),
+  }));
+  return { list: root.getBoundingClientRect(), groups, entries };
 }
 
 const reducedMotion = (): boolean =>
@@ -282,11 +318,11 @@ export function useRailDrag(options: RailDragOptions): {
     const showTarget = (target: DropTarget | null, geometry: RailGeometry): void => {
       clearTarget();
       s.target = target;
-      if (target === null || "out" in target) {
+      if (target === null) {
         return;
       }
       const own = latest.current.groups.find((g) => g.memberIds.includes(itemId));
-      if (own?.id !== target.groupId) {
+      if ("groupId" in target && own?.id !== target.groupId) {
         s.entered =
           [...root.querySelectorAll<HTMLElement>(CARD)].find(
             (c) => c.dataset.groupId === target.groupId,
@@ -391,9 +427,15 @@ export function useRailDrag(options: RailDragOptions): {
         return;
       }
       s.last = { x: ev.clientX, y: ev.clientY };
-      const target = s.began ? hitTest(measure(root), s.last, itemId) : null;
+      const geometry = measure(root);
+      const target = s.began ? hitTest(geometry, s.last, itemId) : null;
+      const place = geometry.entries?.findIndex((e) => e.id === itemId);
       end();
-      if (target !== null && dropChange(latest.current.groups, itemId, target) !== "none") {
+      if (
+        target !== null &&
+        dropChange(latest.current.groups, itemId, target, place === -1 ? undefined : place) !==
+          "none"
+      ) {
         latest.current.onDrop(itemId, target);
       }
     };

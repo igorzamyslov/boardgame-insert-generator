@@ -278,8 +278,15 @@ import type { Semver } from "../model/version";
  * flat left on a strip), still a 45° slope facing up and out, so no overhang. A mesh-only change on
  * a derived filler (planTray accepts what it did, a chamfer simply spans more of a face): outer
  * size, footprint, fit and every tray are as before, so printed parts still mate. A PATCH.
+ *
+ * 0.9.11 rounds the edge a finger cut makes through the layer beside its fillet strip (owner,
+ * 2026-10-24: the rim "protrudes beyond the fillet of the finger slot and you can catch it"): the
+ * ledge beside the lip ring, the floor of the socket beside the wall, each with the wall top's
+ * fillet (`CutPlan.ledgeFillets`). A mesh-only change beside a cut; outer size, footprint, lip,
+ * groove, step, socket and fit are as before, so trays printed before and after still mate and
+ * stack. A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.10";
+export const GEOMETRY_VERSION = "0.9.11";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

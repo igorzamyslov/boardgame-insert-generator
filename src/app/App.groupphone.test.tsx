@@ -81,18 +81,21 @@ describe("opening from the sheet", () => {
   it("the header opens the group's editor in the sheet, a member opens its own", () => {
     renderApp({ project: kit() });
     open();
+    // a press on the header selects the group's tray and opens nothing; the pencil opens the editor
     fireEvent.click(within(card()).getByRole("button", { name: "Player kit, 4 copies" }));
+    expect(within(sheet()).queryByRole("region", { name: "Edit Player kit" })).toBeNull();
+    fireEvent.click(within(card()).getByRole("button", { name: "Edit Player kit" }));
     const panel = within(sheet()).getByRole("region", { name: "Edit Player kit" });
     expect(within(panel).getByRole("heading", { level: 1 }).textContent).toBe("Player kit");
     fireEvent.click(within(panel).getByRole("button", { name: "Back" }));
-    fireEvent.click(within(card()).getByRole("button", { name: /^Hero, / }));
+    fireEvent.click(within(card()).getByRole("button", { name: "Edit Hero" }));
     expect(within(sheet()).getByRole("region", { name: "Edit Hero" })).toBeTruthy();
   });
 
   it("Up and Down in the sheet's group editor reorder the items, one undo step each", () => {
     const { store } = renderApp({ project: kit() });
     open();
-    fireEvent.click(within(card()).getByRole("button", { name: "Player kit, 4 copies" }));
+    fireEvent.click(within(card()).getByRole("button", { name: "Edit Player kit" }));
     const panel = within(sheet()).getByRole("region", { name: "Edit Player kit" });
     expect(names(store)).toEqual(["Starter deck", "Resources", "Hero"]);
     fireEvent.click(within(panel).getByRole("button", { name: "Move Hero up" }));
@@ -106,10 +109,9 @@ describe("opening from the sheet", () => {
   it("Move to group… opens in the sheet, and the item lands in the group's card", () => {
     const { store } = renderApp({ project: kit() });
     open();
-    fireEvent.click(within(sheet()).getByRole("button", { name: /^Market deck, / }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Edit Market deck" }));
     const panel = within(sheet()).getByRole("region", { name: "Edit Market deck" });
-    fireEvent.click(within(panel).getByRole("button", { name: /^More options/ }));
-    fireEvent.click(within(panel).getByRole("button", { name: /^Group/ }));
+    fireEvent.click(within(panel).getByRole("button", { name: /^Copies and group/ }));
     fireEvent.click(within(panel).getByRole("button", { name: /^Move to group/ }));
     const menu = within(sheet()).getByRole("group", { name: "Move to group…" });
     fireEvent.click(within(menu).getByRole("button", { name: /^Player kit/ }));

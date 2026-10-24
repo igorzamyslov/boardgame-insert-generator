@@ -101,13 +101,17 @@ const withEmptyGroup = (p: Project): Project => ({
 const editRow = (name: RegExp | string) => (): void => {
   const rail = (document.querySelector('[data-region="rail"], [data-region="sheet"]') ??
     document.body) as HTMLElement;
-  fireEvent.click(within(rail).getByRole("button", { name }));
+  // a row only selects: the pencil beside it opens the editor (a group's header: its pencil too)
+  const row = within(rail).getByRole("button", { name });
+  const pencil = row.closest(".k-rowwrap")?.querySelector<HTMLElement>(".k-row__edit");
+  fireEvent.click(pencil ?? row);
 };
 
-/** Every row under More options that opens its exact values, opened too. */
+/** Every row of the editor's Tray settings, opened (the settings inside are always drawn once it is). */
 const openAllRows = (): void => {
-  fireEvent.click(screen.getByRole("button", { name: /^More options/ }));
-  for (const row of document.querySelectorAll<HTMLElement>(".k-drow")) {
+  for (const row of screen.queryAllByRole("button", {
+    name: /^(Reach|Shape|Room|Copies and group)/,
+  })) {
     fireEvent.click(row);
   }
 };
@@ -690,7 +694,7 @@ const CASES: readonly Case[] = [
     seed: "harbour-kings-kit",
     steps: editRow(/^Player kit, /),
   },
-  // 0.7.0 Task 12: a member's editor with More options open (no board draws it: Edit's), the Move to
+  // 0.7.0 Task 12: a member's editor with its Tray settings open (no board draws it: Edit's), the Move to
   // group… panel, what a move in and a take out say in the stage's slot, and the phone's sheet
   {
     state: "kit-member",

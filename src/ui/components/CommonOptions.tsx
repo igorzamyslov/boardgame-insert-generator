@@ -1,7 +1,7 @@
 // src/ui/components/CommonOptions.tsx
 import { useContext, useId } from "preact/hooks";
 import { setClearance, setItemCopies } from "../../app/actions";
-import { Stepper } from "../../kit";
+import { Segmented, Stepper } from "../../kit";
 import type { SegmentedOption } from "../../kit";
 import { COMPONENT_DEFAULTS } from "../../model/defaults";
 import { FLOAT_EPSILON, PACKING_CHOICES, packingChoiceOf, packingOf } from "../../model/settings";
@@ -11,9 +11,10 @@ import { COPIES, OFFSET } from "../limits";
 import { formatNumber } from "../NumberField";
 import { messagesOf } from "../FieldMessages";
 import { SettingsContext, useFieldNotices } from "../validation";
-import { Alert, Choice, ExactRow, Group as Field, NumField } from "./controls";
+import { Alert, Choice, ExactRow, NumField } from "./controls";
 import { GroupRow, ItemGroupingContext, SetOnGroup, useItemGroup } from "./GroupRow";
 import { insertClearance, packingOffered } from "./moreSummary";
+import { SettingsGroup } from "./TraySettings";
 import type { EditorProps } from "./types";
 
 export const ACCESS_OPTIONS: SegmentedOption<Access>[] = [
@@ -25,21 +26,21 @@ export const ACCESS_OPTIONS: SegmentedOption<Access>[] = [
 /** The default's name in "Back to <it>": the label of the option that is the default. */
 const ACCESS_DEFAULT = ACCESS_OPTIONS.find((o) => o.value === COMPONENT_DEFAULTS.access)?.label;
 
-/**
- * Validation paths of the fields under More options that every kind has: the copies, the shape
- * chips and the rows. An error at a path, or below it, opens the section.
- */
-export function commonOptionPaths(index: number): string[] {
+/** Validation paths of the fields inside the row "Room" that every kind has. */
+export function roomPaths(index: number): string[] {
   const at = `/components/${index}`;
-  return [
-    `${at}/copies`,
-    `${at}/clearance`,
-    `${at}/packing`,
-    `${at}/curvedFloor`,
-    `${at}/separators`,
-    `${at}/dividers`,
-    `${at}/room`,
-  ];
+  return [`${at}/clearance`, `${at}/packing`, `${at}/room`];
+}
+
+/** Validation paths of the fields inside the row "Shape" that every kind has. */
+export function shapePaths(index: number): string[] {
+  const at = `/components/${index}`;
+  return [`${at}/curvedFloor`, `${at}/separators`, `${at}/dividers`];
+}
+
+/** Validation paths of the fields inside the row "Copies and group". */
+export function copiesPaths(index: number): string[] {
+  return [`/components/${index}/copies`];
 }
 
 /** Edit's "How often you reach for it": Often, Sometimes, Only at setup. */
@@ -79,7 +80,6 @@ function ClearanceRow<C extends Component>({ component: c, index, onChange }: Ed
   return (
     <ExactRow
       title="Room around the pieces"
-      meta={`${formatNumber(value)} mm`}
       errorPaths={[`${at}/clearance`]}
       revert={
         own
@@ -90,6 +90,7 @@ function ClearanceRow<C extends Component>({ component: c, index, onChange }: Ed
       <NumField
         id={`${c.id}-clearance`}
         label="Room around the pieces"
+        hideLabel
         unit="mm"
         value={value}
         {...OFFSET}
@@ -148,13 +149,15 @@ function PackingRow<C extends Component>({ component: c, index, onChange }: Edit
   return (
     <ExactRow
       title={title}
-      meta={packingWords(value)}
       errorPaths={[`/components/${index}/packing`]}
       revert={own ? { to: packingWords(inherited), onBack: () => set(undefined) } : undefined}
     >
-      <Choice<PackingChoice | "custom">
+      <Segmented<PackingChoice | "custom">
         label={title}
-        options={PACKING_OPTIONS}
+        stretch
+        options={PACKING_OPTIONS.map((o) =>
+          own && o.value === choice ? { ...o, changed: true } : o,
+        )}
         value={choice}
         onChange={(v) => {
           if (v !== "custom") {
@@ -196,7 +199,7 @@ function CopiesRow<C extends Component>({ component: c, index, onChange }: Edito
       errorPaths={[`${at}/copies`]}
       revert={c.copies === undefined ? undefined : { to: "1", onBack: () => set(1) }}
     >
-      <Field label="Copies">
+      <div class="ed-stack">
         <Stepper
           label="Copies"
           value={c.copies ?? 1}
@@ -208,24 +211,39 @@ function CopiesRow<C extends Component>({ component: c, index, onChange }: Edito
         />
         <Alert id={alertId} path={`${at}/copies`} />
         <span class="ed-line">Each copy is its own tray.</span>
-      </Field>
+      </div>
     </ExactRow>
   );
 }
 
-/**
- * The exact values every kind has, each a row that opens in place: Copies, the group the item is
- * in, and the room around its pieces. A row whose value differs from its default has the changed
- * dot and a way back inside. An item in a group has its group's Copies and access: one line stands
- * where Copies did, so nothing below it moves.
- */
-export function CommonRows<C extends Component>(props: EditorProps<C>) {
+/** The Copies row, and the group the item is in: the row "Copies and group" holds them. */
+export function CopiesRows<C extends Component>(props: EditorProps<C>) {
   return (
     <>
       {useItemGroup() === undefined ? <CopiesRow {...props} /> : <SetOnGroup />}
       <GroupRow />
+    </>
+  );
+}
+
+/** The room around the item's pieces and how tightly they pack: inside the row "Room". */
+export function RoomRows<C extends Component>(props: EditorProps<C>) {
+  return (
+    <>
       <ClearanceRow {...props} />
       <PackingRow {...props} />
     </>
+  );
+}
+
+/** The row "Reach". An item in a group is reached for as its group is: the row is the group's, not drawn. */
+export function ReachGroup<C extends Component>(props: EditorProps<C>) {
+  if (useItemGroup() !== undefined) {
+    return null;
+  }
+  return (
+    <SettingsGroup id="reach" component={props.component}>
+      <AccessChoice {...props} />
+    </SettingsGroup>
   );
 }

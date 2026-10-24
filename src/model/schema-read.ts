@@ -310,6 +310,7 @@ export function readProject(data: Json, opts: ReadOptions): ParseResult {
   const settings = readSettings(r.optChild("settings"));
   const { components, foreign } = readComponents(r.list("components", []), ctx);
   const groups = readGroups(r.list("groups", []), ctx);
+  const listOrder = r.list("listOrder", []).filter((id): id is string => typeof id === "string");
   const { locks, kept } = readLocks(r.list("locks", []), ctx);
   const layout = readLayout(r.take("layout"), ctx);
   // finish() last: it treats every key not read so far as unknown.
@@ -323,6 +324,7 @@ export function readProject(data: Json, opts: ReadOptions): ParseResult {
     settings,
     components,
     ...(groups.length > 0 ? { groups } : {}),
+    ...(listOrder.length > 0 ? { listOrder } : {}),
     locks,
   });
   if (layout) {

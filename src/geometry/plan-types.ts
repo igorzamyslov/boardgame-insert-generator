@@ -34,6 +34,9 @@ export interface Rect {
 // instead goes down through the bottom at its full width and on into the compartment's floor, its
 // far corners rounded, so a fingertip gets under the stack. `topFillets` are the radii of its two
 // top corners (at u0 and u1 along the side; 0 = square), rounded across the whole strip.
+// `ledgeFillets` are the same for the layer beside that strip, which a cut through the rim also
+// passes through (plan-cuts.ts ledgeStrip): the ledge next to a lip ring, the floor of a socket
+// next to its wall.
 export interface CutPlan extends Rect {
   side: Side;
   bottomZ: number;
@@ -41,6 +44,7 @@ export interface CutPlan extends Rect {
   into: number | null;
   notch: number;
   topFillets: readonly [number, number];
+  ledgeFillets: readonly [number, number];
 }
 
 // A divider's slot (FeatureSpec "dividerSlot"): a box cut `bottomZ`…floorZ into the compartment's

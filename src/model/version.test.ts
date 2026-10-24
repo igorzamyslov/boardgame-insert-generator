@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.3.3: 0.2.0 made groups their own list and Copies replace perPlayer, 0.2.1 adds minRiser, 0.2.2 the rim's kind and the step's height, 0.2.3 a figure's keepUpright, 0.2.4 a bulk or minis item's own packing (additive PATCHes), 0.3.0 replaces per-axis growth and stretch with one `room` per item and drops group growth (a MINOR with a migration, while 0.x), 0.3.1 adds the box's `headroomAreas` and the layout's `reserved` (an additive PATCH), 0.3.2 adds the `separatorPlate` feature to a stored layout (an additive PATCH), 0.3.3 replaces the rim's switch and kind with one `joint` (Off, Auto, Rim and groove, Stepped base) and adds the layout's `joint` (an additive PATCH: an older file reads as the joint it meant)", () => {
-    expect(SCHEMA_VERSION).toBe("0.3.3");
+  it("is at schema 0.3.4: 0.2.0 made groups their own list and Copies replace perPlayer, 0.2.1 adds minRiser, 0.2.2 the rim's kind and the step's height, 0.2.3 a figure's keepUpright, 0.2.4 a bulk or minis item's own packing (additive PATCHes), 0.3.0 replaces per-axis growth and stretch with one `room` per item and drops group growth (a MINOR with a migration, while 0.x), 0.3.1 adds the box's `headroomAreas` and the layout's `reserved` (an additive PATCH), 0.3.2 adds the `separatorPlate` feature to a stored layout (an additive PATCH), 0.3.3 replaces the rim's switch and kind with one `joint` (Off, Auto, Rim and groove, Stepped base) and adds the layout's `joint` (an additive PATCH: an older file reads as the joint it meant), 0.3.4 adds the project's `listOrder`, the order the rail lists its items in (an additive PATCH)", () => {
+    expect(SCHEMA_VERSION).toBe("0.3.4");
   });
 
   it("parses strict semver", () => {

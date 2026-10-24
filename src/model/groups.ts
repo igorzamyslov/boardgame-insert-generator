@@ -74,6 +74,57 @@ export function parseTrayKey(
 export type RailEntry = { kind: "item"; id: string } | { kind: "group"; id: string };
 
 /**
+ * The components in the order the list shows them: `listOrder` first, then any it lacks in
+ * `components` order (an item just added is last). Ids in `listOrder` that name nothing are ignored.
+ */
+export function listed<C extends { id: string }>(
+  components: readonly C[],
+  listOrder: readonly string[] | undefined,
+): C[] {
+  if (listOrder === undefined || listOrder.length === 0) {
+    return [...components];
+  }
+  const rank = new Map<string, number>();
+  listOrder.forEach((id, i) => {
+    if (!rank.has(id)) {
+      rank.set(id, i);
+    }
+  });
+  const known = components.filter((c) => rank.has(c.id));
+  const rest = components.filter((c) => !rank.has(c.id));
+  return [...known.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)), ...rest];
+}
+
+/**
+ * The `listOrder` that puts an item at a place among the list's top-level entries (items and group
+ * cards) other than its own: `index` counts those, and is clamped. A group's members follow its
+ * `memberIds` order, wherever its card stands. Call it for an item that is not in a group (take it
+ * out first).
+ */
+export function listOrderWith(
+  p: { components: readonly Component[]; groups?: readonly Group[]; listOrder?: readonly string[] },
+  itemId: string,
+  index: number,
+): string[] {
+  const entries = railEntries(p).filter((e) => !(e.kind === "item" && e.id === itemId));
+  const at = Math.max(0, Math.min(index, entries.length));
+  entries.splice(at, 0, { kind: "item", id: itemId });
+  const ids = new Set(p.components.map((c) => c.id));
+  const order: string[] = [];
+  for (const e of entries) {
+    if (e.kind === "item") {
+      order.push(e.id);
+    } else {
+      order.push(...(groupById(p, e.id)?.memberIds ?? []));
+    }
+  }
+  const seen = new Set(order);
+  return [...order, ...p.components.map((c) => c.id).filter((id) => !seen.has(id))].filter((id) =>
+    ids.has(id),
+  );
+}
+
+/**
  * What the rail lists, in order (spec §7.1): the items in `components` order, with a group's card
  * standing where its first member (in list order) stands and its other members left out of the
  * list; the groups that have no member in the list (empty ones) follow, in `groups` order. Moving
@@ -82,10 +133,11 @@ export type RailEntry = { kind: "item"; id: string } | { kind: "group"; id: stri
 export function railEntries(p: {
   components: readonly Component[];
   groups?: readonly Group[];
+  listOrder?: readonly string[];
 }): RailEntry[] {
   const out: RailEntry[] = [];
   const shown = new Set<string>();
-  for (const c of p.components) {
+  for (const c of listed(p.components, p.listOrder)) {
     const group = groupOfItem(p, c.id);
     if (group === undefined) {
       out.push({ kind: "item", id: c.id });

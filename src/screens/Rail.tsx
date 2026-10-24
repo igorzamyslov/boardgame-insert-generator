@@ -29,6 +29,11 @@ interface ListProps {
   /** The components whose tray does not fit: their rows say so. */
   culprits?: ReadonlySet<string>;
   onOpenBox: () => void;
+  /** The order the list shows its items in; absent: the components' own. */
+  listOrder?: readonly string[];
+  /** A row was pressed: select its tray, open nothing. */
+  onSelect?: (id: string) => void;
+  /** The pencil on a row, or a double press on it: its editor. */
   onOpenEditor: (id: string) => void;
   onHover?: (id: string | null) => void;
   /** The pointer or the focus is on a group's card (every member's id), or left it (null). */
@@ -134,8 +139,10 @@ export function Rail(p: RailProps) {
         trays={p.trays}
         locks={locks}
         groups={p.groups}
+        listOrder={p.listOrder}
         selectedIds={p.selectedIds}
         culprits={p.culprits}
+        onSelect={p.onSelect}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}
         onLight={p.onLight}
@@ -176,7 +183,10 @@ export function SheetList(p: ListProps) {
         trays={p.trays}
         locks={locks}
         groups={p.groups}
+        listOrder={p.listOrder}
+        selectedIds={p.selectedIds}
         culprits={p.culprits}
+        onSelect={p.onSelect}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}
         onLight={p.onLight}

@@ -9,12 +9,13 @@ export interface ShotsScene {
   emissive(): Record<string, number>;
   /**
    * Each tray's colour now and its own colour at full strength (hex), and how opaque it is drawn
-   * (1, but for the trays an edited item fades), by its key, and the page's colour a faded tray
+   * (1, but for the trays an edited item fades), and the colours its wells are drawn in inside (full
+   * strength, none for a part drawn in one colour), by its key, and the page's colour a faded tray
    * moves toward.
    */
   tints(): {
     page: string;
-    trays: Record<string, { color: string; base: string; opacity: number }>;
+    trays: Record<string, { color: string; base: string; opacity: number; wells: string[] }>;
   };
   /**
    * How far the model is from being cut off by the frame now: the largest x or y of any corner of

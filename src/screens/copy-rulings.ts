@@ -118,6 +118,8 @@ const PLAN_STATES = [
 const LAYERS = "The layer switch uses DESIGN's names";
 const LAYERS_3D = "In 3D the Layer switch peels the model";
 const THREE_D = ["workspace-3d", "workspace-3d-selected"] as const;
+// 0.23.0: the 3D view's own controls, in its caption row
+const VIEW_3D = "The 3D view shows the plan's colours";
 const EDITOR_LAYERS = "The editor's stage has the Layer switch";
 const HOMES = "The Summary's jobs have new homes";
 const NOFIT = "The no-fit heading names the tray";
@@ -241,6 +243,8 @@ const OPENED_ROWS = [
   ...FLAT_DECKS,
 ] as const;
 const EDITOR_OPTIONS = "The editors name every option the engine has";
+const TRAY_SETTINGS = "Tray settings replace More options";
+const TRAY_LINES = TRAY_SETTINGS;
 const EDITOR_SIZES = "Card sizes are the engine's presets";
 const EDITOR_SUMMARY = "More options says what is inside it";
 const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
@@ -621,6 +625,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Layer {n} (bottom)", states: SWITCHED, ruling: LAYERS },
   { text: "Layer {n} (top)", states: SWITCHED, ruling: LAYERS },
   { text: "Layer {n}", states: SWITCHED, ruling: LAYERS },
+  // The 3D caption row's Reset view and projection switch (the board draws Spread apart only)
+  { text: "Reset view", states: THREE_D, ruling: VIEW_3D },
+  // the projection is a browser choice in Settings, on the Display tab
+  ...["Display", "3D view", "Perspective", "Orthographic"].map((text) => ({
+    text,
+    states: SETTINGS_STATES,
+    ruling: VIEW_3D,
+  })),
   // In 3D the switch starts with "All": layers 1 to n, nothing cut away
   { text: "All", states: THREE_D, ruling: LAYERS_3D },
   // the editor's stage has the same switch (it opens on the item's own layer)
@@ -827,6 +839,34 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Space on top (mm)", states: ["box", "m-box"], ruling: BOX_WORDS },
   // Task 10: the editors (Edit, EditKinds, MobileEdit) and the stage beside them
   ...EDITOR_LABELS.map((text) => ({ text, states: EDITING, ruling: EDITOR_OPTIONS })),
+  // 0.24.0: Tray settings, the four rows under the editor's basics, and the line each says
+  ...["Tray settings", "Reach", "Room", "Copies and group"].map((text) => ({
+    text,
+    states: EDITING,
+    ruling: TRAY_SETTINGS,
+  })),
+  ...[
+    "Plain tray",
+    "Lies flat",
+    "Stands either way",
+    "Stands upright",
+    "Finger cuts, {name}",
+    "Curved floor, {name}",
+    "Corner holes, {name}",
+    "{n} divider",
+    "{n} dividers",
+    "{n} divider, {name}",
+    "{n} dividers, {name}",
+    "{n} mm around",
+    "{n} more cards",
+    "{n} more tiles",
+    "{n}% more pieces",
+    "Room for more {name}, as much as fits",
+    "{n} copy",
+    "{n} copies",
+    "no group",
+    "in {name}",
+  ].map((text) => ({ text, states: EDITING, ruling: TRAY_LINES })),
   // a blocked option says why in one line (DESIGN, Flow): the spacer plates, the dividers and their chip
   ...[
     "Dividers need Room for more cards.",

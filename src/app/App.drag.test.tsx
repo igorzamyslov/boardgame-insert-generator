@@ -54,6 +54,11 @@ function drawRail(p: Project): HTMLElement {
   at(rail.querySelector(`[data-member-id="${idOf(p, "Starter deck")}"]`), 50, 90);
   at(rail.querySelector(`[data-member-id="${idOf(p, "Resources")}"]`), 92, 132);
   at(rail.querySelector(`[data-member-id="${idOf(p, "Hero")}"]`), 134, 174);
+  // the list's entries, as a drop among them reads their places
+  const group = p.groups?.[0]?.id ?? "?";
+  at(rail.querySelector(`:scope .rail-list > li[data-entry="${group}"]`), 0, 200);
+  at(rail.querySelector(`[data-entry="${idOf(p, "Market deck")}"]`), 206, 250);
+  at(rail.querySelector(`[data-entry="${idOf(p, "Hex tiles")}"]`), 254, 300);
   return rail;
 }
 
@@ -146,7 +151,7 @@ describe("a drop in the rail", () => {
     expect(store.canUndo.peek()).toBe(false);
   });
 
-  it("changes nothing, and makes no undo step, for a cancelled drag, a drop outside the list and an ungrouped item left among ungrouped rows", () => {
+  it("changes nothing, and makes no undo step, for a cancelled drag, a drop outside the list and an item left on its own place in the list", () => {
     const p = kit();
     const { store } = renderApp({ project: p });
     // Escape in the middle
@@ -157,9 +162,9 @@ describe("a drop in the rail", () => {
     act(() => {
       drag(p, "Market deck", { x: 900, y: 91 }).release();
     });
-    // among the ungrouped rows
+    // on the place it has among the list's entries
     act(() => {
-      drag(p, "Market deck", { x: 100, y: 280 }, { x: 20, y: 230 }).release();
+      drag(p, "Market deck", { x: 100, y: 225 }, { x: 20, y: 230 }).release();
     });
     expect(members(store)).toHaveLength(3);
     expect(store.canUndo.peek()).toBe(false);

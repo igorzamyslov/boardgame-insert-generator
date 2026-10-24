@@ -1,11 +1,11 @@
 // src/ui/components/EditorPanel.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newComponent } from "../../model/defaults";
 import type { CardsComponent, Component, ComponentKind } from "../../model/types";
 import { EditorPanel } from "./EditorPanel";
-import { choose, openMore, openRows } from "./test-editors";
+import { choose, openRows } from "./test-editors";
 
 afterEach(() => {
   cleanup();
@@ -31,50 +31,73 @@ function named(label: Label): RegExp {
   return new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?: .*)?$`);
 }
 
-/** What each kind offers: the basics, and what sits under More options (opened, with its rows). */
-const COMMON: Label[] = [
-  "How often you reach for it",
-  /^Copies/,
-  "Room around the pieces",
-  "Finger cuts",
-  "Corner holes",
-];
+/** What each kind offers: the basics, and what each row of Tray settings holds once it is open. */
+type RowTitle = "Reach" | "Shape" | "Room" | "Copies and group";
+const COPIES_ROW: Label[] = ["Copies"];
 const OPTIONS: Record<
   ComponentKind,
-  { basics: Label[]; more: Label[]; component: () => Component }
+  { basics: Label[]; rows: Partial<Record<RowTitle, Label[]>>; component: () => Component }
 > = {
   cards: {
     basics: ["Name", "Card size", "Sleeves", "Number of cards"],
-    more: [
-      ...COMMON,
-      "Cards stand",
-      /^Correct the estimated thickness/,
-      /^Measure a stack of cards/,
-      "Room for more cards",
-      "Spacer plates",
-      "Removable dividers",
-      "Number of dividers",
-    ],
+    rows: {
+      Reach: ["How often you reach for it"],
+      Shape: [
+        "Cards stand",
+        "Finger cuts",
+        "Corner holes",
+        "Spacer plates",
+        "Removable dividers",
+        "Number of dividers",
+      ],
+      Room: [
+        "Room for more cards",
+        /^Correct the estimated thickness/,
+        /^Measure a stack of cards/,
+        "Room around the pieces",
+      ],
+      "Copies and group": COPIES_ROW,
+    },
     component: () => ({ ...of("cards"), room: 20 }),
   },
   bulk: {
     basics: ["Name", "Piece 1", "How many of piece 1", /^Height mm of piece 1/],
-    more: [...COMMON, "Curved floor", "Room for more pieces"],
+    rows: {
+      Reach: ["How often you reach for it"],
+      Shape: ["Finger cuts", "Corner holes", "Curved floor"],
+      Room: ["Room for more pieces", "Room around the pieces", "How tightly it packs"],
+      "Copies and group": COPIES_ROW,
+    },
     component: () => of("bulk"),
   },
   tiles: {
     basics: ["Name", "Shape", "Side mm", "Thickness (mm)", "Number of tiles", "Tiles stand"],
-    more: [...COMMON, "Room for more tiles", "Spacer plates", "Removable dividers"],
+    rows: {
+      Reach: ["How often you reach for it"],
+      Shape: ["Finger cuts", "Corner holes", "Spacer plates", "Removable dividers"],
+      Room: ["Room for more tiles", "Room around the pieces"],
+      "Copies and group": COPIES_ROW,
+    },
     component: () => ({ ...of("tiles"), room: 10 }),
   },
   minis: {
     basics: ["Name", "Name of figure 1", /^Wide/, /^Tall/, "How they're stored"],
-    more: [...COMMON, "Curved floor"],
+    rows: {
+      Reach: ["How often you reach for it"],
+      Shape: ["Finger cuts", "Corner holes", "Curved floor"],
+      Room: ["Room around the pieces"],
+      "Copies and group": COPIES_ROW,
+    },
     component: () => of("minis"),
   },
   custom: {
     basics: ["Name", /^Width mm/, /^Depth mm/, /^Height mm/, "Number of items"],
-    more: [...COMMON, "Curved floor"],
+    rows: {
+      Reach: ["How often you reach for it"],
+      Shape: ["Finger cuts", "Corner holes", "Curved floor"],
+      Room: ["Room around the pieces"],
+      "Copies and group": COPIES_ROW,
+    },
     component: () => of("custom"),
   },
 };
@@ -90,25 +113,59 @@ function find(label: Label): HTMLElement | null {
 }
 
 describe("EditorPanel", () => {
-  it("every option of each kind is reachable", () => {
+  it("every option of each kind is reachable, under the row of Tray settings that holds it", () => {
     for (const kind of Object.keys(OPTIONS) as ComponentKind[]) {
-      const { basics, more, component } = OPTIONS[kind];
+      const { basics, rows, component } = OPTIONS[kind];
       panel(component());
       for (const label of basics) {
         expect(find(label), `${kind}: ${String(label)} is a basic`).not.toBeNull();
       }
-      const moreButton = screen.getByRole("button", { name: /^More options/ });
-      openRows();
-      const panelEl = document.getElementById(
-        moreButton.getAttribute("aria-controls") ?? "",
-      ) as HTMLElement;
-      expect(panelEl, kind).not.toBeNull();
-      for (const label of more) {
-        const found = find(label);
-        expect(found, `${kind}: ${String(label)} is under More options`).not.toBeNull();
-        expect(panelEl.contains(found), `${kind}: ${String(label)} is inside it`).toBe(true);
+      const section = screen.getByRole("region", { name: "Tray settings" });
+      const titles = Object.keys(rows) as RowTitle[];
+      // the four rows are drawn, closed, and hold nothing until pressed
+      for (const title of titles) {
+        const row = screen.getByRole("button", { name: new RegExp(`^${title}`) });
+        expect(row.getAttribute("aria-expanded"), `${kind}: ${title}`).toBe("false");
+        expect(section.contains(row), `${kind}: ${title} is in Tray settings`).toBe(true);
+      }
+      for (const title of titles) {
+        const row = screen.getByRole("button", { name: new RegExp(`^${title}`) });
+        fireEvent.click(row);
+        expect(row.getAttribute("aria-expanded"), `${kind}: ${title}`).toBe("true");
+        const panelEl = document.getElementById(row.getAttribute("aria-controls") ?? "");
+        expect(panelEl, `${kind}: ${title} has a panel`).not.toBeNull();
+        for (const label of rows[title] ?? []) {
+          const found =
+            within(panelEl as HTMLElement).queryAllByLabelText(named(label))[0] ??
+            within(panelEl as HTMLElement).queryAllByRole("button", { name: named(label) })[0];
+          expect(found ?? null, `${kind}: ${String(label)} is under ${title}`).not.toBeNull();
+        }
+        // and shuts again, taking its settings with it
+        fireEvent.click(row);
+        expect(document.getElementById(row.getAttribute("aria-controls") ?? "")).toBeNull();
       }
       cleanup();
+    }
+  });
+
+  it("draws no Reach row for an item in a group, and the other three rows stay", () => {
+    panel(of("cards"));
+    expect(screen.getByRole("button", { name: /^Reach/ })).toBeTruthy();
+    cleanup();
+    panel(of("cards"), {
+      grouping: {
+        group: { id: "g1", name: "Kit", copies: 2 },
+        groups: [],
+        onMoveTo: vi.fn(),
+        onNewGroup: vi.fn(),
+        onTakeOut: vi.fn(),
+        onEditGroup: vi.fn(),
+        onCopies: vi.fn(),
+      },
+    });
+    expect(screen.queryByRole("button", { name: /^Reach/ })).toBeNull();
+    for (const title of ["Shape", "Room", "Copies and group"]) {
+      expect(screen.getByRole("button", { name: new RegExp(`^${title}`) }), title).toBeTruthy();
     }
   });
 
@@ -138,7 +195,7 @@ describe("EditorPanel", () => {
 
   it("offers how often you reach for it as Often, Sometimes and Only at setup", () => {
     const { onChange } = panel({ ...of("cards"), access: "sometimes" });
-    openMore();
+    openRows();
     const group = screen.getByRole("group", { name: "How often you reach for it" });
     expect(Array.from(group.querySelectorAll("button")).map((b) => b.textContent)).toEqual([
       "Often",
@@ -249,7 +306,7 @@ describe("EditorPanel", () => {
 
     it("says what room to grow does, once, to the owner of the stage's slot", () => {
       const { onChange, onNote } = panel(grown());
-      openMore();
+      openRows();
       choose("Room for more cards", "Some");
       expect(onChange).toHaveBeenCalledTimes(1);
       expect(onNote).toHaveBeenCalledTimes(1);

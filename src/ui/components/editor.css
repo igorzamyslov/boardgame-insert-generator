@@ -1,6 +1,6 @@
 /*
  * The component editor (UI rebuild Task 10), from Edit, EditKinds and MobileEdit: the rail's panel
- * (a back link, the name as a title, the kind's basics, More options, the foot) and the phone's
+ * (a back link, the name as a title, the kind's basics, Tray settings, the foot) and the phone's
  * full-screen sheet. The controls are the kit's (kit.css); this file only places them. On the
  * tokens (styles/tokens.css). While style.css still has its old button and input rules (until
  * Task 17) a rule here that competes with one is written at least as specific.
@@ -397,6 +397,45 @@
   padding: var(--s-4) 0 var(--s-12);
 }
 
+/* ---- Tray settings: four rows that open in place under the basics ---- */
+.ed-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-10);
+}
+
+.ed-groups__title {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.ed-groups__list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  background: var(--row);
+}
+
+.ed-tray-row + .ed-tray-row {
+  border-top: 1px solid var(--rule);
+}
+
+.ed-tray-row .k-drow[data-plain] {
+  gap: var(--s-12);
+  min-height: 64px;
+  padding: var(--s-14) var(--s-16);
+}
+
+.ed-tray-row__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-24);
+  padding: var(--s-4) var(--s-12) var(--s-20);
+}
+
 /* ---- A group's editor (G2): the order of its items in the tray ---- */
 .ed-order {
   display: flex;
@@ -612,4 +651,69 @@
   color: var(--muted-strong);
   font-size: var(--text-sm);
   line-height: 1.45;
+}
+
+/* The card size: a native select that shows each size's dimensions, in the field's box. */
+.ed-select {
+  position: relative;
+}
+
+.ed-select select {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 600 var(--text-field) / 1.2 var(--font-ui);
+  appearance: none;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.ed-select svg {
+  flex: none;
+  pointer-events: none;
+}
+
+/*
+ * The row says "n changed" and each changed value has its way back: the dots would say it a third
+ * time. Titles and values take the room the row has, and the value is never cut short.
+ */
+.ed-tray-row__panel .ed-dot,
+.ed-tray-row__panel .k-chip__dot,
+.ed-tray-row__panel .k-drow__dot {
+  display: none;
+}
+
+.ed-tray-row .k-drow__text {
+  flex: 1 1 0;
+  gap: var(--s-2); /* room between a row's title and its value line */
+  max-width: none;
+}
+
+.ed-tray-row .k-drow__meta {
+  flex: none;
+}
+
+.ed-tray-row .k-drow__hint {
+  white-space: normal;
+}
+
+.ed-tray-row__panel .ed-exact .k-drow[data-plain] {
+  padding: 0 var(--s-4);
+}
+
+/*
+ * One setting inside a row: its name over its control, 8 px apart; settings are 24 px apart. A
+ * setting's name is drawn once (a control that would repeat it has no label of its own).
+ */
+.ed-setting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.ed-setting--blocked .ed-label {
+  color: var(--muted);
 }

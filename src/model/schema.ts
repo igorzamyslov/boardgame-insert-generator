@@ -302,6 +302,9 @@ export function toSerializable(p: Project, foreign: ForeignData): Json {
   if (Array.isArray(out.groups) && out.groups.length === 0) {
     delete out.groups;
   }
+  if (Array.isArray(out.listOrder) && out.listOrder.length === 0) {
+    delete out.listOrder;
+  }
   restoreValues(out, foreign.values ?? []);
   compactLayout(out);
   compactSettings(out);

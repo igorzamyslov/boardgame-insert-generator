@@ -5,6 +5,7 @@
 // the browser's printer and the printing options. DESIGN §5 and §7.
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { Button, CloseButton, Drawer, Segmented } from "../kit";
+import { chooseProjection, projectionPref } from "../viewer/view";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Joint, Notice, Printer, Settings } from "../model/types";
 import { printerProblems } from "../share";
@@ -15,7 +16,7 @@ import type { NameExample } from "./settingsFields";
 import { ValidationContext } from "./validation";
 import "./settings.css";
 
-export type SettingsTab = "insert" | "printer";
+export type SettingsTab = "insert" | "printer" | "display";
 
 const hasErrorUnder = (notices: readonly Notice[], prefix: string): boolean =>
   notices.some((n) => n.level === "error" && n.path?.startsWith(prefix) === true);
@@ -104,7 +105,27 @@ function PrinterTab(p: SettingsSheetProps) {
   );
 }
 
-/** Settings as a drawer over the page, in two tabs: how this insert is built, and my printer. */
+/** The tab "Display": how this browser shows the app (not part of any insert), for now the 3D view's projection. */
+function DisplayTab() {
+  return (
+    <section class="st-sec" aria-labelledby="settings-3d-title">
+      <h2 class="st-h2" id="settings-3d-title">
+        3D view
+      </h2>
+      <Segmented
+        label="3D view"
+        options={[
+          { value: "perspective", label: "Perspective" },
+          { value: "orthographic", label: "Orthographic" },
+        ]}
+        value={projectionPref.value}
+        onChange={chooseProjection}
+      />
+    </section>
+  );
+}
+
+/** Settings as a drawer over the page, in three tabs: how this insert is built, my printer, and how the app is shown. */
 export function SettingsSheet(p: SettingsSheetProps) {
   const notices = useContext(ValidationContext);
   const [tab, setTab] = useState<SettingsTab>(() => p.initialTab ?? settingsTabFor(notices));
@@ -160,6 +181,7 @@ export function SettingsSheet(p: SettingsSheetProps) {
               attention: hasErrorUnder(notices, "/printer"),
               changedDot: byTab.printer > 0,
             },
+            { value: "display", label: "Display" },
           ]}
           value={tab}
           onChange={setTab}
@@ -172,8 +194,10 @@ export function SettingsSheet(p: SettingsSheetProps) {
             planned={p.plannedJoint}
             onChange={p.onSettingsChange}
           />
-        ) : (
+        ) : tab === "printer" ? (
           <PrinterTab {...p} />
+        ) : (
+          <DisplayTab />
         )}
       </div>
       <div class="st-foot">

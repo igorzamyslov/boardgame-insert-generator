@@ -2,9 +2,16 @@
 // EditKinds' "something else": the size of one, and how many.
 import type { CustomComponent } from "../../model/types";
 import { LENGTH } from "../limits";
-import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
+import {
+  CopiesRows,
+  ReachGroup,
+  RoomRows,
+  copiesPaths,
+  roomPaths,
+  shapePaths,
+} from "./CommonOptions";
 import { CountField, Group, NumField } from "./controls";
-import { MoreOptions } from "./MoreOptions";
+import { SettingsGroup, TraySettings } from "./TraySettings";
 import { BinNotes, TrayShape } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
@@ -49,11 +56,18 @@ export function CustomEditor({ component: c, index, onChange }: EditorProps<Cust
         onChange={(count) => onChange({ ...c, count })}
       />
       <BinNotes component={c} index={index} />
-      <MoreOptions component={c} errorPaths={commonOptionPaths(index)}>
-        <AccessChoice component={c} index={index} onChange={onChange} />
-        <TrayShape component={c} index={index} onChange={onChange} />
-        <CommonRows component={c} index={index} onChange={onChange} />
-      </MoreOptions>
+      <TraySettings>
+        <ReachGroup component={c} index={index} onChange={onChange} />
+        <SettingsGroup id="shape" component={c} errorPaths={shapePaths(index)}>
+          <TrayShape component={c} index={index} onChange={onChange} />
+        </SettingsGroup>
+        <SettingsGroup id="room" component={c} errorPaths={roomPaths(index)}>
+          <RoomRows component={c} index={index} onChange={onChange} />
+        </SettingsGroup>
+        <SettingsGroup id="copies" component={c} errorPaths={copiesPaths(index)}>
+          <CopiesRows component={c} index={index} onChange={onChange} />
+        </SettingsGroup>
+      </TraySettings>
     </>
   );
 }
