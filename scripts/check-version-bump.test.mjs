@@ -6,7 +6,12 @@ import { join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkBump, compareVersions, parseVersion } from "./check-version-bump.mjs";
+import {
+  checkBump,
+  compareVersions,
+  isLockfileOnlyRenovate,
+  parseVersion,
+} from "./check-version-bump.mjs";
 
 const script = fileURLToPath(new URL("./check-version-bump.mjs", import.meta.url));
 const created = [];
@@ -16,13 +21,14 @@ afterEach(() => {
   }
 });
 
-function run(base, next) {
+function run(base, next, env = {}) {
   const dir = mkdtempSync(join(tmpdir(), "version-bump-"));
   created.push(dir);
   writeFileSync(join(dir, "base.json"), JSON.stringify({ version: base }));
   writeFileSync(join(dir, "next.json"), JSON.stringify({ version: next }));
   return spawnSync(process.execPath, [script, join(dir, "base.json"), join(dir, "next.json")], {
     encoding: "utf8",
+    env: { ...process.env, PR_AUTHOR: "", CHANGED_FILES: "", ...env },
   });
 }
 
@@ -61,6 +67,20 @@ describe("checkBump", () => {
   });
 });
 
+describe("isLockfileOnlyRenovate", () => {
+  it("accepts a Renovate change to package-lock.json alone", () => {
+    expect(isLockfileOnlyRenovate("renovate[bot]", ["package-lock.json"])).toBe(true);
+  });
+
+  it("rejects other authors, other files and an empty list", () => {
+    expect(isLockfileOnlyRenovate("igorzamyslov", ["package-lock.json"])).toBe(false);
+    expect(isLockfileOnlyRenovate("renovate[bot]", ["package-lock.json", "package.json"])).toBe(
+      false,
+    );
+    expect(isLockfileOnlyRenovate("renovate[bot]", [])).toBe(false);
+  });
+});
+
 describe("check-version-bump script", () => {
   it("exits 0 on a bump", () => {
     const res = run("0.2.0", "0.3.0");
@@ -72,5 +92,22 @@ describe("check-version-bump script", () => {
     const res = run("0.2.0", "0.2.0");
     expect(res.status).toBe(1);
     expect(res.stderr).toContain("FAILED");
+  });
+
+  it("exits 0 without a bump for a Renovate lock-file-only update", () => {
+    const res = run("0.2.0", "0.2.0", {
+      PR_AUTHOR: "renovate[bot]",
+      CHANGED_FILES: "package-lock.json\n",
+    });
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain("lock-file-only");
+  });
+
+  it("still fails a Renovate update that touches package.json without a bump", () => {
+    const res = run("0.2.0", "0.2.0", {
+      PR_AUTHOR: "renovate[bot]",
+      CHANGED_FILES: "package.json\npackage-lock.json\n",
+    });
+    expect(res.status).toBe(1);
   });
 });
