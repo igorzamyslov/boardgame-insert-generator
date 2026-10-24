@@ -9,7 +9,7 @@ import {
   MIN_REACH_OVERLAP,
   PLATED_RETENTION,
 } from "./constants";
-import { dividerSlotWidth } from "./dividers";
+import { dividerSlotWidth, dividerThickness } from "./dividers";
 import { mainClearance } from "./common";
 import { at, cards } from "./test-helpers";
 import type { CompartmentReq } from "./types";
@@ -527,5 +527,44 @@ describe("flat decks in one well (0.7.0, R7 and R21)", () => {
     expect(flatDecksOffered(shared())).toBe(true);
     expect(flatDecksOffered(shared({ decks: [{ name: "A", count: 3 }] }))).toBe(false);
     expect(flatDecksOffered(cards({ decks: decks.slice(0, 2) }))).toBe(true);
+  });
+});
+
+describe("dividers of a flat deck: plates between groups (0.21.0)", () => {
+  const T = dividerThickness(s);
+
+  it("makes the well one plate taller for each, and asks for the plates", () => {
+    const plain = deck(cards({ storage: "flat", room: "max" }));
+    const divided = deck(cards({ storage: "flat", room: "max", dividers: 2 }));
+    expect(divided.plates).toBe(2);
+    expect(divided.minH).toBeCloseTo(plain.minH + 2 * T, 2);
+    expect([divided.minW, divided.minD]).toEqual([plain.minW, plain.minD]);
+    expect(divided.dividers).toBeUndefined();
+    expect(divided.floorExtra).toBeUndefined();
+    expect(plain.plates).toBeUndefined();
+  });
+
+  it("stays as it was without room to grow (dividers are not offered), and for upright storage", () => {
+    expect(deck(cards({ storage: "flat", dividers: 2 })).plates).toBeUndefined();
+    expect(
+      deck(cards({ storage: "upright-long", room: "max", dividers: 2 })).plates,
+    ).toBeUndefined();
+  });
+
+  it("Auto offers the plates in its flat option and the slots in the upright ones", () => {
+    const options = cardOptions(cards({ storage: "auto", room: "max", dividers: 1 }), s, 0).options;
+    const by = (id: string) =>
+      at(
+        at(
+          at(
+            options.filter((o) => o.id === id),
+            0,
+          ).blocks,
+          0,
+        ),
+        0,
+      );
+    expect(by("flat").plates).toBe(1);
+    expect(by("upright-long").dividers).toBe(1);
   });
 });

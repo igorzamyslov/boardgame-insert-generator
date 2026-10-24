@@ -795,14 +795,21 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   ...EDITOR_LABELS.map((text) => ({ text, states: EDITING, ruling: EDITOR_OPTIONS })),
   // a blocked option says why in one line (DESIGN, Flow): the spacer plates, the dividers and their chip
   ...[
-    "Flat decks have no dividers.",
-    "Flat stacks have no dividers.",
     "Dividers need Room for more cards.",
     "Dividers need Room for more tiles.",
     "Spacer plates need Room for more cards.",
     "Spacer plates need Room for more tiles.",
     "Dividers take the place of spacer plates.",
   ].map((text) => ({ text, states: EDITING, ruling: EDITOR_BLOCKED })),
+  // What a flat deck's or stack's dividers are (the Dividers row's note)
+  ...[
+    "Lying flat, a deck gets plates between groups of cards. Lift a group out with the plate under it.",
+    "Lying flat, a stack gets plates between groups of tiles. Lift a group out with the plate under it.",
+  ].map((text) => ({
+    text,
+    states: EDITING,
+    ruling: "A flat deck or stack of tiles has dividers too",
+  })),
   // the engine's presets, as the chips and the size line say them
   // Between decks, and the reasons its blocked rows give (the stand and the dividers of a flat deck)
   // the deck list's label over each deck's stepper (the decks list is in the basics from the second deck on)

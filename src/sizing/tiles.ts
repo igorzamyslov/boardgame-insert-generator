@@ -12,7 +12,7 @@ import {
   type StorageOption,
 } from "./common";
 import { CHANNEL_DEPTH, DIVIDER_GROOVE, TILE_STACK_TARGETS } from "./constants";
-import { dividedWidth } from "./dividers";
+import { dividedWidth, dividerThickness } from "./dividers";
 import { growthMm, stackGrowthMm } from "./growth";
 import type { CompartmentReq } from "./types";
 import { ROUNDING_TOLERANCE, ceilU, fromU, splitEven } from "./units";
@@ -68,13 +68,16 @@ function flatColumn(
 ): CompartmentReq {
   const foot = flatFootprint(c.shape);
   const [a, b]: [Side, Side] = foot.x > foot.y ? ["front", "back"] : ["left", "right"];
+  const plates = dividersOf(c);
   return compartment({
     componentId: c.id,
     contents: `${displayName(c)} ×${n}`,
     kind: "well",
     w: foot.x + clearance,
     d: foot.y + clearance,
-    h: (n + more) * c.thickness + clearance,
+    // Dividers of a flat stack are loose plates between its groups (see cards.ts)
+    h: (n + more) * c.thickness + clearance + plates * dividerThickness(s),
+    ...(plates > 0 ? { plates } : {}),
     grow: { h: growthMm(growthOf(c, "stack", true, s.biggerWells), (n + more) * c.thickness) },
     features: featuresOf(togglesOf(c), [wallCutout(a, 1, true), wallCutout(b, 1, true)]),
   });

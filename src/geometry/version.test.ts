@@ -4,7 +4,7 @@ import source from "./version.ts?raw";
 
 describe("isOlderGeometryLine", () => {
   it("pre-1.0, treats each 0.MINOR as a major line (spec §9)", () => {
-    expect(GEOMETRY_VERSION).toBe("0.9.6");
+    expect(GEOMETRY_VERSION).toBe("0.9.7");
     expect(isOlderGeometryLine("0.0.9")).toBe(true);
     expect(isOlderGeometryLine("0.1.1")).toBe(true); // finger pockets: refused now, reprint
     expect(isOlderGeometryLine("0.2.0")).toBe(true); // finger-cut minis and scoop walls: reprint
@@ -22,7 +22,8 @@ describe("isOlderGeometryLine", () => {
     expect(isOlderGeometryLine("0.9.3")).toBe(false); // the notched cut, a PATCH of this line
     expect(isOlderGeometryLine("0.9.4")).toBe(false); // the finger dip, a PATCH of this line
     expect(isOlderGeometryLine("0.9.5")).toBe(false); // upright reach, a PATCH of this line
-    expect(isOlderGeometryLine("0.9.6")).toBe(false); // the current version: one shape for a lipped fold
+    expect(isOlderGeometryLine("0.9.6")).toBe(false); // one shape for a lipped fold
+    expect(isOlderGeometryLine("0.9.7")).toBe(false); // the current version: plates between a flat deck's groups
     expect(isOlderGeometryLine("0.9.7")).toBe(false); // a PATCH ahead is the same line
     expect(isOlderGeometryLine("1.0.0")).toBe(false);
     expect(isOlderGeometryLine("0.4.1", "0.5.0")).toBe(true);

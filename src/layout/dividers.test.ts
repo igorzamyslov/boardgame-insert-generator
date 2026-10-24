@@ -276,3 +276,71 @@ describe("dividers in a real layout", () => {
     expect(link(6) - link(2)).toBeLessThan(60);
   });
 });
+
+describe("separator plates of a flat well (0.21.0)", () => {
+  const plate = (at: number, thickness = 1.2) => ({
+    type: "separatorPlate" as const,
+    at,
+    thickness,
+  });
+  const flat = (features: object[], over: Partial<TraySpec> = {}) => tray(features as Slot[], over);
+
+  it("makes a plate lying on its group: the well's footprint less its play, at its height", () => {
+    const stored = flat([plate(10), plate(21.2)]);
+    const out = splitDividers([stored]);
+    expect(out[0]).toBe(stored);
+    const [a, b] = dividersOf(out) as [TraySpec, TraySpec];
+    expect([a.key, b.key]).toEqual(["a:p0:0:divider:1", "a:p0:0:divider:2"]);
+    expect(a).toMatchObject({ part: "divider", solid: true, rotated: false, compartments: [] });
+    expect(a.w).toBeCloseTo(96.8 - 2 * DIVIDER_END_PLAY, 9);
+    expect(a.d).toBeCloseTo(56.8 - 2 * DIVIDER_END_PLAY, 9);
+    expect(a.h).toBe(1.2);
+    expect(a.x).toBeCloseTo(10 + 1.6 + DIVIDER_END_PLAY, 9);
+    expect(a.y).toBeCloseTo(20 + 1.6 + DIVIDER_END_PLAY, 9);
+    // the well's floor is at z 5 + 4; the plate's underside is `at` above it
+    expect(a.z).toBe(5 + 4 + 10);
+    expect(b.z).toBeCloseTo(5 + 4 + 21.2, 9);
+  });
+
+  it("numbers them after the slot plates of the tray, in order up the well", () => {
+    const keys = dividersOf(splitDividers([flat([plate(30), slot(34), plate(10)])])).map(
+      (d) => d.key,
+    );
+    expect(keys).toEqual(["a:p0:0:divider:1", "a:p0:0:divider:2", "a:p0:0:divider:3"]);
+    const z = dividersOf(splitDividers([flat([plate(30), plate(10)])])).map((d) => d.z);
+    expect(z).toEqual([5 + 4 + 10, 5 + 4 + 30]);
+  });
+});
+
+describe("a divider's finger cuts (0.21.0)", () => {
+  it("gives a standing plate a half round in its top edge, mid-length", () => {
+    const [, d] = splitDividers([tray([slot(34)])]) as [TraySpec, TraySpec];
+    expect(d.notches).toEqual([{ face: "top", at: 28.2, r: 12.5 }]);
+  });
+
+  it("gives none to a plate too low or too short to keep a rim", () => {
+    const [, low] = splitDividers([tray([slot(34)], { h: 8 })]) as [TraySpec, TraySpec];
+    expect(low.notches).toEqual([]);
+  });
+
+  it("lines a flat plate's notches up with the well's side cuts", () => {
+    const stored = tray([{ type: "separatorPlate", at: 10, thickness: 3 } as unknown as Slot], {});
+    const wall = {
+      type: "wallCutout",
+      side: "left",
+      at: 30,
+      width: 25,
+      depth: 40,
+      floorNotch: 5,
+    } as unknown as Slot;
+    const withCut = tray([
+      { type: "separatorPlate", at: 10, thickness: 3 } as unknown as Slot,
+      wall,
+    ]);
+    expect(splitDividers([stored])[1]?.notches).toEqual([]);
+    const notch = splitDividers([withCut])[1]?.notches?.[0];
+    // the well starts at y 1.6 of the tray, the plate DIVIDER_END_PLAY inside it
+    expect(notch).toMatchObject({ face: "left", r: 12.5 });
+    expect(notch?.at).toBeCloseTo(30 - 1.6 - DIVIDER_END_PLAY, 9);
+  });
+});

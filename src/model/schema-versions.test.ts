@@ -579,4 +579,15 @@ describe("schema 0.3.0: room for more replaces growth and stretch", () => {
     expect(again.notices).toEqual([]);
     expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
   });
+
+  it("reads the 0.3.1 fixture (a flat deck with dividers) with no notices, and it round-trips", () => {
+    const first = expectOk(parseProject(fixture("0.3.1")));
+    expect(first.notices).toEqual([]);
+    expect(first.project.components[0]).toMatchObject({ storage: "flat", dividers: 2 });
+    const again = expectOk(
+      parseProject(JSON.parse(serializeProject(first.project, first.foreign))),
+    );
+    expect(again.notices).toEqual([]);
+    expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
+  });
 });

@@ -553,22 +553,27 @@ describe("CardsEditor", () => {
     const reasonOf = (el: HTMLElement): string =>
       document.getElementById(el.getAttribute("aria-describedby") ?? "")?.textContent ?? "";
 
-    it("blocks the dividers of a flat deck and says why, instead of dropping them", () => {
-      const { onChange } = setup(cards({ room: 20, storage: "flat" }));
+    it("offers a flat deck its dividers, as plates between groups of cards (0.21.0)", () => {
+      const { last } = setup(cards({ room: 20, storage: "flat" }));
       openRows();
       const chip = screen.getByRole("button", { name: "Removable dividers" });
-      expect(chip.getAttribute("aria-disabled")).toBe("true");
-      expect(reasonOf(chip)).toBe("Flat decks have no dividers.");
+      expect(chip.getAttribute("aria-disabled")).toBeNull();
       fireEvent.click(chip);
-      // a press shows the reason where the chip is, for a touch that has no title
-      expect(screen.getByRole("status").textContent).toBe("Flat decks have no dividers.");
-      const row = screen.getByRole("button", { name: /^Dividers/ });
-      expect(row.getAttribute("aria-disabled")).toBe("true");
-      expect(row.getAttribute("aria-expanded")).toBeNull();
-      expect(row.textContent).toContain("Flat decks have no dividers.");
-      fireEvent.click(row);
-      expect(screen.queryByLabelText("Number of dividers")).toBeNull();
-      expect(onChange).not.toHaveBeenCalled();
+      expect(last().dividers).toBe(1);
+    });
+
+    it("tells a flat deck what its dividers are, and a deck that stands nothing of it", () => {
+      setup(cards({ room: 20, storage: "flat", dividers: 2 }));
+      openRows();
+      expect(document.body.textContent).toContain(
+        "Lying flat, a deck gets plates between groups of cards. Lift a group out with the plate under it.",
+      );
+    });
+
+    it("says nothing of plates to a deck that stands", () => {
+      setup(cards({ room: 20, storage: "upright-long", dividers: 2 }));
+      openRows();
+      expect(document.body.textContent).not.toContain("Lying flat");
     });
 
     it("points a flat deck's blocked dividers at Between decks when it has decks to put between", () => {
@@ -576,7 +581,7 @@ describe("CardsEditor", () => {
         { name: "A", count: 20 },
         { name: "B", count: 20 },
       ];
-      setup(cards({ room: 20, storage: "flat", decks }));
+      setup(cards({ room: 20, storage: "flat", flatDecks: "dividers", decks }));
       openRows();
       const chip = within(screen.getByRole("group", { name: "Tray shape" })).getByRole("button", {
         name: "Removable dividers",

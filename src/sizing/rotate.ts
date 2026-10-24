@@ -41,6 +41,10 @@ export function rotateRealized(r: RealizedTray, outer: OuterSize): RealizedTray 
       // Sizing puts spacer notches on spacers only (turnNotch).
       throw new Error("internal: a spacer notch on a compartment");
     }
+    if (f.type === "separatorPlate") {
+      // Horizontal and across the whole well: turning the tray changes nothing about it.
+      return f;
+    }
     if (f.type === "dividerSlot") {
       // A slot along y at x = at comes to run along x at the same centre; one along x comes to run
       // along y at depth − at.

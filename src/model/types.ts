@@ -325,6 +325,10 @@ export type FeatureSpec =
   // `depth` into the floor, running along `axis` across the whole well and centred on `at` across
   // it (tray-local, like a wall cutout's `at`). The divider itself is derived (splitDividers).
   | { type: "dividerSlot"; axis: "x" | "y"; at: number; width: number; depth: number }
+  // A loose horizontal plate between two groups of a flat stack (splitDividers): its underside is
+  // `at` mm above the well's floor, it is `thickness` thick and as wide as the well less its play.
+  // It changes nothing in the tray itself.
+  | { type: "separatorPlate"; at: number; thickness: number }
   | { type: "scoop"; side: Side; r: number }
   | { type: "cornerRelief"; d: number }
   // A finger dip (model/finger-dip.ts): a U cut from the top of a solid filler where it touches a
@@ -347,6 +351,18 @@ export interface CompartmentSpec {
   // schema 0.1.2, which fall back to matching the text.
   componentId?: string;
   features: FeatureSpec[];
+}
+
+/**
+ * A half-round finger cut in a divider plate (splitDividers), radius `r`: through the plate at its
+ * `left`, `right`, `front` or `back` edge (a flat plate, lined up with the tray's side cut), or
+ * into its `top` edge (a standing plate), `at` mm along that edge (along the plate's long side for
+ * the top). Derived for printing, never stored.
+ */
+export interface PlateNotch {
+  face: "left" | "right" | "front" | "back" | "top";
+  at: number;
+  r: number;
 }
 
 export interface TraySpec {
@@ -379,6 +395,8 @@ export interface TraySpec {
   onRiser?: boolean;
   solid: boolean;
   compartments: CompartmentSpec[];
+  // A divider's finger cuts (PlateNotch), derived with the plate and never stored.
+  notches?: PlateNotch[];
   features?: FeatureSpec[]; // the part's own: a card spacer's notch (spacerNotch)
   /**
    * Set on a printed part that is several connected fillers (and risers) printed as one, never

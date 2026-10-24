@@ -12,7 +12,7 @@ import {
   DIVIDER_GROOVE,
   SPACER_TOP_GAP,
 } from "./constants";
-import { sectionSpans, slotCentres, slotWidthU } from "./dividers";
+import { dividerThickness, sectionSpans, slotCentres, slotWidthU } from "./dividers";
 import { cutoutSides } from "./common";
 import { placeCutouts } from "./cutouts";
 import type { CutAsk, CutPlacement, PlacedCut } from "./cutouts";
@@ -226,6 +226,26 @@ function dividerSlots(req: CompartmentReq, well: Rect, settings: Settings): Feat
     at: fromU(at),
     width: fromU(slot),
     depth: DIVIDER_GROOVE,
+  }));
+}
+
+/**
+ * The plates of a flat well with `plates` of them (CompartmentReq.plates): the well's depth less
+ * their thickness is shared evenly by the `plates` + 1 groups of the stack, and each plate lies on
+ * top of the group below it. `at` is the plate's underside above the well's floor, mm. Run on the
+ * well's final depth, so the room it grew into is shared by the groups as the cards are.
+ */
+function separatorPlates(req: CompartmentReq, depth: number, settings: Settings): FeatureSpec[] {
+  const count = req.plates ?? 0;
+  if (count <= 0) {
+    return [];
+  }
+  const thickness = dividerThickness(settings);
+  const group = (fromU(depth) - count * thickness) / (count + 1);
+  return Array.from({ length: count }, (_, i): FeatureSpec => ({
+    type: "separatorPlate",
+    at: Math.round((group * (i + 1) + thickness * i) * 100) / 100,
+    thickness,
   }));
 }
 
@@ -915,6 +935,7 @@ function layoutAt(
       features: [
         ...featureSpecs(req, alloc, depth, { settings, cuts: cuts[i] ?? new Map() }),
         ...dividerSlots(req, alloc, settings),
+        ...separatorPlates(req, depth, settings),
       ],
     };
   });
