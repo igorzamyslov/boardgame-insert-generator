@@ -284,3 +284,9 @@ project's `createdWith` read it; CI enforces it). The menu's build id shows the 
 `GEOMETRY_VERSION`, which change when the file format or the printed geometry does, not on a
 release; a release that changed either also bumps the app version (see spec §9). While 0.x, bump
 MINOR for features and breaking changes, PATCH for fixes.
+
+Every version has an entry in `CHANGELOG.md`, and a push to `main` that changes the version
+creates the tag `v<version>` and a GitHub Release with that entry as its notes
+(`.github/workflows/release.yml`). A pull request adds its entry under "Unreleased", or under its
+own version; the `version-bump` job checks it (`scripts/check-changelog.mjs`). The pull request
+that cuts a release moves the entries under the new version.

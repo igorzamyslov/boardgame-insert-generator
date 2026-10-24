@@ -373,6 +373,9 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
   The bump only has to be higher than `main`'s, so when `main` moves, re-bump open PRs. That
   includes Renovate's PRs: Renovate doesn't bump, so its automerge waits on the version-bump job
   (`renovate.json`).
+- MUST add a `CHANGELOG.md` entry to every PR that bumps the version, in the same commit as the
+  code (`scripts/check-changelog.mjs` checks it, next to the version bump). See "Write a
+  changelog entry and cut a release" in the recipes.
 - MUST NOT add `Co-Authored-By:` or any co-author trailer to commit messages (owner rule).
 - MUST NOT push to or merge into `main` without the owner's go-ahead.
 - MUST NOT `pkill` dev servers or `vite` processes. Other worktrees and sessions run their own.
@@ -712,6 +715,33 @@ keys of the trays with a top chamfer of a filler beside them (`chamfersFacingTra
 2. Add a case to `lift.test.ts`. The Lift cell, the "No grip of its own" flag, the note above the
    layers and the order of the rows (`takeOutOrder` in `render.ts`, which reads only the grip)
    follow from `gripOf`: don't test for the feature anywhere else.
+
+### Write a changelog entry and cut a release
+
+`CHANGELOG.md` is for the people who use the app (Keep a Changelog style, newest first). Each
+version is a section `## [0.22.0] - 2026-10-24` with `### Added`, `### Changed` and `### Fixed`
+lists. Write in DESIGN.md's words: plain, no file names, no code, say what a person sees and
+what to reprint. Behind-the-scenes changes get one short line saying the app is unchanged.
+
+- **A feature or fix PR** adds its entries under `## [Unreleased]` (create the heading and
+  `###` lists if they are empty) and bumps `package.json`'s version as usual. It may instead
+  write them under its own dated version section; the check accepts both.
+- **An integrating PR** (it combines several PRs into one release and renumbers versions) moves
+  the Unreleased entries of the PRs it combines under one `## [<new version>] - <date>` section,
+  and lists every feature once. When a PR is renumbered, only that heading changes. Leave
+  `## [Unreleased]` in place, empty, for the next PR.
+- **CI** (`version-bump` job): when the version rises, `CHANGELOG.md` must have entries under
+  `[Unreleased]` or a section for the new version, and be sound (dated, newest first, only
+  those three headings, `[Unreleased]` first). Renovate PRs need no entry.
+- **The release** is automatic. A push to `main` that changes `package.json`'s version runs
+  `.github/workflows/release.yml` (`scripts/release.sh`): it creates the tag `v<version>` and a
+  GitHub Release titled "<version>: <summary>", the summary being the squash commit's title, and
+  with the version's section as notes. If the tag exists it does nothing. If there is no
+  section for the version (a PR that left its entries under Unreleased, or a Renovate bump), the
+  release gets GitHub's generated notes and the entries stay under Unreleased for the next
+  version that moves them. So a release PR must move them.
+- **Check it** without GitHub: `node scripts/changelog.mjs notes 0.22.0` prints the notes and
+  `node scripts/changelog.mjs title 0.22.0 "0.22.0: summary (#1)"` the title.
 
 ### Add a notice
 
