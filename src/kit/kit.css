@@ -827,8 +827,8 @@
    at least as tall as the button, so the circle never sticks out. */
 .k-notice[data-closable="true"] {
   position: relative;
-  min-height: 52px;
-  padding-inline-end: 64px;
+  min-height: 48px;
+  padding-inline-end: 60px;
 }
 
 .k-notice__close {
@@ -837,6 +837,11 @@
   inset-inline-end: var(--s-8);
   display: flex;
   transform: translateY(-50%);
+}
+
+.k-notice__close .k-iconbtn {
+  width: 40px;
+  height: 40px;
 }
 
 .k-notice .k-btn--secondary {
