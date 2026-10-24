@@ -193,11 +193,21 @@ export const changeVariant: Move = (tree, env, rng) => {
   const next = (current + 1 + rng.nextInt(r.variants.length - 1)) % r.variants.length;
   let root: TreeNode | null = removeItems(tree.root, (it) => it.req === i, env);
   const parts = r.variants[next]?.parts ?? [];
+  // the trays of a set of alike trays are turned alike: one random turn for the set
+  const turnOfSet = new Map<number, boolean>();
   for (let p = 0; p < parts.length && root !== null; p++) {
     const rotatable = parts[p]?.rotatable ?? false;
     const ref = { req: i, variant: next, part: p };
     // a turn lock decides the rotation; else a random one, if the part can rotate
-    const rotated = env.turns.get(env.ctx.partId(ref)) ?? (rotatable && rng.nextInt(2) === 1);
+    const set = env.ctx.alikeOf(ref);
+    const rotated =
+      env.turns.get(env.ctx.partId(ref)) ??
+      (set >= 0 && turnOfSet.has(set)
+        ? turnOfSet.get(set) === true
+        : rotatable && rng.nextInt(2) === 1);
+    if (set >= 0) {
+      turnOfSet.set(set, rotated);
+    }
     const item: StackItem = { ...ref, rotated };
     // One item's trays belong in one stack (score `apart`): mostly on top of the part before of
     // the same copy, where it can stand, so a new split is not scattered over the box and refused
@@ -219,6 +229,73 @@ export const changeVariant: Move = (tree, env, rng) => {
   return { ...tree, root, variants };
 };
 
+/** The sets of alike trays (`Ctx.alikeOf`) that have a tray in the tree, in order of first sight. */
+export function setsOf(root: TreeNode, ctx: Ctx): number[] {
+  const seen = new Set<number>();
+  for (const l of leaves(root)) {
+    for (const item of l.leaf.stack) {
+      const set = ctx.alikeOf(item);
+      if (set >= 0) {
+        seen.add(set);
+      }
+    }
+  }
+  return [...seen];
+}
+
+/**
+ * Turns every tray of a set of alike trays the same way (owner, 2026-10-24: copies should face the
+ * same way, so the room beside them gathers into one spacer instead of a sliver per turned copy).
+ * `target` is the rotation they all get; absent, the opposite of `from`. A tray held by a pin, a
+ * size or turn lock keeps its rotation and the others follow it (when the held ones disagree, or
+ * a tray of the set stands where it can't turn or the turned stack is not allowed, nothing
+ * moves). Null when nothing changes.
+ */
+export function turnSet(
+  tree: Tree,
+  env: MoveEnv,
+  set: number,
+  from: boolean,
+  target?: boolean,
+): Tree | null {
+  const { ctx } = env;
+  const members = leaves(tree.root).flatMap((l) =>
+    l.leaf.stack.flatMap((item) => (ctx.alikeOf(item) === set ? [{ l, item }] : [])),
+  );
+  const first = members[0];
+  if (!first || !canRotatePart(ctx, first.item)) {
+    return null;
+  }
+  const held = new Set(
+    members.filter((m) => env.rotationFixed.has(ctx.partId(m.item))).map((m) => m.item.rotated),
+  );
+  if (held.size > 1) {
+    return null;
+  }
+  const to = held.size === 1 ? [...held][0] === true : (target ?? !from);
+  let root = tree.root;
+  for (const l of leaves(tree.root)) {
+    if (!l.leaf.stack.some((i) => ctx.alikeOf(i) === set && i.rotated !== to)) {
+      continue;
+    }
+    const stack = l.leaf.stack.map((i) => (ctx.alikeOf(i) === set ? { ...i, rotated: to } : i));
+    if (l.leaf.frozen || isLockedLeaf(env, l.path) || !stackAllowed(ctx, stack)) {
+      return null;
+    }
+    root = replaceAt(root, l.path, leaf(stack, l.leaf.frozen));
+  }
+  return root === tree.root ? null : { ...tree, root };
+}
+
+function canRotatePart(ctx: Ctx, item: StackItem): boolean {
+  return ctx.part(item)?.rotatable ?? false;
+}
+
+/**
+ * Turns one tray. A tray with copies (a set of alike trays) is turned with them, most of the time,
+ * so they keep facing the same way; one turned alone is how a set that needs it (a copy that fits
+ * only the other way round) gets there, and the score charges it (`unturned`).
+ */
 export const rotateItem: Move = (tree, env, rng) => {
   const options: { path: string; leaf: Leaf; k: number }[] = [];
   for (const l of leaves(tree.root)) {
@@ -235,6 +312,13 @@ export const rotateItem: Move = (tree, env, rng) => {
     return null;
   }
   const o = rng.pick(options);
+  const picked = o.leaf.stack[o.k];
+  if (picked !== undefined) {
+    const set = env.ctx.alikeOf(picked);
+    if (set >= 0 && rng.nextInt(4) !== 0) {
+      return turnSet(tree, env, set, picked.rotated);
+    }
+  }
   const stack = o.leaf.stack.map((item, k) =>
     k === o.k ? { ...item, rotated: !item.rotated } : item,
   );

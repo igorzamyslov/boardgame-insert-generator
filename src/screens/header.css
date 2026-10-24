@@ -334,14 +334,25 @@ input.hd-name__input {
 }
 
 .pm-row__name--open {
-  flex-direction: column;
-  gap: 0;
-  align-items: flex-start;
-  justify-content: center;
   cursor: default;
 }
 
-.pm-row .k-btn--quiet {
+/* The name over its muted line: it takes the row's width and never more, so it can't run under Delete. */
+.pm-row__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Delete is a quiet trash icon, muted until it is hovered or focused (never red at rest). */
+.pm-row__delete {
+  --k-fg: var(--muted);
+}
+
+.pm-row__delete:hover,
+.pm-row__delete:focus-visible,
+.pm-row__delete[aria-expanded="true"] {
   --k-fg: var(--destructive);
 }
 
