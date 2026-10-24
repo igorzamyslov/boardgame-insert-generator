@@ -111,6 +111,33 @@
   border-style: dashed;
 }
 
+/*
+ * A kept-free area (Part of it, with a size): the paper's slab on the plane, hung from the top at its
+ * own x. Dashed like the band's line and the plan's outline, the sheet's colour, so it reads as space
+ * kept, never as a part. Its height is the headroom's share of the lid's.
+ */
+.bx-reserve {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--w);
+  min-width: 0;
+  height: var(--h);
+  overflow: hidden;
+  border: 2px dashed var(--spacer-dash);
+  border-top: 0;
+  background: var(--sheet);
+  color: var(--muted-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: normal;
+  white-space: nowrap;
+}
+
 .bx-caption {
   margin: 0;
   color: var(--muted);
@@ -135,5 +162,9 @@
 
 .bx-side[data-phone] .bx-band {
   height: 30px;
+  font-size: var(--text-xs);
+}
+
+.bx-side[data-phone] .bx-reserve {
   font-size: var(--text-xs);
 }

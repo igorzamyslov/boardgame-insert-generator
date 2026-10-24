@@ -9,7 +9,7 @@
 import type { ComponentChildren } from "preact";
 import { useId } from "preact/hooks";
 import { StatusHeading } from "../kit";
-import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Group, ReservedSpec, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import type { VolumeNote } from "../ui/volumeFit";
@@ -145,6 +145,8 @@ export interface FitProblemProps extends FitCardsProps {
   status: Status;
   /** What the picture draws: the closest attempt (NoFit) or the plan that was kept (PinConflict); null: nothing to draw. */
   trays: readonly TraySpec[] | null;
+  /** Where the plan put the area kept free on top; the plan view outlines it. */
+  reserved?: readonly ReservedSpec[];
   box: Box;
   settings: Settings;
   components: readonly Component[];
@@ -187,6 +189,7 @@ export function FitProblem(p: FitProblemProps) {
               dim={noFit ? "all" : "unpinned"}
               misfitKey={noFit ? (p.misfitKey ?? null) : null}
               trays={p.trays}
+              reserved={p.reserved}
               box={p.box}
               settings={p.settings}
               components={p.components}

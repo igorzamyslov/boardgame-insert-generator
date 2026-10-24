@@ -5,7 +5,7 @@ import { useState } from "preact/hooks";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX, newComponent } from "../model/defaults";
-import type { CompartmentSpec, Group } from "../model/types";
+import type { CompartmentSpec, Group, ReservedSpec } from "../model/types";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { shadeHex, shadeOf } from "../ui/identity";
@@ -1269,5 +1269,74 @@ describe("a group's trays in the plan (G1)", () => {
       )?.[1] ?? "";
     expect(phoneBlock).toMatch(/\.plan-tile\.is-group \.plan-cells\s*\{[^}]*display:\s*block/);
     expect(phoneBlock).toMatch(/\.plan-tile\.is-group \.plan-cell\s*\{[^}]*border-radius:\s*4px/);
+  });
+});
+
+describe("PlanView: the area kept free on top", () => {
+  const rulebook: ReservedSpec = { area: 0, name: "Rulebook", x: 10, y: 20, w: 120, d: 60, z: 30 };
+  const outlineOf = (root: HTMLElement) => root.querySelector<HTMLElement>(".plan-reserved");
+
+  it("draws an outline labelled with the name and the size", () => {
+    const { box } = setup({ reserved: [{ ...rulebook, w: 220, d: 290 }] });
+    const outline = outlineOf(box);
+    expect(outline).not.toBeNull();
+    expect(within(outline as HTMLElement).getByText("Rulebook 220 × 290")).toBeTruthy();
+    expect(outline?.textContent).not.toMatch(/mm/);
+  });
+
+  it("puts the outline where a tray of that rectangle would be", () => {
+    const { box } = setup({ reserved: [rulebook] });
+    const o = outlineOf(box);
+    const px = (name: string): number => Number.parseFloat(o?.style.getPropertyValue(name) ?? "");
+    expect(px("--x")).toBeCloseTo(((frame.bc + 10) / frame.innerW) * 100, 3);
+    // the front is the bottom of the plan, so y counts from the back
+    expect(px("--y")).toBeCloseTo(((frame.bc + frame.usableD - 20 - 60) / frame.innerD) * 100, 3);
+    expect(px("--w")).toBeCloseTo((120 / frame.innerW) * 100, 3);
+    expect(px("--d")).toBeCloseTo((60 / frame.innerD) * 100, 3);
+  });
+
+  it("is only a picture: not focusable, ignores presses, leaves tray selection alone", () => {
+    const { p, box } = setup({ reserved: [rulebook] });
+    const o = outlineOf(box) as HTMLElement;
+    expect(o.getAttribute("aria-hidden")).toBe("true");
+    expect(o.hasAttribute("tabindex")).toBe(false);
+    expect(o.getAttribute("role")).toBeNull();
+    fireEvent.click(o);
+    expect(p.onSelect).not.toHaveBeenCalled();
+    expect(box.querySelectorAll('[role="button"]').length).toBe(2);
+  });
+
+  it("is in the plan's text for a screen reader", () => {
+    setup({ reserved: [rulebook] });
+    expect(screen.getByText("Rulebook, 120 × 60 mm, lies over the trays")).toBeTruthy();
+  });
+
+  it("is absent without a reserved area", () => {
+    const none = setup();
+    expect(outlineOf(none.box)).toBeNull();
+    cleanup();
+    const empty = setup({ reserved: [] });
+    expect(outlineOf(empty.box)).toBeNull();
+    expect(empty.view.container.textContent).not.toMatch(/lies over/);
+  });
+
+  it("shows on every layer, and with All", () => {
+    const { p, view, box } = setup({ reserved: [rulebook], level: 1 });
+    expect(outlineOf(box)).not.toBeNull();
+    view.rerender(<Host {...p} level={0} reserved={[rulebook]} layerAll />);
+    expect(outlineOf(box)).not.toBeNull();
+  });
+
+  it("is styled as a dashed, click-through outline above the tiles, its label cut by CSS", () => {
+    const block = (sel: string): string =>
+      new RegExp(`${sel.replace(/\./g, "\\.")}\\s*\\{([^}]*)\\}`).exec(planCss)?.[1] ?? "";
+    const outline = block(".plan-reserved");
+    expect(outline).toMatch(/pointer-events:\s*none/);
+    expect(outline).toMatch(/border:[^;]*dashed/);
+    expect(outline).toMatch(/z-index:\s*[4-9]/);
+    const label = block(".plan-reserved-label");
+    expect(label).toMatch(/text-overflow:\s*ellipsis/);
+    expect(label).toMatch(/white-space:\s*nowrap/);
+    expect(label).toMatch(/overflow:\s*hidden/);
   });
 });

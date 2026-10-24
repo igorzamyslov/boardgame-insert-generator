@@ -18,6 +18,7 @@ import {
   fadeOf,
   isVisible,
   opacityOf,
+  reservedSlabs,
   trayPosition,
 } from "./transform";
 
@@ -211,6 +212,33 @@ describe("viewer transforms", () => {
       // the plan's dimmed tile shows the page through by 0.4; the editor's faded tray, well over half
       expect(shownBlend(EDITED_FADE, EDITED_OPACITY)).toBeGreaterThanOrEqual(FADE_BLEND * 1.75);
       expect(EDITED_OPACITY).toBeLessThan(0.7);
+    });
+  });
+
+  describe("reservedSlabs", () => {
+    const area = { area: 0, name: "Rulebook", x: 5, y: 7, w: 100, d: 80, z: 30 };
+
+    it("lays each kept-free area as a slab from its z up by the box's headroom, in the trays' frame", () => {
+      const box = { ...DEFAULT_BOX, headroom: 4 };
+      expect(reservedSlabs([area], box)).toEqual([{ min: [5, 7, 30], size: [100, 80, 4] }]);
+    });
+
+    it("takes x and y as they are: trays sit at their spec x, y in the scene, the box clearance is only the outline's offset", () => {
+      const box = { ...DEFAULT_BOX, headroom: 4 };
+      const [slab] = reservedSlabs([{ ...area, x: 0, y: 0 }], box);
+      const outline = boxOutline(box, DEFAULT_SETTINGS);
+      expect(slab?.min.slice(0, 2)).toEqual([0, 0]);
+      // the slab stays inside the box outline, which starts at -boxClearance
+      expect(slab?.min[0]).toBeGreaterThanOrEqual(outline.min[0]);
+    });
+
+    it("gives one slab per area, in order, and none for none", () => {
+      const box = { ...DEFAULT_BOX, headroom: 2 };
+      expect(reservedSlabs([area, { ...area, area: 1, x: 50 }], box).map((s) => s.min[0])).toEqual([
+        5, 50,
+      ]);
+      expect(reservedSlabs([], box)).toEqual([]);
+      expect(reservedSlabs(undefined, box)).toEqual([]);
     });
   });
 });

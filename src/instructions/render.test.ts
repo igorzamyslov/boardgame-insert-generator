@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { shadeHex } from "../ui/identity";
-import type { Component, Project } from "../model/types";
+import type { Component, Project, ReservedSpec } from "../model/types";
+import { planFrame } from "../plan/layers";
 import { pngSize, svgDataUrl } from "./png";
 import { escapeXml, layerInfo, packingGuide, render, truncate, whatGoesWhere } from "./render";
 
@@ -866,5 +867,60 @@ describe("a group's trays in the packing guide (spec §7.7)", () => {
       "Player kit 1",
       "Player kit 2",
     ]);
+  });
+});
+
+describe("the paper that lies on top", () => {
+  const project = fixtureProject();
+  const frame = planFrame(project.box, project.settings);
+  const reserved: ReservedSpec[] = [
+    {
+      area: 0,
+      name: "Rulebook",
+      x: frame.usableW - 200,
+      y: frame.usableD - 120,
+      w: 200,
+      d: 120,
+      z: 55,
+    },
+  ];
+  const plain = makeLayout("h", [bottom, top, side]);
+  const withPaper = { ...plain, reserved };
+
+  it("ends the guide with one step per area, on the last layer", () => {
+    const layers = packingGuide(withPaper, project);
+    expect(layers.at(-1)?.closing).toEqual([
+      {
+        name: "Rulebook",
+        text: `Lay the Rulebook (200 × 120 mm, ${project.box.headroom} mm thick) flat on the trays in the back right corner.`,
+      },
+    ]);
+    expect(layers.slice(0, -1).every((l) => l.closing === undefined)).toBe(true);
+  });
+
+  it("draws the outline and its label on the top layer only", () => {
+    const svgs = render(withPaper, project);
+    expect(svgs.length).toBe(2);
+    expect(svgs[1]).toContain("Rulebook 200 × 120");
+    expect(svgs[1]).toContain("data-reserved");
+    expect(svgs[0]).not.toContain("data-reserved");
+    expect(svgs[0]).not.toContain("Rulebook");
+    const doc = new DOMParser().parseFromString(svgs[1] ?? "", "image/svg+xml");
+    expect(doc.getElementsByTagName("parsererror")).toHaveLength(0);
+    for (const svg of svgs) {
+      expect(svg).not.toContain("light-dark(");
+      expect(svg).not.toContain("var(");
+    }
+  });
+
+  it("leaves the guide and the pictures as they were with no area or an empty list", () => {
+    for (const none of [plain, { ...plain, reserved: [] }]) {
+      expect(packingGuide(none, project)).toEqual(packingGuide(plain, project));
+      expect(JSON.stringify(packingGuide(none, project))).not.toContain("closing");
+      expect(render(none, project)).toEqual(render(plain, project));
+    }
+    // and the extra field is all that differs with an area
+    const base = render(plain, project);
+    expect(render(withPaper, project)[0]).toBe(base[0]);
   });
 });

@@ -25,6 +25,7 @@ function stubScene() {
     setMaxLevel: vi.fn(),
     setSelected: vi.fn(),
     setLit: vi.fn(),
+    setReserved: vi.fn(),
     onPick: vi.fn((cb: (key: string | null) => void) => {
       picked = cb;
     }),
@@ -376,6 +377,51 @@ describe("Viewer", () => {
       <Viewer {...p} box={{ ...DEFAULT_BOX, innerWidth: DEFAULT_BOX.innerWidth + 10 }} />,
     );
     await waitFor(() => expect(scene.handle.setBox).toHaveBeenCalledTimes(2));
+  });
+
+  it("hands the kept-free areas to the scene as slabs, replaces them on change and clears them", async () => {
+    const scene = stubScene();
+    const box = { ...DEFAULT_BOX, headroom: 3 };
+    const area = { area: 0, name: "Rulebook", x: 1, y: 2, w: 50, d: 40, z: 20 };
+    const p = props({ box }, scene);
+    const view = render(<Viewer {...p} reserved={[area]} />);
+    await waitFor(() =>
+      expect(scene.handle.setReserved).toHaveBeenLastCalledWith([
+        { min: [1, 2, 20], size: [50, 40, 3] },
+      ]),
+    );
+    view.rerender(<Viewer {...p} reserved={[{ ...area, z: 25 }]} />);
+    await waitFor(() =>
+      expect(scene.handle.setReserved).toHaveBeenLastCalledWith([
+        { min: [1, 2, 25], size: [50, 40, 3] },
+      ]),
+    );
+    // the same areas again (a new array) are not sent again
+    const calls = vi.mocked(scene.handle.setReserved ?? vi.fn()).mock.calls.length;
+    view.rerender(<Viewer {...p} reserved={[{ ...area, z: 25 }]} />);
+    await flush();
+    expect(vi.mocked(scene.handle.setReserved ?? vi.fn()).mock.calls.length).toBe(calls);
+    view.rerender(<Viewer {...p} />);
+    await waitFor(() => expect(scene.handle.setReserved).toHaveBeenLastCalledWith([]));
+  });
+
+  it("sends an empty list when there is no kept-free area, and adds no text", async () => {
+    const scene = stubScene();
+    const view = render(<Viewer {...props({}, scene)} />);
+    await waitFor(() => expect(scene.handle.setBox).toHaveBeenCalled());
+    await flush();
+    for (const call of vi.mocked(scene.handle.setReserved ?? vi.fn()).mock.calls) {
+      expect(call[0]).toEqual([]);
+    }
+    const bare = view.container.textContent;
+    view.rerender(
+      <Viewer
+        {...props({}, scene)}
+        reserved={[{ area: 0, name: "Rulebook", x: 0, y: 0, w: 9, d: 9, z: 5 }]}
+      />,
+    );
+    await flush();
+    expect(view.container.textContent).toBe(bare);
   });
 
   it("peels the layers from the cut it is given: layers 1 to k, and no select of its own", async () => {

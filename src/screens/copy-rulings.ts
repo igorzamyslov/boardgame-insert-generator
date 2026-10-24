@@ -351,6 +351,8 @@ const GUIDE_LIFT = "The packing guide says how to take each tray out";
 
 // Task 11: the box's editor. The states are the box cases of copy.board.test.tsx.
 const BOX_WORDS = "The box editor has the board's words only";
+const BOX_AREA =
+  "Part of it asks for the size of what lies on top, and the line under the choice is true of each state (DESIGN decision log, 2026-10-24)";
 const BOX_HINT = "The box's stored-on-its-side hint says what the engine does";
 
 // Task 13: the Download dialog and the building of the file. The states are the dialog cases of
@@ -788,6 +790,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   // Task 11: the rail's three fields say their unit once, above them (80 px boxes keep their room for "285.5")
   { text: "In mm", states: ["box"], ruling: BOX_WORDS },
+  // Kept-free areas (schema 0.3.1): the size of what lies on top, and a line true of each state of the choice
+  { text: "What lies there", states: ["box", "m-box"], ruling: BOX_AREA },
+  ...[
+    "Trays stop {n} mm below the lid, everywhere.",
+    "Give its width and length to reserve only that much. Until then the whole top is reserved.",
+    "Reserved: {n} × {n} mm, in a corner the plan picks. Trays reach the lid everywhere else.",
+    "The space kept on top is larger than the floor of the box.",
+  ].map((text) => ({ text, states: ["box", "m-box"], ruling: BOX_AREA })),
   // The kit's accessible-name convention is "<label> (<unit>)": the space field's name is "Space on top (mm)"
   // (Box's aria-label is "Space on top, mm"). Never drawn, so no case sees it; recorded here with the rest.
   { text: "Space on top (mm)", states: ["box", "m-box"], ruling: BOX_WORDS },

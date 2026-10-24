@@ -17,7 +17,7 @@ import {
   type ResolvedLocks,
 } from "./locks";
 import { materialize, type Realize } from "./materialize";
-import { reservedSpecs, storedAnchors } from "./reserve";
+import { reservedSpecs, storedAnchors, validAnchors } from "./reserve";
 import { createRng } from "./prng";
 import { scorePlan, type PrevPos } from "./score";
 import { summarize } from "./summarize";
@@ -128,6 +128,19 @@ function startPhase(
   // The areas a warm start had stay where they were (and the first anchors without one).
   const reserve = ctx.areas.length > 0 ? storedAnchors(ctx, opts.warmStart?.reserved) : undefined;
   const placed = (t: Tree): Tree => (reserve === undefined ? t : { ...t, reserve });
+  // Every corner an area may lie in, one area moved at a time: a start tree is tried in each, as
+  // the corner decides which of its stacks stop low and the greedy packing knows nothing of it.
+  const corners = (t: Tree): Tree[] =>
+    reserve === undefined || opts.warmStart?.reserved !== undefined
+      ? [placed(t)]
+      : [
+          placed(t),
+          ...ctx.areas.flatMap((_, k) =>
+            validAnchors(ctx, k)
+              .filter((n) => n !== reserve[k])
+              .map((n) => ({ ...t, reserve: reserve.map((r, i) => (i === k ? n : r)) })),
+          ),
+        ];
   if (opts.warmStart) {
     const wt = warmTree(ctx, opts.warmStart.trays, resolved.pinnedVariant, hints, resolved.turns);
     if (wt) {
@@ -141,9 +154,11 @@ function startPhase(
     if (t0 === null) {
       continue;
     }
-    const c = evalTree(placed(t0));
-    if (best === null || c.score.total < best.score.total) {
-      best = c;
+    for (const tc of corners(t0)) {
+      const c = evalTree(tc);
+      if (best === null || c.score.total < best.score.total) {
+        best = c;
+      }
     }
   }
   // Greedy packing that still overflows may be a box with no slack in its heights: try trays dealt
@@ -154,9 +169,11 @@ function startPhase(
       if (t0 === null) {
         continue;
       }
-      const c = evalTree(placed(t0));
-      if (best === null || c.score.total < best.score.total) {
-        best = c;
+      for (const tc of corners(t0)) {
+        const c = evalTree(tc);
+        if (best === null || c.score.total < best.score.total) {
+          best = c;
+        }
       }
     }
   }

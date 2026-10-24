@@ -2,10 +2,11 @@
 import { holdsOf, trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
 import { DEFAULT_GROUP_NAME } from "../model/groups";
-import { topPlane } from "../model/settings";
+import { lidPlane, topPlane } from "../model/settings";
+import { stacksUnder } from "../layout/reserve";
 import { groupOfTray } from "./identity";
 import type { LockConflict } from "../layout/types";
-import type { Box, Component, Group, Lock, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Group, Lock, ReservedSpec, Settings, TraySpec } from "../model/types";
 
 /** The tray a failed search could not fit, for the status line to name and open. */
 export interface Misfit {
@@ -24,12 +25,13 @@ export interface Misfit {
 }
 
 /** How far a tray of the closest attempt sticks out of the box, mm (0 when it is inside). */
-function overBox(t: TraySpec, box: Box, settings: Settings): number {
+function overBox(t: TraySpec, box: Box, settings: Settings, under: boolean): number {
   return Math.max(
     0,
     t.x + t.w - box.innerWidth,
     t.y + t.d - box.innerDepth,
-    t.z + t.h - topPlane(box, settings),
+    // a stack under a kept-free area stops lower than the lid
+    t.z + t.h - (under ? topPlane(box, settings) : lidPlane(box, settings)),
   );
 }
 
@@ -41,7 +43,11 @@ function overBox(t: TraySpec, box: Box, settings: Settings): number {
  * component count. Null when none stands out.
  */
 export function misfitOf(
-  attempt: { trays: readonly TraySpec[]; overBedKeys?: readonly string[] } | null,
+  attempt: {
+    trays: readonly TraySpec[];
+    overBedKeys?: readonly string[];
+    reserved?: readonly ReservedSpec[];
+  } | null,
   box: Box,
   settings: Settings,
   components: readonly Component[],
@@ -52,6 +58,7 @@ export function misfitOf(
   }
   const names = trayNames(numberParts(attempt.trays as TraySpec[]), components, groups);
   const overBed = new Set(attempt.overBedKeys ?? []);
+  const under = stacksUnder(attempt.trays, attempt.reserved ?? []);
   let best: { tray: TraySpec; held: Component; bed: boolean; over: number } | null = null;
   for (const tray of attempt.trays) {
     const held = tray.part === "tray" ? holdsOf(tray, components)[0] : undefined;
@@ -60,7 +67,9 @@ export function misfitOf(
     }
     const bed = overBed.has(tray.key);
     // beyond the bed: the biggest first; overhanging the box: the furthest first
-    const over = bed ? tray.w * tray.d * tray.h : overBox(tray, box, settings);
+    const over = bed
+      ? tray.w * tray.d * tray.h
+      : overBox(tray, box, settings, under.has(tray.stack));
     if (!bed && over <= 0) {
       continue;
     }

@@ -32,6 +32,12 @@ export interface SceneHandle {
    * further and drawn through.
    */
   setLit(keys: readonly string[], edited?: boolean): void;
+  /**
+   * The areas kept free on top, as ghost slabs (transform.ts reservedSlabs): translucent, never
+   * picked, never exported, not part of the camera's fit or the Layer cut. Replaces the last ones;
+   * none removes them.
+   */
+  setReserved?(slabs: readonly BoxOutline[]): void;
   onPick(cb: (key: string | null) => void): void;
   resize(width: number, height: number): void;
   dispose(): void;

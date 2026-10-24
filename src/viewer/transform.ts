@@ -1,7 +1,7 @@
 // src/viewer/transform.ts
 import { parentKey } from "../instructions/numbering";
 import { effective } from "../model/settings";
-import type { Box, Settings, TraySpec } from "../model/types";
+import type { Box, ReservedSpec, Settings, TraySpec } from "../model/types";
 import type { BoxOutline } from "./types";
 
 export const EXPLODE_MM = 40;
@@ -68,6 +68,22 @@ export function isVisible(spec: TraySpec, maxLevel: number | null): boolean {
 export function boxOutline(box: Box, settings: Settings): BoxOutline {
   const bc = effective(settings).boxClearance;
   return { min: [-bc, -bc, 0], size: [box.innerWidth, box.innerDepth, box.innerHeight] };
+}
+
+/**
+ * The ghost slabs of the areas kept free on top, in scene units: each from the height the paper
+ * lies at up by the box's headroom (its thickness). x and y are used as they are: a tray sits at
+ * its spec x, y in the scene, and the layout's frame is that same one (the box clearance only
+ * moves the box's outline to −boxClearance, around it).
+ */
+export function reservedSlabs(
+  reserved: readonly ReservedSpec[] | undefined,
+  box: Box,
+): BoxOutline[] {
+  return (reserved ?? []).map((r) => ({
+    min: [r.x, r.y, r.z],
+    size: [r.w, r.d, box.headroom],
+  }));
 }
 
 /** The middle of the box in x, y: the point trays move away from when they spread apart. */

@@ -112,7 +112,7 @@ export function layoutWarnings(
         message: box.storedOnSide
           ? `The box is stored on its side, so loose pieces in the top layer can spill: ${labels}. Pin them below other trays.`
           : reserved.length > 0
-            ? `${reserved.map((r) => r.name).join(" and ")} covers only part of the top layer, so these loose pieces may not stay in place: ${labels}. Pin them below other trays.`
+            ? `${reserved.map((r) => r.name).join(" and ")} covers only some of the top layer, so these loose pieces may not stay in place: ${labels}. Pin them below other trays.`
             : `The boards don't cover the whole top layer, so these loose pieces may not stay in place: ${labels}. Pin them below other trays.`,
       });
     }
@@ -467,7 +467,7 @@ export function doesNotFitNotice(
     "store cards flat or upright (Storage: auto tries both)",
   ];
   if (ctx.areas.length > 0) {
-    tips.push("keep less space free on top (a smaller area, or less height)");
+    tips.push("reserve less space on top (a smaller area, or less height)");
   } else if (ctx.input.box.headroom > 0) {
     tips.push("move the rulebook or boards elsewhere (less headroom)");
   }

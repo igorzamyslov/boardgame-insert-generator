@@ -38,6 +38,13 @@
   margin: 0;
 }
 
+/* What lies on top: width and length, two fields (the kept space's size), 10 px apart like the box's. */
+.bx-area {
+  display: grid;
+  gap: var(--s-10);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .bx-sizes {
   display: grid;
   gap: var(--s-10);
@@ -48,12 +55,14 @@
  * The rail is Main's 300 px, not Box's 340 (a ruling): each field is 80 px, so the padding gives way
  * and the unit is not drawn in the box (the line above says "In mm"): "285.5" stays whole.
  */
-.bx-sizes .k-field__box {
+.bx-sizes .k-field__box,
+.bx-area .k-field__box {
   gap: var(--s-2);
   padding: 0 var(--s-8);
 }
 
-.bx-sizes .k-field__unit {
+.bx-sizes .k-field__unit,
+.bx-area .k-field__unit {
   font-size: var(--text-sm);
 }
 
