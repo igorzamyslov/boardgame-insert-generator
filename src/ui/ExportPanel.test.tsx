@@ -59,6 +59,15 @@ const components: Component[] = ["Deck A", "Magnets"].map((name, i) => ({
   name,
 }));
 
+/** The total under the layer rows: it has its figure once every part is counted. */
+const totalLine = (): string | null => document.querySelector(".export-total")?.textContent ?? null;
+/** The grams of each layer's row: a space while the parts are counted, none when they cannot be. */
+const layerGrams = (): string[] =>
+  Array.from(document.querySelectorAll(".export-layer__grams"), (e) => e.textContent ?? "");
+/** The tray pills of the print plan, in order. */
+const chipsOf = (): HTMLElement[] =>
+  Array.from(document.querySelectorAll<HTMLElement>(".export-chip"));
+
 /** The two other file types sit behind "Other formats". */
 function openOtherFormats(): void {
   fireEvent.click(screen.getByRole("button", { name: "Other formats" }));
@@ -70,9 +79,7 @@ function openOtherFormats(): void {
  * after it is the export's.
  */
 async function counted(p: ExportPanelProps): Promise<void> {
-  await waitFor(() =>
-    expect(screen.getByText("Filament").nextElementSibling?.textContent).toMatch(/^about/),
-  );
+  await waitFor(() => expect(totalLine()).toMatch(/^Total about/));
   vi.mocked(p.meshes.get).mockClear();
 }
 
@@ -125,7 +132,8 @@ describe("ExportPanel", () => {
     expect(document.activeElement).toBe(h1);
     // the dialog is named by it
     expect(screen.getByRole("dialog", { name: "Ready to print" })).toBeTruthy();
-    expect(screen.getByText("2 trays and 1 spacer for Wing span")).toBeTruthy();
+    expect(screen.queryByText(/for Wing span/)).toBeNull();
+    expect(screen.getByText("Layer 1 · 2 trays")).toBeTruthy();
     cleanup();
     // the seed the boards are drawn with
     const { project } = loadSeed("harbour-kings");
@@ -138,23 +146,48 @@ describe("ExportPanel", () => {
         })}
       />,
     );
-    expect(screen.getByText(/^\d+ trays and \d+ spacers? for Harbour Kings$/)).toBeTruthy();
+    expect(screen.getByText(/^Layer 1 \(bottom\) · \d+ trays$/)).toBeTruthy();
+    expect(screen.getByText(/^Layer 2 \(top\) · \d+ trays?$/)).toBeTruthy();
   });
 
-  it("says a plan with no spacers, one tray or no name in its own words", () => {
+  it("says a layer's trays in its own words, and its spacers when it has no tray", () => {
     render(<ExportPanel {...props()} />);
-    expect(screen.getByText("2 trays for Wing span")).toBeTruthy();
+    expect(screen.getByText("Layer 1 · 2 trays")).toBeTruthy();
     cleanup();
-    render(
-      <ExportPanel
-        {...props({ trays: [makeTray({ key: "a:p0:0", stack: 0 })], projectName: "" })}
-      />,
-    );
-    expect(screen.getByText("1 tray for (unnamed)")).toBeTruthy();
-    expect(screen.getByText("One file with the part.")).toBeTruthy();
+    render(<ExportPanel {...props({ trays: [makeTray({ key: "a:p0:0", stack: 0 })] })} />);
+    expect(screen.getByText("Layer 1 · 1 tray")).toBeTruthy();
+    cleanup();
+    render(<ExportPanel {...props({ trays: [spacer] })} />);
+    expect(screen.getByText("Layer 1 · 1 spacer")).toBeTruthy();
+    expect(chipsOf()).toHaveLength(0);
   });
 
-  it("shows a chip per tray in its colour and one for the spacers", () => {
+  it("groups the parts by layer, bottom first, each with the grams on it", async () => {
+    const trays = [
+      makeTray({ key: "a:p0:0", stack: 0 }),
+      makeTray({ key: "b:p0:0", stack: 1, level: 1 }),
+      { ...spacer, level: 1 },
+    ];
+    render(<ExportPanel {...props({ trays })} />);
+    const titles = Array.from(
+      document.querySelectorAll(".export-layer__title"),
+      (e) => e.textContent,
+    );
+    expect(titles).toEqual(["Layer 1 (bottom) · 1 tray", "Layer 2 (top) · 1 tray"]);
+    await waitFor(() => expect(layerGrams().every((g) => /^about \d+ g$/.test(g))).toBe(true));
+    expect(totalLine()).toMatch(/^Total about \d+ g · 1 spacer included$/);
+  });
+
+  it("folds the trays past the third into one + n pill that names them", () => {
+    const trays = [0, 1, 2, 3, 4].map((i) => makeTray({ key: `a${i}:p0:0`, stack: i }));
+    render(<ExportPanel {...props({ trays })} />);
+    const chips = chipsOf();
+    expect(chips.map((c) => c.textContent)).toEqual(["Deck A 1", "Deck A 2", "Deck A 3", "+ 2"]);
+    expect(chips[3]?.getAttribute("title")).toBe("Deck A 4, Deck A 5");
+    expect(chips[3]?.style.getPropertyValue("--shade-fill")).toBe("");
+  });
+
+  it("shows a pill per tray in its colour, and none for the spacers", () => {
     const trays = [
       makeTray({ key: "a:p0:0", stack: 0 }),
       makeTray({ key: "b:p0:0", stack: 1 }),
@@ -162,18 +195,12 @@ describe("ExportPanel", () => {
       { ...spacer, key: "b:p0:0:spacer" },
     ];
     render(<ExportPanel {...props({ trays })} />);
-    const chips = screen.getAllByRole("listitem");
-    expect(chips.map((c) => c.textContent)).toEqual(["Deck A 1", "Deck A 2", "2 spacers"]);
-    // a tray's chip takes its component's shade, the spacers' one is dashed and takes none
-    expect((chips[0] as HTMLElement).style.getPropertyValue("--shade-fill")).toMatch(
-      /^light-dark\(#/,
-    );
-    expect(chips[2]?.classList.contains("export-chip--spacers")).toBe(true);
-    expect((chips[2] as HTMLElement).style.getPropertyValue("--shade-fill")).toBe("");
-    cleanup();
-    render(<ExportPanel {...props({ trays: [spacer] })} />);
-    expect(screen.getByText("1 spacer").getAttribute("title")).toBeNull();
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    const chips = chipsOf();
+    expect(chips.map((c) => c.textContent)).toEqual(["Deck A 1", "Deck A 2"]);
+    // a tray's pill takes its component's shade
+    expect(chips[0]?.style.getPropertyValue("--shade-fill")).toMatch(/^light-dark\(#/);
+    // the spacers are counted in the total line
+    expect(screen.queryByText("2 spacers")).toBeNull();
   });
 
   it("gives a long tray name its whole text in a title and cuts it by CSS", () => {
@@ -194,31 +221,29 @@ describe("ExportPanel", () => {
       ],
     });
     render(<ExportPanel {...props({ components: named, trays: [deck] })} />);
-    const chip = screen.getAllByRole("listitem")[0] as HTMLElement;
+    const chip = chipsOf()[0] as HTMLElement;
     expect(chip.getAttribute("title")).toBe(long);
     expect(css).toMatch(/\.export-chip\s*\{[^}]*max-width:\s*100%/);
     expect(css).toMatch(/\.export-chip\s*\{[^}]*text-overflow:\s*ellipsis/);
   });
 
-  it("shows the filament of the built parts as one tile, and no print time", async () => {
+  it("shows the filament of the built parts per layer and in all, and no print time", async () => {
     render(<ExportPanel {...props()} />);
-    const tile = (): string | null =>
-      screen.getByText("Filament").nextElementSibling?.textContent ?? null;
-    // it holds its place while the parts are counted
-    expect(tile()).toBe("\u00a0");
+    // each layer's figure holds its place while the parts are counted
+    expect(layerGrams()).toEqual(["\u00a0"]);
+    expect(totalLine()).toBeNull();
     // two buildable parts, each a cube of 10 mm (1 000 mm³, 440 mm³ of shell at 15 % infill): 2 × 0.65 g
-    await waitFor(() => expect(tile()).toBe("about 1 g"));
-    expect(tile()).toMatch(/^about \d+ g$/);
+    await waitFor(() => expect(layerGrams()).toEqual(["about 1 g"]));
+    expect(totalLine()).toBe("Total about 1 g");
     expect(screen.queryByText("Print time")).toBeNull();
+    expect(screen.queryByText("Filament")).toBeNull();
     expect(document.body.textContent).not.toMatch(/≈|\bh\b|\bmin\b/);
   });
 
   it("asks for the meshes the export asks for, so counting the filament builds nothing twice", async () => {
     const p = props();
     render(<ExportPanel {...p} />);
-    await waitFor(() =>
-      expect(screen.getByText("Filament").nextElementSibling?.textContent).toBe("about 1 g"),
-    );
+    await waitFor(() => expect(layerGrams()).toEqual(["about 1 g"]));
     const counted = vi.mocked(p.meshes.get).mock.calls.map(([spec]) => JSON.stringify(spec));
     vi.mocked(p.meshes.get).mockClear();
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
@@ -227,14 +252,15 @@ describe("ExportPanel", () => {
     expect(exported).toEqual(counted);
   });
 
-  it("leaves the tile out when a part cannot be built", async () => {
+  it("leaves the grams out when a part cannot be built", async () => {
     const m = meshes();
     m.get.mockImplementation(() =>
       Promise.reject(new GeometryBuildError("too slow", "TimeoutError")),
     );
     render(<ExportPanel {...props({ meshes: m })} />);
-    expect(screen.getByText("Filament")).toBeTruthy();
-    await waitFor(() => expect(screen.queryByText("Filament")).toBeNull());
+    expect(layerGrams()).toEqual(["\u00a0"]);
+    await waitFor(() => expect(layerGrams()).toEqual([""]));
+    expect(totalLine()).toBeNull();
   });
 
   it("downloads one combined 3MF by default", async () => {
@@ -245,7 +271,7 @@ describe("ExportPanel", () => {
     expect(screen.queryByRole("button", { name: PER_PART })).toBeNull();
     const primary = screen.getByRole("button", { name: COMBINED });
     expect(primary.classList.contains("k-btn--primary")).toBe(true);
-    expect(screen.getByText("One file with all 2 parts.")).toBeTruthy();
+    expect(screen.queryByText(/^One file with all/)).toBeNull();
     fireEvent.click(primary);
     await waitFor(() => expect(p.download).toHaveBeenCalledTimes(1));
     const [blob, name] = vi.mocked(p.download ?? vi.fn()).mock.calls[0] ?? [];
@@ -301,9 +327,9 @@ describe("ExportPanel", () => {
       expect(link.getAttribute("target")).toBe("_blank");
       expect(link.getAttribute("rel")).toBe("noopener noreferrer");
     }
-    expect(screen.getByText("This tool is free. Support it if you like it.")).toBeTruthy();
-    // one quiet line: the support row is not a second call to action
-    expect(kofi.classList.contains("k-btn--primary")).toBe(false);
+    expect(screen.getByText(/^Support this tool/).tagName).toBe("P");
+    // one quiet line of text: the support row is not a second call to action
+    expect(kofi.classList.contains("k-btn")).toBe(false);
   });
 
   it("says nothing about slicers or what the files open in", () => {
@@ -325,13 +351,11 @@ describe("ExportPanel", () => {
     expect(document.body.textContent).not.toMatch(/Copy a report|Start again|Download without/i);
   });
 
-  it("opens the packing guide from its card, and says what it is", () => {
+  it("opens the packing guide from its button", () => {
     const onOpenGuide = vi.fn();
     render(<ExportPanel {...props({ onOpenGuide })} />);
     const card = screen.getByRole("button", { name: /^Packing guide/ });
-    expect(card.textContent).toBe(
-      "Packing guideA printable sheet showing where each named tray goes",
-    );
+    expect(card.textContent).toBe("Packing guide");
     fireEvent.click(card);
     expect(onOpenGuide).toHaveBeenCalledTimes(1);
     cleanup();
@@ -476,14 +500,14 @@ describe("ExportPanel", () => {
     const m = meshes();
     m.get.mockImplementation(() => Promise.reject(new Error("Geometry worker failed")));
     render(<ExportPanel {...props({ meshes: m })} />);
-    await waitFor(() => expect(screen.queryByText("Filament")).toBeNull());
+    await waitFor(() => expect(layerGrams()).toEqual([""]));
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/worker failed/));
     // the next builds stay open (still being counted), so the tile is back while they run
     m.get.mockImplementation(waitsForAbort);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
-    expect(await screen.findByText("Filament")).toBeTruthy();
+    expect(layerGrams()).toEqual(["\u00a0"]);
   });
 
   it("builds nothing for the filament tile while the plan is out of date", async () => {
@@ -528,7 +552,9 @@ describe("ExportPanel", () => {
     openOtherFormats();
     expect(isOff(screen.getByRole("button", { name: STL }))).toBe(false);
     expect(screen.queryByText("Make a new plan first.")).toBeNull();
-    expect(screen.getByText("One file with all 2 parts.")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: COMBINED }).getAttribute("aria-describedby"),
+    ).toBeNull();
   });
 
   it("keeps Try again off for a stale layout", async () => {
@@ -978,14 +1004,12 @@ describe("ExportPanel", () => {
       expect(send.classList.contains("k-btn--secondary")).toBe(true);
       fireEvent.click(send);
       expect(onSendFile).toHaveBeenCalledTimes(1);
-      // the guide card says it shorter
       expect(screen.getByRole("button", { name: /^Packing guide/ }).textContent).toBe(
-        "Packing guideWhere each named tray goes",
+        "Packing guide",
       );
       // the primary and its caption are in the fixed foot, after everything else
       const foot = dialog.querySelector(".export-foot") as HTMLElement;
       expect(foot.contains(screen.getByRole("button", { name: COMBINED }))).toBe(true);
-      expect(foot.textContent).toContain("One file with all 2 parts.");
       expect(foot.previousElementSibling?.classList.contains("export-body")).toBe(true);
       // Close is in the bar above the title block
       const bar = dialog.querySelector(".export-bar") as HTMLElement;
@@ -999,12 +1023,9 @@ describe("ExportPanel", () => {
   });
 
   it("makes every control at least 44 px, and the dialog fill a phone", async () => {
-    // the buttons are the kit's (44 px, 48 and 54 for the cta); the one of its own is the Other formats
-    // toggle, drawn 29 px tall as the board does, with a hit area that makes it 44 (a phone's is 44 itself)
-    expect(css).toMatch(/\.export-toggle::before\s*\{[^}]*inset:\s*-8px 0/);
-    expect(css).toMatch(
-      /\.export-dialog--phone \.export-toggle\s*\{[^}]*min-height:\s*var\(--control-h\)/,
-    );
+    // the buttons are the kit's (44 px, 48 and 54 for the cta); the one of its own is the support
+    // line's links, 20 px of text with a hit area that makes them 44
+    expect(css).toMatch(/\.export-support a::before\s*\{[^}]*inset:\s*-12px -4px/);
     expect(css).toMatch(/\.export-problem__retry::before\s*\{[^}]*inset:\s*-2px 0/);
     const kit = (await import("../kit/kit.css?raw")).default;
     expect(kit).toMatch(
@@ -1051,7 +1072,7 @@ describe("ExportPanel for a group's trays", () => {
 
   it("lists a chip per copy, named by the group, in its group's hue", () => {
     render(<ExportPanel {...asked()} />);
-    const chips = screen.getAllByRole("listitem") as HTMLElement[];
+    const chips = chipsOf();
     expect(chips.map((c) => c.textContent)).toEqual(["Player kit 1", "Player kit 2", "Hex tiles"]);
     const neutral = shadeOf("group", 0);
     // (the one group is the project's first: its hue is the first)

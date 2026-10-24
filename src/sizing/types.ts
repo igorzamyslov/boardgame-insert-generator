@@ -46,6 +46,7 @@ export interface CompartmentReq {
   spacerAxis?: "w" | "d"; // upright cards/tiles with `separators` set: spare length on this axis → spacer (≥ 5 mm); never otherwise
   spacerRoom?: number; // with spacerAxis: mm of minW/minH-planned room (an item's "some" room) the spacer fills on top of any slack it takes
   dividers?: number; // upright cards/tiles: dividers in the well's floor slots (splitDividers); no spacer then
+  plates?: number; // flat cards/tiles: loose horizontal plates between groups of the stack (splitDividers); the well is that much taller
   floorExtra?: number; // mm the floor under this compartment is thicker than the tray's, for the slots
   separators?: number; // with spacerAxis (above 1): plates the user wants the spacer printed as (splitSeparators); the layout is the same for any count
 }

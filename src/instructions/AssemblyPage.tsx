@@ -233,6 +233,16 @@ export function AssemblyPage(p: AssemblyPageProps) {
               </section>
             );
           })}
+          {(layers.at(-1)?.closing ?? []).length > 0 ? (
+            <section class="assembly-closing" aria-labelledby="closing-title">
+              <h2 id="closing-title">Last</h2>
+              <ol>
+                {(layers.at(-1)?.closing ?? []).map((c, i) => (
+                  <li key={i}>{c.text}</li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
           {layers.some((l) => l.rows.some((r) => r.size.includes("lip"))) ? (
             <p class="hint">
               A lip is the raised edge on top of a tray that locates the tray stacked on it.

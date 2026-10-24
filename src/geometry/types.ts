@@ -20,6 +20,7 @@ export const KNOWN_FEATURE_TYPES: readonly FeatureSpec["type"][] = Object.freeze
   "wallCutout",
   "spacerNotch",
   "dividerSlot",
+  "separatorPlate",
   "scoop",
   "cornerRelief",
   "topChamfer",

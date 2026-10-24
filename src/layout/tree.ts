@@ -45,6 +45,11 @@ export interface Tree {
   readonly root: TreeNode;
   /** Active variant index per requirement. */
   readonly variants: readonly number[];
+  /**
+   * Where each kept-free area lies (`Ctx.areas`, in order): an anchor, see reserve.ts. Absent: every
+   * area at its first anchor. Only the search moves it, and only a box with areas has any.
+   */
+  readonly reserve?: readonly number[];
 }
 
 /** 2^20 > the largest slack in units (1000 mm = 100 000), so a share can hit any integer split. */
@@ -245,18 +250,48 @@ export function minExtents(gap: U, leafMin: (leaf: Leaf) => Ext): (node: TreeNod
   return minOf;
 }
 
+/**
+ * Coordinates a cut is drawn to when it can reach one: the line where the second child of a cut
+ * along that axis begins. A kept-free area's edge is one (reserve.ts): the stack that ends there is
+ * the last one the area covers, and the trays beyond it do not.
+ */
+export interface Snap {
+  readonly x: readonly U[];
+  readonly y: readonly U[];
+}
+
+/** The first child's extent when a cut is drawn to a `snap` line it can reach, else `wanted`. */
+function snapped(
+  lines: readonly U[] | undefined,
+  start: U,
+  gap: U,
+  min: U,
+  slack: U,
+  wanted: U,
+): U {
+  for (const line of lines ?? []) {
+    const at = line - gap - start;
+    if (at >= min && at <= min + slack) {
+      return at;
+    }
+  }
+  return wanted;
+}
+
 /** Child rectangles of a cut inside `r`, exactly as placeLeaves allocates them. */
 export function splitRect(
   node: Cut,
   r: Rect,
   gap: U,
   minOf: (node: TreeNode) => Ext,
+  snap?: Snap,
 ): [Rect, Rect] {
   const ma = minOf(node.a);
   const mb = minOf(node.b);
   if (node.axis === "x") {
     const slack = r.w - (ma.w + gap + mb.w);
-    const wa = ma.w + (slack > 0 ? mulDiv(slack, node.share, SHARE_MAX) : 0);
+    const own = ma.w + (slack > 0 ? mulDiv(slack, node.share, SHARE_MAX) : 0);
+    const wa = slack > 0 ? snapped(snap?.x, r.x, gap, ma.w, slack, own) : own;
     const wb = slack >= 0 ? r.w - gap - wa : mb.w;
     return [
       { x: r.x, y: r.y, w: wa, d: Math.max(r.d, ma.d) },
@@ -264,7 +299,8 @@ export function splitRect(
     ];
   }
   const slack = r.d - (ma.d + gap + mb.d);
-  const da = ma.d + (slack > 0 ? mulDiv(slack, node.share, SHARE_MAX) : 0);
+  const own = ma.d + (slack > 0 ? mulDiv(slack, node.share, SHARE_MAX) : 0);
+  const da = slack > 0 ? snapped(snap?.y, r.y, gap, ma.d, slack, own) : own;
   const db = slack >= 0 ? r.d - gap - da : mb.d;
   return [
     { x: r.x, y: r.y, w: Math.max(r.w, ma.w), d: da },
@@ -282,6 +318,7 @@ export function placeLeaves(
   rect: Rect,
   gap: U,
   leafMin: (leaf: Leaf) => Ext,
+  snap?: Snap,
 ): Placement {
   const minOf = minExtents(gap, leafMin);
   const out: PlacedLeaf[] = [];
@@ -290,7 +327,7 @@ export function placeLeaves(
       out.push({ path, leaf: node, rect: r });
       return;
     }
-    const [ra, rb] = splitRect(node, r, gap, minOf);
+    const [ra, rb] = splitRect(node, r, gap, minOf, snap);
     allocate(node.a, ra, `${path}0`);
     allocate(node.b, rb, `${path}1`);
   };

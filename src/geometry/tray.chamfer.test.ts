@@ -1,6 +1,6 @@
 // @vitest-environment node
 // src/geometry/tray.chamfer.test.ts
-// A top chamfer (FeatureSpec "topChamfer", geometry 0.9.7): a 45° chamfer along the top edge of a
+// A top chamfer (FeatureSpec "topChamfer", geometry 0.9.8): a 45° chamfer along the top edge of a
 // solid filler where it touches a tray. Built on a plain filler (each of the four faces), a thin
 // strip (both long edges), an upper-level filler with the groove or the step at its foot, and a
 // merged part: each a closed solid (genus 0) of the part's own size that prints without a single

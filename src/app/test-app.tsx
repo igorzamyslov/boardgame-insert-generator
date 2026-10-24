@@ -3,7 +3,7 @@
 import { render } from "@testing-library/preact";
 import { vi } from "vitest";
 import type { Project } from "../model/types";
-import { createPrefsStore, createProjectStore } from "../share";
+import { createHiddenNotesStore, createPrefsStore, createProjectStore } from "../share";
 import { MemoryStorage } from "../test-support/memory-storage";
 import { App } from "./App";
 import type { AppProps } from "./App";
@@ -46,10 +46,12 @@ function mountApp(
     projectStore.save(opts.project, EMPTY_FOREIGN);
   }
   const prefs = createPrefsStore(new MemoryStorage());
+  const notes = createHiddenNotesStore(opts.storage ?? new MemoryStorage());
   const clearHash = vi.fn<() => void>();
   const store = createAppStore({
     projectStore,
     prefs,
+    notes,
     loadLayoutClient: () => Promise.resolve(stub.client),
     clearHash,
     confirm: () => true,
@@ -71,5 +73,5 @@ function mountApp(
       {...overrides}
     />,
   );
-  return { store, stub, projectStore, prefs, clearHash, download };
+  return { store, stub, projectStore, prefs, notes, clearHash, download };
 }

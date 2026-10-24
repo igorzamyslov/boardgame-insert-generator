@@ -3,7 +3,7 @@ import { bottomEdgeOf } from "./lip";
 import { MIN_FEATURE_MM } from "./settings";
 import type { FeatureSpec, Settings, Side, TraySpec } from "./types";
 
-// Top chamfers (FeatureSpec "topChamfer", geometry 0.9.7, which replaced 0.9.4's finger dip). Trays
+// Top chamfers (FeatureSpec "topChamfer", geometry 0.9.8, which replaced 0.9.4's finger dip). Trays
 // tile the box a tray gap apart, and 0.5 mm from its wall, so nothing on a tray's outside can be
 // gripped: a whole tray comes out only by its contents. A filler wedged beside a tray gets a 45°
 // chamfer along its top edge where it touches the tray's outer face; with the tray's straight wall

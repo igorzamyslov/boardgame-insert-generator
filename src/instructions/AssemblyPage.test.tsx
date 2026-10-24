@@ -651,4 +651,30 @@ describe("AssemblyPage: taking it out", () => {
     expect(lines).toContainEqual(["Spacer by Event cards", "Pinch it by its chamfered edges"]);
     expect(lines).toContainEqual(["Event cards", "Lift it by the finger cut"]);
   });
+
+  it("closes the guide with where the paper goes, after the last layer", () => {
+    const project = deckProject();
+    const paper = {
+      area: 0,
+      name: "Rulebook",
+      x: 0,
+      y: 0,
+      w: 200,
+      d: 120,
+      z: 40,
+    };
+    const { container } = render(
+      <AssemblyPage project={project} layout={{ ...layout, reserved: [paper] }} onBack={vi.fn()} />,
+    );
+    const step = screen.getByText(
+      /^Lay the Rulebook \(200 × 120 mm, \d+(\.\d+)? mm thick\) flat on the trays in the front left corner\.$/,
+    );
+    const layers = [...container.querySelectorAll(".assembly-layer")];
+    expect(layers.at(-1)?.compareDocumentPosition(step)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("says nothing of paper when no area is kept free", () => {
+    render(<AssemblyPage project={deckProject()} layout={layout} onBack={vi.fn()} />);
+    expect(screen.queryByText(/^Lay the /)).toBeNull();
+  });
 });

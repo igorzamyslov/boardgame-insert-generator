@@ -175,6 +175,11 @@ it only with a written reason in the code or the PR.
   and wells: go through `Level.plug` and `RealizeOptions.fixedDepth`, not around them. Run
   `checkHardRules` (`layout/test-hard-rules.ts`) on a layout with copies when you add such a
   thing; it compares the printed trays of every set.
+- MUST give the split parts of one item (`Ctx.kinOf`) the joint through `Level.joint`, not
+  `Level.plug`: with two or more of them in a stack all carry the rim and the groove's wall (owner,
+  2026-10-24), but they are not alike (own size, height and deepening wells). `plug` implies `joint`.
+  `stackHeights` shares the spare height among the trays set to As much as fits (not the first
+  one); keep both when you touch it, and run `shared-room.test.ts`.
 - MUST keep growth the last step of planning (owner, 2026-10-23, DESIGN.md decision log): the
   search (`startPhase` in `layout/optimize.ts`) builds its context with
   `createCtx(input, measure, { growth: false })`, so no tray has room to grow, every gap is a spacer

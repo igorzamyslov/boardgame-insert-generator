@@ -37,6 +37,7 @@ const PICKER = "Add opens a kind picker";
 const SUMMARY = "A row's line under the name is short";
 const CHIPS = "The rail's rule chips are one per rule";
 const CLEAR = "Clear all my choices lifts every pin";
+const HIDE = "A note under the plan can be hidden";
 const UPRIGHT = "A figure may lie on any side";
 const MINIS_STATES = [
   "editor-minis",
@@ -351,6 +352,7 @@ const GUIDE_LIFT = "The packing guide says how to take each tray out";
 
 // Task 11: the box's editor. The states are the box cases of copy.board.test.tsx.
 const BOX_WORDS = "The box editor has the board's words only";
+const BOX_AREA = "Part of it reserves only the area you give it";
 const BOX_HINT = "The box's stored-on-its-side hint says what the engine does";
 
 // Task 13: the Download dialog and the building of the file. The states are the dialog cases of
@@ -367,6 +369,7 @@ const DOWNLOAD = DOWNLOAD_STATES;
 const DL_COUNT = "The Download dialog counts trays and spacers";
 const DL_FLOW = "The Download dialog's title and body follow the build";
 const DL_NOT = "Exporting's report, partial download and Start again are not built";
+const DL_PLAN = "The Download dialog is a print plan by layer";
 const DL_BLOCKED = "The Download dialog says why it is blocked in its caption line";
 /** "8 trays and 2 spacers for Harbour Kings" in each of its forms: the board has the plural one. */
 const HOLDS: readonly string[] = [
@@ -497,6 +500,23 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 13: Export, Exporting and MobileDownload have the plural forms only, and no failure of a whole build
   ...HOLDS.map((text) => ({ text, states: DOWNLOAD, ruling: DL_COUNT })),
   { text: "1 spacer", states: DOWNLOAD, ruling: DL_COUNT },
+  // 2026-10-24 board 8: the print plan (a layer's card, its pills, the total and the support line);
+  // the copy check judges each part of a " · " line on its own
+  ...[
+    "Layer {n}",
+    "Layer {n} (bottom)",
+    "Layer {n} (top)",
+    "{n} trays",
+    "1 tray",
+    "{n} spacers",
+    "Total about {n} g",
+    "{n} spacers included",
+    "1 spacer included",
+    "+ {n}",
+    "about {n} g",
+    "Support this tool",
+    "·",
+  ].map((text) => ({ text, states: DOWNLOAD, ruling: DL_PLAN })),
   { text: "One file with the part.", states: DOWNLOAD, ruling: DL_COUNT },
   { text: "The part is ready", states: DOWNLOAD, ruling: DL_FLOW },
   { text: "{n} of 1 part built", states: DOWNLOAD, ruling: DL_FLOW },
@@ -788,6 +808,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   // Task 11: the rail's three fields say their unit once, above them (80 px boxes keep their room for "285.5")
   { text: "In mm", states: ["box"], ruling: BOX_WORDS },
+  // Kept-free areas (schema 0.3.1): the size of what lies on top, and a line true of each state of the choice
+  { text: "What lies there", states: ["box", "m-box"], ruling: BOX_AREA },
+  ...[
+    "Trays stop {n} mm below the lid, everywhere.",
+    "Give its width and length to reserve only that much. Until then the whole top is reserved.",
+    "Reserved: {n} × {n} mm, in a corner the plan picks. Trays reach the lid everywhere else.",
+    "The space kept on top is larger than the floor of the box.",
+  ].map((text) => ({ text, states: ["box", "m-box"], ruling: BOX_AREA })),
   // The kit's accessible-name convention is "<label> (<unit>)": the space field's name is "Space on top (mm)"
   // (Box's aria-label is "Space on top, mm"). Never drawn, so no case sees it; recorded here with the rest.
   { text: "Space on top (mm)", states: ["box", "m-box"], ruling: BOX_WORDS },
@@ -795,14 +823,21 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   ...EDITOR_LABELS.map((text) => ({ text, states: EDITING, ruling: EDITOR_OPTIONS })),
   // a blocked option says why in one line (DESIGN, Flow): the spacer plates, the dividers and their chip
   ...[
-    "Flat decks have no dividers.",
-    "Flat stacks have no dividers.",
     "Dividers need Room for more cards.",
     "Dividers need Room for more tiles.",
     "Spacer plates need Room for more cards.",
     "Spacer plates need Room for more tiles.",
     "Dividers take the place of spacer plates.",
   ].map((text) => ({ text, states: EDITING, ruling: EDITOR_BLOCKED })),
+  // What a flat deck's or stack's dividers are (the Dividers row's note)
+  ...[
+    "Lying flat, a deck gets plates between groups of cards. Lift a group out with the plate under it.",
+    "Lying flat, a stack gets plates between groups of tiles. Lift a group out with the plate under it.",
+  ].map((text) => ({
+    text,
+    states: EDITING,
+    ruling: "A flat deck or stack of tiles has dividers too",
+  })),
   // the engine's presets, as the chips and the size line say them
   // Between decks, and the reasons its blocked rows give (the stand and the dividers of a flat deck)
   // the deck list's label over each deck's stepper (the decks list is in the basics from the second deck on)
@@ -999,6 +1034,9 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     NO_GRIP_TAG,
     NO_GRIP_TEMPLATE,
   ].map((text) => ({ text, states: GUIDE_STATES, ruling: GUIDE_LIFT })),
+  // 0.21.0: a note under the plan closes with a ×, and the hidden ones are one quiet button.
+  { text: "Hide this note", states: "all", ruling: HIDE },
+  { text: "Show {n} hidden", states: "all", ruling: HIDE },
 ];
 
 /**

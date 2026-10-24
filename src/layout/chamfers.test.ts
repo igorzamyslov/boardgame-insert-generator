@@ -1,6 +1,6 @@
 // @vitest-environment node
 // src/layout/chamfers.test.ts
-// Top chamfers (geometry 0.9.7, DESIGN §7 "lifting trays"): a print-time pass that cuts a 45°
+// Top chamfers (geometry 0.9.8, DESIGN §7 "lifting trays"): a print-time pass that cuts a 45°
 // chamfer along the top edge of each solid filler where it touches a tray, so a fingertip reaches
 // the tray beside it. Derived from the printed parts, never stored.
 import { describe, expect, it } from "vitest";

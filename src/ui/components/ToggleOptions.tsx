@@ -205,6 +205,16 @@ export function WellRows<C extends Component>({ component: c, index, onChange }:
           path={`/components/${index}/dividers`}
           onCommit={(v) => onChange(withDividers(c, v))}
         />
+        {dividers > 0 &&
+        c.storage !== "upright-long" &&
+        c.storage !== "upright-short" &&
+        c.storage !== "upright" ? (
+          <p class="ed-note">
+            {c.kind === "cards"
+              ? "Lying flat, a deck gets plates between groups of cards. Lift a group out with the plate under it."
+              : "Lying flat, a stack gets plates between groups of tiles. Lift a group out with the plate under it."}
+          </p>
+        ) : null}
       </ExactRow>
     </>
   );

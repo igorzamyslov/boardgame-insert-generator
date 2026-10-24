@@ -5,12 +5,12 @@ import { STALE_MESSAGE } from "../app/state";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import { slabUnder } from "../model/lip";
-import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Group, ReservedSpec, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
 import { pageScheme, shadeColorOf } from "./shades";
-import { boxOutline } from "./transform";
+import { boxOutline, reservedSlabs } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
 import { WebGLUnavailableError, hasWebGL } from "./webgl";
 
@@ -44,6 +44,11 @@ export interface ViewerProps {
   litKeys?: readonly string[];
   /** The caption says what a click does ("tap a tray for details"): the normal stage, not the editor's. */
   tapHint?: boolean;
+  /**
+   * The areas kept free on top (`layout.reserved`): each drawn as a translucent slab at its place,
+   * the paper's thickness (`box.headroom`) thick. Not a part: it is never picked or exported.
+   */
+  reserved?: readonly ReservedSpec[];
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -140,6 +145,15 @@ export function Viewer(p: ViewerProps) {
       h.setBox(outline);
     }
   }, [status, outlineKey]);
+
+  // A string key, so the scene hears of a change and not of every render.
+  const slabs = reservedSlabs(p.reserved, p.box);
+  const slabsKey = JSON.stringify(slabs);
+  useEffect(() => {
+    if (status === "ready") {
+      handleRef.current?.setReserved?.(slabs);
+    }
+  }, [status, slabsKey]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

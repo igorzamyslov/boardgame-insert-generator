@@ -3,8 +3,8 @@ import { batch } from "@preact/signals";
 import type { ReadonlySignal } from "@preact/signals";
 import { newProject } from "../model/defaults";
 import type { Lock, Notice, Project } from "../model/types";
-import { STORAGE_PREFIX, createPrefsStore } from "../share";
-import type { PrefsStore, ProjectStore } from "../share";
+import { STORAGE_PREFIX, createHiddenNotesStore, createPrefsStore } from "../share";
+import type { HiddenNotesStore, PrefsStore, ProjectStore } from "../share";
 import { removeLock } from "./actions";
 import type { LockConflict } from "../layout/types";
 import type { LayoutClient } from "./clients";
@@ -24,6 +24,8 @@ export interface AppDeps {
   confirm: (message: string) => boolean;
   /** The preferences new inserts start from (default: kept in memory only; main.tsx passes the browser's). */
   prefs?: PrefsStore;
+  /** The notes a person hid (default: kept in memory only; main.tsx passes the browser's). */
+  notes?: HiddenNotesStore;
   /** The clock edits are grouped by (default `Date.now`). */
   now?: () => number;
 }
@@ -59,6 +61,8 @@ export interface AppStore {
   storageAvailable: boolean;
   /** The preferences (my printer) new inserts start from. */
   prefs: PrefsStore;
+  /** The notes hidden per project; `hideNote` and `showHiddenNotes` act on the open project. */
+  notes: HiddenNotesStore;
   edit(fn: (p: Project) => Project): void;
   /** Steps back through the edits of the open project, restoring the whole project (inputs, plan, locks). */
   undo(): void;
@@ -94,6 +98,7 @@ export interface AppStore {
 
 export function createAppStore(deps: AppDeps): AppStore {
   const prefs = deps.prefs ?? createPrefsStore(null);
+  const notes = deps.notes ?? createHiddenNotesStore(null);
   /** A new insert starts on the printer from the preferences. */
   const createProject = (): Project => ({ ...newProject(), printer: { ...prefs.printer.value } });
   const state = createState(createProject(), undefined, deps.now);
@@ -176,6 +181,7 @@ export function createAppStore(deps: AppDeps): AppStore {
     state,
     storageAvailable: deps.projectStore.available,
     prefs,
+    notes,
     canUndo: state.history.canUndo,
     canRedo: state.history.canRedo,
     edit,
@@ -209,6 +215,7 @@ export function createAppStore(deps: AppDeps): AppStore {
       persistence.newProject();
     },
     deleteProject(id) {
+      notes.forget(id);
       persistence.deleteProject(id);
     },
     importJson(text) {

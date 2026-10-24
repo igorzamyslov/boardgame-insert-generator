@@ -1,5 +1,6 @@
 import { MAX_LEVELS, type Ctx } from "./context";
 import type { Rng } from "./prng";
+import { reservedOf, validAnchors } from "./reserve";
 import { stackAllowed } from "./stack";
 import {
   cut,
@@ -215,7 +216,7 @@ export const changeVariant: Move = (tree, env, rng) => {
     return null;
   }
   const variants = tree.variants.map((v, k) => (k === i ? next : v));
-  return { root, variants };
+  return { ...tree, root, variants };
 };
 
 export const rotateItem: Move = (tree, env, rng) => {
@@ -386,6 +387,23 @@ export const swapItems: Move = (tree, env, rng) => {
   return { ...tree, root };
 };
 
+/** Puts one kept-free area in another corner of the floor, or turns it (box with areas only). */
+export const moveReserve: Move = (tree, env, rng) => {
+  const ctx = env.ctx;
+  if (ctx.areas.length === 0) {
+    return null;
+  }
+  const k = rng.nextInt(ctx.areas.length);
+  const placed = reservedOf(ctx, tree);
+  const now = placed[k]?.anchor;
+  const options = validAnchors(ctx, k).filter((n) => n !== now);
+  if (options.length === 0) {
+    return null;
+  }
+  const anchor = rng.pick(options);
+  return { ...tree, reserve: placed.map((p, i) => (i === k ? anchor : p.anchor)) };
+};
+
 /** Move mix: integer weights, picked with rng.nextInt(total). */
 export const MOVES: readonly {
   readonly name: string;
@@ -406,9 +424,15 @@ export const MOVES: readonly {
 
 const TOTAL_WEIGHT = MOVES.reduce((s, m) => s + m.weight, 0);
 
-export function pickMove(rng: Rng): Move {
-  let r = rng.nextInt(TOTAL_WEIGHT);
-  for (const m of MOVES) {
+/** The mix of a box with kept-free areas: the same moves and one more (so no other box's picks change). */
+const AREA_MOVES: typeof MOVES = [...MOVES, { name: "moveReserve", move: moveReserve, weight: 8 }];
+const AREA_TOTAL_WEIGHT = AREA_MOVES.reduce((s, m) => s + m.weight, 0);
+
+export function pickMove(rng: Rng, env?: MoveEnv): Move {
+  const withAreas = env !== undefined && env.ctx.areas.length > 0;
+  const table = withAreas ? AREA_MOVES : MOVES;
+  let r = rng.nextInt(withAreas ? AREA_TOTAL_WEIGHT : TOTAL_WEIGHT);
+  for (const m of table) {
     if (r < m.weight) {
       return m.move;
     }

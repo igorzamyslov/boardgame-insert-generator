@@ -9,6 +9,7 @@ import type {
 } from "../model/types";
 import {
   SPACER_SHADE,
+  mm,
   componentIndexOfTray,
   groupShadeIndexOfTray,
   isGroupTray,
@@ -39,6 +40,8 @@ import { carriesName } from "../model/part-name";
 import { trayNames } from "./naming";
 import type { TrayName } from "./naming";
 import { compareCodeUnits, compareNatural } from "../util/compare";
+import { closingSteps } from "./reserved";
+import type { ClosingStep } from "./reserved";
 import { numberParts, outerSizeText } from "./numbering";
 import type { NumberedPart } from "./numbering";
 
@@ -253,6 +256,17 @@ function layerSvg(
       kind: "spacer",
     });
   }
+  // The paper that lies on the top layer: a dashed outline and its label, under the badges.
+  if (index === levels.length - 1) {
+    for (const r of layout.reserved ?? []) {
+      const b = toSvgRect(r, frame);
+      const size = Math.min(5, b.w / 12);
+      out.push(
+        `<rect data-reserved="" x="${n(b.x)}" y="${n(b.y)}" width="${n(b.w)}" height="${n(b.h)}" fill="none" stroke="${INK}" stroke-width="0.6" stroke-dasharray="4 2"/>`,
+        `<text x="${n(b.x + b.w / 2)}" y="${n(b.y + b.h / 2)}" font-size="${n(size)}" text-anchor="middle" dominant-baseline="central" fill="#111111" stroke="#ffffff" stroke-width="${n(size * 0.35)}" stroke-linejoin="round" paint-order="stroke">${escapeXml(`${r.name} ${mm(r.w)} × ${mm(r.d)}`)}</text>`,
+      );
+    }
+  }
   const front = { x: frame.usableW / 2 - 12, y: frame.usableD + frame.bc + 4, w: 24, h: 10 };
   const placed = placeBadges(requests, vb, [front]);
   // Leaders, then captions, then every badge on top.
@@ -414,6 +428,8 @@ export function layerInfo(
 export interface GuideLayer extends LayerInfo {
   /** The parts of the layer, in the order to put them in the box. */
   rows: PartRow[];
+  /** On the last layer only, and only when an area is kept free on top: where the paper goes. */
+  closing?: ClosingStep[];
 }
 
 /** A tray with the parts that go under it or into it, which are placed together with it. */
@@ -596,6 +612,7 @@ export function packingGuide(layout: StoredLayout, project: Project): GuideLayer
   const byName = (a: Unit, b: Unit): number =>
     compareNatural(a.name, b.name) || compareCodeUnits(a.key, b.key);
   const unitOfTray = new Map(units.filter((u) => u.kind === "tray").map((u) => [u.key, u]));
+  const closing = closingSteps(layout.reserved, project.box, project.settings);
   return infos.map((info) => {
     const here = units.filter((u) => u.layer === info.layer);
     // A merged part rests on a tray only when that tray is in this layer: from a lower layer it
@@ -631,6 +648,11 @@ export function packingGuide(layout: StoredLayout, project: Project): GuideLayer
     // The layer's trays as the picture's description lists them follow the guide's order (not the
     // part numbers' that layerInfo keeps): the trays and merged parts, with no spacer or riser.
     const trays = ordered.filter((u) => u.kind !== "orphan").map((u) => u.name);
-    return { ...info, trays, rows: rows.filter((r): r is PartRow => r !== undefined) };
+    return {
+      ...info,
+      trays,
+      rows: rows.filter((r): r is PartRow => r !== undefined),
+      ...(info.layer === infos.length && closing.length > 0 ? { closing } : {}),
+    };
   });
 }

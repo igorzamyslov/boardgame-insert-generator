@@ -219,7 +219,24 @@ describe("growth defaults (growth is the last step of planning, owner 2026-10-23
     expect(dividersOffered(upright("cards"))).toBe(false);
     expect(dividersOffered({ ...upright("cards"), room: 5 })).toBe(true);
     expect(dividersOffered({ ...upright("tiles"), room: "max" })).toBe(true);
-    expect(dividersOffered({ ...flat("cards"), room: 5 })).toBe(false);
+    // lying flat they are plates between groups of the stack
+    expect(dividersOffered({ ...flat("cards"), room: 5 })).toBe(true);
+    const shared: CardsComponent = {
+      ...(flat("cards") as CardsComponent),
+      room: 5,
+      flatDecks: "dividers",
+    };
+    expect(dividersOffered(shared)).toBe(true);
+    // decks sharing one flat well have dividers between them already
+    expect(
+      dividersOffered({
+        ...shared,
+        decks: [
+          { name: "A", count: 3 },
+          { name: "B", count: 3 },
+        ],
+      }),
+    ).toBe(false);
     expect(dividersOffered({ ...newComponent("bulk"), room: 5 })).toBe(false);
   });
 });

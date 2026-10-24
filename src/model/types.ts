@@ -45,7 +45,21 @@ export interface Box {
   innerHeight: number;
   headroom: number;
   headroomCoverage: "full" | "partial";
+  /**
+   * With "partial" coverage: where the kept space is, as the flat things that lie there (the
+   * rulebook, a board, a stack of player mats), each a width and length in mm; `headroom` is their
+   * thickness. The layout picks where each lies and keeps the stacks under it that much lower.
+   * Absent or empty (or coverage "full"): no area, the whole top is kept, as before schema 0.3.1.
+   */
+  headroomAreas?: TopArea[];
   storedOnSide: boolean;
+}
+
+/** One flat thing that lies on the trays, in mm. `name` shows on the plan; absent: "Rulebook". */
+export interface TopArea {
+  name?: string;
+  w: number;
+  d: number;
 }
 
 export interface Printer {
@@ -309,6 +323,24 @@ export interface StoredLayout {
   iterations: number;
   capped: boolean;
   trays: TraySpec[];
+  /** Where each of the box's `headroomAreas` lies in this plan; absent when it has none. */
+  reserved?: ReservedSpec[];
+}
+
+/**
+ * The place the layout chose for one kept-free area, in the trays' frame (x, y from the floor's
+ * corner, like `TraySpec`): its rectangle as the person's width and length (turned 90° or not),
+ * and `z`, the height it lies at (the tops of the stacks under it).
+ */
+export interface ReservedSpec {
+  /** Index into `box.headroomAreas`. */
+  area: number;
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  d: number;
+  z: number;
 }
 
 export type FeatureSpec =
@@ -325,6 +357,10 @@ export type FeatureSpec =
   // `depth` into the floor, running along `axis` across the whole well and centred on `at` across
   // it (tray-local, like a wall cutout's `at`). The divider itself is derived (splitDividers).
   | { type: "dividerSlot"; axis: "x" | "y"; at: number; width: number; depth: number }
+  // A loose horizontal plate between two groups of a flat stack (splitDividers): its underside is
+  // `at` mm above the well's floor, it is `thickness` thick and as wide as the well less its play.
+  // It changes nothing in the tray itself.
+  | { type: "separatorPlate"; at: number; thickness: number }
   | { type: "scoop"; side: Side; r: number }
   | { type: "cornerRelief"; d: number }
   // A top chamfer (model/top-chamfer.ts): a 45° chamfer `size` across, cut along the top edge of a
@@ -347,6 +383,18 @@ export interface CompartmentSpec {
   // schema 0.1.2, which fall back to matching the text.
   componentId?: string;
   features: FeatureSpec[];
+}
+
+/**
+ * A half-round finger cut in a divider plate (splitDividers), radius `r`: through the plate at its
+ * `left`, `right`, `front` or `back` edge (a flat plate, lined up with the tray's side cut), or
+ * into its `top` edge (a standing plate), `at` mm along that edge (along the plate's long side for
+ * the top). Derived for printing, never stored.
+ */
+export interface PlateNotch {
+  face: "left" | "right" | "front" | "back" | "top";
+  at: number;
+  r: number;
 }
 
 export interface TraySpec {
@@ -379,6 +427,8 @@ export interface TraySpec {
   onRiser?: boolean;
   solid: boolean;
   compartments: CompartmentSpec[];
+  // A divider's finger cuts (PlateNotch), derived with the plate and never stored.
+  notches?: PlateNotch[];
   features?: FeatureSpec[]; // the part's own: a card spacer's notch (spacerNotch)
   /**
    * Set on a printed part that is several connected fillers (and risers) printed as one, never

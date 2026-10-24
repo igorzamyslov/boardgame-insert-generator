@@ -235,7 +235,12 @@ import type { Semver } from "../model/version";
  * is built. A mesh-only change on a derived part: outer size, footprint, lip, fit and every tray
  * are as before (the lip ring is the same solid), the seams are only filled. A PATCH.
  *
- * 0.9.7 replaces 0.9.4's finger dip with a 45° top chamfer (owner, 2026-10-24: the U-shaped dip
+ * 0.9.7 gives a flat deck or stack of tiles its dividers as loose horizontal plates between groups
+ * of the stack (FeatureSpec "separatorPlate", derived into parts by splitDividers): the well is a
+ * plate taller for each, and the tray itself is otherwise as before. A new optional feature, so a
+ * PATCH (planTray only checks it); a stored layout without one builds as it did.
+ *
+ * 0.9.8 replaces 0.9.4's finger dip with a 45° top chamfer (owner, 2026-10-24: the U-shaped dip
  * looked wrong; `FeatureSpec` "topChamfer", `layout/chamfers.ts`, model/top-chamfer.ts). A filler
  * wedged beside a tray gets a chamfer along its top edge where it touches the tray's outer face,
  * up to 5 mm across and as deep (less on a thin strip, where the two long edges leave 1.6 mm of
@@ -249,7 +254,7 @@ import type { Semver } from "../model/version";
  * derived at print time and never stored, so no stored spec carries one. The engraved name keeps
  * clear of a chamfer on its face.
  */
-export const GEOMETRY_VERSION = "0.9.7";
+export const GEOMETRY_VERSION = "0.9.8";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

@@ -397,6 +397,47 @@ function toMesh(solid: Manifold): Mesh {
   return { positions, indices: new Uint32Array(raw.triVerts) };
 }
 
+// A divider's finger cuts (spec.notches): half-round, through the plate. A flat plate's are vertical
+// cylinders centred on an edge, a standing plate's one is a horizontal cylinder centred on its top
+// edge, along the plate's long side. Past the faces they leave through by OVERSHOOT.
+function buildNotches(
+  m: ManifoldToplevel,
+  scope: Scope,
+  spec: TraySpec,
+  plan: TrayPlan,
+): Manifold[] {
+  return (spec.notches ?? []).map((n) => {
+    if (n.face === "top") {
+      const alongY = plan.d > plan.w;
+      return horizontalCylinder(
+        m,
+        scope,
+        alongY ? "x" : "y",
+        -OVERSHOOT,
+        (alongY ? plan.w : plan.d) + OVERSHOOT,
+        n.at,
+        plan.h,
+        n.r,
+      );
+    }
+    const [cx, cy] =
+      n.face === "left"
+        ? [0, n.at]
+        : n.face === "right"
+          ? [plan.w, n.at]
+          : n.face === "front"
+            ? [n.at, 0]
+            : [n.at, plan.d];
+    return prism(
+      m,
+      scope,
+      circleRing(cx, cy, n.r, 4 * quarterSegments(n.r)),
+      -OVERSHOOT,
+      plan.h + OVERSHOOT,
+    );
+  });
+}
+
 // What a part's solid loses: the compartments' cutters, a spacer's notch, a filler's top chamfers and the engraving, in the
 // part's own frame (origin at its outer min corner).
 function buildCutters(
@@ -427,6 +468,7 @@ function buildCutters(
   for (const chamfer of plan.chamfers) {
     cutters.push(buildChamfer(m, scope, chamfer, plan));
   }
+  cutters.push(...buildNotches(m, scope, spec, plan));
   // An underside name is cut into the bed face: the slab's, below the seam, on a stepped part.
   const engraved = engravings
     ? buildEngravings(m, scope, engravings, spec, -(plan.step?.height ?? 0))

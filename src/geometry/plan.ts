@@ -191,6 +191,11 @@ function planCompartment(
         width: feature.width,
         depth: feature.depth,
       });
+    } else if (feature.type === "separatorPlate") {
+      // A loose plate in the well, printed on its own (splitDividers): nothing to cut in the tray.
+      if (!isPositive(feature.thickness) || !(Number.isFinite(feature.at) && feature.at >= 0)) {
+        fail(spec, `compartment ${index} has an invalid separator plate`);
+      }
     } else if (feature.type === "scoop") {
       scoopRequests.push({ side: sideOf(spec, feature.side), r: feature.r });
     } else if (feature.type === "cornerRelief") {

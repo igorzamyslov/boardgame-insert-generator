@@ -50,6 +50,7 @@ vi.mock("three", () => {
     DirectionalLight: stand(),
     EdgesGeometry: stand(),
     LineBasicMaterial: stand(),
+    MeshBasicMaterial: stand(),
     LineSegments: stand(),
     Mesh: stand(),
     MeshStandardMaterial: stand(),
@@ -127,6 +128,33 @@ describe("createScene", () => {
     const r = fake.renderers[0];
     expect(r?.dispose).toHaveBeenCalledTimes(1);
     expect(r?.forceContextLoss).toHaveBeenCalledTimes(1);
+  });
+
+  describe("kept-free slabs", () => {
+    const slab = {
+      min: [1, 2, 3] as [number, number, number],
+      size: [4, 5, 6] as [number, number, number],
+    };
+
+    it("adds nothing for none, and replaces or removes what it added without leaking", async () => {
+      const three = await import("three");
+      const meshes = vi.mocked(three.Mesh);
+      const lines = vi.mocked(three.LineSegments);
+      const handle = createScene(document.createElement("canvas"));
+      handle.setReserved?.([]);
+      handle.setReserved?.(undefined as never);
+      expect(meshes).not.toHaveBeenCalled();
+      expect(lines).not.toHaveBeenCalled();
+      handle.setReserved?.([slab, slab]);
+      expect(meshes).toHaveBeenCalledTimes(2);
+      expect(lines).toHaveBeenCalledTimes(2);
+      handle.setReserved?.([slab]);
+      expect(meshes).toHaveBeenCalledTimes(3);
+      handle.setReserved?.([]);
+      expect(meshes).toHaveBeenCalledTimes(3);
+      handle.setReserved?.([slab]);
+      expect(() => handle.dispose()).not.toThrow();
+    });
   });
 
   describe("picking", () => {

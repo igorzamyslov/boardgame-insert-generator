@@ -276,7 +276,7 @@ function chamfersOfCandidate(
 }
 
 /**
- * The top chamfers of a printed layout (geometry 0.9.7, DESIGN §7 "lifting trays"), last pass
+ * The top chamfers of a printed layout (geometry 0.9.8, DESIGN §7 "lifting trays"), last pass
  * after the merge. Trays tile the box a tray gap apart, so nothing on a tray's outside can be
  * gripped and a filler wedged beside it has no grip either: each solid filler (plain, or a member
  * of a merged part) gets a 45° chamfer along its top edge where it touches a tray's outer face,
