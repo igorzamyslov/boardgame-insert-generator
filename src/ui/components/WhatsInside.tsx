@@ -10,7 +10,7 @@ import type {
   Printer,
   TraySpec,
 } from "../../model/types";
-import { DEFAULT_GROUP_NAME, groupById, groupOfItem } from "../../model/groups";
+import { DEFAULT_GROUP_NAME, groupById, groupOfItem, railEntries } from "../../model/groups";
 import type { Access } from "../../model/types";
 import { Rail, SheetList } from "../../screens/Rail";
 import { kindIndexOf, shadeVars } from "../identity";
@@ -62,6 +62,10 @@ export interface WhatsInsideProps {
   trays?: readonly TraySpec[];
   locks?: readonly Lock[];
   groups?: readonly Group[];
+  /** The order the list shows its items in (`Project.listOrder`). */
+  listOrder?: readonly string[];
+  /** A row was pressed: select its tray. The editor opens from the pencil, the tray bar or a double press. */
+  onSelect?: (id: string) => void;
   box: Box;
   /** The insert's printer: the rail's foot says its bed. */
   printer: Printer;
@@ -119,6 +123,8 @@ export function WhatsInside({
   trays,
   locks,
   groups,
+  listOrder,
+  onSelect,
   box,
   printer,
   phone = false,
@@ -249,8 +255,27 @@ export function WhatsInside({
         ? into.memberIds.filter((m) => m !== itemId)[target.index - 1]
         : undefined;
     const beforeName = components.find((c) => c.id === before);
+    // the entry now before it in the list, by name (a group card by the group's)
+    const entryName = (
+      e: ReturnType<typeof railEntries>[number] | undefined,
+    ): string | undefined =>
+      e === undefined
+        ? undefined
+        : e.kind === "item"
+          ? components.find((c) => c.id === e.id)?.name || "(unnamed)"
+          : groupNameOf(groupById({ groups }, e.id)?.name ?? "");
+    const listBefore =
+      "out" in target && target.index !== undefined
+        ? entryName(
+            railEntries({ components, groups, listOrder }).filter(
+              (e) => !(e.kind === "item" && e.id === itemId),
+            )[target.index - 1],
+          )
+        : undefined;
     const notes = itemActions.drop(itemId, target);
-    if (change === "order") {
+    if (change === "place") {
+      setSaid(movedWords(nameOf(item), listBefore));
+    } else if (change === "order") {
       setSaid(movedWords(nameOf(item), beforeName === undefined ? undefined : nameOf(beforeName)));
     } else if (change === "into" && into !== undefined) {
       setSaid([`${nameOf(item)} moved to ${groupNameOf(into.name)}.`, ...notes].join(" "));
@@ -342,6 +367,8 @@ export function WhatsInside({
       trays,
       locks,
       groups,
+      listOrder,
+      onSelect,
       box,
       selectedIds,
       culprits,

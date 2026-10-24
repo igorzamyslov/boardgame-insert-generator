@@ -241,6 +241,8 @@ const OPENED_ROWS = [
   ...FLAT_DECKS,
 ] as const;
 const EDITOR_OPTIONS = "The editors name every option the engine has";
+const TRAY_SETTINGS = "Tray settings replace More options";
+const TRAY_LINES = TRAY_SETTINGS;
 const EDITOR_SIZES = "Card sizes are the engine's presets";
 const EDITOR_SUMMARY = "More options says what is inside it";
 const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
@@ -827,6 +829,34 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Space on top (mm)", states: ["box", "m-box"], ruling: BOX_WORDS },
   // Task 10: the editors (Edit, EditKinds, MobileEdit) and the stage beside them
   ...EDITOR_LABELS.map((text) => ({ text, states: EDITING, ruling: EDITOR_OPTIONS })),
+  // 0.24.0: Tray settings, the four rows under the editor's basics, and the line each says
+  ...["Tray settings", "Reach", "Room", "Copies and group"].map((text) => ({
+    text,
+    states: EDITING,
+    ruling: TRAY_SETTINGS,
+  })),
+  ...[
+    "Plain tray",
+    "Lies flat",
+    "Stands either way",
+    "Stands upright",
+    "Finger cuts, {name}",
+    "Curved floor, {name}",
+    "Corner holes, {name}",
+    "{n} divider",
+    "{n} dividers",
+    "{n} divider, {name}",
+    "{n} dividers, {name}",
+    "{n} mm around",
+    "{n} more cards",
+    "{n} more tiles",
+    "{n}% more pieces",
+    "Room for more {name}, as much as fits",
+    "{n} copy",
+    "{n} copies",
+    "no group",
+    "in {name}",
+  ].map((text) => ({ text, states: EDITING, ruling: TRAY_LINES })),
   // a blocked option says why in one line (DESIGN, Flow): the spacer plates, the dividers and their chip
   ...[
     "Dividers need Room for more cards.",

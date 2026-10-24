@@ -1,9 +1,9 @@
 // src/ui/components/CardsEditor.tsx
 // Edit's cards editor: how many (one stepper, or the decks), the card size, the sleeves; the rest is
-// under More options.
+// under Tray settings.
 import { useContext, useEffect, useState } from "preact/hooks";
 import { setCardSides } from "../../app/actions";
-import { ChoiceChips, CheckRow, Segmented, Stepper } from "../../kit";
+import { CheckRow, Icon, Segmented, Stepper } from "../../kit";
 import type { SegmentedOption } from "../../kit";
 import { COMPONENT_DEFAULTS, flatDecksOffered } from "../../model/defaults";
 import { CARD_PRESETS, SLEEVES } from "../../model/presets";
@@ -11,10 +11,17 @@ import type { CardsComponent } from "../../model/types";
 import { mm } from "../identity";
 import { COUNT, LENGTH, OFFSET, THICKNESS_CORRECTION } from "../limits";
 import { SettingsContext } from "../validation";
-import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
+import {
+  CopiesRows,
+  ReachGroup,
+  RoomRows,
+  copiesPaths,
+  roomPaths,
+  shapePaths,
+} from "./CommonOptions";
 import { Alert, Choice, CountField, ExactRow, Group, Notes, NumField, TextBox } from "./controls";
 import { RoomOptions } from "./RoomOptions";
-import { MoreOptions } from "./MoreOptions";
+import { SettingsGroup, TraySettings } from "./TraySettings";
 import { changedOptions, flatDecksBlock } from "./moreSummary";
 import { RowRemove } from "./RowRemove";
 import { BinNotes, TrayShape, WellRows } from "./ToggleOptions";
@@ -26,12 +33,6 @@ export function cardPresetOf(c: CardsComponent): string {
   const preset = CARD_PRESETS.find((p) => p.shortSide === c.shortSide && p.longSide === c.longSide);
   return preset ? preset.id : CUSTOM_SIZE;
 }
-
-/** The sizes offered as chips on the first screen: the common ones. */
-const COMMON_PRESETS = CARD_PRESETS.filter((p) => p.common === true);
-
-/** The others, offered as chips inside "My own size" (every preset of the engine can be chosen). */
-const OTHER_PRESETS = CARD_PRESETS.filter((p) => p.common !== true);
 
 type SleeveChoice = "none" | "standard" | "premium" | "custom";
 
@@ -71,7 +72,7 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
   const changed = changedOptions(c, settings);
   const matched = cardPresetOf(c);
   // "My own size" is open for a size that is no common preset: the others are chips inside it.
-  const [customSize, setCustomSize] = useState(!COMMON_PRESETS.some((p) => p.id === matched));
+  const [customSize, setCustomSize] = useState(matched === CUSTOM_SIZE);
   const sizeValue = customSize ? CUSTOM_SIZE : matched;
   const pick = (id: string): void => {
     const preset = CARD_PRESETS.find((p) => p.id === id);
@@ -199,55 +200,54 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
       )}
       {addDeck}
       <Group label="Card size">
-        <ChoiceChips
-          label="Card size"
-          options={[
-            ...COMMON_PRESETS.map((p) => ({ value: p.id, label: p.label })),
-            { value: CUSTOM_SIZE, label: "My own size" },
-          ]}
-          value={sizeValue}
-          onChange={(id) => {
-            if (id === CUSTOM_SIZE) {
-              setCustomSize(true);
-            } else {
-              setCustomSize(false);
-              pick(id);
-            }
-          }}
-        />
+        <div class="ed-select k-field__box" data-compact="">
+          <select
+            class="k-field__input"
+            aria-label="Card size"
+            value={sizeValue}
+            onChange={(e) => {
+              const id = e.currentTarget.value;
+              if (id === CUSTOM_SIZE) {
+                setCustomSize(true);
+              } else {
+                setCustomSize(false);
+                pick(id);
+              }
+            }}
+          >
+            {CARD_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {`${p.label} · ${mm(p.shortSide)} × ${mm(p.longSide)} mm`}
+              </option>
+            ))}
+            <option value={CUSTOM_SIZE}>My own size</option>
+          </select>
+          <Icon name="chevron-down" size={16} />
+        </div>
         {sizeValue === CUSTOM_SIZE ? (
-          <>
-            <ChoiceChips
-              label="Other sizes"
-              options={OTHER_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
-              value={OTHER_PRESETS.some((p) => p.id === matched) ? matched : ""}
-              onChange={pick}
+          <div class="ed-pair">
+            <NumField
+              id={`${c.id}-shortSide`}
+              label="Short side"
+              unit="mm"
+              value={c.shortSide}
+              path={`${at}/shortSide`}
+              {...LENGTH}
+              commitOn="blur"
+              onCommit={(v) => onChange(setCardSides(c, v, c.longSide))}
             />
-            <div class="ed-pair">
-              <NumField
-                id={`${c.id}-shortSide`}
-                label="Short side"
-                unit="mm"
-                value={c.shortSide}
-                path={`${at}/shortSide`}
-                {...LENGTH}
-                commitOn="blur"
-                onCommit={(v) => onChange(setCardSides(c, v, c.longSide))}
-              />
-              <NumField
-                id={`${c.id}-longSide`}
-                label="Long side"
-                unit="mm"
-                value={c.longSide}
-                path={`${at}/longSide`}
-                {...LENGTH}
-                commitOn="blur"
-                onCommit={(v) => onChange(setCardSides(c, c.shortSide, v))}
-              />
-            </div>
-          </>
+            <NumField
+              id={`${c.id}-longSide`}
+              label="Long side"
+              unit="mm"
+              value={c.longSide}
+              path={`${at}/longSide`}
+              {...LENGTH}
+              commitOn="blur"
+              onCommit={(v) => onChange(setCardSides(c, c.shortSide, v))}
+            />
+          </div>
         ) : null}
-        <span class="ed-line">{`${mm(c.shortSide)} × ${mm(c.longSide)} mm`}</span>
       </Group>
       <Group label="Sleeves">
         <Segmented
@@ -302,126 +302,140 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
         ) : null}
       </Group>
       <BinNotes component={c} index={index} />
-      <MoreOptions
-        component={c}
-        errorPaths={[
-          ...commonOptionPaths(index),
-          `${at}/flatDecks`,
-          `${at}/thickness/scale`,
-          `${at}/thickness/cards`,
-          `${at}/thickness/stackMm`,
-        ]}
-      >
-        <RoomOptions component={c} index={index} onChange={onChange} />
-        <AccessChoice component={c} index={index} onChange={onChange} />
-        <Choice
-          label="Cards stand"
-          options={STAND_OPTIONS}
-          value={c.storage}
-          onChange={(storage) => onChange({ ...c, storage })}
-          revert={
-            c.storage === COMPONENT_DEFAULTS.cards.storage
-              ? undefined
-              : {
-                  to:
-                    STAND_OPTIONS.find((o) => o.value === COMPONENT_DEFAULTS.cards.storage)
-                      ?.label ?? "Auto",
-                  onBack: () => onChange({ ...c, storage: COMPONENT_DEFAULTS.cards.storage }),
-                }
-          }
-        />
-        {flatDecksOffered(c) ? (
-          <ExactRow
-            title="Between decks"
-            meta={c.flatDecks === "dividers" ? "Removable dividers" : "Fixed walls"}
-            errorPaths={[`${at}/flatDecks`]}
-            blockedReason={flatDecksBlock(c)}
+      <TraySettings>
+        <ReachGroup component={c} index={index} onChange={onChange} />
+        <SettingsGroup
+          id="shape"
+          component={c}
+          errorPaths={[...shapePaths(index), `${at}/flatDecks`]}
+        >
+          <Choice
+            label="Cards stand"
+            options={STAND_OPTIONS}
+            value={c.storage}
+            onChange={(storage) => onChange({ ...c, storage })}
             revert={
-              c.flatDecks === "dividers"
-                ? { to: "Fixed walls", onBack: () => onChange(withoutFlatDecks(c)) }
+              c.storage === COMPONENT_DEFAULTS.cards.storage
+                ? undefined
+                : {
+                    to:
+                      STAND_OPTIONS.find((o) => o.value === COMPONENT_DEFAULTS.cards.storage)
+                        ?.label ?? "Auto",
+                    onBack: () => onChange({ ...c, storage: COMPONENT_DEFAULTS.cards.storage }),
+                  }
+            }
+          />
+          {flatDecksOffered(c) ? (
+            <ExactRow
+              title="Between decks"
+              errorPaths={[`${at}/flatDecks`]}
+              blockedReason={flatDecksBlock(c)}
+              revert={
+                c.flatDecks === "dividers"
+                  ? { to: "Fixed walls", onBack: () => onChange(withoutFlatDecks(c)) }
+                  : undefined
+              }
+            >
+              <Segmented
+                label="Between decks"
+                stretch
+                options={BETWEEN_OPTIONS}
+                value={c.flatDecks ?? "walls"}
+                onChange={(v) =>
+                  onChange(v === "walls" ? withoutFlatDecks(c) : { ...c, flatDecks: v })
+                }
+              />
+              <Alert id={`${c.id}-flatDecks-error`} path={`${at}/flatDecks`} />
+            </ExactRow>
+          ) : null}
+          <TrayShape component={c} index={index} onChange={onChange} />
+          <WellRows component={c} index={index} onChange={onChange} />
+        </SettingsGroup>
+        <SettingsGroup
+          id="room"
+          component={c}
+          errorPaths={[
+            ...roomPaths(index),
+            `${at}/thickness/scale`,
+            `${at}/thickness/cards`,
+            `${at}/thickness/stackMm`,
+          ]}
+        >
+          <RoomOptions component={c} index={index} onChange={onChange} />
+          <ExactRow
+            title="Card thickness"
+            hint="From the sleeve table. Measure your stack if decks come out tight."
+            errorPaths={[
+              `${at}/thickness/scale`,
+              `${at}/thickness/cards`,
+              `${at}/thickness/stackMm`,
+            ]}
+            revert={
+              changed.has("thickness")
+                ? {
+                    to: "the sleeve table",
+                    onBack: () => onChange({ ...c, thickness: { mode: "preset" } }),
+                  }
                 : undefined
             }
           >
-            <Segmented
-              label="Between decks"
-              stretch
-              options={BETWEEN_OPTIONS}
-              value={c.flatDecks ?? "walls"}
-              onChange={(v) =>
-                onChange(v === "walls" ? withoutFlatDecks(c) : { ...c, flatDecks: v })
-              }
-            />
-            <Alert id={`${c.id}-flatDecks-error`} path={`${at}/flatDecks`} />
-          </ExactRow>
-        ) : null}
-        <TrayShape component={c} index={index} onChange={onChange} />
-        <ExactRow
-          title="Card thickness"
-          hint="From the sleeve table. Measure your stack if decks come out tight."
-          errorPaths={[`${at}/thickness/scale`, `${at}/thickness/cards`, `${at}/thickness/stackMm`]}
-          revert={
-            changed.has("thickness")
-              ? {
-                  to: "the sleeve table",
-                  onBack: () => onChange({ ...c, thickness: { mode: "preset" } }),
+            {measured ? null : (
+              <NumField
+                id={`${c.id}-thicknessCorrection`}
+                label="Correct the estimated thickness"
+                unit="%"
+                value={Math.round((scale - 1) * 10000) / 100}
+                path={`${at}/thickness/scale`}
+                {...THICKNESS_CORRECTION}
+                onCommit={(pct) =>
+                  onChange({
+                    ...c,
+                    thickness:
+                      pct === 0
+                        ? { mode: "preset" }
+                        : { mode: "preset", scale: Math.round((1 + pct / 100) * 10000) / 10000 },
+                  })
                 }
-              : undefined
-          }
-        >
-          {measured ? null : (
-            <NumField
-              id={`${c.id}-thicknessCorrection`}
-              label="Correct the estimated thickness"
-              unit="%"
-              value={Math.round((scale - 1) * 10000) / 100}
-              path={`${at}/thickness/scale`}
-              {...THICKNESS_CORRECTION}
-              onCommit={(pct) =>
+              />
+            )}
+            <CheckRow
+              label="Measure a stack of cards (sleeves included)"
+              checked={measured !== null}
+              onChange={(on) =>
                 onChange({
                   ...c,
-                  thickness:
-                    pct === 0
-                      ? { mode: "preset" }
-                      : { mode: "preset", scale: Math.round((1 + pct / 100) * 10000) / 10000 },
+                  thickness: on ? { mode: "measured", cards: 50, stackMm: 20 } : { mode: "preset" },
                 })
               }
             />
-          )}
-          <CheckRow
-            label="Measure a stack of cards (sleeves included)"
-            checked={measured !== null}
-            onChange={(on) =>
-              onChange({
-                ...c,
-                thickness: on ? { mode: "measured", cards: 50, stackMm: 20 } : { mode: "preset" },
-              })
-            }
-          />
-          {measured ? (
-            <>
-              <NumField
-                id={`${c.id}-measuredCards`}
-                label="Cards in the measured stack"
-                value={measured.cards}
-                {...COUNT}
-                path={`${at}/thickness/cards`}
-                onCommit={(cards) => onChange({ ...c, thickness: { ...measured, cards } })}
-              />
-              <NumField
-                id={`${c.id}-measuredMm`}
-                label="Height of that stack"
-                unit="mm"
-                value={measured.stackMm}
-                path={`${at}/thickness/stackMm`}
-                {...LENGTH}
-                onCommit={(stackMm) => onChange({ ...c, thickness: { ...measured, stackMm } })}
-              />
-            </>
-          ) : null}
-        </ExactRow>
-        <WellRows component={c} index={index} onChange={onChange} />
-        <CommonRows component={c} index={index} onChange={onChange} />
-      </MoreOptions>
+            {measured ? (
+              <>
+                <NumField
+                  id={`${c.id}-measuredCards`}
+                  label="Cards in the measured stack"
+                  value={measured.cards}
+                  {...COUNT}
+                  path={`${at}/thickness/cards`}
+                  onCommit={(cards) => onChange({ ...c, thickness: { ...measured, cards } })}
+                />
+                <NumField
+                  id={`${c.id}-measuredMm`}
+                  label="Height of that stack"
+                  unit="mm"
+                  value={measured.stackMm}
+                  path={`${at}/thickness/stackMm`}
+                  {...LENGTH}
+                  onCommit={(stackMm) => onChange({ ...c, thickness: { ...measured, stackMm } })}
+                />
+              </>
+            ) : null}
+          </ExactRow>
+          <RoomRows component={c} index={index} onChange={onChange} />
+        </SettingsGroup>
+        <SettingsGroup id="copies" component={c} errorPaths={copiesPaths(index)}>
+          <CopiesRows component={c} index={index} onChange={onChange} />
+        </SettingsGroup>
+      </TraySettings>
     </>
   );
 }

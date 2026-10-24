@@ -627,3 +627,42 @@ describe("schema 0.3.3: one joint for the rim between layers", () => {
     expect(first.project.layout?.joint).toBeUndefined();
   });
 });
+
+describe("schema 0.3.4: the list order is kept with the project", () => {
+  const HISTORY = import.meta.glob<unknown>("../../test/fixtures/schema/*.json", {
+    eager: true,
+    import: "default",
+  });
+  const fixture = (version: string): Json =>
+    structuredClone(HISTORY[`../../test/fixtures/schema/${version}.json`]) as Json;
+
+  it("reads the 0.3.4 fixture (a listOrder) with no notices, keeps it and round-trips", () => {
+    const first = expectOk(parseProject(fixture("0.3.4")));
+    expect(first.notices).toEqual([]);
+    expect(first.project.listOrder).toEqual([
+      "custom01",
+      "minis001",
+      "tiles001",
+      "bulk0001",
+      "cards002",
+      "cards001",
+    ]);
+    const written = JSON.parse(serializeProject(first.project, first.foreign)) as Json;
+    expect(written.listOrder).toEqual(first.project.listOrder);
+    const again = expectOk(parseProject(written));
+    expect(again.notices).toEqual([]);
+    expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
+  });
+
+  it("does not write an empty listOrder, and ignores entries that are not text", () => {
+    const raw = fileAt("0.3.4");
+    raw.listOrder = [];
+    const empty = expectOk(parseProject(raw));
+    expect(empty.project.listOrder).toBeUndefined();
+    expect(JSON.parse(serializeProject(empty.project, empty.foreign))).not.toHaveProperty(
+      "listOrder",
+    );
+    raw.listOrder = ["a", 3, "b"];
+    expect(expectOk(parseProject(raw)).project.listOrder).toEqual(["a", "b"]);
+  });
+});

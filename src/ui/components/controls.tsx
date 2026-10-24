@@ -4,7 +4,7 @@
 // The words of every control are the boards' (Edit, EditKinds, MobileEdit) or ruled in DESIGN §7.
 import type { ComponentChildren, RefObject } from "preact";
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
-import { DisclosureRow, Field, Segmented, Stepper } from "../../kit";
+import { Field, Segmented, Stepper } from "../../kit";
 import type { SegmentedOption } from "../../kit";
 import { messagesOf } from "../FieldMessages";
 import { COUNT } from "../limits";
@@ -337,62 +337,49 @@ export function CountField({
 }
 
 /**
- * A row of Edit's list that opens its exact values in place, under it. An error at one of its
- * paths opens it, and it stays open once an error brought it up, so it does not shut on the person
- * mending the value.
+ * One setting under a row of Tray settings (Copies, Room around the pieces, Dividers…): its name
+ * over its control, once, with the way back under the control when the value differs from its
+ * default. It opens nothing: the row it sits in is the only thing to open (DESIGN §7). A setting
+ * that can't be used now stays on screen and says why.
  */
 export function ExactRow({
   title,
   hint,
-  meta,
-  errorPaths = [],
   revert,
   blockedReason,
   children,
 }: {
   title: string;
+  /** What the setting is for, muted, under its control. */
   hint?: string;
-  meta?: string;
-  /** Present: the row stays on screen but opens nothing, and this says why (DESIGN, Flow). */
+  /** Present: the setting stays on screen but has no control, and this says why (DESIGN, Flow). */
   blockedReason?: string;
-  /** Validation paths of the values inside; an error at one (or below it) opens the row. */
-  errorPaths?: readonly string[];
-  /** The value inside differs from its default: the dot on the row, and the way back at the foot of its values. */
+  /** The value inside differs from its default: the way back under the control. */
   revert?: Revert;
+  /** Validation paths of the values inside; kept for the callers, the row they sit in opens on an error. */
+  errorPaths?: readonly string[];
   children?: ComponentChildren;
 }) {
-  const [open, setOpen] = useOpenOnError(errorPaths);
   const panelId = useId();
   if (blockedReason !== undefined) {
     return (
-      <div class="ed-exact">
-        <DisclosureRow plain title={title} blockedReason={blockedReason} />
+      <div class="ed-setting ed-setting--blocked">
+        <span class="ed-label">{title}</span>
+        <span class="ed-line">{blockedReason}</span>
       </div>
     );
   }
   return (
-    <div class="ed-exact">
-      <DisclosureRow
-        plain
-        title={title}
-        hint={hint}
-        meta={meta}
-        dot={revert !== undefined}
-        open={open}
-        controls={panelId}
-        onClick={() => setOpen(!open)}
-      />
-      {open ? (
-        <div class="ed-panel" id={panelId}>
-          {children}
-          {revert !== undefined ? (
-            <BackLink
-              revert={revert}
-              name={title}
-              focus={() => document.getElementById(panelId)?.querySelector<HTMLElement>("input")}
-            />
-          ) : null}
-        </div>
+    <div class="ed-setting" id={panelId}>
+      <span class="ed-label">{title}</span>
+      {children}
+      {hint !== undefined ? <span class="ed-line">{hint}</span> : null}
+      {revert !== undefined ? (
+        <BackLink
+          revert={revert}
+          name={title}
+          focus={() => document.getElementById(panelId)?.querySelector<HTMLElement>("input")}
+        />
       ) : null}
     </div>
   );

@@ -181,9 +181,9 @@ describe("ComponentList", () => {
       );
       expect(rows[0]?.textContent).toBe("The box");
       expect(container.querySelectorAll(".k-row--compact")).toHaveLength(2);
-      // the sheet's rows are links into editors, not toggles
-      expect(screen.getByRole("button", { name: /^Main,/ }).hasAttribute("aria-pressed")).toBe(
-        false,
+      // the sheet's rows select their tray as the rail's do: a toggle, not pressed until selected
+      expect(screen.getByRole("button", { name: /^Main,/ }).getAttribute("aria-pressed")).toBe(
+        "false",
       );
     });
 
@@ -452,11 +452,37 @@ describe("ComponentList, groups", () => {
     render(
       <ComponentList components={items} groups={[kit]} onOpen={onOpen} onEditGroup={onEditGroup} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /^Hero,/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Hero" }));
     expect(onOpen).toHaveBeenCalledWith("h");
-    fireEvent.click(screen.getByRole("button", { name: "Player kit, 4 copies" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Player kit" }));
     expect(onEditGroup).toHaveBeenCalledWith("g");
     expect(onOpen).toHaveBeenCalledTimes(1);
+    // a press on a member's row (no onSelect given) falls back to opening it, as the double click does
+    fireEvent.click(screen.getByRole("button", { name: /^Hero,/ }));
+    expect(onOpen).toHaveBeenCalledTimes(2);
+    fireEvent.doubleClick(screen.getByRole("button", { name: /^Hero,/ }));
+    expect(onOpen).toHaveBeenCalledTimes(3);
+  });
+
+  it("selects on a press and opens on the pencil or a double press, when it can select", () => {
+    const onOpen = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <ComponentList
+        components={items}
+        groups={[kit]}
+        onOpen={onOpen}
+        onSelect={onSelect}
+        onEditGroup={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Hero,/ }));
+    expect(onSelect).toHaveBeenCalledWith("h");
+    expect(onOpen).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Hero" }));
+    expect(onOpen).toHaveBeenCalledWith("h");
+    fireEvent.doubleClick(screen.getByRole("button", { name: /^Hero,/ }));
+    expect(onOpen).toHaveBeenCalledTimes(2);
   });
 
   it("presses the header when a tray of the group is selected, not the members", () => {

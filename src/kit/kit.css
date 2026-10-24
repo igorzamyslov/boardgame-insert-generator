@@ -588,6 +588,29 @@
   border-color: var(--shade-line, var(--kind-line));
 }
 
+/* The pencil beside a row: 40 px target, muted, the ink on hover and focus. */
+.k-row__edit {
+  display: grid;
+  flex: none;
+  place-items: center;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-field);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.k-row__edit:hover,
+.k-row__edit:focus-visible {
+  background: var(--row);
+  color: var(--ink);
+}
+
 .k-row__text {
   display: flex;
   flex: 1 1 0;

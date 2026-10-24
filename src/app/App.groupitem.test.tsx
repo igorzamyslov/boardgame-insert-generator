@@ -25,10 +25,11 @@ afterEach(() => {
 const kit = (): Project => loadSeed("harbour-kings-kit").project;
 const rail = (): HTMLElement => screen.getByRole("complementary", { name: "What's inside" });
 const openItem = (name: RegExp): void => {
-  fireEvent.click(within(rail()).getByRole("button", { name }));
+  const who = name.source.replace(/^\^/, "").replace(/, $/, "");
+  fireEvent.click(within(rail()).getByRole("button", { name: `Edit ${who}` }));
 };
 const openMore = (): void => {
-  fireEvent.click(within(rail()).getByRole("button", { name: /^More options/ }));
+  fireEvent.click(within(rail()).getByRole("button", { name: /^Copies and group/ }));
 };
 const row = (name: RegExp | string) => within(rail()).getByRole("button", { name });
 const slot = (): string => document.querySelector(".ed-slot")?.textContent ?? "";
@@ -42,12 +43,11 @@ describe("Copies on an item in no group", () => {
     const { store } = renderApp({ project: kit() });
     openItem(/^Market deck, /);
     openMore();
-    fireEvent.click(row(/^Copies/));
     fireEvent.click(within(stepper()).getByRole("button", { name: "More" }));
     const market = (): number | undefined =>
       store.state.project.value.components.find((c) => c.name === "Market deck")?.copies;
     expect(market()).toBe(2);
-    expect(row(/^Copies/).querySelector(".k-drow__dot")).not.toBeNull();
+    expect(row(/^Copies and group/).textContent).toContain("1 changed");
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     expect(market()).toBeUndefined();
   });
@@ -64,7 +64,6 @@ describe("Copies on an item in no group", () => {
     });
     openItem(/^Market deck, /);
     openMore();
-    fireEvent.click(row(/^Copies/));
     fireEvent.click(within(stepper()).getByRole("button", { name: "Fewer" }));
     expect(store.state.project.value.locks).toHaveLength(0);
     expect(slot()).toContain("1 pin removed.");
@@ -76,7 +75,6 @@ describe("Move to group…", () => {
     const { store } = renderApp({ project: kit() });
     openItem(/^Market deck, /);
     openMore();
-    fireEvent.click(row(/^Group/));
     fireEvent.click(row(/^Move to group…/));
     const panel = within(rail()).getByRole("group", { name: "Move to group…" });
     expect(
@@ -90,8 +88,8 @@ describe("Move to group…", () => {
     expect(slot()).toContain("Market deck now has the group's 4 copies.");
     // the editor is the member's now: In <group> under the name, the Group row on the group's name
     expect(within(rail()).getByRole("button", { name: "In Player kit" })).toBeTruthy();
-    expect(row(/^Group/).textContent).toContain("Player kit");
-    expect(within(rail()).queryByRole("button", { name: /^Copies/ })).toBeNull();
+    expect(row(/^Copies and group/).textContent).toContain("in Player kit");
+    expect(within(rail()).queryByRole("textbox", { name: "Copies" })).toBeNull();
     expect(within(rail()).queryByRole("group", { name: "How often you reach for it" })).toBeNull();
     expect(
       within(rail()).getByText("Copies and how often you reach for it are set on Player kit."),
@@ -113,7 +111,6 @@ describe("Move to group…", () => {
     });
     openItem(/^Market deck, /);
     openMore();
-    fireEvent.click(row(/^Group/));
     fireEvent.click(row(/^Move to group…/));
     fireEvent.click(row(/^Player kit/));
     expect(slot()).not.toMatch(/copies/);
@@ -130,7 +127,6 @@ describe("Move to group…", () => {
     });
     openItem(/^Market deck, /);
     openMore();
-    fireEvent.click(row(/^Group/));
     fireEvent.click(row(/^Move to group…/));
     fireEvent.click(row("New group"));
     const p = store.state.project.value;
@@ -159,7 +155,6 @@ describe("a member's editor", () => {
     renderApp({ project: kit() });
     openItem(/^Hero, /);
     openMore();
-    fireEvent.click(row(/^Group/));
     fireEvent.click(row("Edit Player kit"));
     expect(within(rail()).getByRole("region", { name: "Player kit" })).toBeTruthy();
   });
@@ -168,14 +163,13 @@ describe("a member's editor", () => {
     const { store } = renderApp({ project: kit() });
     openItem(/^Hero, /);
     openMore();
-    fireEvent.click(row(/^Group/));
     fireEvent.click(row("Take out of group"));
     const p = store.state.project.value;
     expect(p.groups?.[0]?.memberIds).not.toContain(idOf(p, "Hero"));
     expect(p.components.find((c) => c.name === "Hero")?.copies).toBe(4);
     expect(slot()).toContain("Hero is out of Player kit.");
-    expect(row(/^Group/).textContent).toContain("None");
-    expect(within(rail()).getByRole("button", { name: /^Copies/ })).toBeTruthy();
+    expect(row(/^Copies and group/).textContent).toContain("no group");
+    expect(within(rail()).getByRole("textbox", { name: "Copies" })).toBeTruthy();
     expect(within(rail()).queryByRole("button", { name: /^In Player kit/ })).toBeNull();
     expect(document.activeElement).toBe(row(/^Move to group…/));
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
@@ -184,7 +178,7 @@ describe("a member's editor", () => {
 
   it("opened from the group's editor, its back link reads the group's name", () => {
     renderApp({ project: kit() });
-    fireEvent.click(within(rail()).getByRole("button", { name: "Player kit, 4 copies" }));
+    fireEvent.click(within(rail()).getByRole("button", { name: "Edit Player kit" }));
     fireEvent.click(within(rail()).getByRole("button", { name: "Hero" }));
     expect(within(rail()).getByRole("button", { name: "Player kit" })).toBeTruthy();
   });

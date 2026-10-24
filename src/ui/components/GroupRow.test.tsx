@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CustomEditor } from "./CustomEditor";
 import { ItemGroupingContext } from "./GroupRow";
 import type { ItemGrouping } from "./GroupRow";
-import { of, openMore } from "./test-editors";
+import { of, openRows } from "./test-editors";
 
 afterEach(() => {
   cleanup();
@@ -36,7 +36,7 @@ function editor(g: ItemGrouping, onChange = vi.fn()) {
       <CustomEditor component={{ ...of("custom"), name: "Hero" }} index={0} onChange={onChange} />
     </ItemGroupingContext.Provider>,
   );
-  openMore();
+  openRows();
   return { view, onChange };
 }
 
@@ -49,15 +49,16 @@ const later = (): Promise<void> =>
 describe("an item that is in no group", () => {
   it("has the Group row, closed on 'None', and no free-text Group box", () => {
     editor(grouping());
-    expect(row(/^Group/).textContent).toContain("None");
-    expect(row(/^Group/).getAttribute("aria-expanded")).toBe("false");
+    // the Group row is inside "Copies and group": its line says where the item is
+    expect(row(/^Copies and group/).textContent).toContain("no group");
+    expect(row(/^Copies and group/).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: "Move to group…" })).toBeTruthy();
     expect(screen.queryByLabelText(/^Group/)).toBeNull();
   });
 
   it("has Copies (a stepper from 1 to 10) with 'Each copy is its own tray.', and neither Per player nor Counts are per player", () => {
     const g = grouping();
     editor(g);
-    fireEvent.click(row(/^Copies/));
     const stepper = screen.getByRole("textbox", { name: "Copies" }) as HTMLInputElement;
     expect(stepper.value).toBe("1");
     expect(screen.getByText("Each copy is its own tray.")).toBeTruthy();
@@ -75,8 +76,7 @@ describe("an item that is in no group", () => {
         <CustomEditor component={{ ...of("custom"), copies: 10 }} index={0} onChange={vi.fn()} />
       </ItemGroupingContext.Provider>,
     );
-    openMore();
-    fireEvent.click(row(/^Copies/));
+    openRows();
     const steps = within(
       screen.getByRole("textbox", { name: "Copies" }).closest(".k-stepper-box") as HTMLElement,
     );
@@ -86,7 +86,6 @@ describe("an item that is in no group", () => {
   it("opens 'Move to group…' on each group by name with ×N, then 'New group'", () => {
     const g = grouping();
     editor(g);
-    fireEvent.click(row(/^Group/));
     fireEvent.click(row(/^Move to group…/));
     const panel = screen.getByRole("group", { name: "Move to group…" });
     expect(
@@ -102,7 +101,6 @@ describe("an item that is in no group", () => {
   it("'New group' makes a group of this item", () => {
     const g = grouping({ groups: [] });
     editor(g);
-    fireEvent.click(row(/^Group/));
     fireEvent.click(row(/^Move to group…/));
     fireEvent.click(row("New group"));
     expect(g.onNewGroup).toHaveBeenCalledOnce();
@@ -111,7 +109,6 @@ describe("an item that is in no group", () => {
 
   it("closes the panel on Escape, the focus back on 'Move to group…'", () => {
     editor(grouping());
-    fireEvent.click(row(/^Group/));
     const button = row(/^Move to group…/);
     fireEvent.click(button);
     fireEvent.keyDown(screen.getByRole("group", { name: "Move to group…" }), { key: "Escape" });
@@ -132,8 +129,7 @@ describe("an item that is in a group", () => {
   it("closes the Group row on the group's name; opened, it says 'In Player kit' with Edit and Take out of group", () => {
     const g = inKit();
     editor(g);
-    expect(row(/^Group/).textContent).toContain("Player kit");
-    fireEvent.click(row(/^Group/));
+    expect(row(/^Copies and group/).textContent).toContain("in Player kit");
     expect(screen.getByText("In Player kit")).toBeTruthy();
     fireEvent.click(row("Edit Player kit"));
     expect(g.onEditGroup).toHaveBeenCalledWith("g1");
@@ -144,7 +140,8 @@ describe("an item that is in a group", () => {
 
   it("draws neither Copies nor 'How often you reach for it': one line says where they are set", () => {
     editor(inKit());
-    expect(screen.queryByRole("button", { name: /^Copies/ })).toBeNull();
+    // the row "Copies and group" stays, with the group's copies in its line
+    expect(row(/^Copies and group/).textContent).toContain("4 copies");
     expect(screen.queryByRole("textbox", { name: "Copies" })).toBeNull();
     expect(screen.queryByRole("group", { name: "How often you reach for it" })).toBeNull();
     expect(
@@ -155,12 +152,11 @@ describe("an item that is in a group", () => {
   it("keeps the line where Copies stood: between the shape chips and the Group row", () => {
     editor(inKit());
     const line = screen.getByText("Copies and how often you reach for it are set on Player kit.");
-    const group = row(/^Group/);
+    const group = screen.getByText("In Player kit");
     expect(line.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // and Room around the pieces is after the Group row, as it is for an item in no group
+    // and the row Room is before them: Copies and group is the last row, as for an item in no group
     expect(
-      group.compareDocumentPosition(row(/^Room around the pieces/)) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      row(/^Room/).compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
@@ -174,13 +170,13 @@ describe("an item that is in a group", () => {
         />
       </ItemGroupingContext.Provider>,
     );
-    expect(row(/^More options/).textContent).not.toMatch(/changed/);
+    expect(screen.queryByRole("button", { name: /^Reach/ })).toBeNull();
+    expect(row(/^Copies and group/).textContent).not.toMatch(/changed/);
   });
 
   it("puts the focus on the first button of the row after a move in, a take out or a new group", async () => {
     const g = grouping();
     const view = editor(g).view;
-    fireEvent.click(row(/^Group/));
     fireEvent.click(row(/^Move to group…/));
     fireEvent.click(row(/^Player kit/));
     // the app answers: the item is in the group now
@@ -204,7 +200,6 @@ describe("an item that is in a group", () => {
   it("does not take the focus when the group changes by itself (an Undo)", async () => {
     const g = grouping();
     const view = editor(g).view;
-    fireEvent.click(row(/^Group/));
     const before = document.activeElement;
     view.rerender(
       <ItemGroupingContext.Provider value={{ ...g, group: KIT }}>
@@ -219,7 +214,6 @@ describe("an item that is in a group", () => {
 describe("the item's room row", () => {
   it("is 'Room around the pieces', and 'Extra room' is the group's alone", () => {
     editor(grouping());
-    fireEvent.click(row(/^Room around the pieces/));
     expect(screen.getByLabelText(/^Room around the pieces/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Extra room/);
   });

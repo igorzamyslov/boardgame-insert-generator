@@ -5,6 +5,7 @@ import {
   DEFAULT_GROUP_NAME,
   groupById,
   groupOfItem,
+  listOrderWith,
   nextGroupName,
   requirementKeyOf,
 } from "../model/groups";
@@ -551,6 +552,23 @@ export function takeOutOfGroup(p: Project, itemId: string): EditResult {
   };
   const gone = from.memberIds.length === 1 ? new Set([from.id]) : new Set<string>();
   return withPrunedLocks(out, gone, [`${componentName(item)} is out of ${groupLabel(from)}.`]);
+}
+
+/**
+ * Puts an item at a place in the rail's list: among the other top-level entries (items and group
+ * cards), `index` counting those. An item in a group leaves it first (as Take out does, with its
+ * words). The list's order is a person's: it moves nothing in the plan and is no layout input.
+ */
+export function placeInList(p: Project, itemId: string, index: number): EditResult {
+  if (!p.components.some((c) => c.id === itemId)) {
+    return { project: p, notes: [] };
+  }
+  const out =
+    groupOfItem(p, itemId) === undefined ? { project: p, notes: [] } : takeOutOfGroup(p, itemId);
+  return {
+    project: { ...out.project, listOrder: listOrderWith(out.project, itemId, index) },
+    notes: out.notes,
+  };
 }
 
 /** Moves a member to a place in its group's order; the place is clamped. Locks do not move. */

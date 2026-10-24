@@ -6,6 +6,8 @@ import type { Notice } from "../../model/types";
 import { LENGTH } from "../limits";
 import { ValidationContext } from "../validation";
 import { CountField, ExactRow, NumField, TextBox, TitleInput } from "./controls";
+import { of } from "./test-editors";
+import { SettingsGroup } from "./TraySettings";
 
 afterEach(cleanup);
 
@@ -93,53 +95,102 @@ describe("CountField", () => {
 });
 
 describe("ExactRow", () => {
-  it("opens in place on a press, with its values under it", () => {
+  it("is no disclosure: its name, its control, its hint and nothing to press to see them", () => {
     render(
-      <ExactRow title="Sleeve size">
+      <ExactRow title="Sleeve size" hint="Under the card.">
         <p>Inside</p>
       </ExactRow>,
     );
-    const row = screen.getByRole("button", { name: /Sleeve size/ });
+    expect(screen.getByText("Sleeve size")).toBeTruthy();
+    expect(screen.getByText("Inside")).toBeTruthy();
+    expect(screen.getByText("Under the card.")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("shows the way back under the control only while the value differs, and it puts it back", () => {
+    const onBack = vi.fn();
+    const view = render(
+      <ExactRow title="Copies" revert={{ to: "1", onBack }}>
+        <p>Inside</p>
+      </ExactRow>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Back to 1 for Copies" }));
+    expect(onBack).toHaveBeenCalledOnce();
+    view.rerender(
+      <ExactRow title="Copies">
+        <p>Inside</p>
+      </ExactRow>,
+    );
+    expect(screen.queryByRole("button", { name: /^Back to/ })).toBeNull();
+  });
+
+  it("blocked: its name and the reason, no control and no button", () => {
+    render(
+      <ExactRow title="Spacer plates" blockedReason="Spacer plates need room for more cards.">
+        <p>Inside</p>
+      </ExactRow>,
+    );
+    expect(screen.getByText("Spacer plates")).toBeTruthy();
+    expect(screen.getByText("Spacer plates need room for more cards.")).toBeTruthy();
+    expect(screen.queryByText("Inside")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+});
+
+describe("SettingsGroup", () => {
+  const c = of("custom");
+
+  it("opens in place on a press, with its values under it", () => {
+    render(
+      <SettingsGroup id="shape" component={c}>
+        <p>Inside</p>
+      </SettingsGroup>,
+    );
+    const row = screen.getByRole("button", { name: /^Shape/ });
     expect(row.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByText("Inside")).toBeNull();
     fireEvent.click(row);
     expect(row.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText("Inside")).toBeTruthy();
+    fireEvent.click(row);
+    expect(screen.queryByText("Inside")).toBeNull();
   });
 
   it("opens by itself for an error at one of its paths, and stays open when it is mended", () => {
-    const view = render(
-      <ExactRow title="Copies" errorPaths={["/components/0/copies"]}>
+    const group = (
+      <SettingsGroup id="copies" component={c} errorPaths={["/components/0/copies"]}>
         <p>Inside</p>
-      </ExactRow>,
+      </SettingsGroup>
     );
-    const row = () => screen.getByRole("button", { name: /Copies/ });
+    const view = render(group);
+    const row = () => screen.getByRole("button", { name: /^Copies and group/ });
     expect(row().getAttribute("aria-expanded")).toBe("false");
     view.rerender(
       <ValidationContext.Provider value={[error("/components/0/copies", "Bad.")]}>
-        <ExactRow title="Copies" errorPaths={["/components/0/copies"]}>
-          <p>Inside</p>
-        </ExactRow>
+        {group}
       </ValidationContext.Provider>,
     );
     expect(row().getAttribute("aria-expanded")).toBe("true");
-    view.rerender(
-      <ValidationContext.Provider value={[]}>
-        <ExactRow title="Copies" errorPaths={["/components/0/copies"]}>
-          <p>Inside</p>
-        </ExactRow>
-      </ValidationContext.Provider>,
-    );
+    view.rerender(<ValidationContext.Provider value={[]}>{group}</ValidationContext.Provider>);
     expect(row().getAttribute("aria-expanded")).toBe("true");
     // another component's error opens nothing
     cleanup();
     render(
       <ValidationContext.Provider value={[error("/components/3/copies", "Bad.")]}>
-        <ExactRow title="Copies" errorPaths={["/components/0/copies"]}>
-          <p>Inside</p>
-        </ExactRow>
+        {group}
       </ValidationContext.Provider>,
     );
     expect(row().getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("says what it holds in a line, and how many options inside differ from their default", () => {
+    render(
+      <SettingsGroup id="reach" component={{ ...c, access: "setup" }}>
+        <p>Inside</p>
+      </SettingsGroup>,
+    );
+    const row = screen.getByRole("button", { name: /^Reach/ });
+    expect(row.textContent).toContain("Only at setup");
+    expect(row.textContent).toContain("1 changed");
   });
 });

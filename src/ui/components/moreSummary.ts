@@ -12,8 +12,9 @@ import {
   COMPONENT_DEFAULTS,
 } from "../../model/defaults";
 import { FLOAT_EPSILON, effective } from "../../model/settings";
-import { roomOf, roomWords } from "../../model/room";
+import { roomKindOf, roomOf, roomWords } from "../../model/room";
 import type { Component, Settings } from "../../model/types";
+import { mm } from "../identity";
 
 /**
  * One option under More options, as a person sees it: a choice, a chip or a row. A row that shows
@@ -173,28 +174,107 @@ export function optionsChanged(c: Component, settings: Settings, grouped = false
   return changedOptions(c, settings, grouped).size;
 }
 
+/** The four rows of the editor's tray settings, in the order they are drawn. */
+export type SettingsGroupId = "reach" | "shape" | "room" | "copies";
+
+/** What each row is called on screen. */
+export const SETTINGS_GROUP_TITLES: Readonly<Record<SettingsGroupId, string>> = {
+  reach: "Reach",
+  shape: "Shape",
+  room: "Room",
+  copies: "Copies and group",
+};
+
+const GROUP_OF: Readonly<Record<OptionId, SettingsGroupId>> = {
+  access: "reach",
+  storage: "shape",
+  flatDecks: "shape",
+  fingerCuts: "shape",
+  curvedFloor: "shape",
+  cornerReliefs: "shape",
+  dividers: "shape",
+  separators: "shape",
+  room: "room",
+  thickness: "room",
+  clearance: "room",
+  packing: "room",
+  copies: "copies",
+};
+
+/** How many options of one row differ from their default: the rows inside it that show the dot. */
+export function changedIn(
+  id: SettingsGroupId,
+  c: Component,
+  settings: Settings,
+  grouped = false,
+): number {
+  return [...changedOptions(c, settings, grouped)].filter((o) => GROUP_OF[o] === id).length;
+}
+
+const ACCESS_WORDS: Readonly<Record<Component["access"], string>> = {
+  often: "Often",
+  sometimes: "Sometimes",
+  setup: "Only at setup",
+};
+
 /**
- * What is inside More options, in a few words (Edit's "Finger cuts on, stands upright · 2 changed"):
- * the finger cuts, how a stack of cards stands or whether a bin has a curved floor, whether it
- * leaves room to grow, and how many options differ from their default.
+ * What a row holds now, in a few words, under its title ("Finger cuts, corner holes"). `group` is
+ * the group the item is in: its Copies are the group's.
  */
-export function moreSummary(c: Component, settings: Settings, grouped = false): string {
-  const parts = [`Finger cuts ${fingerCutsOn(c) ? "on" : "off"}`];
-  if (c.kind === "cards") {
-    parts.push(
-      c.storage === "flat"
-        ? "lies flat"
-        : c.storage === "auto"
-          ? "stands either way"
-          : "stands upright",
-    );
-  } else if (c.kind !== "tiles") {
-    parts.push(`curved floor ${curvedFloorOn(c) ? "on" : "off"}`);
+export function groupSummary(
+  id: SettingsGroupId,
+  c: Component,
+  settings: Settings,
+  group?: { name: string; copies: number },
+): string {
+  switch (id) {
+    case "reach":
+      return ACCESS_WORDS[c.access];
+    case "shape": {
+      const parts: string[] = [];
+      if (fingerCutsOn(c)) {
+        parts.push("finger cuts");
+      }
+      if (curvedFloorShown(c)) {
+        parts.push("curved floor");
+      }
+      if (cornerReliefsOn(c)) {
+        parts.push("corner holes");
+      }
+      if (wellMayGrow(c) && dividersOf(c) > 0) {
+        parts.push(`${dividersOf(c)} ${dividersOf(c) === 1 ? "divider" : "dividers"}`);
+      }
+      if (c.kind === "cards") {
+        parts.push(
+          c.storage === "flat"
+            ? "lies flat"
+            : c.storage === "auto"
+              ? "stands either way"
+              : "stands upright",
+        );
+      }
+      const text = parts.length > 0 ? parts.join(", ") : "plain tray";
+      return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+    case "room": {
+      const parts: string[] = [];
+      const room = roomOf(c);
+      const kind = roomKindOf(c);
+      if (kind !== null && room.mode === "max") {
+        parts.push(`${roomWords(kind).toLowerCase()}, as much as fits`);
+      } else if (kind !== null && room.mode === "some") {
+        parts.push(
+          kind === "pieces" ? `${room.amount}% more pieces` : `${room.amount} more ${kind}`,
+        );
+      }
+      parts.push(`${mm(c.clearance ?? insertClearance(c, settings))} mm around`);
+      const text = parts.join(" · ");
+      return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+    case "copies": {
+      const n = group?.copies ?? c.copies ?? 1;
+      const copies = `${n} ${n === 1 ? "copy" : "copies"}`;
+      return group === undefined ? `${copies} · no group` : `${copies} · in ${group.name}`;
+    }
   }
-  // only a room set says so: None is the default, so it is no news
-  if (roomOf(c).mode !== "none") {
-    parts.push("room to grow");
-  }
-  const changed = optionsChanged(c, settings, grouped);
-  return `${parts.join(", ")}${changed > 0 ? ` · ${changed} changed` : ""}`;
 }

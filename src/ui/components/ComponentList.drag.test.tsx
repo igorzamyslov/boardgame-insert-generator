@@ -64,6 +64,11 @@ function drawList(container: Element) {
   at(container.querySelector('[data-member-id="h"]'), 196, 240);
   at(cards[1] ?? null, 248, 340);
   at(container.querySelector(".gc-empty"), 290, 336);
+  // the list's own entries: the items' rows and the group cards, as the drop reads their places
+  at(container.querySelector('[data-entry="m"]'), 0, 50);
+  at(container.querySelector('[data-entry="g"]'), 54, 244);
+  at(container.querySelector('[data-entry="e"]'), 248, 340);
+  at(container.querySelector('[data-entry="t"]'), 344, 394);
   return list as HTMLElement;
 }
 
@@ -178,7 +183,8 @@ describe("a drag", () => {
     // out has no line and no group is washed
     expect(container.querySelector("[data-drop]")).toBeNull();
     up(100, 500);
-    expect(onDrop).toHaveBeenCalledWith("r", { out: true });
+    // after the last entry of the list: out of the group, at the end of the list
+    expect(onDrop).toHaveBeenCalledWith("r", { out: true, index: 4 });
   });
 
   it("orders a member within its group (no wash on a group it is already in)", () => {
@@ -198,12 +204,20 @@ describe("a drag", () => {
     expect(onDrop).not.toHaveBeenCalled();
   });
 
-  it("does nothing for an ungrouped item dropped among ungrouped rows", () => {
+  it("does nothing for an ungrouped item dropped on the place it has", () => {
+    const { container, onDrop } = setup();
+    down(grip(container, "m"), 20, 25);
+    move(100, 30);
+    up(100, 30);
+    expect(onDrop).not.toHaveBeenCalled();
+  });
+
+  it("places an ungrouped item at another place in the list: among the other entries, by index", () => {
     const { container, onDrop } = setup();
     down(grip(container, "m"), 20, 25);
     move(100, 370);
     up(100, 370);
-    expect(onDrop).not.toHaveBeenCalled();
+    expect(onDrop).toHaveBeenCalledWith("m", { out: true, index: 3 });
   });
 
   it("cancels a drop outside the list", () => {

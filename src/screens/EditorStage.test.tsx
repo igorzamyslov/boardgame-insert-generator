@@ -18,7 +18,7 @@ afterEach(() => {
 
 const editMarket = (): void => {
   const rail = screen.getByRole("complementary", { name: "What's inside" });
-  fireEvent.click(within(rail).getByRole("button", { name: /^Market deck, / }));
+  fireEvent.click(within(rail).getByRole("button", { name: "Edit Market deck" }));
 };
 const stage = (): HTMLElement => document.querySelector('[data-region="stage"]') as HTMLElement;
 const tile = (key: string): HTMLElement =>
@@ -60,7 +60,7 @@ describe("EditorStage", () => {
     renderApp({ project: loadSeed("harbour-kings").project });
     // the seed's Heroes are on the bottom layer, the cards above: open one from the top layer
     const rail = screen.getByRole("complementary", { name: "What's inside" });
-    fireEvent.click(within(rail).getByRole("button", { name: /^Event cards, / }));
+    fireEvent.click(within(rail).getByRole("button", { name: "Edit Event cards" }));
     const lifted = document.querySelector(".plan-tile.is-lifted");
     expect(lifted).not.toBeNull();
   });
@@ -133,7 +133,7 @@ describe("EditorStage", () => {
         }),
       );
       fireEvent.click(screen.getByRole("button", { name: "Done" }));
-      open(/^Event cards, /);
+      open(/^Edit Event cards$/);
       const event = (project.layout?.trays ?? []).find((t) => t.key.startsWith("event"));
       const expected = event?.level === 0 ? "Layer 1" : "Layer 2";
       expect(pressed()).toEqual([expected]);

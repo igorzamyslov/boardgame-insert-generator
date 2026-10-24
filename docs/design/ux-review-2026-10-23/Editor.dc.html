@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Item editor options</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="review.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+</helmet>
+<div class="b">
+<div class="hd">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div class="kick">Board 5 · Editing an item (cards)</div>
+<h1>The editor is one long column with a locked door in the middle</h1>
+</div>
+<ul class="prob">
+<li>Count, name, "Another deck", card size (three chip rows), sleeves, then "More options". At 900 px high the user sees about half of it.</li>
+<li>"More options" holds eight groups (room, how often, stand, tray shape, thickness, spacers, dividers, copies, group, room around pieces): about 1,500 px more, with no table of contents.</li>
+<li>Card size is six chips plus a line for the size; a select with sizes next to names would save two rows.</li>
+<li>The plan stays visible beside it (good); the status line is replaced by a sentence, so you lose "does it still fit".</li>
+</ul>
+</div>
+<div class="opts">
+<div class="opt cur">
+<div class="ot"><span class="ol">1</span>Today<span class="sub">one scroll, 1,500 px</span></div>
+<div class="mock" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+<div class="fx"><span class="ic b1"></span><div><div class="xs">Cards</div><b style="font-size:18px">Market deck</b></div></div>
+<div><b style="font-size:13px">How many cards?</b><div class="fx" style="margin-top:6px"><span class="pill">−</span><span class="field" style="width:70px;text-align:center">80</span><span class="pill">+</span></div></div>
+<div><b style="font-size:13px">Card size</b><div class="fx" style="margin-top:6px;flex-wrap:wrap"><span class="pill dark">Standard</span><span class="pill">Standard American</span><span class="pill">Euro</span><span class="pill">Mini Euro</span><span class="pill">Tarot</span><span class="pill">My own size</span></div></div>
+<div><b style="font-size:13px">Sleeves</b><div style="margin-top:6px"><span class="seg"><span>None</span><span class="on">Standard</span><span>Premium</span><span>Custom</span></span></div></div>
+<div style="border-top:1px solid #e3e0d9;padding-top:8px"><b style="font-size:13px">More options</b> <span class="xs">Finger cuts on · 2 changed ⌄</span></div>
+<div class="sm" style="opacity:.6">Room for expansions · How often · Cards stand · Tray shape · Card thickness · Spacer plates · Dividers · Copies · Group · Room around pieces ...</div>
+</div>
+<div class="why">Reference.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">2</span>Three tabs</div>
+<div class="mock" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+<div class="fx"><span class="ic b1"></span><div style="flex:1"><div class="xs">Cards</div><b style="font-size:18px">Market deck</b></div><span class="pill dark">80 cards</span></div>
+<div class="seg" style="align-self:stretch;justify-content:space-between"><span class="on">What it is</span><span>How it sits</span><span>Tray</span></div>
+<div><b style="font-size:13px">How many cards?</b><div class="fx" style="margin-top:6px"><span class="pill">−</span><span class="field" style="width:70px;text-align:center">80</span><span class="pill">+</span></div></div>
+<div><b style="font-size:13px">Card size</b><div class="field" style="margin-top:6px;display:flex;justify-content:space-between">Standard · 63.5 × 88 mm <span>⌄</span></div></div>
+<div><b style="font-size:13px">Sleeves</b><div style="margin-top:6px"><span class="seg"><span>None</span><span class="on">Standard</span><span>Premium</span><span>Custom</span></span></div></div>
+<div class="sm" style="border-top:1px solid #e3e0d9;padding-top:8px"><b style="color:#1c1d1a">How it sits:</b> expansions room, how often you reach, cards stand.<br><b style="color:#1c1d1a">Tray:</b> finger cuts, corner holes, dividers, spacers, copies, group.</div>
+<div class="ab fx" style="left:14px;right:14px;bottom:12px"><span class="sm" style="color:#a6411f;font-weight:700">Remove…</span><span class="pill dark" style="margin-left:auto">Done</span></div>
+</div>
+<div class="why"><b>Everything fits in one screen per tab.</b> Tabs name the question a user is asking. Card size becomes a select that shows the dimensions.</div>
+<div class="cost">Cost: setting scattered by task, not by object; rows with a changed value get a dot on their tab.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">3</span>Basics, then a summary of the rest</div>
+<div class="mock" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+<div class="fx"><span class="ic b1"></span><div style="flex:1"><div class="xs">Cards</div><b style="font-size:18px">Market deck</b></div></div>
+<div class="fx" style="gap:12px"><div style="flex:1"><b style="font-size:13px">Cards</b><div class="fx" style="margin-top:6px"><span class="pill">−</span><span class="field" style="width:56px;text-align:center">80</span><span class="pill">+</span></div></div><div style="flex:1.4"><b style="font-size:13px">Size</b><div class="field" style="margin-top:6px">Standard ⌄</div></div></div>
+<div><b style="font-size:13px">Sleeves</b><div style="margin-top:6px"><span class="seg"><span>None</span><span class="on">Standard</span><span>Premium</span><span>Custom</span></span></div></div>
+<div class="sm" style="margin-top:4px"><b style="color:#1c1d1a;font-size:13px">Tray settings</b></div>
+<div style="background:#fff;border:1px solid #e3e0d9;border-radius:10px">
+<div class="row" style="border-bottom:1px solid #e3e0d9"><div style="flex:1"><b>Reach</b><div class="xs">Sometimes → Often</div></div><span class="xs" style="color:#2d4e96;font-weight:700">changed</span><span>›</span></div>
+<div class="row" style="border-bottom:1px solid #e3e0d9"><div style="flex:1"><b>Shape</b><div class="xs">Finger cuts, corner holes</div></div><span>›</span></div>
+<div class="row" style="border-bottom:1px solid #e3e0d9"><div style="flex:1"><b>Room</b><div class="xs">Expansions auto · pieces 7 mm</div></div><span>›</span></div>
+<div class="row"><div style="flex:1"><b>Copies and group</b><div class="xs">1 copy · no group</div></div><span>›</span></div>
+</div>
+<div class="ab fx" style="left:14px;right:14px;bottom:12px"><span class="sm" style="color:#a6411f;font-weight:700">Remove…</span><span class="pill dark" style="margin-left:auto">Done</span></div>
+</div>
+<div class="why"><b>Today's first screen stays; the second becomes a menu.</b> Each row summarises its current value, opens in place, and flags what you changed. This is the settings list from Board 7 reused.</div>
+<div class="cost">Cost: lowest rewrite (the groups already exist as disclosure rows); reuses one pattern across the app.</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1560,"height":940}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

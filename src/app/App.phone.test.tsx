@@ -191,7 +191,7 @@ describe("the phone layout", () => {
     phone();
     renderApp({ project: project() });
     fireEvent.click(grip());
-    fireEvent.click(rowIn(/^Market/));
+    fireEvent.click(rowIn(/^Edit Market$/));
     const h1s = screen.getAllByRole("heading", { level: 1 });
     expect(h1s).toHaveLength(1);
     expect(sheet().contains(h1s[0] as HTMLElement)).toBe(true);
@@ -216,7 +216,7 @@ describe("the phone layout", () => {
   it("opens an editor from a row of the folded sheet, and unfolds the sheet for it", async () => {
     phone();
     renderApp({ project: project() });
-    fireEvent.click(rowIn(/^Market,/));
+    fireEvent.click(rowIn(/^Edit Market$/));
     expect(handle().getAttribute("aria-expanded")).toBe("true");
     expect(sheet().getAttribute("data-full")).toBe("true");
     expect(await within(sheet()).findByRole("heading", { level: 1, name: "Market" })).toBeTruthy();
@@ -317,7 +317,7 @@ describe("the phone layout", () => {
   it("folds an editor back to the list too", async () => {
     phone();
     renderApp({ project: project() });
-    fireEvent.click(rowIn(/^Market,/));
+    fireEvent.click(rowIn(/^Edit Market$/));
     await within(sheet()).findByRole("heading", { level: 1, name: "Market" });
     fireEvent.click(handle());
     expect(sheet().getAttribute("data-editing")).toBeNull();

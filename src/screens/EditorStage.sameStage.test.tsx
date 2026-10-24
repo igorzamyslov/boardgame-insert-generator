@@ -46,7 +46,7 @@ function stubScene() {
 const rail = (): HTMLElement => screen.getByRole("complementary", { name: "What's inside" });
 const stage = (): HTMLElement => document.querySelector('[data-region="stage"]') as HTMLElement;
 const editMarket = (): void => {
-  fireEvent.click(within(rail()).getByRole("button", { name: /^Market deck, / }));
+  fireEvent.click(within(rail()).getByRole("button", { name: "Edit Market deck" }));
 };
 const regions = (): string[] =>
   [...stage().querySelectorAll<HTMLElement>(":scope > [data-region]")].map(

@@ -221,13 +221,17 @@ describe("a rail row lights its trays in 3D", () => {
     await waitFor(() => expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0"]));
   });
 
-  it("still opens the editor when the row is clicked", async () => {
+  it("selects the tray when the row is pressed, and opens the editor from its pencil", async () => {
     const { project, ids } = twoTrays();
     const scene = stubScene();
     renderApp({ project, overrides: { viewerProps: scene.viewerProps } });
     await inThreeD();
     fireEvent.mouseEnter(row(ids[0]));
     fireEvent.click(row(ids[0]));
+    expect(within(rail()).queryByRole("button", { name: "Done" })).toBeNull();
+    expect(row(ids[0]).getAttribute("aria-pressed")).toBe("true");
+    const wrap = row(ids[0]).closest(".k-rowwrap") as HTMLElement;
+    fireEvent.click(within(wrap).getByRole("button", { name: /^Edit / }));
     expect(within(rail()).getByRole("button", { name: "Done" })).toBeTruthy();
   });
 });
