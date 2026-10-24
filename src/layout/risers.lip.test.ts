@@ -249,10 +249,11 @@ describe("the owner's Star Realms file: risers follow the rim setting", { timeou
   it("gives the Starter stack's riser the lip and its Counter the groove", () => {
     const parts = splitRisers(plan, inputs);
     const riser = risersOf(parts).find((r) => r.stack === 0);
-    // 11.6 mm: the stack's padding, now that its two 5-card trays may be as low as their groove needs
-    expect(riser).toMatchObject({ lip: true, z: 0, h: 11.6 });
+    // 9.6 mm: the stack's padding, now that its two 5-card trays may be as low as their groove needs,
+    // less the 2 mm of the rim the top Starter tray carries (the split parts stack in any order)
+    expect(riser).toMatchObject({ lip: true, z: 0, h: 9.6 });
     const counter = parts.find((t) => t.key === "epeanzhc:p0:0");
-    expect(counter).toMatchObject({ onRiser: true, z: 11.6, level: 0 });
+    expect(counter).toMatchObject({ onRiser: true, z: 9.6, level: 0 });
     // the trays above it are as before
     expect(parts.filter((t) => t.onRiser).map((t) => t.key)).toEqual(["epeanzhc:p0:0"]);
   });
@@ -261,8 +262,8 @@ describe("the owner's Star Realms file: risers follow the rim setting", { timeou
     const parts = risersOf(splitRisers(plan, inputs));
     const lipped = parts.find((r) => r.stack === 0) as TraySpec;
     const plain = parts.find((r) => r.stack === 1) as TraySpec;
-    // 11.6 mm and the 2 mm lip it prints
-    expect(outerSizeText(lipped, p.settings)).toMatch(/× 13\.6 mm with its lip$/);
+    // 9.6 mm and the 2 mm lip it prints
+    expect(outerSizeText(lipped, p.settings)).toMatch(/× 11\.6 mm with its lip$/);
     expect(outerSizeText(plain, p.settings)).toBe("92.7 × 88.2 × 6.4 mm");
   });
 

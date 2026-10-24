@@ -177,6 +177,16 @@ export function checkHardRules(
   );
   inStack.delete(-1);
   const plug = (t: TraySpec): boolean => inStack.has(setOf(t));
+  // The split parts of one item with another of them in the stack carry the joint too, in any place.
+  const kinOf = (t: TraySpec): number => {
+    const ref = refOf.get(t.key);
+    return ref ? ctx.kinOf(ref) : -1;
+  };
+  const joint = (t: TraySpec): boolean =>
+    plug(t) ||
+    (settings.lip.enabled &&
+      kinOf(t) >= 0 &&
+      real.filter((o) => o.path === t.path && kinOf(o) === kinOf(t)).length >= 2);
   const alikeOnFloor = real.some((t) => t.level === 0 && setOf(t) >= 0);
 
   // Rule 1: the bottom layer tiles the floor with only trayGap between parts. Beside an alike
@@ -215,7 +225,7 @@ export function checkHardRules(
     const sum = stack.reduce((s, t) => s + toU(t.h), 0);
     const topTray = stack[stack.length - 1];
     const limit =
-      ctx.topPlane - (topTray?.lip && plug(topTray) ? toU(lipAbove(settings, true)) : 0);
+      ctx.topPlane - (topTray?.lip && joint(topTray) ? toU(lipAbove(settings, true)) : 0);
     const plugs = stack.filter((t) => plug(t) && !sizeLocked.has(t.key));
     const restFree = stack.some((t) => !plug(t) && !sizeLocked.has(t.key));
     // a stack that went without its rim or riser (best-effort, with the notice that says so) stops
@@ -243,8 +253,8 @@ export function checkHardRules(
       }
       z += toU(t.h);
       const top = k === stack.length - 1;
-      const topCopy = top && plug(t);
-      if (t.lip !== (settings.lip.enabled && (!top || plug(t))) && !(topCopy && jointDropped)) {
+      const topCopy = top && joint(t);
+      if (t.lip !== (settings.lip.enabled && (!top || joint(t))) && !(topCopy && jointDropped)) {
         v.push(`${t.key}: lip flag wrong`);
       }
       if (base && k > 0) {

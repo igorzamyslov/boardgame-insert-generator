@@ -47,6 +47,12 @@ export interface PlacedTray {
    * the middle of one is, wherever it stands.
    */
   readonly plug: boolean;
+  /**
+   * The tray carries the full joint (`Level.joint`): an alike tray in a stack, or one of the split
+   * parts of one item with another of them in the stack. Built, and realized, as a tray in the
+   * middle of a stack is, wherever it stands; unlike a `plug` it need not be the same size.
+   */
+  readonly joint: boolean;
   /** Nothing is stacked on it. */
   readonly top: boolean;
   readonly minW: U;
@@ -374,8 +380,9 @@ export function placeStack(
       d: foot.d,
       h,
       lipped: l.lipped,
-      rim: l.lipped && !(k === levels.length - 1 && l.plug && !heights.rim),
+      rim: l.lipped && !(k === levels.length - 1 && l.joint && !heights.rim),
       plug: l.plug,
+      joint: l.joint,
       top: k === levels.length - 1,
       minW: l.minW,
       minD: l.minD,
@@ -579,7 +586,7 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
     if (sp.trays.length > 0) {
       for (const t of sp.trays) {
         trays.push({ ...t, path: pl.path, stack });
-        bed += bedExcess(ctx.bed, t.w, t.d, printedHeight(ctx, t.h, t.rim, t.level > 0 || t.plug));
+        bed += bedExcess(ctx.bed, t.w, t.d, printedHeight(ctx, t.h, t.rim, t.level > 0 || t.joint));
       }
       for (const filler of sp.fillers) {
         inLevel.push({ path: pl.path, stack, filler });

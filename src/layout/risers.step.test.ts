@@ -72,7 +72,11 @@ describe("the owner's Star Realms file with the stepped base", { timeout: 60_000
       const list = real.filter((t) => t.stack === stack).sort((a, b) => a.level - b.level);
       expect(toU(list.reduce((s, t) => s + t.h, 0)), `stack ${stack}`).toBe(top);
       list.forEach((t, k) => {
-        expect(t.lip, t.key).toBe(k < list.length - 1);
+        // every tray with another on it carries the joint, and so do the split parts of one item
+        // (the Starter deck's three trays) even on top: they stack in any order
+        const copy = (key: string): string => key.slice(0, key.lastIndexOf(":"));
+        const kin = list.filter((o) => copy(o.key) === copy(t.key)).length > 1;
+        expect(t.lip, t.key).toBe(k < list.length - 1 || kin);
         if (k > 0) {
           const below = list[k - 1] as TraySpec;
           expect(t.z, t.key).toBeCloseTo(below.z + below.h, 6);

@@ -130,6 +130,12 @@ export interface Ctx {
    * built the same size and the same way wherever they stand (owner, 2026-10-23).
    */
   alikeOf(ref: PartRef): number;
+  /**
+   * The split parts of one item: the trays one copy of a variant is split into, a number from 0
+   * shared by all of them; -1 for a part that is the whole of its copy. Parts of a kin that stand in
+   * one stack all carry the joint, so they stack in any order (owner, 2026-10-24).
+   */
+  kinOf(ref: PartRef): number;
   part(ref: PartRef): TrayPartReq | undefined;
   partId(ref: PartRef): number;
   metrics(ref: PartRef, lipped: boolean, level: number): PartMetrics;
@@ -278,6 +284,27 @@ export function createCtx(
       return out;
     }),
   );
+  // The split parts of one item: the parts of one copy of a variant, when it has more than one
+  let kins = 0;
+  const kin = input.requirements.map((r) =>
+    r.variants.map((v) => {
+      const byCopy = new Map<string, number[]>();
+      v.parts.forEach((p, part) => {
+        const c = copyKey(p.trayKey);
+        byCopy.set(c, [...(byCopy.get(c) ?? []), part]);
+      });
+      const out: number[] = v.parts.map(() => -1);
+      for (const parts of byCopy.values()) {
+        if (parts.length >= 2) {
+          for (const part of parts) {
+            out[part] = kins;
+          }
+          kins++;
+        }
+      }
+      return out;
+    }),
+  );
   const ctx: Ctx = {
     input,
     growing,
@@ -355,6 +382,7 @@ export function createCtx(
     extraParts: (req, variant) => extra[req]?.[variant] ?? 0,
     copyOf: (ref) => copies[ref.req]?.[ref.variant]?.[ref.part] ?? 0,
     alikeOf: (ref) => alike[ref.req]?.[ref.variant]?.[ref.part] ?? -1,
+    kinOf: (ref) => kin[ref.req]?.[ref.variant]?.[ref.part] ?? -1,
   };
   return { ...ctx, wholeFits: input.requirements.map((_, req) => wholeFitsOf(ctx, req)) };
 }
