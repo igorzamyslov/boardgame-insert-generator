@@ -309,10 +309,10 @@ describe("the phone layout", () => {
     expect(rowIn(/^Market,/)).toBeTruthy();
   });
 
-  it("offers Try another arrangement on a card of the sheet when the trays do not fit", async () => {
+  it("offers Try another arrangement in the pinned strip when the trays do not fit", async () => {
     phone();
     const { store, stub } = renderApp({ project: project() });
-    expect(within(sheet()).queryByRole("button", { name: "Try another arrangement" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Add" })).toBeTruthy();
     act(() => {
       store.state.lastResult.value = makeResult(null, {
@@ -320,16 +320,16 @@ describe("the phone layout", () => {
       });
       store.state.lastResultHash.value = store.state.currentHash.value;
     });
-    // the sheet is the fit problem's now (a region of its own name): its title, its card, in reach while folded
-    const fix = screen.getByRole("region", { name: "Ways to make it fit" });
-    expect(within(fix).getByRole("heading", { name: "Ways to make it fit" })).toBeTruthy();
-    expect(within(fix).queryByRole("button", { name: "Add" })).toBeNull();
-    const keep = within(fix).getByRole("button", { name: "Try another arrangement" });
+    // the sheet stays the list (no card of its own); the strip over the plan has the button
+    expect(screen.queryByRole("region", { name: "Ways to make it fit" })).toBeNull();
+    expect(within(sheet()).getByRole("button", { name: "Add" })).toBeTruthy();
+    const keep = screen.getByRole("button", { name: "Try another arrangement" });
+    expect(keep.closest(".stage-fit")).not.toBeNull();
     expect(keep.closest("[inert]")).toBeNull();
     fireEvent.click(keep);
     await waitFor(() => expect(stub.calls).toHaveLength(1));
     expect(screen.queryByRole("button", { name: "Try another arrangement" })).toBeNull();
-    // the card went with the search: Stop, which took its place, has the focus
+    // the button went with the search: Stop, which took its place, has the focus
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Stop" }));
   });
 

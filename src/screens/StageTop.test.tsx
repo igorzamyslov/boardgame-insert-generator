@@ -293,6 +293,44 @@ describe("StageTop", () => {
     });
   });
 
+  describe("when no layout fits (the pinned strip)", () => {
+    const misfit = { componentId: "c1", trayKey: "t", name: "Boards", reason: "box" as const };
+    const noFit = (over: Partial<StageTopProps> = {}) =>
+      props({ fits: null, noFit: { misfit }, ...over });
+
+    it("puts Edit and Try another arrangement under the heading, in the status row, in either view", () => {
+      for (const view of ["plan", "3d"] as const) {
+        const p = noFit({ view });
+        const { container, unmount } = render(<StageTop {...p} />);
+        const row = container.querySelector('[data-region="status"]') as HTMLElement;
+        expect(row.classList.contains("stage-fit")).toBe(true);
+        const buttons = [...row.querySelectorAll(".fit-strip__actions button")].map(
+          (b) => b.textContent,
+        );
+        expect(buttons).toEqual(["Edit Boards", "Try another arrangement"]);
+        fireEvent.click(screen.getByRole("button", { name: "Edit Boards" }));
+        expect(p.onShow).toHaveBeenCalledWith("c1");
+        fireEvent.click(
+          row.querySelectorAll<HTMLElement>(".fit-strip__actions button")[1] as HTMLElement,
+        );
+        expect(p.onKeepSearching).toHaveBeenCalledTimes(1);
+        unmount();
+      }
+    });
+
+    it("makes the search the one button when no tray is named", () => {
+      const { container } = render(<StageTop {...noFit({ noFit: { misfit: null } })} />);
+      const buttons = container.querySelectorAll(".fit-strip__actions button");
+      expect([...buttons].map((b) => b.textContent)).toEqual(["Try another arrangement"]);
+      expect(buttons[0]?.classList.contains("k-btn--primary")).toBe(true);
+    });
+
+    it("keeps no strip for a plan that fits", () => {
+      const { container } = render(<StageTop {...props()} />);
+      expect(container.querySelector(".stage-fit")).toBeNull();
+    });
+  });
+
   describe("with no plan", () => {
     it("says No plan yet, and offers to make one", () => {
       const p = props({ hasLayout: false, fits: null, trays: undefined });

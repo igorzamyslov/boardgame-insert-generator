@@ -17,6 +17,7 @@ import { mmUp } from "../layout/warnings";
 import type { Component, Notice as NoticeData, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { mm } from "../ui/identity";
+import { FitStrip } from "./FitStrip";
 import { HeaderMenu } from "./Header";
 import type { Misfit } from "../ui/noFit";
 import type { VolumeNote } from "../ui/volumeFit";
@@ -456,13 +457,15 @@ export function StageTop(p: StageTopProps) {
   // "Make a plan" (no plan yet) is the one thing the row asks for; searching on is a menu item.
   const searchOn = keep !== undefined && keep.label !== "Make a plan";
   const stopping = status.actions.some((a) => a.kind === "stop");
-  // A fit problem's actions are the cards of its own panel (FitProblem), not pills in the heading.
+  // No fit: the status row is the pinned problem strip (board 6), its two actions under the heading.
+  const strip = status.fit === "noFit";
+  // The pins' actions are the cards of FitProblem's panel, not pills in the heading.
   const actions = status.actions
     .filter((a) => a.kind !== "unpin")
     .map((a) => {
       switch (a.kind) {
         case "keep":
-          return searchOn ? null : (
+          return searchOn || strip ? null : (
             <Button
               key="keep"
               onClick={() => {
@@ -481,7 +484,7 @@ export function StageTop(p: StageTopProps) {
             </Button>
           );
         case "show":
-          return (
+          return strip ? null : (
             <Button key={a.id} title={a.label} onClick={() => p.onShow(a.id)}>
               <span class="ellipsis">{a.label}</span>
             </Button>
@@ -587,9 +590,11 @@ export function StageTop(p: StageTopProps) {
       status.line
     );
 
+  const stripEdit = status.actions.find((a) => a.kind === "show");
+  const stripKeep = status.actions.find((a) => a.kind === "keep");
   return (
     <>
-      <div data-region="status" ref={row}>
+      <div data-region="status" ref={row} class={strip ? "stage-fit" : undefined}>
         <StatusHeading
           tone={status.tone}
           title={status.title}
@@ -597,6 +602,22 @@ export function StageTop(p: StageTopProps) {
           titleExtra={stop}
           extra={extra}
         />
+        {strip ? (
+          <FitStrip
+            edit={
+              stripEdit?.kind === "show"
+                ? { label: stripEdit.label, onClick: () => p.onShow(stripEdit.id) }
+                : undefined
+            }
+            keep={
+              stripKeep === undefined
+                ? undefined
+                : { label: TRY_ANOTHER, onClick: p.onKeepSearching }
+            }
+            volume={p.noFit?.volume}
+            phone={p.phone}
+          />
+        ) : null}
       </div>
       {p.phone && (layer !== null || phoneView !== null) ? (
         <div class="stage-segs stage-segs--phone" data-region="switches">

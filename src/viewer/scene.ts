@@ -59,6 +59,11 @@ interface TrayObject {
 
 const CLICK_SLOP_PX = 5;
 
+/** The tray that does not fit stands this far out of its slot, mm, and takes this share of the warn colour. */
+const MISFIT_LIFT_MM = 20;
+const MISFIT_TINT = 0.75;
+const MISFIT_COLOR = 0xc2620f;
+
 /**
  * The camera's first place, as a direction from the middle of the box (y toward the front, z up):
  * in front of it and above, as the view has always opened. Its length is the fit's, not this one's.
@@ -132,6 +137,8 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   let selected: string | null = null;
   let lit: ReadonlySet<string> = new Set();
   let edited = false;
+  let misfit: string | null = null;
+  const warnColor = new Color(MISFIT_COLOR);
   const pageColor = new Color(PAGE_HEX);
   let pick: ((key: string | null) => void) | null = null;
   let frameId = 0;
@@ -155,10 +162,14 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   function apply(): void {
     for (const t of trays) {
       const [x, y, z] = trayPosition(t.spec, explode, center, t.anchor);
-      t.object.position.set(x, y, z - t.below);
+      const lift = t.spec.key === misfit ? MISFIT_LIFT_MM : 0;
+      t.object.position.set(x, y, z - t.below + lift);
       t.object.visible = isVisible(t.spec, maxLevel);
       t.material.emissive.setHex(emissiveOf(t.spec.key, selected, lit, edited));
       t.material.color.copy(t.base).lerp(pageColor, fadeOf(t.spec.key, selected, lit, edited));
+      if (t.spec.key === misfit) {
+        t.material.color.copy(t.base).lerp(warnColor, MISFIT_TINT);
+      }
       // The faded trays of an edited item are drawn through, so the item's own show behind them.
       const opacity = opacityOf(t.spec.key, selected, lit, edited);
       t.material.opacity = opacity;
@@ -373,6 +384,10 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
     setLit(keys, asEdited = false) {
       lit = new Set(keys);
       edited = asEdited;
+      apply();
+    },
+    setMisfit(key) {
+      misfit = key;
       apply();
     },
     onPick(cb) {

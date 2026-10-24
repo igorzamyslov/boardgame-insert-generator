@@ -123,7 +123,7 @@ const HOMES = "The Summary's jobs have new homes";
 const NOFIT = "The no-fit heading names the tray";
 const PINS =
   "Pins in the way: the first conflict names the heading, the engine's reasons are its line, and each conflict is a card";
-const FIT_PANEL = "The fit problems are a stage of their own";
+const FIT_STRIP = "No fit is a pinned strip over the normal stage";
 const NOFIT_FIGURE = "The no-fit line gives the closest plan's shortfall";
 const VOLUME = "The no-fit screen says how much room the items need";
 const FIT_ROW = "The rail marks the tray that does not fit: Doesn't fit";
@@ -622,7 +622,17 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   { text: "Edit {name}", states: [...ERRORS, ...FIT_PROBLEMS], ruling: HOMES },
   // Task 12: the fit problems' panel offers what the engine can do, in its own words
-  { text: "Try another arrangement", states: NO_FIT, ruling: FIT_PANEL },
+  { text: "Try another arrangement", states: NO_FIT, ruling: FIT_STRIP },
+  // the strip is the status row: it has the stage's own switches, and says where 3D cannot be drawn
+  { text: "Top", states: NO_FIT, ruling: FIT_STRIP },
+  { text: "3D", states: NO_FIT, ruling: FIT_STRIP },
+  {
+    text: "3D needs a browser with WebGL turned on. The top view works the same.",
+    states: NO_FIT,
+    ruling: FIT_STRIP,
+  },
+  { text: "What takes the room", states: NO_FIT, ruling: FIT_STRIP },
+  { text: "What the items need", states: NO_FIT, ruling: FIT_STRIP },
   { text: "Change the box", states: ["workspace-box-error"], ruling: HOMES },
   { text: "The {name} tray doesn't fit yet", states: NO_FIT, ruling: NOFIT },
   { text: "Not everything fits yet", states: NO_FIT, ruling: NOFIT },

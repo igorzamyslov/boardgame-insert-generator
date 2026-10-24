@@ -54,8 +54,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    three sizes only, and its header has "Open file" and the project menu.
 4. **The plan.** The optimizer runs on its own 400 ms after you stop editing. The status heading
    above the box says the result ("Everything fits. 6 trays in 2 layers, 40 of 52 mm high.") or
-   what is wrong. When nothing fits the screen shows the closest attempt, dimmed, with the tray
-   that doesn't fit marked, and "Ways to make it fit": "Edit <name>" and "Try another arrangement". When
+   what is wrong. When nothing fits the status row becomes a strip pinned at the top of the stage,
+   with "Edit <name>" and "Try another arrangement", and the stage, in Top and in 3D, shows the
+   closest attempt dimmed with the tray that doesn't fit marked (in 3D it sticks out of its slot). When
    your pins block the fit it shows the plan that was kept and "Unpin one": "Unpin <name>" (or
    "Unlock size of <name>") for each pin in the way. "Try another arrangement" runs a longer
    search (about three times the budget) from the current plan and never throws it away;

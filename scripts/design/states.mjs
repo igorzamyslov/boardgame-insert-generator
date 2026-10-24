@@ -1063,7 +1063,7 @@ export const STATES = {
       { waitFor: { role: "heading", name: /packing guide$/ } },
     ],
   },
-  // MobileFix (Task 12): the heading, the attempt and the peek sheet "Ways to make it fit".
+  // No fit on a phone: the pinned strip (board 6) over the attempt, the sheet the list as it is (MobileFix is the nearest board, from before the strip).
   "m-fix": {
     board: "MobileFix",
     viewport: PHONE,

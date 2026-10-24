@@ -51,6 +51,7 @@ function stubSceneFactory(): SceneFactory {
     setMaxLevel: vi.fn(),
     setSelected: vi.fn(),
     setLit: vi.fn(),
+    setMisfit: vi.fn(),
     onPick: vi.fn(),
     resize: vi.fn(),
     dispose: vi.fn(),

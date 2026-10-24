@@ -12,7 +12,7 @@ import { errorText } from "../util/errors";
 import { BoxStage } from "../screens/BoxStage";
 import { BoxSideView } from "../screens/BoxSideView";
 import { EditorStage, EditorStrip, ProblemLine } from "../screens/EditorStage";
-import { FitCards, FitProblem, fitKindOf, fitTitle } from "../screens/FitProblem";
+import { FIT_TITLE, FitCards, FitProblem, fitKindOf } from "../screens/FitProblem";
 import type { EditNote } from "../screens/EditorStage";
 import { Header } from "../screens/Header";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
@@ -99,6 +99,9 @@ import { canOptimize } from "./runner";
 import { shareFile } from "./sendFile";
 import type { ShareFile } from "./sendFile";
 import type { AppStore } from "./store";
+
+const noop = (): void => undefined;
+const NO_KEYS: ReadonlySet<string> = new Set<string>();
 
 export interface AppProps {
   store: AppStore;
@@ -616,7 +619,27 @@ export function App(props: AppProps) {
   // A fit problem has the stage to itself (NoFit, PinConflict, MobileFix) unless an editor or the
   // box is open: their stages tell it in a line.
   const fitKind = status.fit === undefined ? null : fitKindOf(status.fit);
-  const showFit = fitKind !== null && !editingAny && !boxOpen;
+  // Pins in the way have the stage to themselves (PinConflict, MobileFix); no fit is the normal
+  // stage with the problem strip over it (board 6): the same in Top and in 3D.
+  const showFit = fitKind === "pinConflict" && !editingAny && !boxOpen;
+  const noFitStage = fitKind === "noFit" && !editingAny && !boxOpen;
+  // What the stage draws then: the closest attempt of the search, or the plan that is kept.
+  const noFitTrays = noFitStage
+    ? (s.noFitAttempt.value?.trays ?? (layout ? printable : null))
+    : null;
+  const noFitLevels = useMemo(() => levelsOf(noFitTrays ?? []), [noFitTrays]);
+  const misfitTray = noFitTrays?.find((t) => t.key === misfit?.trayKey);
+  // Until the person picks a layer the top view shows the one the tray that does not fit is on.
+  const misfitLayer =
+    misfitTray === undefined ? 0 : Math.max(0, noFitLevels.indexOf(misfitTray.level));
+  const stageLayer =
+    pickedLayer !== undefined
+      ? pickedLayer
+      : view === "plan"
+        ? noFitStage
+          ? misfitLayer
+          : 0
+        : null;
   // The rows that say "Doesn't fit": the tray of the closest attempt that does not, or the component
   // of every pin in the way (the heading names the first).
   const firstConflict = conflicts[0];
@@ -633,22 +656,19 @@ export function App(props: AppProps) {
       }
     }
   }
-  if (showFit) {
+  if (showFit || noFitStage) {
     fitSeen.current = true;
   } else if (!working && !wasWorking.current) {
     // idle, and not just back from a run: the problem went by another way (Undo), nothing to hand on
     fitSeen.current = false;
   }
+  const keepSearching = (): void => {
+    store.refit();
+    // only a search that began has a Stop to hand the focus to
+    keptFromFit.current = store.state.run.peek().status === "running";
+  };
   const fixes = {
-    kind: fitKind ?? "noFit",
     actions: status.actions,
-    volume: fitKind === "noFit" ? volume : null,
-    onShow: showSection,
-    onKeepSearching: () => {
-      store.refit();
-      // only a search that began has a Stop to hand the focus to
-      keptFromFit.current = store.state.run.peek().status === "running";
-    },
     onUnpin: (c: { trayKey: string; kind?: Lock["kind"] }) => store.unpin(c.trayKey, c.kind),
   } as const;
 
@@ -1110,24 +1130,17 @@ export function App(props: AppProps) {
           }}
         />
       ) : showFit ? (
-        // NoFit, PinConflict and MobileFix: the heading, the picture and the panel of what to do.
+        // PinConflict and MobileFix: the heading, the picture and the panel of what to do.
         <FitProblem
           {...fixes}
           status={status}
-          trays={
-            fitKind === "noFit"
-              ? (s.noFitAttempt.value?.trays ?? (layout ? printable : null))
-              : layout
-                ? printable
-                : null
-          }
+          trays={layout ? printable : null}
           box={project.box}
           settings={projSettings}
           components={project.components}
           groups={project.groups}
           lockedKeys={locked}
-          misfitKey={misfit?.trayKey}
-          focusKey={fitKind === "noFit" ? misfit?.trayKey : firstConflict?.trayKey}
+          focusKey={firstConflict?.trayKey}
           phone={phone}
           after={stageNotes}
         />
@@ -1153,9 +1166,9 @@ export function App(props: AppProps) {
             top: (
               <StageTop
                 {...statusInput}
-                trays={layout?.trays}
-                levels={planLevels}
-                layer={layerNow}
+                trays={noFitStage ? (noFitTrays ?? undefined) : layout?.trays}
+                levels={noFitStage ? noFitLevels : planLevels}
+                layer={stageLayer}
                 onLayerChange={(l) => {
                   s.viewLayer.value = l;
                 }}
@@ -1163,14 +1176,38 @@ export function App(props: AppProps) {
                 onViewChange={showView}
                 webgl={webgl}
                 phone={phone}
-                onKeepSearching={() => store.refit()}
+                onKeepSearching={keepSearching}
                 onStop={() => store.cancelRun()}
                 onRetry={() => store.retry()}
                 onShow={showSection}
               />
             ),
             body:
-              planProps !== null ? (
+              noFitStage && noFitTrays !== null ? (
+                // the closest attempt as a picture: the tray that does not fit marked, nothing a control
+                <PlanView
+                  readOnly
+                  dim="all"
+                  misfitKey={misfit?.trayKey ?? null}
+                  trays={noFitTrays}
+                  box={project.box}
+                  settings={projSettings}
+                  components={project.components}
+                  groups={project.groups}
+                  lockedKeys={NO_KEYS}
+                  sizeLockedKeys={NO_KEYS}
+                  selectedKey={null}
+                  onSelect={noop}
+                  onSwap={noop}
+                  level={stageLayer ?? 0}
+                  layerAll={stageLayer === null}
+                  onLevelChange={(l) => {
+                    s.viewLayer.value = l;
+                  }}
+                  swapFrom={null}
+                  onSwapFromChange={noop}
+                />
+              ) : planProps !== null ? (
                 <PlanView
                   {...planProps}
                   tapHint
@@ -1206,41 +1243,64 @@ export function App(props: AppProps) {
                 </>
               ),
             threeD:
-              planProps !== null && view !== "plan"
+              noFitStage && noFitTrays !== null && view !== "plan"
                 ? {
                     slot: {
                       idle: phone,
-                      children:
-                        hasSelectedTray && !phone ? (
-                          <SelectedTrayBar
-                            {...barProps}
-                            phone={false}
-                            inPlan={false}
-                            swapFrom={null}
-                          />
-                        ) : phone ? undefined : (
-                          (removedToast ?? undefined)
-                        ),
+                      children: phone ? undefined : (removedToast ?? undefined),
                     },
                     viewer: {
-                      trays: printable,
+                      trays: noFitTrays,
                       box: project.box,
                       settings: project.settings,
                       components: project.components,
                       groups: project.groups,
-                      stale: s.stale.value,
+                      // the attempt is of the inputs as they are: nothing is stale about it
+                      stale: false,
                       meshes,
-                      selectedKey: s.selection.value,
-                      topLayer: layerNow,
-                      levels: planLevels,
-                      tapHint: true,
-                      onSelect: (key) => {
-                        s.selection.value = key;
-                      },
+                      selectedKey: null,
+                      misfitKey: misfit?.trayKey ?? null,
+                      topLayer: stageLayer,
+                      levels: noFitLevels,
+                      onSelect: noop,
                       ...props.viewerProps,
                     },
                   }
-                : null,
+                : planProps !== null && view !== "plan"
+                  ? {
+                      slot: {
+                        idle: phone,
+                        children:
+                          hasSelectedTray && !phone ? (
+                            <SelectedTrayBar
+                              {...barProps}
+                              phone={false}
+                              inPlan={false}
+                              swapFrom={null}
+                            />
+                          ) : phone ? undefined : (
+                            (removedToast ?? undefined)
+                          ),
+                      },
+                      viewer: {
+                        trays: printable,
+                        box: project.box,
+                        settings: project.settings,
+                        components: project.components,
+                        groups: project.groups,
+                        stale: s.stale.value,
+                        meshes,
+                        selectedKey: s.selection.value,
+                        topLayer: layerNow,
+                        levels: planLevels,
+                        tapHint: true,
+                        onSelect: (key) => {
+                          s.selection.value = key;
+                        },
+                        ...props.viewerProps,
+                      },
+                    }
+                  : null,
             after: stageNotes,
           }}
         />
@@ -1298,7 +1358,7 @@ export function App(props: AppProps) {
           ) : (
             <Workspace
               // the editor shares the normal stage (WideStage2): its padding is the normal one, so the frame does not move
-              focus={(boxOpen || (showFit && fitKind === "noFit")) && !phone}
+              focus={boxOpen && !phone}
               class={
                 editingAny ? "ws--edit" : boxOpen ? "ws--box" : showFit ? "ws--fit" : undefined
               }
@@ -1311,11 +1371,8 @@ export function App(props: AppProps) {
                 !phone
                   ? undefined
                   : {
-                      label:
-                        showFit && fitKind !== null
-                          ? fitTitle(fitKind)
-                          : "The box and what's inside",
-                      title: showFit && fitKind !== null ? fitTitle(fitKind) : "What's inside",
+                      label: showFit ? FIT_TITLE : "The box and what's inside",
+                      title: showFit ? FIT_TITLE : "What's inside",
                       summary: showFit ? undefined : String(project.components.length),
                       handleLabel: "Show everything",
                       expanded: sheetOpen,

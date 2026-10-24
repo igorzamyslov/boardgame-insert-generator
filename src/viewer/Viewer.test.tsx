@@ -25,6 +25,7 @@ function stubScene() {
     setMaxLevel: vi.fn(),
     setSelected: vi.fn(),
     setLit: vi.fn(),
+    setMisfit: vi.fn(),
     onPick: vi.fn((cb: (key: string | null) => void) => {
       picked = cb;
     }),

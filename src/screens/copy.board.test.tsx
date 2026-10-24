@@ -1003,8 +1003,8 @@ const CASES: readonly Case[] = [
       ["no-fit-bed", "NoFit", "harbour-kings-nofit-bed"],
       ["pin-conflict", "PinConflict", "harbour-kings-pins"],
     ].flatMap(([state = "", board = "", seed = ""]): Case[] =>
-      // the options panel is only NoFit's and PinConflict's (the bed variant has the same one)
-      region === "options" && state === "no-fit-bed"
+      // the options panel is only PinConflict's: no fit has the strip in its status row
+      region === "options" && state !== "pin-conflict"
         ? []
         : [
             {
