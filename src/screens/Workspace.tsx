@@ -15,6 +15,8 @@ export interface WorkspaceSheet {
   title: string;
   /** The line after the title that says what is inside (the count); it stays while the sheet is folded. */
   summary?: string;
+  /** Folded, one row of chips in place of the head row (board 9): see the kit's `Sheet`. */
+  chips?: ComponentChildren;
   /** The grip's own button, named so ("Show everything"). */
   handleLabel?: string;
   expanded: boolean;
@@ -64,7 +66,7 @@ export function Workspace(p: WorkspaceProps) {
   const width = drag ?? railWidth?.value;
   return (
     <div
-      class={`ws${sheet ? " ws--sheet" : ""}${drag !== null ? " ws--resizing" : ""}${p.class ? ` ${p.class}` : ""}`}
+      class={`ws${sheet ? " ws--sheet" : ""}${sheet?.chips !== undefined ? " ws--chips" : ""}${drag !== null ? " ws--resizing" : ""}${p.class ? ` ${p.class}` : ""}`}
       style={width === undefined ? undefined : { "--rail-w": `${width}px` }}
     >
       <header class="ws-header" data-region="header" {...behindSheet}>
@@ -84,6 +86,7 @@ export function Workspace(p: WorkspaceProps) {
             editing={sheet.editing}
             handleLabel={sheet.handleLabel}
             handleRef={sheet.handleRef}
+            chips={sheet.chips}
             action={sheet.action}
           >
             {p.rail}

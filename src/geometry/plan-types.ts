@@ -50,15 +50,15 @@ export interface SlotPlan extends Rect {
   bottomZ: number;
 }
 
-// A finger dip (FeatureSpec "fingerDip", model/finger-dip.ts): the U cut from the top of a solid
-// filler, running in from its face `side` (the footprint x0..y1 is within the part), or across the
-// whole part when `through`, open on the opposite face too. The round bottom (`radius`) is a
-// half-cylinder along the cut, lowest at `bottomZ`. Open at the top, so it prints without support.
-export interface DipPlan extends Rect {
+// A top chamfer (FeatureSpec "topChamfer", model/top-chamfer.ts): the 45° wedge cut along the top
+// edge of a solid filler's face `side`, `size` across and as deep, over `a`…`b` along the face
+// (the part's frame). The slope runs from `size` below the top at the face to the top `size` in.
+// It faces up and out, so it prints without support.
+export interface ChamferPlan {
   side: Side;
-  through: boolean;
-  bottomZ: number;
-  radius: number;
+  a: number;
+  b: number;
+  size: number;
 }
 
 export interface ScoopPlan {
@@ -120,5 +120,5 @@ export interface TrayPlan {
   socket: SocketPlan | null;
   compartments: CompartmentPlan[];
   notch: CutPlan | null; // a card spacer's notch: its channel running on through it (plan-cuts.ts)
-  dips: DipPlan[]; // a filler's finger dips (plan-dips.ts)
+  chamfers: ChamferPlan[]; // a filler's top chamfers (plan-chamfers.ts)
 }

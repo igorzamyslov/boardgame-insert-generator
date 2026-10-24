@@ -1,23 +1,15 @@
 // src/ui/TrayBar.tsx
-// The tray bar (UI rebuild Task 8), from Main's `sel` state and MobileTray: what a selected tray
-// is, and what can be done with it. On a desktop it is the bar in the stage's slot; on a phone it
-// is a modal sheet at the foot of the screen.
+// The tray dock (board 4 of the 2026-10-23 review; the tray bar of UI rebuild Task 8 before it):
+// what a selected tray is, and what can be done with it. It is docked at one fixed place, the bottom
+// centre of the stage, and is the same in Top, in 3D and on a phone: Edit is the one button, ⋯ holds
+// the rest, each with a line saying what it does, and the facts (layer, size, grams) are its label.
 import type { CSSProperties } from "preact";
 import { useEffect, useId, useMemo, useRef, useState } from "preact/hooks";
 import { isLockable, lockedKeys, sizeLockedKeys, stackOf, turnedKeys } from "../app/actions";
 import { canTurn } from "../app/dryRun";
 import type { MeshSource } from "../app/meshes";
 import { printedHeight } from "../instructions/numbering";
-import {
-  Button,
-  CloseButton,
-  Dialog,
-  GroupGlyph,
-  Icon,
-  IconTile,
-  MenuItem,
-  MenuPanel,
-} from "../kit";
+import { Button, CloseButton, Icon, IconButton, MenuItem, MenuPanel } from "../kit";
 import type { ForeignData, Project, TraySpec } from "../model/types";
 import type { TrayLook } from "../plan/glyph";
 import { formatGrams } from "./estimates";
@@ -35,7 +27,7 @@ export interface TrayBarProps {
   tray: TraySpec;
   /** What the tray is called, in full. */
   name: string;
-  /** Which layer it is on: "Layer 1 (bottom)". */
+  /** Which layer it is on: "Layer 1". */
   layer: string;
   /** The component's kind and its own shade, for the swatch; none for a part that holds nothing. */
   look?: TrayLook | null;
@@ -59,18 +51,16 @@ export interface TrayBarProps {
   buildSpec?: TraySpec;
   /** The plan is out of date: nothing is built for the filament line until it is current. */
   stale?: boolean;
-  /** The phone's modal sheet, not the bar in the stage's slot. */
-  phone?: boolean;
   /** A "Swap with…" is under way from this tray. */
   swapping?: boolean;
   /** A "Put on…" is under way from this tray. */
   puttingOn?: boolean;
   onPin: () => void;
   onTurn: () => void;
-  /** Only where a swap can be made (the plan): without it there is no Swap with…. */
-  onSwap?: () => void;
-  /** Only where a tray can be put on another (the plan): without it there is no Put on…. */
-  onPutOn?: () => void;
+  /** Starts or ends a "Swap places with…" (both views pick the other tray). */
+  onSwap: () => void;
+  /** Starts or ends a "Put on…". */
+  onPutOn: () => void;
   onToggleSizeLock: () => void;
   /** Only for a tray that holds a component: opens that component's editor. */
   onEdit?: () => void;
@@ -142,25 +132,9 @@ function useTrayFacts(p: TrayBarProps) {
   return { full, pinned, turned, sizeLocked, turnCheck, why, estimate, size, stack };
 }
 
-/** What Pin and Turn hold, in the button's words: this tray alone, or the stack it is in. */
-function actionWords(stack: number, pinned: boolean) {
-  const what = stack > 1 ? "stack" : "tray";
-  return {
-    pin: `${pinned ? "Unpin" : "Pin"} this ${what}`,
-    turn: `Turn this ${what} 90°`,
-    /** For a reader and the tooltip: how many trays the press holds. */
-    count: stack > 1 ? `${stack} trays` : null,
-  };
-}
-
-/** A button's words, with how many trays the press holds as words for a reader after them. */
-function Words({ text, count }: { text: string; count: string | null }) {
-  return (
-    <>
-      {text}
-      {count === null ? null : <span class="visually-hidden">{`, ${count}`}</span>}
-    </>
-  );
+/** How many trays a press holds, in words: a stack is held whole. */
+function stackWords(stack: number): { them: string } {
+  return { them: stack > 1 ? `these ${stack} trays` : "it" };
 }
 
 /** The line a part with no actions says about itself. */
@@ -244,50 +218,90 @@ function useMore(swapping: boolean) {
 
 type More = ReturnType<typeof useMore>;
 
+/** One entry of the ⋯ menu: its name over the line that says what it does. */
+function Entry(p: { name: string; line: string }) {
+  return (
+    <>
+      <span>{p.name}</span>
+      <span class="tray-more__line">{p.line}</span>
+    </>
+  );
+}
+
 interface MoreItemsProps {
   more: More;
+  facts: Facts;
   swapping: boolean;
   puttingOn: boolean;
-  sizeLocked: boolean;
-  onSwap?: () => void;
-  onPutOn?: () => void;
+  onPin: () => void;
+  onTurn: () => void;
+  onSwap: () => void;
+  onPutOn: () => void;
   onToggleSizeLock: () => void;
 }
 
-/** The panel: Swap with… and Put on… (the plan only) and Lock size. */
+/**
+ * The ⋯ menu: Keep here (the pin), Rotate 90°, Swap places with…, Put on…, and, set apart, Keep this
+ * size. A pin or a size lock that is on says so in its name and in what it does.
+ */
 function MoreItems(p: MoreItemsProps) {
+  const { facts } = p;
+  const held = stackWords(facts.stack);
   return (
     <div class="tray-more__panel" id={p.more.panelId}>
       <MenuPanel label="More about this tray">
-        {p.onSwap ? (
-          <MenuItem
-            aria-pressed={p.swapping}
-            class={p.swapping ? "is-on" : undefined}
-            onClick={p.onSwap}
-          >
-            Swap with…
-          </MenuItem>
-        ) : null}
-        {p.onPutOn ? (
-          <MenuItem
-            aria-pressed={p.puttingOn}
-            class={p.puttingOn ? "is-on" : undefined}
-            onClick={() => {
-              p.onPutOn?.();
-              p.more.close();
-            }}
-          >
-            Put on…
-          </MenuItem>
-        ) : null}
         <MenuItem
-          class={p.sizeLocked ? "is-on" : undefined}
+          class={`tray-more__item${facts.pinned ? " is-on" : ""}`}
+          aria-pressed={facts.pinned}
+          onClick={p.onPin}
+        >
+          <Entry
+            name={facts.pinned ? "Unpin" : "Keep here"}
+            line={
+              facts.pinned
+                ? `The plan may move ${held.them} again`
+                : `The plan will not move ${held.them}`
+            }
+          />
+        </MenuItem>
+        <MenuItem
+          class="tray-more__item"
+          blockedReason={facts.turnCheck.ok ? undefined : facts.turnCheck.reason}
+          onClick={p.onTurn}
+        >
+          <Entry
+            name="Rotate 90°"
+            line={facts.pinned ? "Stays where it is kept" : "Stays free to move"}
+          />
+        </MenuItem>
+        <MenuItem
+          class={`tray-more__item${p.swapping ? " is-on" : ""}`}
+          aria-pressed={p.swapping}
+          onClick={p.onSwap}
+        >
+          <Entry name="Swap places with…" line="Then pick the other tray" />
+        </MenuItem>
+        <MenuItem
+          class={`tray-more__item${p.puttingOn ? " is-on" : ""}`}
+          aria-pressed={p.puttingOn}
+          onClick={() => {
+            p.onPutOn();
+            p.more.close();
+          }}
+        >
+          <Entry name="Put on…" line="Stands it on another tray" />
+        </MenuItem>
+        <MenuItem
+          class={`tray-more__item tray-more__item--apart${facts.sizeLocked ? " is-on" : ""}`}
           onClick={() => {
             p.onToggleSizeLock();
             p.more.close();
           }}
         >
-          {p.sizeLocked ? "Unlock size" : "Lock size"}
+          <Entry
+            name={facts.sizeLocked ? "Let the size change" : "Keep this size"}
+            line={facts.sizeLocked ? "The plan may resize it" : "The plan will not resize it"}
+          />
         </MenuItem>
       </MenuPanel>
     </div>
@@ -295,7 +309,7 @@ function MoreItems(p: MoreItemsProps) {
 }
 
 /**
- * The pin, the turn and the size lock, in words for a reader: the bar draws them in the buttons, not
+ * The pin, the turn and the size lock, in words for a reader: the dock draws them in the menu, not
  * in chips. A tray that is turned and not pinned is "Turned"; a pin says whether it holds the turn.
  */
 function Told(p: { pinned: boolean; turned: boolean; sizeLocked: boolean }) {
@@ -308,29 +322,18 @@ function Told(p: { pinned: boolean; turned: boolean; sizeLocked: boolean }) {
   );
 }
 
+type Facts = ReturnType<typeof useTrayFacts>;
+
 /**
- * The bar in the stage's slot when a tray is selected, or the phone's sheet. A part the plan makes
- * to fit the trays around it (a spacer, a spare tray, a riser) has no actions: only Close. An
- * action that can't be taken stays on screen, off, with one line saying why.
+ * The dock of the selected tray. A part the plan makes to fit the trays around it (a spacer, a
+ * spare tray, a riser) has no actions: only its line and Close. An action that can't be taken stays
+ * in the menu, off, with one line saying why.
  */
 export function TrayBar(p: TrayBarProps) {
   const facts = useTrayFacts(p);
-  // A put-on closes the panel (its prompt and its refusals are sentences the panel would cover); a swap keeps it open.
+  // A put-on closes the menu (its prompt and its refusals are sentences the menu would cover); a swap keeps it open.
   const more = useMore(p.swapping === true);
-  return p.phone === true ? (
-    <PhoneSheet {...p} facts={facts} more={more} />
-  ) : (
-    <DesktopBar {...p} facts={facts} more={more} />
-  );
-}
-
-type Facts = ReturnType<typeof useTrayFacts>;
-type Inner = TrayBarProps & { facts: Facts; more: More };
-
-function DesktopBar(p: Inner) {
-  const { facts, more } = p;
-  const words = actionWords(facts.stack, facts.pinned);
-  // A group's line (G1): the size, how many compartments, then the cost; the layer first only with two.
+  // A group's line (G1): the size, how many compartments, then the grams; the layer first only with two.
   const group = p.look?.group === true;
   const meta = facts.full
     ? (group
@@ -347,6 +350,16 @@ function DesktopBar(p: Inner) {
       aria-label="Selected tray"
       data-region="tray-bar"
       style={shadeStyle(p.look)}
+      onKeyDown={(e) => {
+        // The dock is outside the plan: Escape with the focus here ends a swap or a put-on too.
+        if (e.key === "Escape" && p.swapping === true) {
+          e.preventDefault();
+          p.onSwap();
+        } else if (e.key === "Escape" && p.puttingOn === true) {
+          e.preventDefault();
+          p.onPutOn();
+        }
+      }}
     >
       {group && p.cells !== undefined && p.cells.length > 0 ? (
         <GroupSwatch cells={p.cells} />
@@ -368,24 +381,6 @@ function DesktopBar(p: Inner) {
       </span>
       {facts.full ? (
         <>
-          <Button
-            variant="soft"
-            data-on={facts.pinned ? "true" : undefined}
-            icon={<Icon name="pin" size={15} />}
-            title={words.count === null ? undefined : `${words.pin}: ${words.count}`}
-            onClick={p.onPin}
-          >
-            <Words text={words.pin} count={words.count} />
-          </Button>
-          <Button
-            variant="soft"
-            icon={<Icon name="turn" size={15} />}
-            title={words.count === null ? undefined : `${words.turn}: ${words.count}`}
-            blockedReason={facts.turnCheck.ok ? undefined : facts.turnCheck.reason}
-            onClick={p.onTurn}
-          >
-            <Words text={words.turn} count={words.count} />
-          </Button>
           {p.onEdit ? (
             <Button variant="primary" class="tray-bar__edit" onClick={p.onEdit}>
               Edit
@@ -397,22 +392,24 @@ function DesktopBar(p: Inner) {
             onKeyDown={more.onKeyDown}
             onBlurCapture={more.onBlurCapture}
           >
-            <Button
-              variant="quiet"
+            <IconButton
+              variant="outlined"
+              label="More about this tray"
               ref={more.trigger}
+              dot={facts.pinned || facts.sizeLocked}
               aria-expanded={more.open}
               aria-controls={more.open ? more.panelId : undefined}
+              icon={<Icon name="more" size={18} />}
               onClick={more.toggle}
-            >
-              More
-              {facts.sizeLocked ? <span class="tray-more__dot" aria-hidden="true" /> : null}
-            </Button>
+            />
             {more.open ? (
               <MoreItems
                 more={more}
+                facts={facts}
                 swapping={p.swapping === true}
                 puttingOn={p.puttingOn === true}
-                sizeLocked={facts.sizeLocked}
+                onPin={p.onPin}
+                onTurn={p.onTurn}
                 onSwap={p.onSwap}
                 onPutOn={p.onPutOn}
                 onToggleSizeLock={p.onToggleSizeLock}
@@ -422,131 +419,6 @@ function DesktopBar(p: Inner) {
         </>
       ) : null}
       <CloseButton onClick={p.onClose} />
-      {/* Always mounted: the sentence is read when it arrives; empty, it takes no room. */}
-      <div class="tray-bar__why" aria-live="polite">
-        {facts.why !== undefined ? <p>{facts.why}</p> : null}
-      </div>
     </div>
-  );
-}
-
-function PhoneSheet(p: Inner) {
-  const { facts, more } = p;
-  const words = actionWords(facts.stack, facts.pinned);
-  const titleId = useId();
-  const title = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
-    title.current?.focus();
-  }, []);
-  const meta = facts.full
-    ? [p.layer, p.compartments]
-        .filter((part) => part !== null && part !== undefined && part !== "")
-        .join(" · ")
-    : partLine(p, facts.size);
-  return (
-    <Dialog
-      labelledBy={titleId}
-      onClose={p.onClose}
-      placement="bottom"
-      region="sheet"
-      class={facts.full ? undefined : "tray-sheet--part"}
-    >
-      <div class="tray-sheet" style={shadeStyle(p.look)}>
-        <span class="tray-sheet__handle" aria-hidden="true" />
-        <div class="tray-sheet__head">
-          {!p.look ? (
-            <span class="tray-sheet__swatch" aria-hidden="true" />
-          ) : p.look.group ? (
-            <IconTile size={36} tone="group">
-              <GroupGlyph size={18} />
-            </IconTile>
-          ) : (
-            <IconTile size={36} kind={p.look.kind} lined />
-          )}
-          <div class="tray-sheet__title">
-            <h2 id={titleId} ref={title} tabIndex={-1} class="ellipsis" title={p.name}>
-              {p.name}
-            </h2>
-            <span class="tray-sheet__meta">{meta}</span>
-          </div>
-          <CloseButton onClick={p.onClose} />
-        </div>
-        {facts.full ? (
-          <>
-            {p.onEdit ? (
-              <Button variant="primary" size="dialog" class="tray-sheet__edit" onClick={p.onEdit}>
-                <span class="ellipsis">{`Edit ${p.name}`}</span>
-              </Button>
-            ) : null}
-            <dl class="tray-sheet__dl">
-              <dt>Size</dt>
-              <dd>{facts.size}</dd>
-              {facts.estimate !== null ? (
-                <>
-                  <dt>Filament</dt>
-                  <dd>{facts.estimate}</dd>
-                </>
-              ) : null}
-            </dl>
-            <div class="tray-sheet__tiles">
-              <Button
-                variant="soft"
-                class="tray-sheet__tile"
-                data-on={facts.pinned ? "true" : undefined}
-                icon={<Icon name="pin" size={20} />}
-                title={words.count === null ? undefined : `${words.pin}: ${words.count}`}
-                onClick={p.onPin}
-              >
-                <Words text={words.pin} count={words.count} />
-              </Button>
-              <Button
-                variant="soft"
-                class="tray-sheet__tile"
-                icon={<Icon name="turn" size={20} />}
-                title={words.count === null ? undefined : `${words.turn}: ${words.count}`}
-                blockedReason={facts.turnCheck.ok ? undefined : facts.turnCheck.reason}
-                onClick={p.onTurn}
-              >
-                <Words text={words.turn} count={words.count} />
-              </Button>
-              <span
-                class="tray-more"
-                ref={more.wrap}
-                onKeyDown={more.onKeyDown}
-                onBlurCapture={more.onBlurCapture}
-              >
-                <Button
-                  variant="soft"
-                  class="tray-sheet__tile"
-                  ref={more.trigger}
-                  aria-expanded={more.open}
-                  aria-controls={more.open ? more.panelId : undefined}
-                  icon={<Icon name="more" size={20} />}
-                  onClick={more.toggle}
-                >
-                  More
-                  {facts.sizeLocked ? <span class="tray-more__dot" aria-hidden="true" /> : null}
-                </Button>
-                {more.open ? (
-                  <MoreItems
-                    more={more}
-                    swapping={p.swapping === true}
-                    puttingOn={p.puttingOn === true}
-                    sizeLocked={facts.sizeLocked}
-                    onSwap={p.onSwap}
-                    onPutOn={p.onPutOn}
-                    onToggleSizeLock={p.onToggleSizeLock}
-                  />
-                ) : null}
-              </span>
-            </div>
-            <Told pinned={facts.pinned} turned={facts.turned} sizeLocked={facts.sizeLocked} />
-            <div class="tray-sheet__why" aria-live="polite">
-              {facts.why !== undefined ? <p>{facts.why}</p> : null}
-            </div>
-          </>
-        ) : null}
-      </div>
-    </Dialog>
   );
 }

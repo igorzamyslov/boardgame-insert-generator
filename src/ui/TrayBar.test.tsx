@@ -2,7 +2,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import kit from "../kit/kit.css?raw";
-import tokens from "../styles/tokens.css?raw";
 import css from "./trayBar.css?raw";
 import { toggleLock, turnTray } from "../app/actions";
 import type { MeshSource } from "../app/meshes";
@@ -49,10 +48,12 @@ function props(over: Partial<TrayBarProps> = {}): TrayBarProps {
     project: planned([t]),
     tray: t,
     name: "Region deck",
-    layer: "Layer 1 (bottom)",
+    layer: "Layer 1",
     meshes: stubMeshes(),
     onPin: vi.fn(),
     onTurn: vi.fn(),
+    onSwap: vi.fn(),
+    onPutOn: vi.fn(),
     onToggleSizeLock: vi.fn(),
     onClose: vi.fn(),
     ...over,
@@ -65,6 +66,18 @@ function bar(over: Partial<TrayBarProps> = {}) {
 }
 
 const button = (name: string | RegExp): HTMLElement => screen.getByRole("button", { name });
+/** An entry of the ⋯ menu: its name leads, the line that says what it does follows. */
+const entry = (name: string): HTMLElement =>
+  screen.getByRole("button", { name: new RegExp(`^${name}`) });
+const lineOf = (el: HTMLElement): string | undefined =>
+  el.querySelector(".tray-more__line")?.textContent ?? undefined;
+const openMore = (): HTMLElement => {
+  const more = button("More about this tray");
+  fireEvent.click(more);
+  return more;
+};
+const closed = (): boolean =>
+  screen.queryByRole("group", { name: "More about this tray" }) === null;
 const region = (): HTMLElement => screen.getByRole("region", { name: "Selected tray" });
 const strip = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, "");
 
@@ -79,12 +92,6 @@ function ruleFor(selector: string, source = strip(css)): string {
   return out;
 }
 
-/** The bar's own children, as a person sees them: not the hidden reasons, not the line that says why. */
-const visibleChildren = (el: HTMLElement): Element[] =>
-  [...el.children].filter(
-    (c) => !c.classList.contains("visually-hidden") && !c.classList.contains("tray-bar__why"),
-  );
-
 describe("TrayBar", () => {
   it("is a region named Selected tray, marked for the screenshots", () => {
     bar();
@@ -93,127 +100,246 @@ describe("TrayBar", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("keeps name, meta and actions in one wrapping row", () => {
-    bar({ onEdit: vi.fn(), onSwap: vi.fn() });
-    const [swatch, text, ...actions] = visibleChildren(region());
-    expect(swatch?.getAttribute("aria-hidden")).toBe("true");
-    expect(text?.textContent).toMatch(/^Region deck/);
+  it("has Edit as its one action, then ⋯ and Close", () => {
+    bar({ onEdit: vi.fn() });
     expect(
-      actions.map(
-        (a) => (a.matches("button") ? a : (a.querySelector("button") as Element)).textContent,
-      ),
-    ).toEqual(["Pin this tray", "Turn this tray 90°", "Edit", "More", ""]);
-    // Close is the last, named by its label
-    expect(actions.at(-1)?.getAttribute("aria-label")).toBe("Close");
-    expect(ruleFor(".tray-bar")).toMatch(/flex-wrap:\s*wrap/);
+      screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent),
+    ).toEqual(["Edit", "More about this tray", "Close"]);
+    expect(button("Edit").classList.contains("tray-bar__edit")).toBe(true);
+    expect(region().querySelector(".tray-bar__why")).toBeNull();
   });
 
-  it("hides Swap with… and Lock size behind More", () => {
-    bar({ onSwap: vi.fn() });
-    expect(screen.queryByRole("button", { name: "Swap with…" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Lock size" })).toBeNull();
-    const more = button("More");
+  it("keeps the menu shut until ⋯ is pressed, and shuts it on a second press", () => {
+    bar();
+    const more = button("More about this tray");
     expect(more.getAttribute("aria-expanded")).toBe("false");
+    expect(closed()).toBe(true);
     fireEvent.click(more);
     expect(more.getAttribute("aria-expanded")).toBe("true");
-    expect(button("Swap with…").getAttribute("aria-pressed")).toBe("false");
-    expect(button("Lock size").hasAttribute("aria-pressed")).toBe(false);
+    expect(closed()).toBe(false);
     fireEvent.click(more);
-    expect(screen.queryByRole("button", { name: "Lock size" })).toBeNull();
+    expect(closed()).toBe(true);
   });
 
-  it("closes More on Escape without clearing the selection, and puts the focus back on More", () => {
+  it("lists Keep here, Rotate 90°, Swap places with…, Put on… and Keep this size, each with its line", () => {
+    bar();
+    openMore();
+    const panel = screen.getByRole("group", { name: "More about this tray" });
+    expect(panel.closest(".tray-more__panel")).not.toBeNull();
+    const items = [...panel.querySelectorAll<HTMLElement>("button")];
+    expect(items.map((b) => b.querySelector("span")?.textContent)).toEqual([
+      "Keep here",
+      "Rotate 90°",
+      "Swap places with…",
+      "Put on…",
+      "Keep this size",
+    ]);
+    expect(items.map(lineOf)).toEqual([
+      "The plan will not move it",
+      "Stays free to move",
+      "Then pick the other tray",
+      "Stands it on another tray",
+      "The plan will not resize it",
+    ]);
+    // the line is part of each entry's name
+    expect(entry("Keep here").textContent).toContain("The plan will not move it");
+  });
+
+  it("closes the menu on Escape without clearing the selection, and puts the focus back on ⋯", () => {
     const onKey = vi.fn();
     const { view } = bar();
     view.container.addEventListener("keydown", onKey);
-    const more = button("More");
-    fireEvent.click(more);
-    const lock = button("Lock size");
-    const stop = fireEvent.keyDown(lock, { key: "Escape" });
+    const more = openMore();
+    const stop = fireEvent.keyDown(entry("Keep this size"), { key: "Escape" });
     expect(stop).toBe(false);
-    expect(screen.queryByRole("button", { name: "Lock size" })).toBeNull();
+    expect(closed()).toBe(true);
     expect(onKey).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(more);
   });
 
-  it("leaves Escape to the plan while a swap is chosen: it ends the swap", () => {
-    const onKey = vi.fn();
-    const { view } = bar({ onSwap: vi.fn(), swapping: true });
-    view.container.addEventListener("keydown", onKey);
-    expect(fireEvent.keyDown(button("Swap with…"), { key: "Escape" })).toBe(true);
-    expect(onKey).toHaveBeenCalledTimes(1);
-  });
-
-  it("closes More on a click outside it", () => {
-    bar();
-    fireEvent.click(button("More"));
-    fireEvent.click(document.body);
-    expect(screen.queryByRole("button", { name: "Lock size" })).toBeNull();
-  });
-
-  it("offers Swap with… only where a swap can be made, and shows it under way with More open", () => {
-    const { p, view } = bar();
-    fireEvent.click(button("More"));
-    expect(screen.queryByRole("button", { name: "Swap with…" })).toBeNull();
+  it("ends a swap on Escape, whoever has the focus in the dock", () => {
     const onSwap = vi.fn();
-    view.rerender(<TrayBar {...p} onSwap={onSwap} />);
-    const swap = button("Swap with…");
+    bar({ swapping: true, onSwap });
+    expect(fireEvent.keyDown(entry("Swap places with…"), { key: "Escape" })).toBe(false);
+    expect(onSwap).toHaveBeenCalledTimes(1);
+  });
+
+  it("ends a put-on on Escape too", () => {
+    const onPutOn = vi.fn();
+    bar({ puttingOn: true, onPutOn });
+    expect(
+      fireEvent.keyDown(screen.getByRole("button", { name: "Close" }), { key: "Escape" }),
+    ).toBe(false);
+    expect(onPutOn).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the menu on a click outside it", () => {
+    bar();
+    openMore();
+    fireEvent.click(document.body);
+    expect(closed()).toBe(true);
+  });
+
+  it("starts a swap, shows it under way with the menu open, and shuts the menu with it", () => {
+    const { p, view } = bar();
+    openMore();
+    const swap = entry("Swap places with…");
     expect(swap.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(swap);
-    expect(onSwap).toHaveBeenCalledTimes(1);
-    // The swap began: the menu stays open on the pressed item, whatever pressed it
-    view.rerender(<TrayBar {...p} onSwap={onSwap} swapping />);
-    expect(button("More").getAttribute("aria-expanded")).toBe("true");
-    expect(button("Swap with…").getAttribute("aria-pressed")).toBe("true");
+    expect(p.onSwap).toHaveBeenCalledTimes(1);
+    // the swap began: the menu stays open on the pressed item, whatever pressed it
+    view.rerender(<TrayBar {...p} swapping />);
+    expect(button("More about this tray").getAttribute("aria-expanded")).toBe("true");
+    expect(entry("Swap places with…").getAttribute("aria-pressed")).toBe("true");
     // …and shuts with it
-    view.rerender(<TrayBar {...p} onSwap={onSwap} />);
-    expect(screen.queryByRole("button", { name: "Swap with…" })).toBeNull();
+    view.rerender(<TrayBar {...p} />);
+    expect(closed()).toBe(true);
   });
 
-  it("opens More at once for a swap that is already under way", () => {
-    bar({ onSwap: vi.fn(), swapping: true });
-    expect(button("Swap with…").getAttribute("aria-pressed")).toBe("true");
+  it("opens the menu at once for a swap that is already under way", () => {
+    bar({ swapping: true });
+    expect(entry("Swap places with…").getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("Lock size toggles, says Unlock size once locked, and closes the menu", () => {
+  it("Put on… starts a put-on, shows it pressed, and closes the menu", () => {
     const { p, view } = bar();
-    fireEvent.click(button("More"));
-    const lock = button("Lock size");
-    expect(lock.hasAttribute("aria-pressed")).toBe(false);
-    fireEvent.click(lock);
+    openMore();
+    expect(entry("Put on…").getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(entry("Put on…"));
+    expect(p.onPutOn).toHaveBeenCalledTimes(1);
+    expect(closed()).toBe(true);
+    view.rerender(<TrayBar {...p} puttingOn />);
+    openMore();
+    expect(entry("Put on…").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("Keep here toggles to Unpin, with the effect said the other way", () => {
+    const { p, view } = bar();
+    openMore();
+    const keep = entry("Keep here");
+    expect(keep.getAttribute("aria-pressed")).toBe("false");
+    expect(lineOf(keep)).toBe("The plan will not move it");
+    fireEvent.click(keep);
+    expect(p.onPin).toHaveBeenCalledTimes(1);
+    const locks: Lock[] = [{ kind: "position", trayKey: KEY, path: "0", rotated: false }];
+    view.rerender(<TrayBar {...p} project={planned([p.tray], locks)} />);
+    const unpin = entry("Unpin");
+    expect(unpin.getAttribute("aria-pressed")).toBe("true");
+    expect(unpin.classList.contains("is-on")).toBe(true);
+    expect(lineOf(unpin)).toBe("The plan may move it again");
+    expect(screen.queryByRole("button", { name: /^Keep here/ })).toBeNull();
+    // a pinned tray stays turned as it is kept
+    expect(lineOf(entry("Rotate 90°"))).toBe("Stays where it is kept");
+  });
+
+  it("says Pinned in the live region, not in a chip", () => {
+    const locks: Lock[] = [{ kind: "position", trayKey: KEY, path: "0", rotated: false }];
+    bar({ project: planned([tray()], locks) });
+    const live = region().querySelector("[aria-live]") as HTMLElement;
+    expect(live.classList.contains("visually-hidden")).toBe(true);
+    expect(within(live).getByText("Pinned")).toBeTruthy();
+  });
+
+  it("says Pinned, turned for a pin that turned the tray", () => {
+    // Turn alone doesn't pin: it is the Turn of a pinned tray that writes a turned pin.
+    const base = planned([tray()]);
+    const turned = turnTray(toggleLock(base, tray()), tray());
+    bar({ project: turned });
+    expect(screen.getByText("Pinned, turned")).toBeTruthy();
+    expect(screen.queryByText("Pinned")).toBeNull();
+  });
+
+  it("says Turned for a tray that was turned and not pinned, and the menu still offers Keep here", () => {
+    const base = planned([tray()]);
+    const turned = turnTray(base, tray());
+    expect(turned.locks).toEqual([{ kind: "turn", trayKey: KEY, rotated: true }]);
+    bar({ project: turned });
+    expect(screen.getByText("Turned")).toBeTruthy();
+    expect(screen.queryByText("Pinned, turned")).toBeNull();
+    expect(screen.queryByText("Pinned")).toBeNull();
+    openMore();
+    expect(entry("Keep here").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("says Pinned, not Turned, for a pin that is not turned, even with a turn lock under it", () => {
+    const locks: Lock[] = [
+      { kind: "position", trayKey: KEY, path: "0", rotated: false },
+      { kind: "turn", trayKey: KEY, rotated: false },
+    ];
+    bar({ project: planned([tray()], locks) });
+    expect(screen.getByText("Pinned")).toBeTruthy();
+    expect(screen.queryByText("Turned")).toBeNull();
+  });
+
+  it("says what Keep here holds: a tray alone, or the stack it is in, with how many trays", () => {
+    const low = tray({ key: "fxcrd002:p0:1", path: "10", level: 0 });
+    const mid = tray({ key: "fxcrd002:p0:2", path: "10", level: 1, z: 20 });
+    const high = tray({ key: "fxcrd002:p0:0", path: "10", level: 2, z: 40 });
+    const { p, view } = bar({ project: planned([low, mid, high]), tray: mid });
+    openMore();
+    expect(lineOf(entry("Keep here"))).toBe("The plan will not move these 3 trays");
+    fireEvent.click(entry("Keep here"));
+    expect(p.onPin).toHaveBeenCalledTimes(1);
+    // pinned: the same words, the other way
+    const locks: Lock[] = [low, mid, high].map((t) => ({
+      kind: "position",
+      trayKey: t.key,
+      path: "10",
+      rotated: false,
+    }));
+    view.rerender(<TrayBar {...p} project={planned([low, mid, high], locks)} />);
+    expect(lineOf(entry("Unpin"))).toBe("The plan may move these 3 trays again");
+    view.unmount();
+    // a tray of a stack of one reads as a tray alone
+    bar({ project: planned([tray()]) });
+    openMore();
+    expect(lineOf(entry("Keep here"))).toBe("The plan will not move it");
+  });
+
+  it("says Size locked in the live region once locked", () => {
+    const locks: Lock[] = [{ kind: "size", trayKey: KEY, w: 72, d: 96, h: 40 }];
+    bar({ project: planned([tray()], locks) });
+    expect(screen.getByText("Size locked")).toBeTruthy();
+  });
+
+  it("Keep this size toggles to Let the size change, and closes the menu", () => {
+    const { p, view } = bar();
+    openMore();
+    const keep = entry("Keep this size");
+    expect(keep.hasAttribute("aria-pressed")).toBe(false);
+    fireEvent.click(keep);
     expect(p.onToggleSizeLock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("button", { name: "Lock size" })).toBeNull();
+    expect(closed()).toBe(true);
     const locks: Lock[] = [{ kind: "size", trayKey: KEY, w: 72, d: 96, h: 40 }];
     view.rerender(<TrayBar {...p} project={planned([p.tray], locks)} />);
-    fireEvent.click(button("More"));
-    expect(button("Unlock size").hasAttribute("aria-pressed")).toBe(false);
-    expect(button("Unlock size").classList.contains("is-on")).toBe(true);
+    openMore();
+    const change = entry("Let the size change");
+    expect(change.classList.contains("is-on")).toBe(true);
+    expect(lineOf(change)).toBe("The plan may resize it");
+    expect(screen.queryByRole("button", { name: /^Keep this size/ })).toBeNull();
   });
 
-  it("shows a dot on More while the size is locked, for a person who has not opened it", () => {
+  it("shows a dot on ⋯ while the tray is pinned or its size is locked, with its name unchanged", () => {
     const { p, view } = bar();
-    expect(button("More").querySelector(".tray-more__dot")).toBeNull();
-    const locks: Lock[] = [{ kind: "size", trayKey: KEY, w: 72, d: 96, h: 40 }];
-    view.rerender(<TrayBar {...p} project={planned([p.tray], locks)} />);
-    const dot = button("More").querySelector(".tray-more__dot");
-    expect(dot?.getAttribute("aria-hidden")).toBe("true");
-    // the name does not change
-    expect(button("More").textContent).toBe("More");
-    expect(ruleFor(".tray-more__dot")).toMatch(/position:\s*absolute/);
+    const dot = (): Element | null =>
+      button("More about this tray").querySelector(".k-iconbtn__dot");
+    expect(dot()).toBeNull();
+    const pin: Lock[] = [{ kind: "position", trayKey: KEY, path: "0", rotated: false }];
+    view.rerender(<TrayBar {...p} project={planned([p.tray], pin)} />);
+    expect(dot()?.getAttribute("aria-hidden")).toBe("true");
+    const size: Lock[] = [{ kind: "size", trayKey: KEY, w: 72, d: 96, h: 40 }];
+    view.rerender(<TrayBar {...p} project={planned([p.tray], size)} />);
+    expect(dot()).not.toBeNull();
+    expect(button("More about this tray")).toBeTruthy();
   });
 
   it("reads the meta from the layout, and the filament once the part is built", async () => {
     bar();
     const meta = region().querySelector(".tray-bar__meta");
-    expect(meta?.textContent).toBe("Layer 1 (bottom) · 72 × 96 × 40 mm");
+    expect(meta?.textContent).toBe("Layer 1 · 72 × 96 × 40 mm");
     await counted(meta);
-    expect(meta?.textContent).toMatch(
-      /^Layer \d \((bottom|top)\) · \d+ × \d+ × \d+ mm · about \d+ g$/,
-    );
+    expect(meta?.textContent).toMatch(/^Layer \d · \d+ × \d+ × \d+ mm · about \d+ g$/);
     expect(meta?.textContent).not.toMatch(/ h| min/);
-    expect(meta?.textContent).toBe(
-      `Layer 1 (bottom) · 72 × 96 × 40 mm · ${/about .+/.exec(meta?.textContent ?? "")?.[0]}`,
-    );
     expect(region().textContent).not.toMatch(/#\d/);
   });
 
@@ -221,7 +347,7 @@ describe("TrayBar", () => {
     bar({ meshes: undefined });
     await Promise.resolve();
     expect(region().querySelector(".tray-bar__meta")?.textContent).toBe(
-      "Layer 1 (bottom) · 72 × 96 × 40 mm",
+      "Layer 1 · 72 × 96 × 40 mm",
     );
     cleanup();
     const failing = stubMeshes();
@@ -230,7 +356,7 @@ describe("TrayBar", () => {
     await waitFor(() => expect(failing.get).toHaveBeenCalled());
     await Promise.resolve();
     expect(region().querySelector(".tray-bar__meta")?.textContent).toBe(
-      "Layer 1 (bottom) · 72 × 96 × 40 mm",
+      "Layer 1 · 72 × 96 × 40 mm",
     );
   });
 
@@ -250,21 +376,9 @@ describe("TrayBar", () => {
     expect(ruleFor(".tray-bar__text")).toMatch(/min-width:\s*0/);
   });
 
-  it("draws Main's bar: 18 px radius, the sheet, a rule line, the bar's shadow, 8 px gaps", () => {
-    const rule = ruleFor(".tray-bar");
-    expect(rule).toMatch(/border-radius:\s*var\(--r-bar\)/);
-    expect(rule).toMatch(/background:\s*var\(--sheet\)/);
-    expect(rule).toMatch(/border:\s*1px solid var\(--rule\)/);
-    expect(rule).toMatch(/box-shadow:\s*var\(--shadow-bar\)/);
-    expect(rule).toMatch(/gap:\s*var\(--s-8\)/);
-    expect(rule).toMatch(/padding:\s*var\(--s-8\) var\(--s-8\) var\(--s-8\) var\(--s-12\)/);
-    expect(ruleFor(".tray-bar__text")).toMatch(/flex:\s*1 1 200px/);
-    expect(ruleFor(".tray-bar__swatch")).toMatch(/width:\s*30px/);
-  });
-
   it("gives a spacer only Close", () => {
     const spacer = tray({ key: "spacer:0", part: "spacer", compartments: [] });
-    bar({ tray: spacer, project: planned([spacer]), name: "Spacer", onSwap: vi.fn() });
+    bar({ tray: spacer, project: planned([spacer]), name: "Spacer" });
     expect(
       screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent),
     ).toEqual(["Close"]);
@@ -307,122 +421,35 @@ describe("TrayBar", () => {
   });
 
   it("never offers another layer", () => {
-    bar({ onEdit: vi.fn(), onSwap: vi.fn() });
-    fireEvent.click(button("More"));
+    bar({ onEdit: vi.fn() });
+    openMore();
     for (const b of screen.getAllByRole("button")) {
       expect(b.textContent ?? "").not.toMatch(/layer$/i);
     }
     expect(screen.queryByText(/other layer|top layer|bottom layer/i)).toBeNull();
   });
 
-  it("Pin this tray toggles to Unpin this tray, and the pin is told in the live region, not in a chip", () => {
-    const { p, view } = bar();
-    const pin = button("Pin this tray");
-    // The label is the action: no aria-pressed to say it twice.
-    expect(pin.hasAttribute("aria-pressed")).toBe(false);
-    expect(pin.getAttribute("data-on")).toBeNull();
-    fireEvent.click(pin);
-    expect(p.onPin).toHaveBeenCalledTimes(1);
-    const locks: Lock[] = [{ kind: "position", trayKey: KEY, path: "0", rotated: false }];
-    view.rerender(<TrayBar {...p} project={planned([p.tray], locks)} />);
-    expect(button("Unpin this tray").hasAttribute("aria-pressed")).toBe(false);
-    expect(button("Unpin this tray").getAttribute("data-on")).toBe("true");
-    expect(screen.queryByRole("button", { name: "Pin this tray" })).toBeNull();
-    const live = region().querySelector("[aria-live]") as HTMLElement;
-    expect(live.classList.contains("visually-hidden")).toBe(true);
-    expect(within(live).getByText("Pinned")).toBeTruthy();
-  });
-
-  it("says Pinned, turned for a pin that turned the tray", () => {
-    // Turn alone doesn't pin: it is the Turn of a pinned tray that writes a turned pin.
-    const base = planned([tray()]);
-    const turned = turnTray(toggleLock(base, tray()), tray());
-    bar({ project: turned });
-    expect(screen.getByText("Pinned, turned")).toBeTruthy();
-    expect(screen.queryByText("Pinned")).toBeNull();
-  });
-
-  it("says Turned for a tray that was turned and not pinned, and Pin still reads Pin", () => {
-    const base = planned([tray()]);
-    const turned = turnTray(base, tray());
-    expect(turned.locks).toEqual([{ kind: "turn", trayKey: KEY, rotated: true }]);
-    bar({ project: turned });
-    expect(screen.getByText("Turned")).toBeTruthy();
-    expect(screen.queryByText("Pinned, turned")).toBeNull();
-    expect(screen.queryByText("Pinned")).toBeNull();
-    expect(button("Pin this tray")).toBeTruthy();
-    expect(button("Pin this tray").getAttribute("data-on")).toBeNull();
-  });
-
-  it("says Pinned, not Turned, for a pin that is not turned, even with a turn lock under it", () => {
-    const locks: Lock[] = [
-      { kind: "position", trayKey: KEY, path: "0", rotated: false },
-      { kind: "turn", trayKey: KEY, rotated: false },
-    ];
-    bar({ project: planned([tray()], locks) });
-    expect(screen.getByText("Pinned")).toBeTruthy();
-    expect(screen.queryByText("Turned")).toBeNull();
-  });
-
-  it("says what Pin and Turn hold: a tray alone, or the stack it is in, with how many trays", () => {
-    const low = tray({ key: "fxcrd002:p0:1", path: "10", level: 0 });
-    const mid = tray({ key: "fxcrd002:p0:2", path: "10", level: 1, z: 20 });
-    const high = tray({ key: "fxcrd002:p0:0", path: "10", level: 2, z: 40 });
-    const { p, view } = bar({ project: planned([low, mid, high]), tray: mid });
-    const pin = button("Pin this stack, 3 trays");
-    expect(pin.getAttribute("title")).toBe("Pin this stack: 3 trays");
-    expect(button("Turn this stack 90°, 3 trays").getAttribute("title")).toBe(
-      "Turn this stack 90°: 3 trays",
-    );
-    expect(screen.queryByRole("button", { name: /this tray/ })).toBeNull();
-    fireEvent.click(pin);
-    expect(p.onPin).toHaveBeenCalledTimes(1);
-    // pinned: the same words, the other way
-    const locks: Lock[] = [low, mid, high].map((t) => ({
-      kind: "position",
-      trayKey: t.key,
-      path: "10",
-      rotated: false,
-    }));
-    view.rerender(<TrayBar {...p} project={planned([low, mid, high], locks)} />);
-    expect(button("Unpin this stack, 3 trays").getAttribute("data-on")).toBe("true");
-    view.unmount();
-    // a tray of a stack of one, and a plan that has not got it, read as a tray alone
-    bar({ project: planned([tray()]) });
-    expect(button("Pin this tray").getAttribute("title")).toBeNull();
-    expect(screen.queryByText(/trays?$/, { selector: ".visually-hidden" })).toBeNull();
-  });
-
-  it("says Size locked in the live region once locked", () => {
-    const locks: Lock[] = [{ kind: "size", trayKey: KEY, w: 72, d: 96, h: 40 }];
-    bar({ project: planned([tray()], locks) });
-    expect(screen.getByText("Size locked")).toBeTruthy();
-  });
-
-  it("Turn 90° asks to turn, and is offered while nothing is in the way", () => {
+  it("Rotate 90° asks to turn, and is offered while nothing is in the way", () => {
     const { p } = bar();
-    const turn = button("Turn this tray 90°");
+    openMore();
+    const turn = entry("Rotate 90°");
     expect(turn.getAttribute("aria-disabled")).toBeNull();
     fireEvent.click(turn);
     expect(p.onTurn).toHaveBeenCalledTimes(1);
-    expect(region().querySelector(".tray-bar__why")?.textContent).toBe("");
   });
 
-  it("Turn says why it is unavailable for a square tray, on a line of its own", () => {
+  it("Rotate 90° says why it is unavailable for a square tray, and does nothing", () => {
     const { p } = bar({ tray: tray({ w: 80, d: 80.3 }) });
-    const turn = button("Turn this tray 90°");
+    openMore();
+    const turn = entry("Rotate 90°");
     expect(turn.getAttribute("aria-disabled")).toBe("true");
     expect(turn.hasAttribute("disabled")).toBe(false);
     const reason = "This tray is square, so turning changes nothing.";
-    // the line everybody sees, and the sentence the button is described by
-    expect(region().querySelector(".tray-bar__why")?.textContent).toBe(reason);
+    expect(screen.getByText(reason)).toBeTruthy();
     const described = document.getElementById(turn.getAttribute("aria-describedby") ?? "");
     expect(described?.textContent).toBe(reason);
     fireEvent.click(turn);
     expect(p.onTurn).not.toHaveBeenCalled();
-    expect(ruleFor(".tray-bar__why")).toMatch(/flex-basis:\s*100%/);
-    expect(ruleFor(".tray-bar__why")).toMatch(/color:\s*var\(--warn-ink\)/);
-    expect(ruleFor(".tray-bar__why")).toMatch(/font-size:\s*var\(--text-xs\)/);
   });
 
   it("gives canTurn's reason when the pins a turn flips clash with a size lock", () => {
@@ -444,11 +471,10 @@ describe("TrayBar", () => {
       ],
     );
     bar({ project, tray: low });
-    expect(button("Turn this stack 90°, 2 trays").getAttribute("aria-disabled")).toBe("true");
+    openMore();
+    expect(entry("Rotate 90°").getAttribute("aria-disabled")).toBe("true");
     expect(
-      screen.getByText(/^Turning doesn't work for .+: it conflicts with the size lock/, {
-        selector: ".tray-bar__why p",
-      }),
+      screen.getByText(/^Turning doesn't work for .+: it conflicts with the size lock/),
     ).toBeTruthy();
   });
 
@@ -463,17 +489,13 @@ describe("TrayBar", () => {
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
   });
 
-  it("announces only the pin and size lock and the reason, not the buttons or the sizes", () => {
-    bar({ onEdit: vi.fn(), onSwap: vi.fn(), tray: tray({ w: 80, d: 80 }) });
+  it("announces only the pin, turn and size lock, not the buttons or the sizes", () => {
+    bar({ onEdit: vi.fn(), tray: tray({ w: 80, d: 80 }) });
     const live = [...document.querySelectorAll("[aria-live]")];
-    expect(live).toHaveLength(2);
+    expect(live).toHaveLength(1);
     expect(live[0]?.classList.contains("visually-hidden")).toBe(true);
-    expect(live[1]?.classList.contains("tray-bar__why")).toBe(true);
-    expect(live[1]?.textContent).toMatch(/square/);
     expect(region().hasAttribute("aria-live")).toBe(false);
-    for (const el of live) {
-      expect(el.querySelector("button, dl")).toBeNull();
-    }
+    expect(live[0]?.querySelector("button, dl")).toBeNull();
   });
 
   it("keeps every control at 44 px: the kit's buttons, and no height of its own on the bar's", () => {
@@ -481,117 +503,6 @@ describe("TrayBar", () => {
     expect(strip(kit)).toMatch(/\.k-iconbtn\s*{[^}]*height:\s*var\(--control-h\)/);
     expect(ruleFor(".tray-bar .tray-bar__edit")).not.toMatch(/height/);
     expect(strip(css)).not.toMatch(/\.tray-bar[^{]*\.k-(btn|iconbtn)[^{]*{[^}]*height/);
-  });
-});
-
-describe("TrayBar as the phone's sheet", () => {
-  const sheet = (over: Partial<TrayBarProps> = {}) =>
-    bar({ phone: true, name: "Heroes", compartments: "6 figure pockets", ...over });
-  const dialog = (): HTMLElement => screen.getByRole("dialog");
-
-  it("is a modal dialog named by its h2, marked as the sheet", () => {
-    sheet();
-    const h2 = within(dialog()).getByRole("heading", { level: 2, name: "Heroes" });
-    expect(dialog().getAttribute("aria-labelledby")).toBe(h2.id);
-    expect(dialog().getAttribute("aria-modal")).toBe("true");
-    expect(dialog().getAttribute("data-region")).toBe("sheet");
-    expect(screen.queryByRole("region", { name: "Selected tray" })).toBeNull();
-  });
-
-  it("takes the focus on its heading when it opens", () => {
-    sheet();
-    expect(document.activeElement).toBe(within(dialog()).getByRole("heading", { level: 2 }));
-  });
-
-  it("says the layer and the compartments, then the size and the filament", async () => {
-    sheet();
-    expect(dialog().querySelector(".tray-sheet__meta")?.textContent).toBe(
-      "Layer 1 (bottom) · 6 figure pockets",
-    );
-    const dts = [...dialog().querySelectorAll("dt")].map((e) => e.textContent);
-    expect(dts).toEqual(["Size"]);
-    expect(dialog().querySelector("dd")?.textContent).toBe("72 × 96 × 40 mm");
-    await waitFor(() =>
-      expect([...dialog().querySelectorAll("dt")].map((e) => e.textContent)).toEqual([
-        "Size",
-        "Filament",
-      ]),
-    );
-    expect(dialog().querySelectorAll("dd")[1]?.textContent).toMatch(/^about \d+ g$/);
-  });
-
-  it("has a full-width Edit <name>, the three tiles and Close", () => {
-    const onEdit = vi.fn();
-    sheet({ onEdit });
-    fireEvent.click(button("Edit Heroes"));
-    expect(onEdit).toHaveBeenCalledTimes(1);
-    const tiles = dialog().querySelector(".tray-sheet__tiles") as HTMLElement;
-    expect([...tiles.querySelectorAll("button")].map((b) => b.textContent)).toEqual([
-      "Pin this tray",
-      "Turn this tray 90°",
-      "More",
-    ]);
-    expect(button("Close")).toBeTruthy();
-  });
-
-  it("shows the size lock's dot on the More tile too", () => {
-    const locks: Lock[] = [{ kind: "size", trayKey: KEY, w: 72, d: 96, h: 40 }];
-    sheet({ project: planned([tray()], locks) });
-    expect(button("More").querySelector(".tray-more__dot")).not.toBeNull();
-  });
-
-  it("opens More over the tiles, with Swap with… and Lock size", () => {
-    const { p } = sheet({ onSwap: vi.fn() });
-    const more = button("More");
-    expect(more.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(more);
-    expect(more.getAttribute("aria-expanded")).toBe("true");
-    expect(button("Swap with…").getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(button("Lock size"));
-    expect(p.onToggleSizeLock).toHaveBeenCalledTimes(1);
-  });
-
-  it("Pin and Turn work as on the bar, and a blocked Turn says why under the tiles", () => {
-    const { p } = sheet({ tray: tray({ w: 80, d: 80 }) });
-    fireEvent.click(button("Pin this tray"));
-    expect(p.onPin).toHaveBeenCalledTimes(1);
-    const turn = button("Turn this tray 90°");
-    expect(turn.getAttribute("aria-disabled")).toBe("true");
-    fireEvent.click(turn);
-    expect(p.onTurn).not.toHaveBeenCalled();
-    expect(dialog().querySelector(".tray-sheet__why")?.textContent).toMatch(/is square/);
-  });
-
-  it("gives a spacer only its name, what it is and Close", () => {
-    const spacer = tray({ key: "spacer:0", part: "spacer", compartments: [] });
-    bar({ phone: true, tray: spacer, project: planned([spacer]), name: "Spacer" });
-    expect(screen.getAllByRole("button")).toHaveLength(1);
-    expect(dialog().querySelector(".tray-sheet__meta")?.textContent).toMatch(
-      /^Fills the gap so the trays can't slide\. Print it too\./,
-    );
-    expect(dialog().querySelector("dl")).toBeNull();
-  });
-
-  it("closes on Escape and on a press on what is behind it", () => {
-    const { p } = sheet();
-    const cancel = new Event("cancel", { cancelable: true });
-    dialog().dispatchEvent(cancel);
-    expect(cancel.defaultPrevented).toBe(true);
-    expect(p.onClose).toHaveBeenCalledTimes(1);
-    fireEvent.click(dialog());
-    expect(p.onClose).toHaveBeenCalledTimes(2);
-    // a press inside it does not
-    fireEvent.click(within(dialog()).getByRole("heading", { level: 2 }));
-    expect(p.onClose).toHaveBeenCalledTimes(2);
-  });
-
-  it("is 404 px tall, over the page with the modal sheet's shadow", () => {
-    const rule = ruleFor(".k-sheetmodal", strip(kit));
-    expect(rule).toMatch(/box-shadow:\s*var\(--shadow-sheet-modal\)/);
-    expect(rule).toMatch(/height:\s*var\(--tray-sheet-h\)/);
-    expect(strip(tokens)).toMatch(/--tray-sheet-h:\s*404px/);
-    expect(ruleFor(".tray-sheet__tile.k-btn")).toMatch(/min-height:\s*68px/);
-    expect(ruleFor(".tray-sheet__tiles")).toMatch(/repeat\(3, minmax\(0, 1fr\)\)/);
   });
 });
 
@@ -631,7 +542,7 @@ describe("TrayBar for a group's tray (G1)", () => {
     expect(region().style.getPropertyValue("--shade-fill")).toBe(groupLook.shade.fill);
   });
 
-  it("styles the tiny tray from the page's tokens: 30 px, a 2 px --muted-strong line, --sheet ground", () => {
+  it("styles the tiny tray from the page's tokens: a 2 px line, the cell's own colours", () => {
     const rule = ruleFor(".tray-bar__swatch--group");
     expect(rule).toMatch(/display:\s*grid/);
     expect(rule).toMatch(/gap:\s*2px/);
@@ -654,7 +565,7 @@ describe("TrayBar for a group's tray (G1)", () => {
     kit({ layerCount: 2 });
     await counted(region().querySelector(".tray-bar__meta"));
     expect(region().querySelector(".tray-bar__meta")?.textContent).toMatch(
-      /^Layer 1 \(bottom\) · 72 × 96 × 40 mm · 5 compartments · about /,
+      /^Layer 1 · 72 × 96 × 40 mm · 5 compartments · about /,
     );
   });
 
@@ -664,21 +575,10 @@ describe("TrayBar for a group's tray (G1)", () => {
     expect(p.onEdit).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps Pin, Turn 90°, More and Close, as for any tray", () => {
-    kit({ onSwap: vi.fn() });
-    expect(button(/^Pin this tray/)).toBeTruthy();
-    expect(button(/^Turn this tray/)).toBeTruthy();
-    expect(button("More")).toBeTruthy();
-    expect(button("Close")).toBeTruthy();
-  });
-
-  it("names the tray in the phone's sheet with the group's neutral tile and its compartments", () => {
-    kit({ phone: true, layerCount: 1 });
-    const d = screen.getByRole("dialog");
-    expect(within(d).getByRole("heading", { level: 2 }).textContent).toBe("Player kit 2");
-    expect(d.querySelector(".tray-sheet__meta")?.textContent).toBe(
-      "Layer 1 (bottom) · 5 compartments",
-    );
-    expect(d.querySelector(".k-tile")?.getAttribute("data-tone")).toBe("group");
+  it("keeps Edit, ⋯ and Close, as for any tray", () => {
+    kit();
+    expect(
+      screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent),
+    ).toEqual(["Edit", "More about this tray", "Close"]);
   });
 });

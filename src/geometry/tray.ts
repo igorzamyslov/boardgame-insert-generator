@@ -4,7 +4,13 @@ import type { BoxMm, MergedPart, Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
 import { carriesName } from "../model/part-name";
-import { buildEngravings, hasEngraving, planEngravings, planMergedEngraving } from "./engrave";
+import {
+  buildEngravings,
+  hasEngraving,
+  planEngravings,
+  planMergedEngraving,
+  planMergedInside,
+} from "./engrave";
 import type { Engravings } from "./engrave";
 import { cutFace, filletStrip } from "./plan-cuts";
 import { mergedBody, mergedOutline } from "./merged-outline";
@@ -13,7 +19,7 @@ import { INNER_CORNER_RADIUS_MM } from "./plan-types";
 import type {
   CompartmentPlan,
   CutPlan,
-  DipPlan,
+  ChamferPlan,
   LipPlan,
   Rect,
   ScoopPlan,
@@ -357,24 +363,29 @@ function buildCutter(
   return cutter;
 }
 
-// A finger dip: the U of a cut, run in from its face and, across the whole part when `through`, out
-// through the opposite one too; past each face it leaves through by OVERSHOOT. Vertical sides, a
-// round bottom, open at the top: nothing overhangs.
-function buildDip(m: ManifoldToplevel, scope: Scope, dip: DipPlan, top: number): Manifold {
-  const { side, through } = dip;
-  const alongX = side === "front" || side === "back";
-  const first = side === "front" || side === "left";
-  const out = (near: boolean): number => (near ? OVERSHOOT : 0);
-  const reach = alongX
-    ? {
-        y0: dip.y0 - out(first || through),
-        y1: dip.y1 + out(!first || through),
-      }
-    : {
-        x0: dip.x0 - out(first || through),
-        x1: dip.x1 + out(!first || through),
-      };
-  return buildU(m, scope, { ...dip, ...reach }, top);
+// A top chamfer: the wedge above the 45° slope that runs from `size` below the top at the face to
+// the top `size` in, along the face over a…b; past the face, the top and any end that is the part's
+// own end by OVERSHOOT. Faces up and out: nothing overhangs.
+function buildChamfer(m: ManifoldToplevel, scope: Scope, c: ChamferPlan, plan: TrayPlan): Manifold {
+  const alongX = c.side === "front" || c.side === "back";
+  const span = alongX ? plan.w : plan.d;
+  const across = alongX ? plan.d : plan.w;
+  const near = c.side === "front" || c.side === "left";
+  const [u0, u1] = [c.a - (c.a <= EPS ? OVERSHOOT : 0), c.b + (c.b >= span - EPS ? OVERSHOOT : 0)];
+  const top = plan.h;
+  // (distance in from the face, height) of the wedge's corners; negative distances are outside.
+  const corners: [number, number][] = [
+    [-OVERSHOOT, top - c.size - OVERSHOOT],
+    [c.size + OVERSHOOT, top + OVERSHOOT],
+    [-OVERSHOOT, top + OVERSHOOT],
+  ];
+  const points = corners.flatMap(([n, z]) =>
+    [u0, u1].map((u): Vec3 => {
+      const v = near ? n : across - n;
+      return alongX ? [u, v, z] : [v, u, z];
+    }),
+  );
+  return hullPoints(m, scope, points);
 }
 
 function toMesh(solid: Manifold): Mesh {
@@ -433,7 +444,7 @@ function buildNotches(
   });
 }
 
-// What a part's solid loses: the compartments' cutters, a spacer's notch, a filler's dips and the engraving, in the
+// What a part's solid loses: the compartments' cutters, a spacer's notch, a filler's top chamfers and the engraving, in the
 // part's own frame (origin at its outer min corner).
 function buildCutters(
   m: ManifoldToplevel,
@@ -459,9 +470,9 @@ function buildCutters(
       : { v0: -OVERSHOOT, v1: plan.d + OVERSHOOT };
     cutters.push(...buildTopFillets(m, scope, n, { top: plan.h, ...strip }));
   }
-  // A filler's finger dips leave through the faces that touch a tray.
-  for (const dip of plan.dips) {
-    cutters.push(buildDip(m, scope, dip, plan.topZ + OVERSHOOT));
+  // A filler's top chamfers run along the faces that touch a tray.
+  for (const chamfer of plan.chamfers) {
+    cutters.push(buildChamfer(m, scope, chamfer, plan));
   }
   cutters.push(...buildNotches(m, scope, spec, plan));
   // An underside name is cut into the bed face: the slab's, below the seam, on a stepped part.
@@ -496,9 +507,9 @@ function buildSolid(
 }
 
 // The name engraved on a part (spec.partName, set by the app on the copy it asks to build when
-// the engraving setting is on) and where: two opposite outer walls and the underside, each that
-// has room; null for a part that carries none (a plate: a spacer or divider), or that has no face
-// with room (planEngravings).
+// the engraving setting is on) and where: two opposite outer walls, the underside and the floor of
+// a well, each that has room; null for a part that carries none (a plate: a spacer or divider), or
+// that has no face with room (planEngravings).
 function engravingsOf(plan: TrayPlan, spec: TraySpec): Engravings | null {
   const name = spec.partName;
   if (name === undefined || !carriesName(spec.part)) {
@@ -553,23 +564,27 @@ function buildMerged(
       ? planMergedEngraving(spec, merged, plans, spec.partName)
       : null;
   const onMember = found?.member ?? -1;
-  const engravings: Engravings | null = found ? { walls: found.engravings, underside: null } : null;
-  const once = buildMergedOnce(m, scope, spec, merged, plans, (i) =>
-    i === onMember ? engravings : null,
-  );
+  // ... and the floor of a well of one member (a riser's pocket): the member where it is largest.
+  const floor =
+    spec.partName !== undefined && carriesName(spec.part)
+      ? planMergedInside(merged, plans, spec.partName)
+      : null;
+  const engravingsFor = (i: number): Engravings | null => {
+    const walls = i === onMember ? (found?.engravings ?? []) : [];
+    const inside = i === floor?.member ? floor.inside : null;
+    return walls.length > 0 || inside !== null ? { walls, underside: null, inside } : null;
+  };
+  const once = buildMergedOnce(m, scope, spec, merged, plans, engravingsFor);
   if (once) {
     return once;
   }
   const pieces: Manifold[] = merged.members.map((member, i) =>
     scope.track(
-      buildSolid(
-        m,
-        scope,
-        member,
-        settings,
-        plans[i],
-        i === onMember ? engravings : null,
-      ).translate([member.x - spec.x, member.y - spec.y, member.z - spec.z]),
+      buildSolid(m, scope, member, settings, plans[i], engravingsFor(i)).translate([
+        member.x - spec.x,
+        member.y - spec.y,
+        member.z - spec.z,
+      ]),
     ),
   );
   for (const b of merged.bridges) {

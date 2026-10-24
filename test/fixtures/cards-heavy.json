@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.3.2",
+  "schemaVersion": "0.3.3",
   "createdWith": "0.2.0",
   "id": "fxcards1",
   "name": "Fixture: cards heavy",
@@ -34,7 +34,7 @@
       "dividerRoom": 0
     },
     "lip": {
-      "enabled": true,
+      "joint": "rim",
       "height": 2,
       "thickness": 1.2,
       "ledge": 1.7,

@@ -1,4 +1,4 @@
-import { lipAbove, stepOn } from "../model/lip";
+import { lipAbove, lipEnabled, stepOn } from "../model/lip";
 import { effective } from "../model/settings";
 import type { BoxMm, Printer, Settings, TraySpec } from "../model/types";
 import { fitsBed, type Bed } from "./bed";
@@ -526,7 +526,7 @@ export function mergeParts(trays: readonly TraySpec[], o: MergeInputs): TraySpec
   // it stays a part of its own too.
   const candidate = (t: TraySpec): boolean =>
     t.merged === undefined &&
-    !(settings.lip.enabled && t.level > 0) &&
+    !(lipEnabled(settings) && t.level > 0) &&
     (t.part === "leftover" || (settings.mergeRisers && t.part === "riser"));
   const items = trays.filter(candidate).map((t) => itemOf(t, lipAbove(settings, true)));
   if (items.length < 2) {

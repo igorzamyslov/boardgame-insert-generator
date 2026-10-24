@@ -410,12 +410,12 @@ describe("on a phone", () => {
     expect(within(sheet()).getByRole("button", { name: "Player kit, 4 copies" })).toBeTruthy();
   });
 
-  it("says '<n> compartments' on the tray sheet of a group's tray, as the desktop's bar does", () => {
+  it("says '<n> compartments' in the dock of a group's tray, as on the desktop", () => {
     phone();
     renderApp({ project: kit() });
     const tile = document.querySelector('.plan-tile[data-key$=":p1:0"]') as HTMLElement;
     fireEvent.keyDown(tile, { key: "Enter" });
-    const meta = document.querySelector(".tray-sheet__meta")?.textContent ?? "";
+    const meta = document.querySelector(".tray-bar__meta")?.textContent ?? "";
     expect(meta).toMatch(/\b\d+ compartments$/);
     expect(meta).not.toMatch(/card well|scooped|figure pocket/);
   });

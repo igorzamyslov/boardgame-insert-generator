@@ -56,13 +56,13 @@ describe("inputsHash", () => {
     const base = sample();
     const off: Project = {
       ...base,
-      settings: { ...base.settings, lip: { ...base.settings.lip, enabled: false } },
+      settings: { ...base.settings, lip: { ...base.settings.lip, joint: "off" as const } },
     };
     const reread = parseProject(JSON.parse(JSON.stringify(off)));
     if (!reread.ok) {
       throw new Error(reread.error);
     }
-    expect(reread.project.settings.lip.enabled).toBe(false);
+    expect(reread.project.settings.lip.joint !== "off").toBe(false);
     expect(inputsHash(reread.project)).toBe(inputsHash(off));
     expect(inputsHash(off)).not.toBe(inputsHash(base));
   });

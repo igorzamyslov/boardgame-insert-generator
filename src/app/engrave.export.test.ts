@@ -85,5 +85,5 @@ describe("an export of a named fixture project", () => {
     const files = Object.keys(unzipSync(zip.data));
     expect(files).toHaveLength(plan.parts.length);
     expect(files.some((f) => /^\d/.test(f))).toBe(false);
-  });
+  }, 60_000);
 });

@@ -17,7 +17,7 @@ describe("one tray per item when a whole tray fits", () => {
     variant("halves", [part("w:p0:0", [a]), part("w:p0:1", [b])]),
     variant("whole", [part("w:p0:0", [a, b])]),
   ]);
-  const noLip = { lip: { ...DEFAULT_SETTINGS.lip, enabled: false } };
+  const noLip = { lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const } };
   const box = { innerWidth: 88, innerDepth: 140, innerHeight: 30 };
   const run = (input: LayoutInput): LayoutResult => {
     const r = createRun(input, 1, DEFAULT_ITERATIONS, {

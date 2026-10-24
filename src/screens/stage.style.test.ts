@@ -17,15 +17,23 @@ function ruleFor(selector: string, source = strip(css)): string {
 }
 
 describe("stage.css", () => {
-  it("gives a phone's idle slot no height and no place in the flow (no band above the box)", () => {
-    // `.visually-hidden` is declared before this file, so the slot's own relative position and its
-    // 62 px minimum beat it unless a rule here says otherwise
-    const idle = ruleFor(".stage-slot.visually-hidden");
-    expect(idle).toMatch(/position:\s*absolute/);
-    expect(idle).toMatch(/min-height:\s*0/);
-    expect(css.indexOf(".stage-slot.visually-hidden {")).toBeGreaterThan(
-      css.indexOf(".plan-col .stage-slot {"),
-    );
+  it("gives the slot no height, on any width: its notes float over the plan, so nothing moves", () => {
+    const slot = ruleFor(".stage-slot");
+    expect(slot).toMatch(/height:\s*0\b/);
+    expect(slot).toMatch(/position:\s*relative/);
+    expect(slot).not.toMatch(/min-height/);
+    expect(css).not.toContain("--stage-slot");
+  });
+
+  it("docks the tray dock at the bottom centre of the plan column, fixed on a phone", () => {
+    const dock = ruleFor(".tray-dock");
+    expect(dock).toMatch(/position:\s*absolute/);
+    expect(dock).toMatch(/bottom:/);
+    expect(dock).toMatch(/left:\s*50%/);
+    expect(dock).toMatch(/translateX\(-50%\)/);
+    const phone = css.slice(css.indexOf("@media (width < 760px) {\n  .tray-dock"));
+    expect(phone).toMatch(/\.tray-dock\s*\{[^}]*position:\s*fixed/);
+    expect(phone).toMatch(/bottom:\s*calc\(var\(--sheet-foot\)/);
   });
 
   it("lets Layer take the width of a phone's switch row, beside the 3D toggle", () => {
@@ -73,11 +81,10 @@ describe("stage.css", () => {
     expect(ruleFor(".stage-notes")).toMatch(/list-style:\s*none/);
   });
 
-  it("lays what the plan says over the box while the bar holds the slot, so nothing moves", () => {
-    const note = ruleFor('.stage-slot[data-held="true"] > [role="status"]:not(:empty)');
-    expect(note).toMatch(/position:\s*absolute/);
+  it("lays what the plan says over the box, letting presses through to the tiles", () => {
+    const note = ruleFor('.stage-slot > [role="status"]:not(:empty)');
     expect(note).toMatch(/pointer-events:\s*none/);
-    expect(ruleFor(".stage-slot")).toMatch(/position:\s*relative/);
+    expect(ruleFor(".stage-slot > *")).toMatch(/position:\s*absolute/);
     expect(ruleFor(".stage-slot")).not.toMatch(/flex-wrap/);
   });
 

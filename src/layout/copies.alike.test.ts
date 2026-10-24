@@ -7,9 +7,10 @@
 // split of an item that does not fit one tray is even.
 import { describe, expect, it } from "vitest";
 import bitsHeavy from "../../test/fixtures/bits-heavy.json";
-import { builtLevel } from "../model/lip";
+import { builtLevel, jointOf } from "../model/lip";
 import { inputsHash } from "../model/hash";
 import { parseProject } from "../model/schema";
+import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Component, Project, TraySpec } from "../model/types";
 import { size } from "../sizing";
 import type { LayoutInput } from "./types";
@@ -92,7 +93,9 @@ function planned(
     throw new Error("no layout");
   }
   const trays = result.layout.trays;
-  const printed = splitRisers(trays, { settings: p.settings, printer: p.printer, locks: p.locks });
+  // an Auto plan is printed with the joint it was planned with
+  const settings = jointOf(p.settings, result.layout);
+  const printed = splitRisers(trays, { settings, printer: p.printer, locks: p.locks });
   return { input, trays, printed, result };
 }
 
@@ -319,8 +322,7 @@ describe("with the stepped base", { timeout: 120_000 }, () => {
     const p = projectOf({ innerWidth: 45, innerDepth: 45, innerHeight: 100 }, [bits("b", 4)], {
       settings: {
         lip: {
-          enabled: true,
-          kind: "step",
+          joint: "step" as const,
           height: 2,
           thickness: 1.2,
           ledge: 1.7,
@@ -335,6 +337,21 @@ describe("with the stepped base", { timeout: 120_000 }, () => {
     expect(new Set(copies.map(shape)).size).toBe(1);
     expect(printed.find((t) => t.part === "riser")?.lip).toBe(true);
     expect(copies.find((t) => t.level === 0)?.onRiser).toBe(true);
+    expect(result.layout && checkHardRules(input, result.layout, result.notices)).toEqual([]);
+  });
+});
+
+describe("with Auto, whichever joint it chooses (owner, 2026-10-24)", { timeout: 120_000 }, () => {
+  it("keeps every copy alike and the hard rules, in a stack of copies", () => {
+    const p = projectOf({ innerWidth: 45, innerDepth: 45, innerHeight: 100 }, [bits("b", 4)], {
+      settings: { lip: { ...DEFAULT_SETTINGS.lip, joint: "auto" as const } },
+    });
+    const { printed, input, result } = planned(p);
+    const joint = result.layout?.joint;
+    expect(joint === "rim" || joint === "step").toBe(true);
+    const copies = trayOf(printed, "b");
+    expect(copies).toHaveLength(4);
+    expect(new Set(copies.map(shape)).size).toBe(1);
     expect(result.layout && checkHardRules(input, result.layout, result.notices)).toEqual([]);
   });
 });

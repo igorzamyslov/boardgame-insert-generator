@@ -99,10 +99,19 @@ export function cyrb53(str: string, seed = 0): number {
   return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 }
 
-/** The rim between layers as inputsHash hashes it (see there). */
+/**
+ * The rim between layers as inputsHash hashes it (see there): the shape it had before `joint`
+ * (`enabled`, plus `stepBase` for the stepped base), so a plan keeps its hash while the joint maps
+ * to what the file said. Only Auto, which has no such shape, adds a key (`joint`), and it hashes
+ * the step's height too: the plan may use either joint.
+ */
 export function lipForHash(lip: Settings["lip"]): Record<string, unknown> {
-  const { kind, stepHeight, ...rim } = lip;
-  return kind === "step" ? { ...rim, stepBase: stepHeight } : rim;
+  const { joint, stepHeight, ...rim } = lip;
+  const shape = { ...rim, enabled: joint !== "off" };
+  if (joint === "step") {
+    return { ...shape, stepBase: stepHeight };
+  }
+  return joint === "auto" ? { ...shape, joint, stepBase: stepHeight } : shape;
 }
 
 /**
@@ -132,11 +141,11 @@ export function inputsHash(p: Project): string {
   // wallAbsorb is hashed under its old name, wallGrowth: renaming the setting must not change the
   // hash of every saved project and so mark all of their plans stale.
   const { wallAbsorb, oneWall, biggerWells, playLimit, lip, ...rest } = p.settings;
-  // The joint's kind and the step's height are hashed only for the stepped base: the rim, the only
-  // joint before schema 0.2.2, is left out so every saved plan keeps its hash, and the step's
-  // height changes nothing with the rim. The step is hashed as `stepBase`, a key no file holds: an
-  // older app keeps a newer file's `kind` and `stepHeight` as they are and hashes them so, which
-  // must not match, or it would take a stepped plan for current and export rim trays from it.
+  // The joint and the step's height are hashed in the shape they had before `joint` (lipForHash):
+  // off and the rim leave the step's height out, the stepped base hashes it as `stepBase`, a key no
+  // file holds (an older app keeps a newer file's `stepHeight` as it is and hashes it so, which must
+  // not match, or it would take a stepped plan for current and export rim trays from it), so every
+  // saved plan keeps its hash. Auto adds `joint`, so only a project switched to it plans again.
   const hashedLip = lipForHash(lip);
   // mergeFillers and mergeRisers are print-time decompositions (mergeParts), so they are out too, as is minRiser (splitRisers).
   const settings = {

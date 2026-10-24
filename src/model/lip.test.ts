@@ -13,8 +13,14 @@ import {
 import { DEFAULT_SETTINGS, MIN_FEATURE_MM, chamferMinimums, maxCornerRadius } from "./settings";
 import type { Settings } from "./types";
 
-const ON: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
-const OFF: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: false } };
+const ON: Settings = {
+  ...DEFAULT_SETTINGS,
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "rim" as const },
+};
+const OFF: Settings = {
+  ...DEFAULT_SETTINGS,
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
+};
 
 describe("lipShape", () => {
   it("is a 0.6 mm flat and a 45° ramp over the rest of the thickness", () => {

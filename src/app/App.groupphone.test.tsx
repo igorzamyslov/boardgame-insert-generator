@@ -70,6 +70,7 @@ describe("the group card in the phone's sheet", () => {
   it("counts items beside the title, not the group", () => {
     const p = kit();
     renderApp({ project: p });
+    open();
     expect(sheet().querySelector(".k-sheet__handle")?.textContent).toBe(
       `What's inside${p.components.length}`,
     );

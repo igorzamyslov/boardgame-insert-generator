@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tray actions decision</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="review.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+</helmet>
+<div class="b">
+<div class="hd">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div class="kick">Board 4 · A tray is selected · chosen: docked toolbar, Top and 3D</div>
+<h1>The toolbar sits in one fixed place, whatever the view</h1>
+</div>
+<ul class="prob">
+<li>A toolbar attached to the tray cannot work in 3D: the tray moves as you orbit, hides behind others, and shifts with "Spread apart". So it is docked at the bottom centre of the stage instead, in both views and on a phone.</li>
+<li>Selecting a tray no longer changes the layout. Today the plan reserves a row for the bar, which makes the page jump.</li>
+<li>Edit is the primary action. Pin, Rotate, Swap and Keep this size are one tap away in ⋯, each named by its effect.</li>
+<li>The facts (layer, size, time) move into the dock's label, so they read as a caption, not as an action row.</li>
+</ul>
+</div>
+<div class="opts">
+<div class="opt cur">
+<div class="ot"><span class="ol">1</span>Today<span class="sub">bar above the plan</span></div>
+<div class="mock">
+<div class="ab" style="left:10px;right:10px;top:12px;background:#fff;border-radius:12px;padding:8px 10px;border:1px solid #e3e0d9">
+<div class="fx"><span class="ic b1" style="border:2px solid #3a5ea8"></span><div style="flex:1"><b style="font-size:13px">Market deck</b><div class="xs">Layer 1 (bottom) · 101.2 × 76.7 × 37 mm · about 2 h, 38 g</div></div></div>
+<div class="fx" style="margin-top:8px;flex-wrap:wrap"><span class="pill">Pin this tray</span><span class="pill">Turn this tray 90°</span><span class="pill dark">Edit</span><span class="pill" style="border:0">More</span><span class="pill" style="border:0;margin-left:auto">×</span></div>
+</div>
+<div class="box" style="left:80px;top:124px;width:280px;height:280px"><div class="t to p1 dim"></div><div class="t tb p2 dim"></div><div class="t ts p3 dim"></div><div class="t tl p4" style="outline:3px solid #1c1d1a">Market deck</div><div class="t to p5 dim"></div><div class="t tg p6 dim"></div><div class="t tp p7 dim"></div><div class="t to p8 dim"></div></div>
+<div class="note" style="left:16px;bottom:12px">The bar exists in 3D too, so both views reserve a row.</div>
+</div>
+<div class="why">Reference.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">2</span>Chosen · Top</div>
+<div class="mock">
+<div class="box" style="left:50px;top:30px;width:340px;height:340px"><div class="t to p1 dim"></div><div class="t tb p2 dim"></div><div class="t ts p3 dim"></div><div class="t tl p4" style="outline:3px solid #1c1d1a">Market deck</div><div class="t to p5 dim"></div><div class="t tg p6 dim"></div><div class="t tp p7 dim"></div><div class="t to p8 dim"></div></div>
+<div class="ab" style="left:20px;right:20px;top:396px;background:#fff;border:1px solid #d6d1c5;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.16);padding:10px 12px">
+<div class="fx"><span class="ic b1" style="border:2px solid #3a5ea8"></span><div style="flex:1"><b style="font-size:13px">Market deck</b><div class="xs">Layer 1 · 101 × 77 × 37 mm · 2 h, 38 g</div></div><span class="pill dark">Edit</span><span class="pill" aria-label="More">⋯</span><span class="pill" style="border:0" aria-label="Close">×</span></div>
+</div>
+<div class="ab" style="right:24px;top:236px;width:210px;background:#fff;border-radius:12px;padding:6px;box-shadow:0 6px 18px rgba(0,0,0,.18);font-size:13px">
+<div style="padding:5px 8px"><b>Keep here</b><div class="xs">The plan will not move it</div></div>
+<div style="padding:5px 8px"><b>Rotate 90°</b><div class="xs">Stays free to move</div></div>
+<div style="padding:5px 8px"><b>Swap places with…</b></div>
+<div style="padding:5px 8px;border-top:1px solid #e3e0d9"><b>Keep this size</b></div>
+</div>
+</div>
+<div class="why"><b>Docked in Top.</b> The menu opens upward and sits over the plan's free edge, not over the tray.</div>
+</div>
+<div class="opt">
+<div class="ot"><span class="ol">2</span>Chosen · 3D</div>
+<div class="mock">
+<div class="persp" style="top:10px;height:370px"><div class="scn" style="left:100px;top:90px;width:240px;height:240px"><div class="box" style="width:240px;height:240px"><div class="t to p1 dim"></div><div class="t tb p2 dim"></div><div class="t ts p3 dim"></div><div class="t tl p4" style="outline:3px solid #1c1d1a"></div><div class="t to p5 dim"></div><div class="t tg p6 dim"></div><div class="t tp p7 dim"></div><div class="t to p8 dim"></div></div></div></div>
+<div class="ab" style="left:20px;right:20px;top:396px;background:#fff;border:1px solid #d6d1c5;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.16);padding:10px 12px">
+<div class="fx"><span class="ic b1" style="border:2px solid #3a5ea8"></span><div style="flex:1"><b style="font-size:13px">Market deck</b><div class="xs">Layer 1 · 101 × 77 × 37 mm · 2 h, 38 g</div></div><span class="pill dark">Edit</span><span class="pill" aria-label="More">⋯</span><span class="pill" style="border:0" aria-label="Close">×</span></div>
+</div>
+<div class="note" style="left:16px;top:16px">Unchosen trays fade, as today. The dock does not move with the camera.</div>
+</div>
+<div class="why"><b>Identical dock in 3D.</b> Same content, same position, same menu. Orbiting never moves a control.</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1560,"height":940}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

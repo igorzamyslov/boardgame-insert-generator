@@ -1,19 +1,23 @@
-import type { Manifold, ManifoldToplevel, Vec3 } from "manifold-3d";
+// src/geometry/engrave.ts
+import type { CrossSection, Manifold, ManifoldToplevel } from "manifold-3d";
 import { MIN_FEATURE_MM } from "../model/settings";
 import type { MergedPart, Side } from "../model/types";
-import { GLYPH_ROWS, isEngravable, textRects, textWidth } from "./glyphs";
+import { CAP_GOOD_MM, CAP_MAX_MM, CAP_SIZES_MM, isEngravable, layoutText } from "./glyphs";
+import type { Point, TextLayout } from "./glyphs";
 import { notchFloorBox } from "./plan-cuts";
 import { FINGER_FILLET_MM } from "./plan-types";
-import type { Rect, TrayPlan } from "./plan-types";
+import type { CompartmentPlan, Rect, TrayPlan } from "./plan-types";
 import type { Scope } from "./scope";
-import { hullPoints } from "./shapes";
 
 // Part names (spec §6.1 "Part names"): the short name of the part (trayNames), engraved as shallow
-// recessed capitals (glyphs.ts) on up to three faces: two opposite outer walls and the underside.
+// recessed capitals (glyphs.ts: Overpass Bold outlines) on up to four faces: two opposite outer
+// walls, the underside and the floor of a well (see `planInside`). A name is set at the largest of
+// CAP_SIZES_MM (8, 6, 5 or 4 mm tall) that the room on a face allows.
 // A recess on a vertical wall adds no support, cannot catch or change how parts mate, and leaves
 // the outer size as it is. Its roof (the top of a stroke) slopes down into the wall at more than
-// 45°, so no face of it overhangs. The underside is cut as V-shaped grooves for the same reason
-// (see `planUnderside`).
+// 45°, so no face of it overhangs. The underside and the floor are recesses with straight sides: the
+// floor's faces up, and the underside's has a flat ceiling a stroke wide at most, which a printer
+// bridges (see `planUnderside`).
 
 /** Depth of the engraving into the wall: one nozzle line, a quarter of a default 1.6 mm wall. */
 export const ENGRAVE_DEPTH_MM = 0.4;
@@ -21,11 +25,6 @@ export const ENGRAVE_DEPTH_MM = 0.4;
 export const ENGRAVE_KEEP_MM = MIN_FEATURE_MM + 0.01;
 /** The shallowest engraving worth cutting; a wall too thin to take it is left plain. */
 export const ENGRAVE_MIN_DEPTH_MM = 0.3;
-/** Stroke width, mm, at most (letters 8 mm tall) and at least (5 mm tall; also the gap, ≥ 0.8). */
-export const ENGRAVE_STROKE_MAX_MM = 1.6;
-export const ENGRAVE_STROKE_MIN_MM = 1;
-/** A face that gives the name at least this stroke is used before looking at the next. */
-const GOOD_STROKE_MM = 1.3;
 /** The letters keep this far from a corner's arc, a through cut's fillets and the chamfer. */
 const EDGE_MM = 1.5;
 const BELOW_CHAMFER_MM = 1;
@@ -36,12 +35,8 @@ const TIGHT_BELOW_RIM_MM = 0.8;
 /** A roof falls this many mm per mm of depth: 1.25 is steeper than 45°, so nothing overhangs. */
 const ROOF_SLOPE = 1.25;
 const OVERSHOOT = 1;
-/**
- * Each stroke's cutter is made this much bigger along the text and upward, so two strokes that
- * meet only at a corner of the font's cells (the steps of a diagonal) cut one connected recess,
- * not two that touch along a bare edge. Far below what a printer resolves.
- */
-const JOIN_MM = 0.03;
+/** Float slack when a thickness is compared with the thinnest feature. */
+const SLACK = 1e-6;
 
 /** Faces in the order they are tried. */
 export const ENGRAVE_FACES: readonly Side[] = ["front", "back", "left", "right"];
@@ -50,8 +45,8 @@ export interface EngravePlan {
   face: Side;
   /** The text engraved, as given (the font draws capitals). */
   text: string;
-  /** Stroke (and gap) width, mm. */
-  stroke: number;
+  /** Capital height, mm: one of CAP_SIZES_MM. */
+  cap: number;
   depth: number;
   /** Along the face, from its left end as seen from outside, to the text's left edge, mm. */
   from: number;
@@ -106,9 +101,9 @@ function thicknessBehind(plan: TrayPlan, face: Side, top: number): number {
 }
 
 // The free stretches of the face (as the plan sees it, before any flip) that the text may take:
-// between the corners' arcs, less every cut through the face and its fillets, and every finger dip
-// open on it (a dip is cut from the top, so one whose bottom stands above the text, `textTop`, is
-// no obstacle).
+// between the corners' arcs, less every cut through the face and its fillets, and every top
+// chamfer along it (a chamfer takes the top `size` of the face, so one that starts above the text,
+// `textTop`, is no obstacle).
 function freeSpans(plan: TrayPlan, face: Side, textTop: number): Span[] {
   const length = face === "front" || face === "back" ? plan.w : plan.d;
   const edge = plan.cornerRadius + EDGE_MM;
@@ -134,13 +129,12 @@ function freeSpans(plan: TrayPlan, face: Side, textTop: number): Span[] {
       );
     }
   }
-  for (const dip of plan.dips) {
-    const opensOn = dip.side === face || (dip.through && dip.side === OPPOSITE[face]);
-    if (!opensOn || textTop + EDGE_MM <= dip.bottomZ) {
+  for (const chamfer of plan.chamfers) {
+    if (chamfer.side !== face || textTop + EDGE_MM <= plan.h - chamfer.size) {
       continue;
     }
-    const a = alongOf(face, plan, dip.x0, dip.y0);
-    const b = alongOf(face, plan, dip.x1, dip.y1);
+    const a = alongOf(face, plan, chamfer.a, chamfer.a);
+    const b = alongOf(face, plan, chamfer.b, chamfer.b);
     without(Math.min(a, b) - EDGE_MM, Math.max(a, b) + EDGE_MM);
   }
   return spans;
@@ -211,6 +205,26 @@ export function planWallEngravings(
   return second === null ? [first] : [first, second];
 }
 
+/**
+ * The largest size of CAP_SIZES_MM at which `text` fits a room `width` by `height`, mm, or null
+ * when even the smallest does not. The sizes are tried largest first: a name is as large as the
+ * room allows. (Naming fixes the short name before the geometry sees the room, so there is no
+ * shorter name to trade for a larger size here; a name that fits at no size is left off.)
+ */
+export function fitCap(
+  text: string,
+  width: number,
+  height: number,
+): { cap: number; layout: TextLayout } | null {
+  for (const cap of CAP_SIZES_MM) {
+    const layout = layoutText(text, cap);
+    if (layout !== null && layout.width <= width + SLACK && layout.height <= height + SLACK) {
+      return { cap, layout };
+    }
+  }
+  return null;
+}
+
 function engraveIn(
   plan: TrayPlan,
   text: string,
@@ -220,7 +234,10 @@ function engraveIn(
   belowRim: number,
   reserved = 0,
 ): EngravePlan | null {
-  const strokesWide = textWidth(text);
+  const tallest = layoutText(text, CAP_MAX_MM);
+  if (tallest === null) {
+    return null;
+  }
   // The band of the part's height the text sits in, in the printed frame. It starts above the
   // chamfer, or above the groove (roof included), which leaves the outer face standing only from
   // `zTop`; the tighter band keeps its margin above that too, so a name never touches the groove.
@@ -229,10 +246,9 @@ function engraveIn(
     (plan.groove ? plan.groove.zTop : plan.step ? plan.step.wall : plan.chamfer) + belowChamfer;
   const hi = plan.h - belowRim;
   const band = flipped ? { lo: plan.h - hi, hi: plan.h - lo } : { lo, hi };
-  const byHeight = (band.hi - band.lo) / GLYPH_ROWS;
+  const bandHeight = band.hi - band.lo;
   // The most the text can reach up: centred in the band, at its tallest.
-  const textTop =
-    (band.lo + band.hi) / 2 + (Math.min(byHeight, ENGRAVE_STROKE_MAX_MM) * GLYPH_ROWS) / 2;
+  const textTop = (band.lo + band.hi) / 2 + Math.min(bandHeight, tallest.height) / 2;
   let best: EngravePlan | null = null;
   for (const face of ENGRAVE_FACES.filter((f) => faces.includes(f))) {
     // `reserved` is the depth already cut into the opposite wall: the part keeps the thinnest
@@ -253,20 +269,20 @@ function engraveIn(
     if (span === null) {
       continue;
     }
-    const stroke = Math.min(ENGRAVE_STROKE_MAX_MM, byHeight, (span.hi - span.lo) / strokesWide);
-    if (stroke < ENGRAVE_STROKE_MIN_MM || (best !== null && stroke <= best.stroke)) {
+    const fit = fitCap(text, span.hi - span.lo, bandHeight);
+    if (fit === null || (best !== null && fit.cap <= best.cap)) {
       continue;
     }
     best = {
       face,
       text,
-      stroke,
+      cap: fit.cap,
       depth,
-      from: (span.lo + span.hi) / 2 - (stroke * strokesWide) / 2,
-      z: (band.lo + band.hi) / 2 - (stroke * GLYPH_ROWS) / 2,
+      from: (span.lo + span.hi) / 2 - fit.layout.width / 2,
+      z: (band.lo + band.hi) / 2 - fit.layout.height / 2,
       flipped,
     };
-    if (stroke >= GOOD_STROKE_MM) {
+    if (fit.cap >= CAP_GOOD_MM) {
       break;
     }
   }
@@ -312,10 +328,7 @@ export function planMergedEngraving(
     }
     const found = plan === undefined ? [] : planWallEngravings(plan, text, faces, flipped);
     const first = found[0];
-    if (
-      first !== undefined &&
-      (best === null || first.stroke > (best.engravings[0]?.stroke ?? 0))
-    ) {
+    if (first !== undefined && (best === null || first.cap > (best.engravings[0]?.cap ?? 0))) {
       best = { engravings: found, member: i };
     }
   });
@@ -323,95 +336,171 @@ export function planMergedEngraving(
 }
 
 /**
- * The convex pieces of an engraving's cutter, as the points they are the hull of, in the part's
- * own frame: one per stroke, open to the outside (OVERSHOOT past the face), its floor `depth` in
- * and flat, its roof a slope that falls ROOF_SLOPE per mm of depth.
+ * The name on the floor of a well of one member of a merged part (a riser with a pocket): the
+ * member whose strokes come out largest, or null when none has room. A flipped part carries none.
  */
-export function engravingPieces(
-  plan: EngravePlan,
-  part: { w: number; d: number; h: number },
-): Vec3[][] {
-  const { face, stroke: u, depth, from, z: z0 } = plan;
-  // (a, in, z) = along the face from its left, into the wall, height; as printed. A flipped part
-  // is turned half a turn about X to print, so the cutter is put through that turn back.
-  const toPart = (a: number, into: number, z: number): Vec3 => {
-    const [x, y]: [number, number] = {
-      front: [a, into] as [number, number],
-      back: [part.w - a, part.d - into] as [number, number],
-      left: [into, part.d - a] as [number, number],
-      right: [part.w - into, a] as [number, number],
-    }[face];
-    return plan.flipped ? [x, part.d - y, part.h - z] : [x, y, z];
-  };
-  return textRects(plan.text).map((r) => {
-    const zb = z0 + r.z0 * u - JOIN_MM;
-    const zt = z0 + r.z1 * u + JOIN_MM;
-    const profile: [number, number][] = [
-      [-OVERSHOOT, zb],
-      [depth, zb],
-      [depth, zt - ROOF_SLOPE * depth],
-      [0, zt],
-      [-OVERSHOOT, zt],
-    ];
-    const points: Vec3[] = [];
-    for (const a of [from + r.x0 * u - JOIN_MM, from + r.x1 * u + JOIN_MM]) {
-      for (const [into, z] of profile) {
-        points.push(toPart(a, into, z));
-      }
+export function planMergedInside(
+  merged: MergedPart,
+  plans: readonly (TrayPlan | undefined)[],
+  text: string,
+): { inside: InsidePlan; member: number } | null {
+  const flipped = merged.flipped === true;
+  let best: { inside: InsidePlan; member: number } | null = null;
+  plans.forEach((plan, member) => {
+    const inside = plan === undefined ? null : planInside(plan, text, flipped);
+    if (inside !== null && (best === null || inside.cap > best.inside.cap)) {
+      best = { inside, member };
     }
-    return points;
   });
+  return best;
 }
 
-/** The cutter of an engraving (engravingPieces), tracked in `scope`. */
+// The text's outlines as a CrossSection, each point mapped from the layout's own frame (a along the
+// line, v up, from the ink's lower left) to the plane the cutter stands in. The fill rule is
+// non-zero, so a letter's counter (the hole of an O) is left standing, and a mirror (which turns
+// every contour round) changes nothing.
+function shape(
+  m: ManifoldToplevel,
+  scope: Scope,
+  layout: TextLayout,
+  at: (a: number, v: number) => Point,
+): CrossSection {
+  const polygons = layout.polygons.map((contour) => contour.map(([a, v]) => at(a, v)));
+  return scope.track(new m.CrossSection(polygons, "NonZero"));
+}
+
+/** Where a face's own axes (along it, into the wall) point in the plan, and its origin. */
+function frameOf(face: Side, w: number, d: number): { ex: Point; ez: Point; t: Point } {
+  switch (face) {
+    case "front":
+      return { ex: [1, 0], ez: [0, 1], t: [0, 0] };
+    case "back":
+      return { ex: [-1, 0], ez: [0, -1], t: [w, d] };
+    case "left":
+      return { ex: [0, -1], ez: [1, 0], t: [0, d] };
+    case "right":
+      return { ex: [0, 1], ez: [-1, 0], t: [w, 0] };
+  }
+}
+
+/**
+ * The cutter of a wall engraving, in the part's own frame: the text's outline from OVERSHOOT
+ * outside the face to `depth` in, lowered `ROOF_SLOPE` times the depth it has reached, so the roof
+ * of every stroke slopes down into the wall at more than 45° from the vertical and nothing
+ * overhangs; its sides stay upright.
+ */
 export function buildEngraving(
   m: ManifoldToplevel,
   scope: Scope,
   plan: EngravePlan,
   part: { w: number; d: number; h: number },
 ): Manifold {
-  const pieces = engravingPieces(plan, part).map((points) => hullPoints(m, scope, points));
-  return scope.track(m.Manifold.union(pieces));
+  const layout = layoutText(plan.text, plan.cap) as TextLayout;
+  // local frame: x along the face, y up, z into the wall
+  const flat = shape(m, scope, layout, (a, v) => [plan.from + a, plan.z + v]);
+  // The recess is the text's outline carried in and down: at depth t it is the outline lowered by
+  // ROOF_SLOPE * t (a shear of the prism). Every roof is then one slope, down into the wall at more
+  // than 45° from the vertical, and so is every floor; the sides stay upright, so nothing
+  // overhangs. (Cutting only the roofs by an intersection leaves a flat sliver under every island
+  // of a letter that has a slanted edge.) Outside the face the outline goes straight out.
+  const prism = scope.track(flat.extrude(plan.depth));
+  const carried = scope.track(
+    prism.transform([1, 0, 0, 0, 0, 1, 0, 0, 0, -ROOF_SLOPE, 1, 0, 0, 0, 0, 1]),
+  );
+  const outside = scope.track(scope.track(flat.extrude(OVERSHOOT)).translate([0, 0, -OVERSHOOT]));
+  const solid = scope.track(m.Manifold.union([outside, carried]));
+  // The matrix's columns: where the local x (along), y (up) and z (into) go in the plan, then the
+  // offset; a flipped part is turned half a turn about X to print, so y and z turn about it.
+  const { w, d, h } = part;
+  const { ex, ez, t } = frameOf(plan.face, w, d);
+  const f = plan.flipped ? -1 : 1;
+  const matrix = [
+    ...[ex[0], f * ex[1], 0, 0],
+    ...[0, 0, f, 0],
+    ...[ez[0], f * ez[1], 0, 0],
+    ...[t[0], plan.flipped ? d - t[1] : t[1], plan.flipped ? h : 0, 1],
+  ];
+  return scope.track(solid.transform(matrix as Parameters<Manifold["transform"]>[0]));
 }
 
-// The underside (the face that prints on the bed). A recess here has a ceiling, and a ceiling is
-// an overhang: the spec's rule 6 ("Openings face up") allows no downward face steeper than 45° from
-// vertical above the bed. So each stroke is cut as a V-shaped groove (a hull of its footprint on the bed and a ridge
-// above it, its four sides rising UNDERSIDE_SLOPE mm per mm in) that closes in a ridge and has no
-// flat roof. A V this deep is narrower than the font's cell, so the letters are drawn as lines,
-// `line` wide at the bed, down the middle of each stroke's cell, and the cells' gaps stay solid.
-
-/** The deepest V cut into the underside, mm: three layers of 0.2 mm, one more than the wall's. */
-export const UNDERSIDE_DEPTH_MAX_MM = 0.6;
-/**
- * A groove's sides rise this many mm per mm in from the edge: 1.1 is 48° from the horizontal,
- * steeper than 45° with room to spare for the mesh's rounding (the wall roofs use 1.25).
- */
-export const UNDERSIDE_SLOPE = 1.1;
-/** Solid kept between two neighbouring grooves at the bed, mm (a stroke's gap, less its line). */
-const UNDERSIDE_BRIDGE_MM = 0.3;
-/** Each run of strokes reaches this far past its ends, so runs that meet cross (see undersidePieces). */
-const UNDERSIDE_JOIN_MM = 0.1;
-
-export interface UndersidePlan {
-  /** The text engraved, as given. */
+/** Where a text goes in a room: one of the sizes, centred, along x or along y. */
+interface Placement {
   text: string;
-  /** Cell width and height (a stroke and the gap), mm: the font's unit. */
-  stroke: number;
-  /** Width of a groove at the bed, mm. */
-  line: number;
-  /** Height of a groove's ridge above the bed, mm: `line * UNDERSIDE_SLOPE / 2`. */
-  depth: number;
-  /** The centre of the text on the bed face, in the part's frame, mm. */
+  cap: number;
+  layout: TextLayout;
+  /** The centre of the text and its bounding box, in the part's frame. */
   cx: number;
   cy: number;
-  /**
-   * The axis the text runs along. The text is mirrored, as seen from above through the part, so
-   * that it reads upright from below once the part is turned over about its Y axis: along "x" it
-   * reads toward −x with its top toward +y; along "y" (a part longer than it is wide), turned a
-   * quarter more, it reads toward +y with its top toward +x.
-   */
   along: "x" | "y";
+  box: Rect;
+}
+
+/**
+ * The best place for `text` in `free`, clear of `blocked`: the largest size, then the largest room
+ * (the whole of `free` when nothing is in the way, which centres the name), then along the
+ * longer side. The rooms tried are the rectangles between the lines that `free` and `blocked` make.
+ * `accepts` says whether the floor under a box takes a recess: its depth, or 0 for no. Null when
+ * no room holds the text at any size.
+ */
+function placeText(
+  text: string,
+  free: Rect,
+  blocked: readonly Rect[],
+  accepts: (box: Rect) => number,
+): (Placement & { depth: number; area: number }) | null {
+  const near = blocked.filter((o) => overlaps(o, free, 0));
+  const xs = [free.x0, free.x1, ...near.flatMap((o) => [o.x0, o.x1])]
+    .filter((v) => v >= free.x0 && v <= free.x1)
+    .sort((a, b) => a - b);
+  const ys = [free.y0, free.y1, ...near.flatMap((o) => [o.y0, o.y1])]
+    .filter((v) => v >= free.y0 && v <= free.y1)
+    .sort((a, b) => a - b);
+  let best: (Placement & { depth: number; area: number }) | null = null;
+  for (let i = 0; i < xs.length; i += 1) {
+    for (let j = i + 1; j < xs.length; j += 1) {
+      for (let k = 0; k < ys.length; k += 1) {
+        for (let l = k + 1; l < ys.length; l += 1) {
+          const room = {
+            x0: xs[i] as number,
+            x1: xs[j] as number,
+            y0: ys[k] as number,
+            y1: ys[l] as number,
+          };
+          const w = room.x1 - room.x0;
+          const d = room.y1 - room.y0;
+          if (near.some((o) => overlaps(o, room, 0))) {
+            continue;
+          }
+          for (const along of w >= d ? (["x", "y"] as const) : (["y", "x"] as const)) {
+            const fit = along === "x" ? fitCap(text, w, d) : fitCap(text, d, w);
+            if (fit === null) {
+              continue;
+            }
+            const [hx, hy] =
+              along === "x"
+                ? [fit.layout.width / 2, fit.layout.height / 2]
+                : [fit.layout.height / 2, fit.layout.width / 2];
+            const cx = (room.x0 + room.x1) / 2;
+            const cy = (room.y0 + room.y1) / 2;
+            const box = { x0: cx - hx, y0: cy - hy, x1: cx + hx, y1: cy + hy };
+            const area = w * d;
+            const better =
+              best === null ||
+              fit.cap > best.cap ||
+              (fit.cap === best.cap && area > best.area + 1e-9);
+            if (!better) {
+              continue;
+            }
+            const depth = accepts(box);
+            if (depth > 0) {
+              best = { text, cap: fit.cap, layout: fit.layout, cx, cy, along, box, depth, area };
+            }
+          }
+        }
+      }
+    }
+  }
+  return best;
 }
 
 const overlaps = (a: Rect, b: Rect, margin: number): boolean =>
@@ -447,16 +536,51 @@ function floorAbove(plan: TrayPlan, box: Rect): number {
   return t;
 }
 
+// The underside (the face that prints on the bed). The recess is cut straight up from the bed, 0.4
+// mm (two layers) deep, with upright sides and a flat ceiling. The ceiling is the only overhang
+// and it spans a stroke at most, which a printer bridges at these sizes (the owner printed it,
+// 2026-10-24); it replaces the V-shaped groove of 0.8.1, which closed to a ridge after about a
+// layer and a half and squashed shut under the first layer's squish. The name is mirrored, so it
+// reads upright from below once the part is turned over.
+
+/** The depth of the recess in the underside, mm: two layers. */
+export const UNDERSIDE_DEPTH_MM = 0.4;
+
+export interface UndersidePlan {
+  /** The text engraved, as given. */
+  text: string;
+  /** Capital height, mm: one of CAP_SIZES_MM. */
+  cap: number;
+  depth: number;
+  /** The centre of the text on the bed face, in the part's frame, mm. */
+  cx: number;
+  cy: number;
+  /**
+   * The axis the text runs along. The text is mirrored, as seen from above through the part, so
+   * that it reads upright from below once the part is turned over about its Y axis: along "x" it
+   * reads toward −x with its top toward +y; along "y" (a part longer than it is wide), turned a
+   * quarter more, it reads toward +y with its top toward +x.
+   */
+  along: "x" | "y";
+  /** The text's bounding box, in the part's frame. */
+  box: Rect;
+}
+
 /**
- * Where the name goes on the underside, or null when it has no room: centred on the bed face,
- * along its longer side when the strokes come out at least as large there, kept EDGE_MM clear of
- * the bed face's edge (the foot chamfer, or the groove's reach on an upper tray, and the corner
- * arcs) and of every floor notch, at least ENGRAVE_STROKE_MIN_MM a stroke, over a floor that keeps
- * ENGRAVE_KEEP_MM above the ridge (the thinnest floor under it) and a ridge at least
- * ENGRAVE_MIN_DEPTH_MM high. A name that does not fit, or hits a notch, is left off the underside
- * only; the walls are planned on their own.
+ * Where the name goes on the underside, or null when it has no room: on the bed face, which is the
+ * footprint pulled in EDGE_MM from the foot chamfer (or the groove's reach on an upper tray, or the
+ * slab's on a stepped part) and from the corner arcs, centred when nothing is in the way, along its
+ * longer side, and clear of every floor notch by EDGE_MM. It is two layers deep over a floor that
+ * keeps the thinnest feature above it (1.2 mm and more), and where the name on the floor of a well
+ * lies over it, over a floor that keeps it above both (the inside name wins: this one moves aside
+ * to where it is clear, or is left off). A name that does not fit is left off the underside only;
+ * the walls are planned on their own.
  */
-export function planUnderside(plan: TrayPlan, text: string): UndersidePlan | null {
+export function planUnderside(
+  plan: TrayPlan,
+  text: string,
+  inside: InsidePlan | null = null,
+): UndersidePlan | null {
   if (text === "" || !isEngravable(text)) {
     return null;
   }
@@ -470,103 +594,207 @@ export function planUnderside(plan: TrayPlan, text: string): UndersidePlan | nul
         reach + EDGE_MM,
         plan.cornerRadius - (arc - EDGE_MM) / Math.SQRT2, // the text box's corner lies inside the arc
       );
-  const free = { x: plan.w - 2 * margin, y: plan.d - 2 * margin };
-  if (!(free.x > 0 && free.y > 0)) {
+  const free = { x0: margin, y0: margin, x1: plan.w - margin, y1: plan.d - margin };
+  if (!(free.x1 > free.x0 && free.y1 > free.y0)) {
     return null;
   }
-  const cx = plan.w / 2;
-  const cy = plan.d / 2;
-  const cells = textWidth(text);
-  const through = throughFloor(plan);
-  let best: UndersidePlan | null = null;
-  for (const along of plan.w >= plan.d ? (["x", "y"] as const) : (["y", "x"] as const)) {
-    const [room, across] = along === "x" ? [free.x, free.y] : [free.y, free.x];
-    const stroke = Math.min(ENGRAVE_STROKE_MAX_MM, room / cells, across / GLYPH_ROWS);
-    if (stroke < ENGRAVE_STROKE_MIN_MM || (best !== null && stroke <= best.stroke)) {
-      continue;
-    }
-    const [hx, hy] =
-      along === "x"
-        ? [(stroke * cells) / 2, (stroke * GLYPH_ROWS) / 2]
-        : [(stroke * GLYPH_ROWS) / 2, (stroke * cells) / 2];
-    const box = { x0: cx - hx, y0: cy - hy, x1: cx + hx, y1: cy + hy };
-    if (through.some((r) => overlaps(r, box, EDGE_MM))) {
-      continue;
-    }
-    const keep = Math.min(UNDERSIDE_DEPTH_MAX_MM, floorUnder(plan, box) - ENGRAVE_KEEP_MM);
-    const line = Math.min((2 * keep) / UNDERSIDE_SLOPE, stroke - UNDERSIDE_BRIDGE_MM);
-    const depth = (line * UNDERSIDE_SLOPE) / 2;
-    if (depth < ENGRAVE_MIN_DEPTH_MM - 1e-9) {
-      continue;
-    }
-    best = { text, stroke, line, depth, cx, cy, along };
+  const blocked: Rect[] = throughFloor(plan).map((r) => ({
+    x0: r.x0 - EDGE_MM,
+    y0: r.y0 - EDGE_MM,
+    x1: r.x1 + EDGE_MM,
+    y1: r.y1 + EDGE_MM,
+  }));
+  // The floor over the inside name keeps its own thinnest feature: where it could not also hold
+  // this recess, the inside name has the place.
+  if (
+    inside !== null &&
+    floorUnder(plan, inside.box) - inside.depth < UNDERSIDE_DEPTH_MM + MIN_FEATURE_MM - SLACK
+  ) {
+    blocked.push(inside.box);
   }
-  return best;
+  const found = placeText(text, free, blocked, (box) =>
+    floorUnder(plan, box) >= UNDERSIDE_DEPTH_MM + MIN_FEATURE_MM - SLACK ? UNDERSIDE_DEPTH_MM : 0,
+  );
+  return found === null
+    ? null
+    : {
+        text,
+        cap: found.cap,
+        depth: found.depth,
+        cx: found.cx,
+        cy: found.cy,
+        along: found.along,
+        box: found.box,
+      };
 }
 
 /**
- * The convex pieces of an underside engraving, as the points they are the hull of, in the part's
- * own frame: one per stroke, its footprint at the bed (and OVERSHOOT below it) closing in a ridge
- * `depth` above, so every face of it slopes up at UNDERSIDE_SLOPE and none faces down.
+ * The cutter of an underside engraving, in the part's own frame: the outline straight up from
+ * OVERSHOOT under the bed to `depth` over it (`bed` is the bed face's height in that frame).
  */
-export function undersidePieces(plan: UndersidePlan): Vec3[][] {
-  const { text, stroke: u, line: g, depth, cx, cy, along } = plan;
-  const width = u * textWidth(text);
-  const height = u * GLYPH_ROWS;
-  // (a, v) = along the line of text from its left, up from its lower edge, as read from below.
-  const toXY = (a: number, v: number): [number, number] => {
-    const da = a - width / 2;
-    const dv = v - height / 2;
+export function buildUnderside(
+  m: ManifoldToplevel,
+  scope: Scope,
+  plan: UndersidePlan,
+  bed: number,
+): Manifold {
+  const layout = layoutText(plan.text, plan.cap) as TextLayout;
+  const { cx, cy, along } = plan;
+  const flat = shape(m, scope, layout, (a, v) => {
+    const da = a - layout.width / 2;
+    const dv = v - layout.height / 2;
     return along === "x" ? [cx - da, cy + dv] : [cx + dv, cy + da];
-  };
-  const inset = (u - g) / 2;
-  const k = g / 2;
-  return textRects(text).map((r) => {
-    // A run ends in the middle of the cell where it meets another, so its end is at the other's
-    // ridge, with the same slopes: coincident faces the kernel cannot merge cleanly. Each run
-    // reaches UNDERSIDE_JOIN_MM past its ends so that two cross instead of touching.
-    const long = r.x1 - r.x0 > r.z1 - r.z0 ? "a" : r.z1 - r.z0 > r.x1 - r.x0 ? "v" : null;
-    const ea = long === "a" ? UNDERSIDE_JOIN_MM : 0;
-    const ev = long === "v" ? UNDERSIDE_JOIN_MM : 0;
-    const a0 = r.x0 * u + inset - ea;
-    const a1 = r.x1 * u - inset + ea;
-    const v0 = r.z0 * u + inset - ev;
-    const v1 = r.z1 * u - inset + ev;
-    // The ridge: the footprint pulled in by k all round, or a line (a point) where that is a
-    // width or less; put exactly on the middle, so no float noise inverts it.
-    const span = (lo: number, hi: number): [number, number] =>
-      hi - lo - 2 * k < 1e-6 ? [(lo + hi) / 2, (lo + hi) / 2] : [lo + k, hi - k];
-    const [ra0, ra1] = span(a0, a1);
-    const [rv0, rv1] = span(v0, v1);
-    const corners: [number, number, number][] = [];
-    for (const [a, v] of [
-      [a0, v0],
-      [a1, v0],
-      [a1, v1],
-      [a0, v1],
-    ] as const) {
-      corners.push([a, v, -OVERSHOOT], [a, v, 0]);
-    }
-    for (const [a, v] of [
-      [ra0, rv0],
-      [ra1, rv0],
-      [ra1, rv1],
-      [ra0, rv1],
-    ] as const) {
-      corners.push([a, v, depth]);
-    }
-    const seen = new Set<string>();
-    const points: Vec3[] = [];
-    for (const [a, v, z] of corners) {
-      const [x, y] = toXY(a, v);
-      const key = [x, y, z].map((n) => n.toFixed(6)).join(",");
-      if (!seen.has(key)) {
-        seen.add(key);
-        points.push([x, y, z]);
-      }
-    }
-    return points;
   });
+  const solid = scope.track(flat.extrude(plan.depth + OVERSHOOT));
+  return scope.track(solid.translate([0, 0, bed - OVERSHOOT]));
+}
+
+// The floor of a well (the name for someone who has emptied the trays and looks down into the box:
+// "which tray is this?"). The recess is cut straight down from the floor, with vertical sides: an
+// up-facing recess has no ceiling, so nothing overhangs. The text is upright as seen from above
+// with the part's front toward the viewer, and runs along the longer side of the free flat floor.
+// It lies on the flat of one well: clear of the well's walls, of every scoop fillet and corner
+// relief, of a divider's slot and of a floor notch, as the underside name is.
+
+/** Depth of the inside name: two layers; three where the floor is thick enough, see below. */
+export const INSIDE_DEPTH_MM = 0.4;
+export const INSIDE_DEEP_MM = 0.6;
+/** A floor at least this thick under the text takes INSIDE_DEEP_MM. */
+export const INSIDE_DEEP_FLOOR_MM = 2;
+/** Depths are whole layers (the app prints 0.2 mm layers); less than the shallowest is left off. */
+const INSIDE_LAYER_MM = 0.2;
+export const INSIDE_MIN_DEPTH_MM = INSIDE_DEPTH_MM;
+/** The text keeps this far from the well's own walls. */
+const INSIDE_WALL_MM = 1;
+
+export interface InsidePlan {
+  text: string;
+  /** Capital height, mm: one of CAP_SIZES_MM. */
+  cap: number;
+  depth: number;
+  /** The centre of the text, in the part's frame, mm. */
+  cx: number;
+  cy: number;
+  /** The floor's top, in the part's frame (the compartment's `floorZ`). */
+  floorZ: number;
+  /**
+   * The axis the text runs along. Along "x" it reads toward +x with its top toward +y (the back);
+   * along "y" it reads toward +y with its top toward −x, a quarter turn.
+   */
+  along: "x" | "y";
+  /** The text's bounding box, in the part's frame. */
+  box: Rect;
+}
+
+/** The depth a floor `thickness` thick under the text takes; 0 when it takes none worth cutting. */
+function insideDepth(thickness: number): number {
+  if (thickness >= INSIDE_DEEP_FLOOR_MM - SLACK) {
+    return INSIDE_DEEP_MM;
+  }
+  const spare = Math.min(INSIDE_DEPTH_MM, thickness - MIN_FEATURE_MM);
+  const depth = Math.floor((spare + SLACK) / INSIDE_LAYER_MM) * INSIDE_LAYER_MM;
+  return depth >= INSIDE_MIN_DEPTH_MM - SLACK ? depth : 0;
+}
+
+/** The floor of `c` that is flat and clear of the well's walls and scoop fillets. */
+function flatFloor(c: CompartmentPlan): Rect {
+  let { x0, y0, x1, y1 } = c.rect;
+  x0 += INSIDE_WALL_MM;
+  y0 += INSIDE_WALL_MM;
+  x1 -= INSIDE_WALL_MM;
+  y1 -= INSIDE_WALL_MM;
+  for (const s of c.scoops) {
+    switch (s.side) {
+      case "front":
+        y0 = Math.max(y0, c.rect.y0 + s.r + EDGE_MM / 3);
+        break;
+      case "back":
+        y1 = Math.min(y1, c.rect.y1 - s.r - EDGE_MM / 3);
+        break;
+      case "left":
+        x0 = Math.max(x0, c.rect.x0 + s.r + EDGE_MM / 3);
+        break;
+      case "right":
+        x1 = Math.min(x1, c.rect.x1 - s.r - EDGE_MM / 3);
+        break;
+    }
+  }
+  return { x0, y0, x1, y1 };
+}
+
+/**
+ * Where the name goes on the floor of a well, or null when there is no room: no well has a flat
+ * floor free of notches, slots, reliefs and fillets that holds the name at any of CAP_SIZES_MM,
+ * over a floor that leaves the thinnest feature (a whole layer count) under a recess of at least
+ * INSIDE_MIN_DEPTH_MM. The well where the name comes out largest wins (the larger floor, then the
+ * first, on a tie). A part built upside down with wells is left plain, as its walls are.
+ */
+export function planInside(plan: TrayPlan, text: string, flipped = false): InsidePlan | null {
+  if (text === "" || !isEngravable(text) || (flipped && plan.compartments.length > 0)) {
+    return null;
+  }
+  // What the floor must keep clear of, wherever it lies: floor notches and slots.
+  const obstacles: Rect[] = [
+    ...throughFloor(plan),
+    ...plan.compartments.flatMap((c) => c.slots),
+  ].map((r) => ({
+    x0: r.x0 - EDGE_MM,
+    y0: r.y0 - EDGE_MM,
+    x1: r.x1 + EDGE_MM,
+    y1: r.y1 + EDGE_MM,
+  }));
+  let best: (Placement & { depth: number; area: number; floorZ: number }) | null = null;
+  for (const c of plan.compartments) {
+    // A socket takes away everything above its own depth under the rim: a floor up there is gone.
+    if (plan.socket && c.floorZ > plan.h - plan.socket.depth) {
+      continue;
+    }
+    const reliefs: Rect[] = c.reliefs.map((r) => ({
+      x0: r.cx - r.r - EDGE_MM,
+      y0: r.cy - r.r - EDGE_MM,
+      x1: r.cx + r.r + EDGE_MM,
+      y1: r.cy + r.r + EDGE_MM,
+    }));
+    const found = placeText(text, flatFloor(c), [...obstacles, ...reliefs], (box) =>
+      insideDepth(floorUnder(plan, box)),
+    );
+    if (
+      found !== null &&
+      (best === null ||
+        found.cap > best.cap ||
+        (found.cap === best.cap && found.area > best.area + 1e-9))
+    ) {
+      best = { ...found, floorZ: c.floorZ };
+    }
+  }
+  return best === null
+    ? null
+    : {
+        text,
+        cap: best.cap,
+        depth: best.depth,
+        cx: best.cx,
+        cy: best.cy,
+        floorZ: best.floorZ,
+        along: best.along,
+        box: best.box,
+      };
+}
+
+/**
+ * The cutter of an inside engraving, in the part's own frame: the outline straight down from
+ * OVERSHOOT over the floor (the well is open there) to `depth` under it.
+ */
+export function buildInside(m: ManifoldToplevel, scope: Scope, plan: InsidePlan): Manifold {
+  const layout = layoutText(plan.text, plan.cap) as TextLayout;
+  const { cx, cy, along } = plan;
+  const flat = shape(m, scope, layout, (a, v) => {
+    const da = a - layout.width / 2;
+    const dv = v - layout.height / 2;
+    return along === "x" ? [cx + da, cy + dv] : [cx - dv, cy + da];
+  });
+  const solid = scope.track(flat.extrude(plan.depth + OVERSHOOT));
+  return scope.track(solid.translate([0, 0, plan.floorZ - plan.depth]));
 }
 
 /** Every face of a single part that carries its name. */
@@ -574,19 +802,29 @@ export interface Engravings {
   /** Up to two opposite outer walls. */
   walls: EngravePlan[];
   underside: UndersidePlan | null;
+  /** The floor of one well, as seen from above. */
+  inside: InsidePlan | null;
 }
 
-/** Where the name goes on a part (not a merged one): the walls and the underside that have room. */
+/**
+ * Where the name goes on a part (not a merged one): the walls, the floor of a well and the
+ * underside that have room. The inside name is planned first, because the underside gives way to it.
+ */
 export function planEngravings(plan: TrayPlan, text: string): Engravings {
-  return { walls: planWallEngravings(plan, text), underside: planUnderside(plan, text) };
+  const inside = planInside(plan, text);
+  return {
+    walls: planWallEngravings(plan, text),
+    underside: planUnderside(plan, text, inside),
+    inside,
+  };
 }
 
 /** Whether any face carries the name. */
 export function hasEngraving(e: Engravings): boolean {
-  return e.walls.length > 0 || e.underside !== null;
+  return e.walls.length > 0 || e.underside !== null || e.inside !== null;
 }
 
-/** The cutters of every engraving (walls and underside), as one solid, or null when there is none. */
+/** The cutters of every engraving (walls, underside and inside), as one solid, or null when there is none. */
 export function buildEngravings(
   m: ManifoldToplevel,
   scope: Scope,
@@ -595,11 +833,10 @@ export function buildEngravings(
   // the bed face's height in the part's frame: below 0 under a stepped part's slab
   bed = 0,
 ): Manifold | null {
-  const under = (e.underside ? undersidePieces(e.underside) : []).map((points) =>
-    points.map(([x, y, z]): Vec3 => [x, y, z + bed]),
-  );
-  const pieces = [...e.walls.flatMap((w) => engravingPieces(w, part)), ...under].map((points) =>
-    hullPoints(m, scope, points),
-  );
+  const pieces = [
+    ...e.walls.map((w) => buildEngraving(m, scope, w, part)),
+    ...(e.underside ? [buildUnderside(m, scope, e.underside, bed)] : []),
+    ...(e.inside ? [buildInside(m, scope, e.inside)] : []),
+  ];
   return pieces.length === 0 ? null : scope.track(m.Manifold.union(pieces));
 }

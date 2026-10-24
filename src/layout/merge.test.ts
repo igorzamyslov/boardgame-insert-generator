@@ -14,7 +14,7 @@ const GAP = DEFAULT_SETTINGS.trayGap;
 // has a groove and stays a part of its own (the rim tests below pass `lip` themselves).
 const settings = (o: Partial<Settings> = {}): Settings => ({
   ...DEFAULT_SETTINGS,
-  lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+  lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
   ...o,
 });
 const inputs = (s: Partial<Settings> = {}, printer: Printer = TEST_PRINTER) => ({
@@ -339,7 +339,7 @@ describe("mergeParts: a filler in a stack level (it stands from the level's floo
   it("with the lip on, a filler in a stack level stays a part of its own: it has a groove for the lip", () => {
     // Its groove runs along its outer edge, over the lip of the tray below, so a bridge to a part
     // beside it would reach over the lip. The same two fillers merge with the lip off (above).
-    const lipOn = { lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
+    const lipOn = { lip: { ...DEFAULT_SETTINGS.lip, joint: "rim" as const } };
     expect(mergeParts([ground, ledge], inputs(lipOn))).toHaveLength(2);
     const a = filler({ key: "leftover:1", x: 0, y: 0, w: 5, d: 40, z: 28.4, h: 6.6, level: 1 });
     const b = filler({

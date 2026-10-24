@@ -38,6 +38,11 @@ export interface SceneHandle {
    * none removes them.
    */
   setReserved?(slabs: readonly BoxOutline[]): void;
+  /**
+   * The tray that does not fit (the no-fit stage): it is tinted in the warn colour and lifted out
+   * of its slot, so the overflow shows; null: none is.
+   */
+  setMisfit(key: string | null): void;
   onPick(cb: (key: string | null) => void): void;
   resize(width: number, height: number): void;
   dispose(): void;

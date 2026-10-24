@@ -1,5 +1,13 @@
 import { buildable } from "../geometry/buildable";
-import { bottomMinimums, lipAbove, rimOn, socketOf, stepBelow, upperTrayMinH } from "../model/lip";
+import {
+  bottomMinimums,
+  lipAbove,
+  lipEnabled,
+  rimOn,
+  socketOf,
+  stepBelow,
+  upperTrayMinH,
+} from "../model/lip";
 import type { Lock, Printer, Settings, TraySpec } from "../model/types";
 import { MIN_RISER_POCKET, MIN_SPARE, RISER_SUFFIX } from "../sizing/constants";
 import { roundDownTo, roundMm, roundUpTo, toMm, toU, toUCeil, toUFloor, type U } from "./units";
@@ -243,7 +251,7 @@ export function splitRisers(trays: readonly TraySpec[], o: RiserInputs): TraySpe
     const list = trays
       .filter((t) => t.part === "tray" && t.stack === stack)
       .sort((a, b) => a.level - b.level);
-    for (const lipped of settings.lip.enabled ? [true, false] : [false]) {
+    for (const lipped of lipEnabled(settings) ? [true, false] : [false]) {
       const made = splitStack(trays, list, stack, lipped, c);
       if (made) {
         made.forEach((parts, t) => out.set(t, parts));

@@ -60,7 +60,7 @@ describe("changedCount", () => {
     expect(
       changedCount({
         ...DEFAULT_SETTINGS,
-        lip: { ...DEFAULT_SETTINGS.lip, enabled: false, play: 0.4 },
+        lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const, play: 0.4 },
         leftover: "solid",
         engraveNames: false,
       }),
@@ -105,7 +105,7 @@ describe("changedCount: what the header says is what the sheet shows", () => {
     expect(
       changedCount({
         ...DEFAULT_SETTINGS,
-        lip: { ...DEFAULT_SETTINGS.lip, enabled: !DEFAULT_SETTINGS.lip.enabled },
+        lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
         fillToTop: !DEFAULT_SETTINGS.fillToTop,
         oneWall: !DEFAULT_SETTINGS.oneWall,
         engraveNames: !DEFAULT_SETTINGS.engraveNames,

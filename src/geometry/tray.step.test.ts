@@ -1,6 +1,6 @@
 // @vitest-environment node
 // src/geometry/tray.step.test.ts
-// The stepped base (owner, 2026-10-23; model/lip.ts stepOf): with `lip.kind` "step" a part above
+// The stepped base (owner, 2026-10-23; model/lip.ts stepOf): with `lip.joint` "step" a part above
 // another has a solid slab under its floor, inset by the lower part's wall and the play, with a 45°
 // step out to its outer face, and the part below a socket for it; the walls stay at `wall`. Built
 // from the owner's Star Realms file with the step on: every stack's riser carries the socket and
@@ -45,7 +45,7 @@ function owner(): Project {
     throw new Error(parsed.error);
   }
   const p = parsed.project;
-  return { ...p, settings: { ...p.settings, lip: { ...p.settings.lip, kind: "step" } } };
+  return { ...p, settings: { ...p.settings, lip: { ...p.settings.lip, joint: "step" as const } } };
 }
 
 function stored(p: Project): TraySpec[] {
@@ -139,6 +139,30 @@ describe("the stepped base in the owner's Star Realms file", { timeout: 120_000 
   it("builds every tray and riser as a closed, printable solid of its size", () => {
     for (const t of [...trays, ...risers]) {
       expect(problemsOf(m, t, settings), t.key).toEqual([]);
+    }
+  });
+
+  it("carries a name on its walls, floor and underside, and stays a closed solid with the slab and socket as before", () => {
+    // Overpass names (geometry 0.9.9) and the stepped base meet here: the underside name is cut
+    // into the slab's bottom face, the floor name into a floor that stands on the slab, and a
+    // riser's name keeps clear of its socket.
+    for (const t of [...trays, ...risers]) {
+      const named: TraySpec = { ...t, partName: "Heroes 1" };
+      const plain = buildTray(m, t, settings);
+      const withName = buildTray(m, named, settings);
+      expect(problemsOf(m, named, settings), t.key).toEqual([]);
+      expect(withName.volumeMm3, t.key).toBeLessThan(plain.volumeMm3);
+      const a = bounds(plain.mesh);
+      const b = bounds(withName.mesh);
+      // a name only takes material away: the part is as tall, as wide and as long as before
+      expect(b.min, t.key).toEqual(a.min);
+      expect(b.max, t.key).toEqual(a.max);
+      expect(planTray(named, settings).step === null, t.key).toBe(
+        planTray(t, settings).step === null,
+      );
+      expect(planTray(named, settings).socket === null, t.key).toBe(
+        planTray(t, settings).socket === null,
+      );
     }
   });
 

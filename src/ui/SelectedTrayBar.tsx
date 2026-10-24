@@ -6,7 +6,6 @@ import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, parentKey, partsByKey } from "../instructions/numbering";
 import type { ForeignData, Project, TraySpec } from "../model/types";
 import { isAddOn, levelsOf } from "../plan/layers";
-import { layerLabel } from "../plan/PlanView";
 import { lookOfTray } from "../plan/glyph";
 import {
   compartmentWords,
@@ -26,10 +25,8 @@ export interface SelectedTrayBarProps {
   /** The parts as they print (what the plan and the 3D view draw). */
   trays: readonly TraySpec[];
   selectedKey: string | null;
-  /** The plan's: a swap or a put-on is made there only, so the 3D view's bar has neither. */
+  /** The plan's: the focus goes back to the tray's tile; in 3D, to its canvas. */
   inPlan: boolean;
-  /** A phone: the bar is a modal sheet (MobileTray), which gives way to the plan while a swap is chosen. */
-  phone: boolean;
   /** The plan is out of date: the bar builds nothing for its filament line. */
   stale?: boolean;
   /** The tray a swap, or a put-on, is under way from, or null. */
@@ -61,10 +58,9 @@ function focusTray(key: string, inPlan: boolean): void {
 }
 
 /**
- * The tray bar of the selected tray, wired to the project: what it is called, which layer it is
- * on, and the edits Pin, Turn, Swap and Lock size make. Nothing while no tray is selected, and,
- * on a phone, nothing while a swap or a put-on is being chosen: the sheet is modal, and the other tray is
- * picked on the plan behind it.
+ * The dock of the selected tray, wired to the project: what it is called, which layer it is on,
+ * and the edits Keep here, Rotate, Swap, Put on and Keep this size make. Nothing while no tray is
+ * selected. Swap and Put on pick the other tray in the view that is showing, plan or 3D.
  */
 export function SelectedTrayBar(p: SelectedTrayBarProps) {
   const { project, trays } = p;
@@ -74,7 +70,7 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
     [parts, project.components, project.groups],
   );
   const tray = p.selectedKey === null ? undefined : trays.find((t) => t.key === p.selectedKey);
-  if (tray === undefined || (p.phone && p.swapFrom !== null)) {
+  if (tray === undefined) {
     return null;
   }
   const key = tray.key;
@@ -116,7 +112,7 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
       buildSpec={buildSpec}
       stale={p.stale === true}
       name={names.get(key)?.full ?? "Tray"}
-      layer={at >= 0 ? layerLabel(at, levels.length) : `Layer ${tray.level + 1}`}
+      layer={`Layer ${at >= 0 ? at + 1 : tray.level + 1}`}
       look={look}
       {...(cells === undefined ? {} : { cells })}
       layerCount={levels.length}
@@ -126,22 +122,15 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
           ? compartmentWords(tray, component)
           : `${compartmentCount} ${compartmentCount === 1 ? "compartment" : "compartments"}`
       }
-      phone={p.phone}
       swapping={p.swapFrom === key && p.pickMode !== "putOn"}
       puttingOn={p.swapFrom === key && p.pickMode === "putOn"}
       onPin={() => withStored((stored) => (q) => toggleLock(q, stored))}
       onTurn={() => withStored((stored) => (q) => turnTray(q, stored))}
-      onSwap={
-        p.inPlan
-          ? () =>
-              p.onSwapFromChange(p.swapFrom === key && p.pickMode !== "putOn" ? null : key, "swap")
-          : undefined
+      onSwap={() =>
+        p.onSwapFromChange(p.swapFrom === key && p.pickMode !== "putOn" ? null : key, "swap")
       }
-      onPutOn={
-        p.inPlan
-          ? () =>
-              p.onSwapFromChange(p.swapFrom === key && p.pickMode === "putOn" ? null : key, "putOn")
-          : undefined
+      onPutOn={() =>
+        p.onSwapFromChange(p.swapFrom === key && p.pickMode === "putOn" ? null : key, "putOn")
       }
       onToggleSizeLock={() => withStored((stored) => (q) => toggleSizeLock(q, stored))}
       onEdit={
