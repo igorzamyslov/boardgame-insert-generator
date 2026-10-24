@@ -26,4 +26,7 @@ code and record why (DESIGN.md has a decision log). Don't work around it silentl
 - `npm test` for the unit tests; `npm run verify` is the gate (lint, format, tests, typecheck,
   build, dist smoke check). It takes several minutes.
 - Every PR bumps the version in `package.json` (CI checks it).
+- Every PR adds its entry to `CHANGELOG.md` under "Unreleased" (or under its own version); an
+  integrating PR moves them under the new version (CI checks it; see DEVELOPMENT.md →
+  "Write a changelog entry and cut a release"). Merging to main tags and releases the version.
 - Never add `Co-Authored-By:` or any other trailer to commit messages.

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { Button, Notice } from "../kit";
 import type { Notice as NoticeData } from "../model/types";
 import { isHidden } from "../share";
+import type { HiddenNotes } from "../share";
 import { Announcer, visibleNotices } from "../ui/Notices";
 
 /** Notices shown before the rest fold behind "Show all", so the plan stays in view. */
@@ -22,7 +23,7 @@ export const canHide = (n: NoticeData): boolean => n.level !== "error";
 export interface StageNotesProps {
   notices: readonly NoticeData[];
   /** The notes the person hid, key to the words hidden (`share/hiddenNotes`); one whose words changed shows again. */
-  hidden?: Readonly<Record<string, string>>;
+  hidden?: HiddenNotes;
   onHide?: (n: NoticeData) => void;
   /** Brings every hidden note back. */
   onShowHidden?: () => void;
