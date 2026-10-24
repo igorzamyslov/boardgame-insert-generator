@@ -369,8 +369,18 @@ export function placeStack(
       k === 0 && ctx.growing && region.x === 0 && region.x + region.w < ctx.floorW && !own.left;
     const wallY =
       k === 0 && ctx.growing && region.y === 0 && region.y + region.d < ctx.floorD && !own.front;
-    const highX = foot.w < region.w && (wallX || (cuts !== undefined && cuts.right && !cuts.left));
-    const highY = foot.d < region.d && (wallY || (cuts !== undefined && cuts.back && !cuts.front));
+    // An alike tray leaves room too thin for a filler empty (below), so it stays where that room
+    // lies at the end of the place: moved to the far end it would leave the room between it and
+    // its neighbour, and the floor would no longer tile with only the tray gap between parts.
+    const roomFor = (room: U): boolean => l.alike < 0 || room - ctx.gap >= minFiller;
+    const highX =
+      foot.w < region.w &&
+      roomFor(region.w - foot.w) &&
+      (wallX || (cuts !== undefined && cuts.right && !cuts.left));
+    const highY =
+      foot.d < region.d &&
+      roomFor(region.d - foot.d) &&
+      (wallY || (cuts !== undefined && cuts.back && !cuts.front));
     const at = {
       x: highX ? region.x + region.w - foot.w : region.x,
       y: highY ? region.y + region.d - foot.d : region.y,
