@@ -264,29 +264,40 @@ describe("the line that says how to lift a part", () => {
   });
 });
 
-describe("a tray with only a finger dip beside it", () => {
-  // Anchors has its finger cut turned off; the strip beside it (10 mm across, so cut through) has
-  // a dip on its face. A thick block on Anchors' other side has a dip on one face only.
-  const dip = (side: "left" | "right", over: Partial<FeatureSpec> = {}): FeatureSpec =>
-    ({ type: "fingerDip", side, at: 40, width: 25, depth: 15, ...over }) as FeatureSpec;
+describe("a tray with only a top chamfer beside it", () => {
+  // Anchors has its finger cut turned off; the strip beside it (10 mm across) is chamfered on both
+  // long edges. A thick block on Anchors' other side is chamfered on its one face.
+  const chamfer = (side: "left" | "right"): FeatureSpec => ({
+    type: "topChamfer",
+    side,
+    from: 0,
+    to: 80,
+    size: 4,
+  });
   const scene = () => [
     holding("Anchors", {}, false),
-    strip("leftover:0", { x: 100.2, y: 0, w: 10, d: 80, features: [dip("left")] }),
-    strip("leftover:1", { x: -40.2, y: 0, w: 40, d: 80, features: [dip("right")] }),
+    strip("leftover:0", {
+      x: 100.2,
+      y: 0,
+      w: 10,
+      d: 80,
+      features: [chamfer("left"), chamfer("right")],
+    }),
+    strip("leftover:1", { x: -40.2, y: 0, w: 40, d: 80, features: [chamfer("right")] }),
   ];
 
-  it("lifts it by the dip and does not flag it", () => {
+  it("lifts it by the chamfer and does not flag it", () => {
     const rows = rowsOf(scene(), ["Anchors"]);
     const tray = rows[0]?.find((r) => r.key === "Anchors:p0:0");
-    expect(tray?.lift).toBe("Lift it by the finger dip beside it");
-    expect(tray?.grip).toBe("dip-beside");
+    expect(tray?.lift).toBe("Lift it by the chamfer beside it");
+    expect(tray?.grip).toBe("chamfer-beside");
     expect(tray?.noGrip).toBe(false);
   });
 
-  it("lifts the thin strip by its dip, and has the thick block wait for the tray", () => {
+  it("pinches the thin strip by its chamfers, and has the thick block wait for the tray", () => {
     const rows = rowsOf(scene(), ["Anchors"]);
     const lift = (key: string) => rows[0]?.find((r) => r.key === key);
-    expect(lift("leftover:0")?.lift).toBe("Lift it by the finger dip");
+    expect(lift("leftover:0")?.lift).toBe("Pinch it by its chamfered edges");
     expect(lift("leftover:1")?.noGrip).toBe(true);
     expect(lift("leftover:1")?.lift).toBe("Take out Anchors first, then tip it out");
     // the block is packed before the tray it waits for, so the tray comes out first
@@ -294,13 +305,13 @@ describe("a tray with only a finger dip beside it", () => {
     expect(order.indexOf("leftover:1")).toBeLessThan(order.indexOf("Anchors:p0:0"));
   });
 
-  it("still reads 'Empty it first' when no dip is on its face", () => {
+  it("still reads 'Empty it first' when no chamfer is on its face", () => {
     const rows = rowsOf([holding("Anchors", {}, false)], ["Anchors"]);
     expect(rows[0]?.[0]?.lift).toBe("Empty it first, then lift it from inside");
     expect(rows[0]?.[0]?.noGrip).toBe(true);
   });
 
-  it("keeps its own finger cut ahead of the dip", () => {
+  it("keeps its own finger cut ahead of the chamfer", () => {
     const rows = rowsOf([holding("Anchors"), ...scene().slice(1)], ["Anchors"]);
     expect(rows[0]?.find((r) => r.key === "Anchors:p0:0")?.lift).toBe("Lift it by the finger cut");
   });
@@ -317,16 +328,16 @@ describe("on real plans", () => {
     return packingGuide({ ...(project.layout as StoredLayout), trays }, project);
   };
 
-  it("lifts the strip beside the Event cards by its finger dip, and flags only the spacer with no room for one", () => {
+  it("pinches the strip beside the Event cards by its chamfers, and flags only the spacer with no room for two", () => {
     const layers = guideOf(loadSeed("harbour-kings", true).project);
-    // the spacer by Starter decks 1 is 7.4 mm of filler where no side can take a dip: it is the
+    // the spacer by Starter decks 1 is 7.4 mm of filler too thin for a chamfer on both edges: it is the
     // one part told to wait for its neighbour
     expect(layers.flatMap((l) => l.rows.filter((r) => r.noGrip)).map((r) => r.name)).toEqual([
       "Spacer by Starter decks 1",
     ]);
     const strips = layers.flatMap((l) => l.rows).filter((r) => r.name === "Spacer by Event cards");
     expect(strips.map((r) => [r.name, r.lift])).toEqual([
-      ["Spacer by Event cards", "Lift it by the finger dip"],
+      ["Spacer by Event cards", "Pinch it by its chamfered edges"],
     ]);
   });
 

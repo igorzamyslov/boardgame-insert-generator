@@ -652,11 +652,11 @@ describe("readProject: files from a newer minor", () => {
     expect(current.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);
   });
 
-  it("does not read a finger dip: it is derived at print time and never stored", () => {
+  it("does not read a top chamfer: it is derived at print time and never stored", () => {
     const input = sampleJson();
     const tray = at(input.layout as Json, "trays", 0);
-    const dip = { type: "fingerDip", side: "left", at: 30, width: 25, depth: 10 };
-    tray.features = [dip];
+    const chamfer = { type: "topChamfer", side: "left", from: 0, to: 30, size: 5 };
+    tray.features = [chamfer];
     const current = expectOk(readProject(input, CURRENT));
     expect(current.project.layout).toBeUndefined();
     expect(current.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);

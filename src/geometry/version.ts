@@ -239,8 +239,22 @@ import type { Semver } from "../model/version";
  * of the stack (FeatureSpec "separatorPlate", derived into parts by splitDividers): the well is a
  * plate taller for each, and the tray itself is otherwise as before. A new optional feature, so a
  * PATCH (planTray only checks it); a stored layout without one builds as it did.
+ *
+ * 0.9.8 replaces 0.9.4's finger dip with a 45° top chamfer (owner, 2026-10-24: the U-shaped dip
+ * looked wrong; `FeatureSpec` "topChamfer", `layout/chamfers.ts`, model/top-chamfer.ts). A filler
+ * wedged beside a tray gets a chamfer along its top edge where it touches the tray's outer face,
+ * up to 5 mm across and as deep (less on a thin strip, where the two long edges leave 1.6 mm of
+ * flat top, and on a filler low over the groove or step at its foot), over the stretch of the face
+ * the tray's side shares; with the tray's straight wall it makes a V a fingertip can get into. A
+ * strip under 18 mm is chamfered along both long edges, so it can be pinched at the two slopes. It
+ * faces up and out, so it prints without support, and it is cut by a plain wedge (no corner or
+ * fillet interplay). A mesh-only change to a derived filler: outer size, footprint, fit and every
+ * tray are as before, so printed parts still mate, and a filler without a chamfer builds exactly
+ * as before. A PATCH, though "fingerDip" is no longer a feature planTray accepts: a part is
+ * derived at print time and never stored, so no stored spec carries one. The engraved name keeps
+ * clear of a chamfer on its face.
  */
-export const GEOMETRY_VERSION = "0.9.7";
+export const GEOMETRY_VERSION = "0.9.8";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

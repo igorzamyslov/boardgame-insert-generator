@@ -1023,7 +1023,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Resize the list", states: "all", ruling: RESIZE },
   // The packing guide (no board draws it, so no copy case reads it: AssemblyPage.test.tsx checks
   // that every line of its Lift column, its note and its flag is one of these). LIFT_LINES holds
-  // every way out, "Lift it by the finger dip beside it" (a tray with only a dip of the filler
+  // every way out, "Lift it by the chamfer beside it" (a tray with only a chamfer on the filler
   // beside it) included.
   ...[
     ...Object.values(LIFT_LINES),
