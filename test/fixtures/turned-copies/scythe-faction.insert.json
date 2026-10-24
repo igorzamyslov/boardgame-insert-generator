@@ -1,0 +1,2447 @@
+{
+  "schemaVersion": "0.3.2",
+  "createdWith": "0.22.0",
+  "id": "scythe01",
+  "name": "Scythe: base + all expansions (does not fit)",
+  "box": {
+    "innerWidth": 356,
+    "innerDepth": 290,
+    "innerHeight": 112,
+    "headroom": 26,
+    "headroomCoverage": "full",
+    "storedOnSide": false
+  },
+  "printer": {
+    "bedX": 180,
+    "bedY": 180,
+    "bedZ": 180,
+    "bedMargin": 2,
+    "layerHeight": 0.2
+  },
+  "settings": {
+    "wall": 1.6,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 0.7,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.03,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": {
+      "width": 25,
+      "floorNotch": 12.5,
+      "wallRoom": 0,
+      "dividerRoom": 0
+    },
+    "lip": {
+      "enabled": true,
+      "kind": "rim",
+      "height": 2,
+      "thickness": 1.2,
+      "ledge": 1.7,
+      "play": 0.25,
+      "stepHeight": 1.5
+    },
+    "topPressFit": 0,
+    "packingFactor": 0.5,
+    "leftover": "spare",
+    "fillToTop": true,
+    "minRiser": 3,
+    "wallAbsorb": 0,
+    "infill": 15,
+    "playLimit": 1.5
+  },
+  "components": [
+    {
+      "id": "min01000",
+      "name": "Faction miniatures",
+      "access": "setup",
+      "kind": "minis",
+      "figures": [
+        {
+          "name": "Leader",
+          "w": 28,
+          "d": 28,
+          "h": 38,
+          "count": 1
+        },
+        {
+          "name": "Mech",
+          "w": 28,
+          "d": 28,
+          "h": 33,
+          "count": 4
+        }
+      ],
+      "storage": "pockets"
+    },
+    {
+      "id": "blk02000",
+      "name": "Faction wooden pieces",
+      "access": "setup",
+      "kind": "bulk",
+      "items": [
+        {
+          "name": "Workers, structures, recruits, stars, cubes, tokens",
+          "count": 31,
+          "w": 12,
+          "d": 12,
+          "h": 12
+        }
+      ]
+    },
+    {
+      "id": "blk03000",
+      "name": "Resources",
+      "access": "often",
+      "kind": "bulk",
+      "items": [
+        {
+          "name": "Oil",
+          "count": 20,
+          "w": 16,
+          "d": 16,
+          "h": 12
+        },
+        {
+          "name": "Metal",
+          "count": 20,
+          "w": 16,
+          "d": 16,
+          "h": 12
+        },
+        {
+          "name": "Wood",
+          "count": 20,
+          "w": 16,
+          "d": 16,
+          "h": 12
+        },
+        {
+          "name": "Food",
+          "count": 20,
+          "w": 16,
+          "d": 16,
+          "h": 12
+        }
+      ]
+    },
+    {
+      "id": "blk04000",
+      "name": "Coins",
+      "access": "often",
+      "kind": "bulk",
+      "items": [
+        {
+          "name": "Cardboard coins (80 + 7)",
+          "volumeMl": 70
+        }
+      ]
+    },
+    {
+      "id": "cus05000",
+      "name": "Power dials",
+      "access": "often",
+      "kind": "custom",
+      "w": 66,
+      "d": 66,
+      "h": 7,
+      "count": 2
+    },
+    {
+      "id": "blk06000",
+      "name": "Cardboard tokens",
+      "access": "sometimes",
+      "kind": "bulk",
+      "items": [
+        {
+          "name": "Encounter, multiplier and other tokens",
+          "volumeMl": 45
+        }
+      ]
+    },
+    {
+      "id": "til07000",
+      "name": "Structure bonus tiles",
+      "access": "setup",
+      "kind": "tiles",
+      "shape": {
+        "type": "rect",
+        "w": 45,
+        "d": 45
+      },
+      "thickness": 2,
+      "count": 6,
+      "storage": "auto"
+    },
+    {
+      "id": "cds08000",
+      "name": "Combat cards",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 44,
+      "longSide": 67,
+      "decks": [
+        {
+          "name": "",
+          "count": 42
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    },
+    {
+      "id": "cds09000",
+      "name": "Encounter cards",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 70,
+      "longSide": 110,
+      "decks": [
+        {
+          "name": "Base",
+          "count": 28
+        },
+        {
+          "name": "Encounters promo",
+          "count": 32
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    },
+    {
+      "id": "cds10000",
+      "name": "Factory and Riverwalk cards",
+      "access": "setup",
+      "kind": "cards",
+      "shortSide": 70,
+      "longSide": 110,
+      "decks": [
+        {
+          "name": "Factory",
+          "count": 12
+        },
+        {
+          "name": "Riverwalk",
+          "count": 5
+        },
+        {
+          "name": "Quick-start",
+          "count": 5
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    },
+    {
+      "id": "cds11000",
+      "name": "Objective and Automa cards",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 57,
+      "longSide": 87,
+      "decks": [
+        {
+          "name": "Objective",
+          "count": 23
+        },
+        {
+          "name": "Automa",
+          "count": 37
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    },
+    {
+      "id": "til13000",
+      "name": "Wind Gambit tiles",
+      "access": "setup",
+      "kind": "tiles",
+      "shape": {
+        "type": "rect",
+        "w": 45,
+        "d": 65
+      },
+      "thickness": 2,
+      "count": 24,
+      "storage": "auto"
+    },
+    {
+      "id": "x2ufexv7",
+      "name": "Airships",
+      "access": "sometimes",
+      "kind": "minis",
+      "figures": [
+        {
+          "name": "",
+          "w": 33,
+          "d": 101,
+          "h": 41,
+          "count": 1
+        }
+      ],
+      "storage": "pockets"
+    }
+  ],
+  "groups": [
+    {
+      "id": "faction1",
+      "name": "Faction",
+      "copies": 6,
+      "access": "setup",
+      "memberIds": ["x2ufexv7", "blk02000", "min01000"]
+    },
+    {
+      "id": "cardbox1",
+      "name": "Card box",
+      "copies": 1,
+      "access": "sometimes",
+      "memberIds": ["cds08000", "cds09000", "cds10000", "cds11000"]
+    },
+    {
+      "id": "supply01",
+      "name": "Supplies",
+      "copies": 1,
+      "access": "often",
+      "memberIds": ["blk06000", "til07000", "til13000"]
+    }
+  ],
+  "locks": [],
+  "layout": {
+    "createdWith": "0.22.0",
+    "geometryVersion": "0.9.7",
+    "inputsHash": "023c2a272b9857",
+    "seed": 1,
+    "iterations": 2800000,
+    "capped": false,
+    "trays": [
+      {
+        "key": "cardbox1:p0:0",
+        "part": "tray",
+        "path": "000",
+        "stack": 0,
+        "x": 0,
+        "y": 0,
+        "w": 114.25,
+        "d": 77.36,
+        "h": 86,
+        "rotated": true,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 23.1,
+            "y": 1.6,
+            "w": 68.05,
+            "d": 14.43,
+            "floorZ": 40.8,
+            "kind": "well",
+            "contents": "Combat cards ×42",
+            "componentId": "cds08000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 17.23,
+            "w": 111.05,
+            "d": 9.85,
+            "floorZ": 14.8,
+            "kind": "well",
+            "contents": "Encounter cards — Base ×28",
+            "componentId": "cds09000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 28.28,
+            "w": 111.05,
+            "d": 11.16,
+            "floorZ": 14.8,
+            "kind": "well",
+            "contents": "Encounter cards — Encounters promo ×32",
+            "componentId": "cds09000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 40.64,
+            "w": 111.05,
+            "d": 4.63,
+            "floorZ": 14.8,
+            "kind": "well",
+            "contents": "Factory and Riverwalk cards — Factory ×12",
+            "componentId": "cds10000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 46.47,
+            "w": 111.05,
+            "d": 2.34,
+            "floorZ": 14.8,
+            "kind": "well",
+            "contents": "Factory and Riverwalk cards — Riverwalk ×5",
+            "componentId": "cds10000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 1.6,
+            "y": 50.01,
+            "w": 111.05,
+            "d": 2.34,
+            "floorZ": 14.8,
+            "kind": "well",
+            "contents": "Factory and Riverwalk cards — Quick-start ×5",
+            "componentId": "cds10000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 13.1,
+            "y": 53.55,
+            "w": 88.05,
+            "d": 8.22,
+            "floorZ": 27.8,
+            "kind": "well",
+            "contents": "Objective and Automa cards — Objective ×23",
+            "componentId": "cds11000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 13.1,
+            "y": 62.97,
+            "w": 88.05,
+            "d": 12.79,
+            "floorZ": 27.8,
+            "kind": "well",
+            "contents": "Objective and Automa cards — Automa ×37",
+            "componentId": "cds11000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 57.12,
+                "width": 25,
+                "depth": 22.6,
+                "floorNotch": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "blk04000:p0:0",
+        "part": "tray",
+        "path": "001",
+        "stack": 1,
+        "x": 114.39,
+        "y": 25.85,
+        "w": 51.51,
+        "d": 51.51,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 48.31,
+            "d": 48.31,
+            "floorZ": 56,
+            "kind": "scoop",
+            "contents": "Coins — Cardboard coins (80 + 7) 70 ml",
+            "componentId": "blk04000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "front",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "back",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "cus05000:p0:1",
+        "part": "tray",
+        "path": "010",
+        "stack": 2,
+        "x": 166.04,
+        "y": 4.86,
+        "w": 135,
+        "d": 72.5,
+        "h": 9,
+        "rotated": true,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 2.9,
+            "w": 129.2,
+            "d": 66.7,
+            "floorZ": 1.2,
+            "kind": "well",
+            "contents": "Power dials 2/2",
+            "componentId": "cus05000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 36.25,
+                "width": 25,
+                "depth": 7.8,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "cornerRelief",
+                "d": 3
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "cus05000:p0:0",
+        "part": "tray",
+        "path": "010",
+        "stack": 2,
+        "level": 1,
+        "x": 166.04,
+        "y": 4.86,
+        "z": 9,
+        "w": 135,
+        "d": 72.5,
+        "h": 9,
+        "rotated": true,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 2.9,
+            "w": 129.2,
+            "d": 66.7,
+            "floorZ": 1.2,
+            "kind": "well",
+            "contents": "Power dials 1/2",
+            "componentId": "cus05000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 36.25,
+                "width": 25,
+                "depth": 7.8,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "cornerRelief",
+                "d": 3
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "blk03000:p0:0",
+        "part": "tray",
+        "path": "010",
+        "stack": 2,
+        "level": 2,
+        "x": 166.04,
+        "y": 4.86,
+        "z": 18,
+        "w": 135,
+        "d": 72.5,
+        "h": 31.2,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 4.25,
+            "w": 64,
+            "d": 64,
+            "floorZ": 1.2,
+            "kind": "scoop",
+            "contents": "Resources — Oil ×20",
+            "componentId": "blk03000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "front",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "back",
+                "r": 12
+              }
+            ]
+          },
+          {
+            "x": 68.1,
+            "y": 4.25,
+            "w": 64,
+            "d": 64,
+            "floorZ": 1.2,
+            "kind": "scoop",
+            "contents": "Resources — Metal ×20",
+            "componentId": "blk03000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "front",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "back",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "blk03000:p0:1",
+        "part": "tray",
+        "path": "010",
+        "stack": 2,
+        "level": 3,
+        "x": 166.04,
+        "y": 4.86,
+        "z": 49.2,
+        "w": 135,
+        "d": 72.5,
+        "h": 34.8,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 4.25,
+            "w": 64,
+            "d": 64,
+            "floorZ": 4.8,
+            "kind": "scoop",
+            "contents": "Resources — Wood ×20",
+            "componentId": "blk03000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "front",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "back",
+                "r": 12
+              }
+            ]
+          },
+          {
+            "x": 68.1,
+            "y": 4.25,
+            "w": 64,
+            "d": 64,
+            "floorZ": 4.8,
+            "kind": "scoop",
+            "contents": "Resources — Food ×20",
+            "componentId": "blk03000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "front",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "back",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "supply01:p0:0",
+        "part": "tray",
+        "path": "011",
+        "stack": 3,
+        "x": 301.18,
+        "y": 5.86,
+        "w": 54.12,
+        "d": 71.5,
+        "h": 21.2,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 3.34,
+            "y": 2.9,
+            "w": 47.44,
+            "d": 65.7,
+            "floorZ": 1.2,
+            "kind": "scoop",
+            "contents": "Cardboard tokens — Encounter, multiplier and other tokens 45 ml",
+            "componentId": "blk06000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "left",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "supply01:p0:1",
+        "part": "tray",
+        "path": "011",
+        "stack": 3,
+        "level": 1,
+        "x": 301.18,
+        "y": 5.86,
+        "z": 21.2,
+        "w": 54.12,
+        "d": 71.5,
+        "h": 14,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 4.21,
+            "y": 12.9,
+            "w": 45.7,
+            "d": 45.7,
+            "floorZ": 1.2,
+            "kind": "well",
+            "contents": "Structure bonus tiles ×6",
+            "componentId": "til07000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 35.75,
+                "width": 25,
+                "depth": 12.8,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 35.75,
+                "width": 25,
+                "depth": 12.8,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "cornerRelief",
+                "d": 3
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "supply01:p0:2",
+        "part": "tray",
+        "path": "011",
+        "stack": 3,
+        "level": 2,
+        "x": 301.18,
+        "y": 5.86,
+        "z": 35.2,
+        "w": 54.12,
+        "d": 71.5,
+        "h": 50.8,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 4.21,
+            "y": 2.9,
+            "w": 45.7,
+            "d": 65.7,
+            "floorZ": 2,
+            "kind": "well",
+            "contents": "Wind Gambit tiles ×24",
+            "componentId": "til13000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 35.75,
+                "width": 25,
+                "depth": 48.8,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 35.75,
+                "width": 25,
+                "depth": 48.8,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "cornerRelief",
+                "d": 3
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p3:0",
+        "part": "tray",
+        "path": "1000",
+        "stack": 4,
+        "x": 0,
+        "y": 77.5,
+        "w": 113.9,
+        "d": 107.5,
+        "h": 43,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 2.9,
+            "w": 33.7,
+            "d": 101.7,
+            "floorZ": 1.2,
+            "kind": "pocket",
+            "contents": "Airships",
+            "componentId": "x2ufexv7",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 37.8,
+            "y": 17.15,
+            "w": 73.2,
+            "d": 73.2,
+            "floorZ": 22.9,
+            "kind": "scoop",
+            "contents": "Faction wooden pieces — Workers, structures, recruits, stars, cubes, tokens ×31",
+            "componentId": "blk02000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "front",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "back",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p0:0",
+        "part": "tray",
+        "path": "1000",
+        "stack": 4,
+        "level": 1,
+        "x": 0,
+        "y": 77.5,
+        "z": 43,
+        "w": 113.9,
+        "d": 107.5,
+        "h": 43,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 2.9,
+            "w": 33.7,
+            "d": 101.7,
+            "floorZ": 1.2,
+            "kind": "pocket",
+            "contents": "Airships",
+            "componentId": "x2ufexv7",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 37.8,
+            "y": 17.15,
+            "w": 73.2,
+            "d": 73.2,
+            "floorZ": 22.9,
+            "kind": "scoop",
+            "contents": "Faction wooden pieces — Workers, structures, recruits, stars, cubes, tokens ×31",
+            "componentId": "blk02000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "front",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "back",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p5:0",
+        "part": "tray",
+        "path": "1001",
+        "stack": 5,
+        "x": 114.04,
+        "y": 77.5,
+        "w": 107.5,
+        "d": 113.9,
+        "h": 43,
+        "rotated": true,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 2.9,
+            "w": 101.7,
+            "d": 33.7,
+            "floorZ": 1.2,
+            "kind": "pocket",
+            "contents": "Airships",
+            "componentId": "x2ufexv7",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 17.15,
+            "y": 37.8,
+            "w": 73.2,
+            "d": 73.2,
+            "floorZ": 22.9,
+            "kind": "scoop",
+            "contents": "Faction wooden pieces — Workers, structures, recruits, stars, cubes, tokens ×31",
+            "componentId": "blk02000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "left",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p1:0",
+        "part": "tray",
+        "path": "1001",
+        "stack": 5,
+        "level": 1,
+        "x": 114.04,
+        "y": 77.5,
+        "z": 43,
+        "w": 107.5,
+        "d": 113.9,
+        "h": 43,
+        "rotated": true,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 2.9,
+            "w": 101.7,
+            "d": 33.7,
+            "floorZ": 1.2,
+            "kind": "pocket",
+            "contents": "Airships",
+            "componentId": "x2ufexv7",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 17.15,
+            "y": 37.8,
+            "w": 73.2,
+            "d": 73.2,
+            "floorZ": 22.9,
+            "kind": "scoop",
+            "contents": "Faction wooden pieces — Workers, structures, recruits, stars, cubes, tokens ×31",
+            "componentId": "blk02000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "left",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p2:0",
+        "part": "tray",
+        "path": "101",
+        "stack": 6,
+        "x": 221.68,
+        "y": 77.5,
+        "w": 107.5,
+        "d": 113.9,
+        "h": 43,
+        "rotated": true,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 2.9,
+            "w": 101.7,
+            "d": 33.7,
+            "floorZ": 1.2,
+            "kind": "pocket",
+            "contents": "Airships",
+            "componentId": "x2ufexv7",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 17.15,
+            "y": 37.8,
+            "w": 73.2,
+            "d": 73.2,
+            "floorZ": 22.9,
+            "kind": "scoop",
+            "contents": "Faction wooden pieces — Workers, structures, recruits, stars, cubes, tokens ×31",
+            "componentId": "blk02000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "left",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p4:0",
+        "part": "tray",
+        "path": "101",
+        "stack": 6,
+        "level": 1,
+        "x": 221.68,
+        "y": 77.5,
+        "z": 43,
+        "w": 107.5,
+        "d": 113.9,
+        "h": 43,
+        "rotated": true,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 2.9,
+            "w": 101.7,
+            "d": 33.7,
+            "floorZ": 1.2,
+            "kind": "pocket",
+            "contents": "Airships",
+            "componentId": "x2ufexv7",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 19.75,
+                "width": 25,
+                "depth": 20.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 17.15,
+            "y": 37.8,
+            "w": 73.2,
+            "d": 73.2,
+            "floorZ": 22.9,
+            "kind": "scoop",
+            "contents": "Faction wooden pieces — Workers, structures, recruits, stars, cubes, tokens ×31",
+            "componentId": "blk02000",
+            "features": [
+              {
+                "type": "scoop",
+                "side": "right",
+                "r": 12
+              },
+              {
+                "type": "scoop",
+                "side": "left",
+                "r": 12
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p4:1",
+        "part": "tray",
+        "path": "11000",
+        "stack": 7,
+        "x": 0,
+        "y": 191.54,
+        "w": 151.5,
+        "d": 31.9,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 47.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Leader",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 31.5,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 1/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 61.4,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 2/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 91.3,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 3/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 121.2,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 4/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p3:1",
+        "part": "tray",
+        "path": "11001",
+        "stack": 8,
+        "x": 151.64,
+        "y": 191.54,
+        "w": 151.5,
+        "d": 31.9,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 47.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Leader",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 31.5,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 1/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 61.4,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 2/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 91.3,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 3/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 121.2,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 4/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p5:1",
+        "part": "tray",
+        "path": "11010",
+        "stack": 9,
+        "x": 0,
+        "y": 223.58,
+        "w": 151.5,
+        "d": 31.9,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 47.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Leader",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 31.5,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 1/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 61.4,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 2/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 91.3,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 3/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 121.2,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 4/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p2:1",
+        "part": "tray",
+        "path": "11011",
+        "stack": 10,
+        "x": 151.64,
+        "y": 223.58,
+        "w": 151.5,
+        "d": 31.9,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 47.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Leader",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 31.5,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 1/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 61.4,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 2/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 91.3,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 3/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 121.2,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 4/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p1:1",
+        "part": "tray",
+        "path": "1110",
+        "stack": 11,
+        "x": 0,
+        "y": 255.62,
+        "w": 151.5,
+        "d": 31.9,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 47.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Leader",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 31.5,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 1/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 61.4,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 2/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 91.3,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 3/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 121.2,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 4/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "faction1:p0:1",
+        "part": "tray",
+        "path": "1111",
+        "stack": 12,
+        "x": 151.64,
+        "y": 255.62,
+        "w": 151.5,
+        "d": 31.9,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 47.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Leader",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 15.95,
+                "width": 22.7,
+                "depth": 19.4,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 31.5,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 1/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 45.85,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 61.4,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 2/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 75.75,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 91.3,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 3/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 105.65,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          },
+          {
+            "x": 121.2,
+            "y": 1.6,
+            "w": 28.7,
+            "d": 28.7,
+            "floorZ": 52.2,
+            "kind": "pocket",
+            "contents": "Faction miniatures — Mech 4/4",
+            "componentId": "min01000",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "front",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              },
+              {
+                "type": "wallCutout",
+                "side": "back",
+                "at": 135.55,
+                "width": 22.7,
+                "depth": 16.9,
+                "floorNotch": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "part": "leftover",
+        "path": "001",
+        "stack": 13,
+        "x": 114.39,
+        "y": 0,
+        "w": 51.51,
+        "d": 25.71,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": true,
+        "compartments": []
+      },
+      {
+        "part": "leftover",
+        "path": "010",
+        "stack": 14,
+        "x": 166.04,
+        "y": 0,
+        "w": 135,
+        "d": 4.72,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": true,
+        "compartments": []
+      },
+      {
+        "part": "leftover",
+        "path": "011",
+        "stack": 15,
+        "x": 301.18,
+        "y": 0,
+        "w": 54.12,
+        "d": 5.72,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": true,
+        "compartments": []
+      },
+      {
+        "part": "leftover",
+        "path": "1000",
+        "stack": 16,
+        "x": 0,
+        "y": 185.14,
+        "w": 113.9,
+        "d": 6.26,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": true,
+        "compartments": []
+      },
+      {
+        "part": "leftover",
+        "path": "101",
+        "stack": 17,
+        "x": 329.32,
+        "y": 77.5,
+        "w": 25.98,
+        "d": 113.9,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": true,
+        "compartments": []
+      },
+      {
+        "part": "leftover",
+        "path": "11001",
+        "stack": 18,
+        "x": 303.28,
+        "y": 191.54,
+        "w": 52.02,
+        "d": 31.9,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false
+      },
+      {
+        "part": "leftover",
+        "path": "11011",
+        "stack": 19,
+        "x": 303.28,
+        "y": 223.58,
+        "w": 52.02,
+        "d": 31.9,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false
+      },
+      {
+        "part": "leftover",
+        "path": "1111",
+        "stack": 20,
+        "x": 303.28,
+        "y": 255.62,
+        "w": 52.02,
+        "d": 33.68,
+        "h": 86,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false
+      }
+    ]
+  }
+}

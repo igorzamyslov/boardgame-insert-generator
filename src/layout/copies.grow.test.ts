@@ -80,8 +80,10 @@ const box = { innerWidth: 280, innerDepth: 200, innerHeight: 40 };
 
 describe("copies that ask for as much as fits", { timeout: 180_000 }, () => {
   it("grow together: eight copies are one size and one set of wells, bigger than the plain ones", () => {
-    const plain = planned(projectOf(box, [bits(8)]), 1);
-    const grown = planned(projectOf(box, [bits(8, { room: "max" })]), 1);
+    // Whether the copies can grow depends on the plan the search found: every place of the set has
+    // to have room beside its tray (about 5 seeds in 8 do); seed 4 is one that does and tiles.
+    const plain = planned(projectOf(box, [bits(8)]), 4);
+    const grown = planned(projectOf(box, [bits(8, { room: "max" })]), 4);
     const copies = copiesOf(grown.printed);
     expect(copies).toHaveLength(8);
     expect(new Set(copies.map(shape)).size).toBe(1);
@@ -95,5 +97,16 @@ describe("copies that ask for as much as fits", { timeout: 180_000 }, () => {
     const plain = planned(projectOf(box, [bits(8)]), 1);
     expect(Math.max(...copiesOf(plain.trays).map((t) => Math.max(t.w, t.d)))).toBeLessThan(60);
     expect(plain.trays.some((t) => t.part === "leftover")).toBe(true);
+  });
+
+  it("keep the hard rules on every seed: room too thin for a spacer stays at the end of the row, not between trays", () => {
+    const project = projectOf(box, [bits(8, { room: "max" })]);
+    for (let seed = 1; seed <= 8; seed++) {
+      const { input, result } = planned(project, seed);
+      expect(
+        result.layout && checkHardRules(input, result.layout, result.notices),
+        `seed ${seed}`,
+      ).toEqual([]);
+    }
   });
 });

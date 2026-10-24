@@ -24,8 +24,6 @@ export interface ChamferInputs {
 
 /** Tolerance when two faces count as touching or two boxes as apart, mm (the grid is 0.01). */
 const EPS = 0.015;
-/** Two stretches of a face this close, mm, are one chamfer: a tray gap is 0.2 mm. */
-const JOIN_MM = 1;
 
 /** An axis-aligned box in box coordinates, mm. */
 interface Box {
@@ -85,6 +83,13 @@ function grip(tray: Box, top: number, size: number): number {
   return Math.min(tray.z1, top) - Math.max(tray.z0, top - size);
 }
 
+/** How much of the face `side` of `part` the side of `tray` shares, mm. */
+function sharedLength(part: Box, tray: Box, side: Side): number {
+  const [p0, p1] = spanOf(part, side);
+  const [t0, t1] = spanOf(tray, side);
+  return Math.min(p1, t1) - Math.max(p0, t0);
+}
+
 /** A part that can carry chamfers: a solid filler, plain or a member of a merged part. */
 interface Candidate {
   /** The printed part (the merged part, for a member). */
@@ -126,38 +131,17 @@ function candidatesOf(trays: readonly TraySpec[]): Candidate[] {
   return out;
 }
 
-/** A tray a filler's face touches, with the stretch of the face its side shares. */
-interface Site {
-  tray: Box;
-  run: Run;
-}
-
-/** The trays against the face `side` of `part`, over at least CHAMFER_MIN_CONTACT_MM. */
-function sitesOn(part: Box, side: Side, trays: readonly Box[], gap: number): Site[] {
+/** The trays against the face `side` of `part`, over at least CHAMFER_MIN_CONTACT_MM of it. */
+function traysOn(part: Box, side: Side, trays: readonly Box[], gap: number): Box[] {
   const [p0, p1] = spanOf(part, side);
-  return trays.flatMap((tray) => {
+  return trays.filter((tray) => {
     const apart = faceGap(part, tray, side);
     if (apart < -EPS || apart > gap + EPS) {
-      return [];
+      return false;
     }
     const [t0, t1] = spanOf(tray, side);
-    const run: Run = [Math.max(p0, t0), Math.min(p1, t1)];
-    return run[1] - run[0] >= CHAMFER_MIN_CONTACT_MM - EPS ? [{ tray, run }] : [];
+    return Math.min(p1, t1) - Math.max(p0, t0) >= CHAMFER_MIN_CONTACT_MM - EPS;
   });
-}
-
-/** The runs of the sites, joined where they are JOIN_MM apart or less, in order. */
-function joined(runs: readonly Run[]): Run[] {
-  const out: Run[] = [];
-  for (const [lo, hi] of [...runs].sort((a, b) => a[0] - b[0])) {
-    const last = out[out.length - 1];
-    if (last !== undefined && lo <= last[1] + JOIN_MM) {
-      last[1] = Math.max(last[1], hi);
-    } else {
-      out.push([lo, hi]);
-    }
-  }
-  return out;
 }
 
 /** A run less the stretch `cut` of it. */
@@ -208,16 +192,16 @@ function chamfersOfCandidate(
   const { box, part } = c;
   const top = box.z1;
   const edgeTop = edgeTopOf(settings, c.level);
-  const sites = new Map<Side, Site[]>(SIDES.map((s) => [s, sitesOn(box, s, trays, gap)]));
+  const beside = new Map<Side, Box[]>(SIDES.map((s) => [s, traysOn(box, s, trays, gap)]));
   const out: TopChamfer[] = [];
   for (const pair of [
     ["front", "back"],
     ["left", "right"],
   ] as const) {
     const across = alongX(pair[0]) ? part.d : part.w;
-    const own = pair.filter((s) => (sites.get(s) ?? []).length > 0);
+    const own = pair.filter((s) => (beside.get(s) ?? []).length > 0);
     // A strip a finger and thumb can pinch is chamfered along both long edges when one has a tray
-    // beside it (and two chamfers are a grip): the far edge copies the near one's stretches.
+    // beside it (and two chamfers are a grip): the far edge is chamfered like the near one.
     const pinch =
       own.length === 1 &&
       across < CHAMFER_PINCH_MAX_MM &&
@@ -227,27 +211,26 @@ function chamfersOfCandidate(
     let active: readonly Side[] = pinch ? pair : own;
     let size = 0;
     let runs = new Map<Side, Run[]>();
-    const reached = (s: Side, depth: number): Run[] =>
-      joined(
-        (sites.get(s) ?? [])
-          .filter((x) => grip(x.tray, top, depth) >= CHAMFER_MIN_GRIP_MM - EPS)
-          .map((x) => x.run),
-      );
+    // Whether a tray against the face reaches `depth` into the groove: the face is chamfered.
+    const reached = (s: Side, depth: number): boolean =>
+      (beside.get(s) ?? []).some((t) => grip(t, top, depth) >= CHAMFER_MIN_GRIP_MM - EPS);
     for (let round = 0; round < 4 && active.length > 0; round += 1) {
       size = chamferSize(across, part.h, edgeTop, active.length === 2 ? 2 : 1);
       if (size === 0 && active.length === 2) {
         // Two chamfers would be under a grip: take the longer face, with all its room.
         const length = (s: Side): number =>
-          reached(s, CHAMFER_MM).reduce((a, [lo, hi]) => a + hi - lo, 0);
+          (beside.get(s) ?? [])
+            .filter((t) => grip(t, top, CHAMFER_MM) >= CHAMFER_MIN_GRIP_MM - EPS)
+            .reduce((a, t) => a + sharedLength(box, t, s), 0);
         const best = length(pair[0]) >= length(pair[1]) ? pair[0] : pair[1];
         active = [best];
         size = chamferSize(across, part.h, edgeTop, 1);
       }
       runs = new Map(
         active.map((s) => {
-          const real = reached(s, size);
-          const base = real.length > 0 || !pinch ? real : reached(OPPOSITE[s], size);
-          return [s, clearOf(c, s, size, gap, base)];
+          const whole = reached(s, size) || (pinch && reached(OPPOSITE[s], size));
+          // The face's whole top edge, end to end, less what a bridge or member would fill.
+          return [s, whole ? clearOf(c, s, size, gap, [spanOf(box, s)]) : []];
         }),
       );
       const next = active.filter((s) => (runs.get(s) ?? []).length > 0);
@@ -279,12 +262,16 @@ function chamfersOfCandidate(
  * The top chamfers of a printed layout (geometry 0.9.8, DESIGN §7 "lifting trays"), last pass
  * after the merge. Trays tile the box a tray gap apart, so nothing on a tray's outside can be
  * gripped and a filler wedged beside it has no grip either: each solid filler (plain, or a member
- * of a merged part) gets a 45° chamfer along its top edge where it touches a tray's outer face,
- * so a fingertip reaches down the tray's wall into the V the two make.
+ * of a merged part) gets a 45° chamfer along its top edge on every face a tray stands against, so
+ * a fingertip reaches down the tray's wall into the V the two make.
  *
- * - **Where.** The stretch of a face of the filler, a tray gap from a tray's side, that the side
- *   shares with it over at least CHAMFER_MIN_CONTACT_MM; the stretches of trays a tray gap apart
- *   are one chamfer. Not where a bridge or another member of a merged part would fill it.
+ * - **Where.** The whole top edge of a face, end to end, when a tray's side stands a tray gap from
+ *   it over at least CHAMFER_MIN_CONTACT_MM (geometry 0.9.10, owner 2026-10-24: "if spacer has any
+ *   component on one of its sides, the edge of this side should be chamfered"; before it, only
+ *   the stretch the tray shared, which left square steps between and beyond trays). A face no tray
+ *   stands against stays square. Two chamfered faces that meet make a mitre. Not where a bridge or
+ *   another member of a merged part would fill it: a member's chamfer runs the whole member, less
+ *   that.
  * - **How large.** CHAMFER_MM, less on a strip (two chamfers on a strip's two long edges leave
  *   CHAMFER_LAND_MM of top; where each would be under CHAMFER_MIN_MM only the longer face gets
  *   one) and on a filler low over the groove or step at its foot (`chamferSize`). A tray whose

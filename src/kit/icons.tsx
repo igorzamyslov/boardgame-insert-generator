@@ -92,6 +92,16 @@ const DRAWINGS = {
       </>
     ),
   },
+  trash: {
+    stroke: 2,
+    round: true,
+    shapes: (
+      <>
+        <path d="M4 7h16M10 7V4h4v3" />
+        <path d="M6 7l1 13h10l1-13M10 11v6M14 11v6" />
+      </>
+    ),
+  },
   pin: {
     stroke: 2,
     round: true,

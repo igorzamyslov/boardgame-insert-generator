@@ -1,5 +1,5 @@
 import type { Plan } from "./fill";
-import { pickMove, type MoveEnv } from "./moves";
+import { pickMove, setsOf, turnSet, type MoveEnv } from "./moves";
 import type { Rng } from "./prng";
 import type { Score } from "./score";
 import type { Tree } from "./tree";
@@ -61,6 +61,36 @@ export function createAnnealer(
       leastOverflow = c;
     }
   };
+  // The last pass (owner, 2026-10-24: "we add another spacer instead of making the existing one
+  // thicker"): every set of alike trays turned the same way, either way round, kept when the plan
+  // scores better. A copy turned alone leaves a sliver of room beside it that a spacer takes;
+  // turned like the others it gathers in the one spacer at the row's end. The search finds this
+  // too, but a tray in a stack of two or a row of three turns only with its whole set, so this
+  // makes sure of it whatever the random moves did.
+  let polished = false;
+  const polish = (): void => {
+    let best = bestFeasible;
+    for (let pass = 0; best !== null && pass < 4; pass++) {
+      let improved = false;
+      for (const set of setsOf(best.tree.root, env.ctx)) {
+        for (const target of [false, true]) {
+          const next = turnSet(best.tree, env, set, !target, target);
+          if (next === null) {
+            continue;
+          }
+          const cand = evaluateTree(next);
+          consider(cand);
+          if (cand.score.overflow === 0 && cand.score.total < best.score.total) {
+            best = cand;
+            improved = true;
+          }
+        }
+      }
+      if (!improved) {
+        break;
+      }
+    }
+  };
   return {
     step(n) {
       const end = Math.min(total, done + n);
@@ -78,6 +108,10 @@ export function createAnnealer(
           current = cand;
           consider(cand);
         }
+      }
+      if (!polished && done >= total) {
+        polished = true;
+        polish();
       }
     },
     get done() {
