@@ -106,9 +106,9 @@ function thicknessBehind(plan: TrayPlan, face: Side, top: number): number {
 }
 
 // The free stretches of the face (as the plan sees it, before any flip) that the text may take:
-// between the corners' arcs, less every cut through the face and its fillets, and every finger dip
-// open on it (a dip is cut from the top, so one whose bottom stands above the text, `textTop`, is
-// no obstacle).
+// between the corners' arcs, less every cut through the face and its fillets, and every top
+// chamfer along it (a chamfer takes the top `size` of the face, so one that starts above the text,
+// `textTop`, is no obstacle).
 function freeSpans(plan: TrayPlan, face: Side, textTop: number): Span[] {
   const length = face === "front" || face === "back" ? plan.w : plan.d;
   const edge = plan.cornerRadius + EDGE_MM;
@@ -134,13 +134,12 @@ function freeSpans(plan: TrayPlan, face: Side, textTop: number): Span[] {
       );
     }
   }
-  for (const dip of plan.dips) {
-    const opensOn = dip.side === face || (dip.through && dip.side === OPPOSITE[face]);
-    if (!opensOn || textTop + EDGE_MM <= dip.bottomZ) {
+  for (const chamfer of plan.chamfers) {
+    if (chamfer.side !== face || textTop + EDGE_MM <= plan.h - chamfer.size) {
       continue;
     }
-    const a = alongOf(face, plan, dip.x0, dip.y0);
-    const b = alongOf(face, plan, dip.x1, dip.y1);
+    const a = alongOf(face, plan, chamfer.a, chamfer.a);
+    const b = alongOf(face, plan, chamfer.b, chamfer.b);
     without(Math.min(a, b) - EDGE_MM, Math.max(a, b) + EDGE_MM);
   }
   return spans;

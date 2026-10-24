@@ -327,11 +327,11 @@ export type FeatureSpec =
   | { type: "dividerSlot"; axis: "x" | "y"; at: number; width: number; depth: number }
   | { type: "scoop"; side: Side; r: number }
   | { type: "cornerRelief"; d: number }
-  // A finger dip (model/finger-dip.ts): a U cut from the top of a solid filler where it touches a
-  // tray, `width` wide and `depth` deep, open on the filler's face `side` and centred on `at` along
-  // it (part-local, like a wall cutout's `at`). On a part's own `features`, never stored: the app
-  // derives it at print time (layout/dips.ts), and a merged part carries it on its members.
-  | { type: "fingerDip"; side: Side; at: number; width: number; depth: number };
+  // A top chamfer (model/top-chamfer.ts): a 45° chamfer `size` across, cut along the top edge of a
+  // solid filler where it touches a tray, on the filler's face `side` and along it from `from` to
+  // `to` (part-local, like a wall cutout's `at`). On a part's own `features`, never stored: the app
+  // derives it at print time (layout/chamfers.ts), and a merged part carries it on its members.
+  | { type: "topChamfer"; side: Side; from: number; to: number; size: number };
 
 export interface CompartmentSpec {
   x: number; // inner, tray-local, min corner; origin = tray outer min corner

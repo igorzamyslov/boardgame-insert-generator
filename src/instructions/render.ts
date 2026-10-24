@@ -31,7 +31,7 @@ import {
 import type { PlanFrame, ViewBox } from "../plan/layers";
 import { placeBadges } from "./labels";
 import type { LabelRequest } from "./labels";
-import { dipsFacingTrays } from "../layout/dips";
+import { chamfersFacingTrays } from "../layout/chamfers";
 import { carriedBy, contactOf, extentsOf, gripOf, liftLine } from "./lift";
 import type { Extent, Grip, GripKind } from "./lift";
 import { engravesName } from "../geometry/engraves";
@@ -348,15 +348,15 @@ function fullNameOf(
 }
 
 /**
- * The keys of the trays with a finger dip beside them. The dips are on the printed parts' features
- * (`printableParts`), which the guide is given, so a stored layout has none.
+ * The keys of the trays with a top chamfer beside them. The chamfers are on the printed parts'
+ * features (`printableParts`), which the guide is given, so a stored layout has none.
  */
-function traysWithDipBeside(layout: StoredLayout, project: Project): ReadonlySet<string> {
-  return new Set(dipsFacingTrays(layout.trays, { settings: project.settings }).keys());
+function traysWithChamferBeside(layout: StoredLayout, project: Project): ReadonlySet<string> {
+  return new Set(chamfersFacingTrays(layout.trays, { settings: project.settings }).keys());
 }
 
 export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[] {
-  const facing = traysWithDipBeside(layout, project);
+  const facing = traysWithChamferBeside(layout, project);
   const levels = levelsOf(layout.trays);
   const parts = numberParts(layout.trays);
   const names = trayNames(parts, project.components, project.groups);
@@ -536,7 +536,7 @@ function takeOutOrder(
  */
 export function packingGuide(layout: StoredLayout, project: Project): GuideLayer[] {
   const parts = numberParts(layout.trays);
-  const facing = traysWithDipBeside(layout, project);
+  const facing = traysWithChamferBeside(layout, project);
   const rowOf = new Map(whatGoesWhere(layout, project).map((r) => [r.key, r]));
   const infos = layerInfo(layout, project.components, project.groups);
   if (infos.length === 0) {
