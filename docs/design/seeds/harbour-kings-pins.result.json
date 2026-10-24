@@ -1,11 +1,11 @@
 {
   "layout": {
-    "createdWith": "0.23.0",
-    "geometryVersion": "0.9.9",
+    "createdWith": "0.24.0",
+    "geometryVersion": "0.9.10",
     "inputsHash": "15b7be88fd2e36",
     "seed": 1,
-    "iterations": 100000,
-    "capped": false,
+    "iterations": 80000,
+    "capped": true,
     "trays": [
       {
         "key": "hextiles:p0:0",
@@ -140,7 +140,7 @@
         ]
       },
       {
-        "key": "resourc1:p0:1",
+        "key": "resourc1:p0:0",
         "part": "tray",
         "path": "01",
         "stack": 1,
@@ -164,7 +164,7 @@
             "d": 32,
             "floorZ": 1.2,
             "kind": "scoop",
-            "contents": "Resource tokens — Wool ×20",
+            "contents": "Resource tokens — Wood ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -181,7 +181,7 @@
             "d": 32,
             "floorZ": 1.2,
             "kind": "scoop",
-            "contents": "Resource tokens — Fish ×20",
+            "contents": "Resource tokens — Grain ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -198,7 +198,7 @@
             "d": 32,
             "floorZ": 1.2,
             "kind": "scoop",
-            "contents": "Resource tokens — Ore ×20",
+            "contents": "Resource tokens — Stone ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -211,7 +211,7 @@
         ]
       },
       {
-        "key": "resourc1:p0:0",
+        "key": "resourc1:p0:1",
         "part": "tray",
         "path": "01",
         "stack": 1,
@@ -235,7 +235,7 @@
             "d": 32,
             "floorZ": 26.8,
             "kind": "scoop",
-            "contents": "Resource tokens — Wood ×20",
+            "contents": "Resource tokens — Wool ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -252,7 +252,7 @@
             "d": 32,
             "floorZ": 26.8,
             "kind": "scoop",
-            "contents": "Resource tokens — Grain ×20",
+            "contents": "Resource tokens — Fish ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -269,7 +269,7 @@
             "d": 32,
             "floorZ": 26.8,
             "kind": "scoop",
-            "contents": "Resource tokens — Stone ×20",
+            "contents": "Resource tokens — Ore ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -425,7 +425,7 @@
         "w": 59.34,
         "d": 59.34,
         "h": 70,
-        "rotated": true,
+        "rotated": false,
         "wall": 1.6,
         "floor": 1.2,
         "lip": false,
@@ -443,12 +443,12 @@
             "features": [
               {
                 "type": "scoop",
-                "side": "right",
+                "side": "front",
                 "r": 12
               },
               {
                 "type": "scoop",
-                "side": "left",
+                "side": "back",
                 "r": 12
               }
             ]
@@ -644,7 +644,7 @@
         ]
       },
       {
-        "key": "starter1:p0:0",
+        "key": "starter1:p0:1",
         "part": "tray",
         "path": "1101",
         "stack": 5,
@@ -652,82 +652,6 @@
         "x": 0,
         "y": 175.74,
         "z": 0,
-        "w": 169.17,
-        "d": 103.3,
-        "h": 7.4,
-        "rotated": false,
-        "wall": 1.6,
-        "floor": 1.2,
-        "lip": true,
-        "solid": false,
-        "compartments": [
-          {
-            "x": 10.98,
-            "y": 2.9,
-            "w": 73,
-            "d": 97.5,
-            "floorZ": 1.2,
-            "kind": "well",
-            "contents": "Starter decks — Deck 1 ×12",
-            "componentId": "starter1",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "left",
-                "at": 51.65,
-                "width": 25,
-                "depth": 6.2,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "wallCutout",
-                "side": "right",
-                "at": 51.65,
-                "width": 25,
-                "depth": 6.2,
-                "floorNotch": 12.5
-              }
-            ]
-          },
-          {
-            "x": 85.18,
-            "y": 2.9,
-            "w": 73,
-            "d": 97.5,
-            "floorZ": 1.2,
-            "kind": "well",
-            "contents": "Starter decks — Deck 2 ×12",
-            "componentId": "starter1",
-            "features": [
-              {
-                "type": "wallCutout",
-                "side": "left",
-                "at": 51.65,
-                "width": 25,
-                "depth": 6.2,
-                "floorNotch": 12.5
-              },
-              {
-                "type": "wallCutout",
-                "side": "right",
-                "at": 51.65,
-                "width": 25,
-                "depth": 6.2,
-                "floorNotch": 12.5
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "key": "starter1:p0:1",
-        "part": "tray",
-        "path": "1101",
-        "stack": 5,
-        "level": 1,
-        "x": 0,
-        "y": 175.74,
-        "z": 7.4,
         "w": 169.17,
         "d": 103.3,
         "h": 7.4,
@@ -773,6 +697,82 @@
             "floorZ": 1.2,
             "kind": "well",
             "contents": "Starter decks — Deck 4 ×12",
+            "componentId": "starter1",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 51.65,
+                "width": 25,
+                "depth": 6.2,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 51.65,
+                "width": 25,
+                "depth": 6.2,
+                "floorNotch": 12.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "starter1:p0:0",
+        "part": "tray",
+        "path": "1101",
+        "stack": 5,
+        "level": 1,
+        "x": 0,
+        "y": 175.74,
+        "z": 7.4,
+        "w": 169.17,
+        "d": 103.3,
+        "h": 7.4,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 10.98,
+            "y": 2.9,
+            "w": 73,
+            "d": 97.5,
+            "floorZ": 1.2,
+            "kind": "well",
+            "contents": "Starter decks — Deck 1 ×12",
+            "componentId": "starter1",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 51.65,
+                "width": 25,
+                "depth": 6.2,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 51.65,
+                "width": 25,
+                "depth": 6.2,
+                "floorNotch": 12.5
+              }
+            ]
+          },
+          {
+            "x": 85.18,
+            "y": 2.9,
+            "w": 73,
+            "d": 97.5,
+            "floorZ": 1.2,
+            "kind": "well",
+            "contents": "Starter decks — Deck 2 ×12",
             "componentId": "starter1",
             "features": [
               {
@@ -1159,6 +1159,11 @@
       "level": "warning",
       "code": "layout.play",
       "message": "Trays can shift 1.80 mm front–back (Play limit: 1.5 mm): 5 trays sit one behind the other in one row. To reduce it: choose a tighter Fit; lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact numbers; or put fewer trays in that row. Or raise Play limit there."
+    },
+    {
+      "level": "info",
+      "code": "layout.capped",
+      "message": "The optimizer stopped at its 30 s safety limit; this layout can't be reproduced from its seed."
     }
   ],
   "lockConflicts": [

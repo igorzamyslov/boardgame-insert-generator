@@ -45,6 +45,7 @@ function viewScene(accepts = true) {
     setSelected: vi.fn(),
     setLit: vi.fn(),
     setReserved: vi.fn(),
+    setMisfit: vi.fn(),
     onPick: vi.fn(),
     resize: vi.fn(),
     dispose: vi.fn(),

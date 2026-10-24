@@ -10,6 +10,42 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-24
+
+### Added
+
+- **Tray settings, in four rows.** The long "More options" list under an item's basics is now four
+  rows: Reach, Shape, Room, and Copies and group. Each shows its current value under its title and
+  how many settings you changed, and opens in place with every setting of that row in view. The card
+  size is a choice that shows its dimensions.
+- **A list you can always reorder.** Drag any item or group in the list, or press Alt with the up or
+  down arrow, to put it where you want it. The order is saved with the project and never makes the
+  plan out of date.
+- **Perspective or Orthographic 3D.** A new Display tab in Settings sets how the 3D view looks at the
+  insert. Your choice is remembered in this browser, and Perspective is used until you choose.
+- **Reset view.** A button under the 3D view turns the camera back to where it opens.
+
+### Changed
+
+- **Selecting an item and editing it are two things.** Pressing an item, a group or a phone row in
+  the list selects it, and its tray lights up in the plan and in 3D. The pencil, a double press or
+  Edit in the tray toolbar opens the editor. Done, the back link, Escape or choosing another tray
+  closes it.
+- **The 3D view shows the plan's colours.** Pale colours no longer wash out to white, a face looking
+  straight up shows exactly its colour in the plan, and the inside of each well is coloured as the
+  plan draws it (a group's well in its item's colour).
+- **The 3D camera stays put.** Switching between Top and 3D keeps where you turned and zoomed to
+  for the project you are working on. Opening another project, or a box that is much bigger or
+  smaller, starts again from the opening view.
+- **Rounder rim beside a finger cut.** Where a finger cut runs through the rim, the ledge beside the
+  ring (Rim and groove) and the floor of the socket beside the wall (Stepped base) are now rounded
+  like the top of the wall, so a fingertip no longer catches on a sharp edge. Trays still mate with
+  parts you printed before; print a tray with a finger cut again only if you want the rounder edge.
+
+### Fixed
+
+- Nothing else: this release brings together the changes above.
+
 ## [0.23.0] - 2026-10-24
 
 ### Added

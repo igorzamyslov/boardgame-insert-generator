@@ -17,7 +17,7 @@ beforeAll(async () => {
   m = await loadManifold();
 });
 
-const STEP: Settings = { ...GEO, lip: { ...GEO.lip, kind: "step" } };
+const STEP: Settings = { ...GEO, lip: { ...GEO.lip, joint: "step" } };
 
 /** The tray: two wells of 40 × 50 and 30 × 50 side by side, a divider between them. */
 function twoWells(over: Partial<TraySpec> = {}): TraySpec {
