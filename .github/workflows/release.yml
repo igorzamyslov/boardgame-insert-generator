@@ -1,0 +1,38 @@
+name: Release
+
+# A push to main that changes package.json's version tags that version and publishes a GitHub
+# Release whose notes are the version's CHANGELOG.md section. Re-running does nothing once the
+# tag exists. Releases made by hand or by scripts/backfill-releases.mjs are left alone.
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two pushes in a row release one after the other, never at the same time.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag and release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Tag and release the version in package.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUBJECT_SHA: ${{ github.sha }}
+          # The version on the commit before the push, to tell a version change from another
+          # edit of package.json. Empty on a manual run, which releases whatever is missing.
+          BEFORE: ${{ github.event.before }}
+        run: bash scripts/release.sh
