@@ -10,6 +10,8 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-25
+
 ### Changed
 
 - **Card wells are roomier, so decks go in without fiddling.** A well is now 3 mm bigger than the
