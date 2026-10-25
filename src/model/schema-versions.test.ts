@@ -457,9 +457,9 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
     expect(result.project.groups?.[0]?.id).toBe("setup");
   });
 
-  it("keeps the unknown fields of a group in a newer 0.3.x file, and writes them back", () => {
-    // 0.2.x files are older than this app's line now, so a "newer minor" has to be a 0.3.x one.
-    const raw: Json = { ...current(), schemaVersion: "0.3.7" };
+  it("keeps the unknown fields of a group in a newer 0.4.x file, and writes them back", () => {
+    // 0.2.x files are older than this app's line now, so a "newer minor" has to be a 0.4.x one.
+    const raw: Json = { ...current(), schemaVersion: "0.4.7" };
     (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], future: 1 };
     const result = expectOk(parseProject(raw));
     expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.newerMinor]);
@@ -476,7 +476,7 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
   });
 
   it("refuses a group that uses a value this app doesn't know, rather than lose it", () => {
-    const raw: Json = { ...current(), schemaVersion: "0.3.7" };
+    const raw: Json = { ...current(), schemaVersion: "0.4.7" };
     (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], access: "never" };
     expect(expectError(parseProject(raw))).toMatch(/groups\/0\/access/);
   });
@@ -571,7 +571,7 @@ describe("schema 0.3.0: room for more replaces growth and stretch", () => {
 
   it("reads the 0.3.0 fixture with no notices, and it round-trips", () => {
     const first = expectOk(parseProject(fixture("0.3.0")));
-    expect(first.notices).toEqual([]);
+    expect(first.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.migrated]);
     expect(first.foreign.components).toEqual([]);
     const again = expectOk(
       parseProject(JSON.parse(serializeProject(first.project, first.foreign))),
@@ -582,7 +582,7 @@ describe("schema 0.3.0: room for more replaces growth and stretch", () => {
 
   it("reads the 0.3.2 fixture (a flat deck with dividers) with no notices, and it round-trips", () => {
     const first = expectOk(parseProject(fixture("0.3.2")));
-    expect(first.notices).toEqual([]);
+    expect(first.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.migrated]);
     expect(first.project.components[0]).toMatchObject({ storage: "flat", dividers: 2 });
     const again = expectOk(
       parseProject(JSON.parse(serializeProject(first.project, first.foreign))),
@@ -602,7 +602,7 @@ describe("schema 0.3.3: one joint for the rim between layers", () => {
 
   it("reads the 0.3.3 fixture with no notices, and it round-trips", () => {
     const first = expectOk(parseProject(fixtureAt("0.3.3")));
-    expect(first.notices).toEqual([]);
+    expect(first.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.migrated]);
     expect(first.project.settings.lip.joint).toBe("auto");
     const again = expectOk(
       parseProject(JSON.parse(serializeProject(first.project, first.foreign))),
@@ -615,7 +615,7 @@ describe("schema 0.3.3: one joint for the rim between layers", () => {
     "reads the %s fixture's switch and kind as the joint they meant, with its hash",
     (version) => {
       const first = expectOk(parseProject(fixtureAt(version)));
-      expect(first.notices).toEqual([]);
+      expect(first.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.migrated]);
       expect(first.project.settings.lip.joint).toBe("step");
       expect(first.project.settings.lip).not.toHaveProperty("enabled");
       expect(first.project.settings.lip).not.toHaveProperty("kind");
@@ -638,7 +638,7 @@ describe("schema 0.3.4: the list order is kept with the project", () => {
 
   it("reads the 0.3.4 fixture (a listOrder) with no notices, keeps it and round-trips", () => {
     const first = expectOk(parseProject(fixture("0.3.4")));
-    expect(first.notices).toEqual([]);
+    expect(first.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.migrated]);
     expect(first.project.listOrder).toEqual([
       "custom01",
       "minis001",
@@ -664,5 +664,31 @@ describe("schema 0.3.4: the list order is kept with the project", () => {
     );
     raw.listOrder = ["a", 3, "b"];
     expect(expectOk(parseProject(raw)).project.listOrder).toEqual(["a", "b"]);
+  });
+});
+
+describe("schema 0.4.0: comfortable card clearances", () => {
+  const HISTORY = import.meta.glob<unknown>("../../test/fixtures/schema/*.json", {
+    eager: true,
+    import: "default",
+  });
+  const fixtureAt = (version: string): Json =>
+    structuredClone(HISTORY[`../../test/fixtures/schema/${version}.json`]) as Json;
+
+  it("reads the 0.4.0 fixture with no notices, and it round-trips", () => {
+    const first = expectOk(parseProject(fixtureAt("0.4.0")));
+    expect(first.notices).toEqual([]);
+    expect(first.project.settings).toMatchObject({ cardClearance: 3, cardStackClearance: 2 });
+    const again = expectOk(
+      parseProject(JSON.parse(serializeProject(first.project, first.foreign))),
+    );
+    expect(again.notices).toEqual([]);
+    expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
+  });
+
+  it("opens the 0.3.4 fixture with its old default clearances moved, and one migrated notice", () => {
+    const first = expectOk(parseProject(fixtureAt("0.3.4")));
+    expect(first.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.migrated]);
+    expect(first.project.settings).toMatchObject({ cardClearance: 3, cardStackClearance: 2 });
   });
 });

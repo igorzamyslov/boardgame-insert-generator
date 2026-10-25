@@ -208,12 +208,17 @@ describe("splitRisers: the riser follows the lip setting", () => {
 
 // The owner's file: the Starter stack (four trays) can have a lipped riser and a grooved Counter;
 // the Trade deck stands alone, with a 1.6 mm wall.
+// The file was made with the old Standard card clearances (1.5 and 1 mm); the defaults are now 3 and
+// 2 mm (schema 0.4.0 migrates them). This test is about the joints, not card sizing, so it keeps the
+// old numbers in its own copy of the settings.
+const OLD_CLEARANCES = { cardClearance: 1.5, cardStackClearance: 1 };
+
 function owner(): Project {
   const parsed = parseProject(owner5);
   if (!parsed.ok) {
     throw new Error(parsed.error);
   }
-  return parsed.project;
+  return { ...parsed.project, settings: { ...parsed.project.settings, ...OLD_CLEARANCES } };
 }
 
 function stored(p: Project): TraySpec[] {

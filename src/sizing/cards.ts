@@ -1,7 +1,7 @@
 import { dividersOf, flatDecksOffered, growthOf, separatorsOf, togglesOf } from "../model/defaults";
 import { SLEEVES } from "../model/presets";
 import { roomOf } from "../model/room";
-import { effective } from "../model/settings";
+import { SLEEVED_STACK_SPRING, effective } from "../model/settings";
 import type { CardsComponent, Notice, Settings } from "../model/types";
 import {
   compartment,
@@ -78,10 +78,20 @@ export function cardDims(
   return { dims: { S, L, t: tPreset }, notices: [notice] };
 }
 
-/** Stack width of one deck: n·t·(1 + pct·fit) + cardStackClearance·fit (spec §7.1). */
-export function stackWidth(n: number, t: number, s: Settings): number {
-  const pct = s.cardStackClearancePct * s.fit;
+/**
+ * Stack width of one deck: n·t·(1 + spring·fit) + cardStackClearance·fit (spec §7.1). The spring is
+ * SLEEVED_STACK_SPRING for sleeved cards (any sleeve but none, a custom one too), else the
+ * setting's fraction. A measured deck is pressed together, so it takes the same spring.
+ */
+export function stackWidth(n: number, t: number, s: Settings, sleeved = false): number {
+  const base = s.cardStackClearancePct;
+  const pct = (sleeved ? Math.max(base, SLEEVED_STACK_SPRING) : base) * s.fit;
   return n * t * (1 + pct) + effective(s).cardStackClearance;
+}
+
+/** Whether the deck is in sleeves (a custom size counts). */
+function isSleeved(c: CardsComponent): boolean {
+  return c.sleeve !== "none";
 }
 
 /** How many more cards each deck's well is planned for: the item's "some" room, else none. */
@@ -101,8 +111,9 @@ function deckCompartment(
   // As built (compartment rounds it up the same way), so growth is measured on the real stack. An
   // item's "some" room is more cards in the well, part of the size the layout plans on.
   const more = moreCards(c);
-  const natural = fromU(ceilU(stackWidth(deck.count, dims.t, s)));
-  const stack = more > 0 ? fromU(ceilU(stackWidth(deck.count + more, dims.t, s))) : natural;
+  const natural = fromU(ceilU(stackWidth(deck.count, dims.t, s, isSleeved(c))));
+  const stack =
+    more > 0 ? fromU(ceilU(stackWidth(deck.count + more, dims.t, s, isSleeved(c)))) : natural;
   const base = {
     componentId: c.id,
     contents: `${itemLabel(c, deck.name)} ×${deck.count}`,
@@ -187,7 +198,7 @@ function sharedWell(c: CardsComponent, dims: CardDims, s: Settings): Compartment
   const clearance = mainClearance(c, s);
   const more = moreCards(c);
   const stack = Math.max(
-    ...c.decks.map((deck) => fromU(ceilU(stackWidth(deck.count + more, dims.t, s)))),
+    ...c.decks.map((deck) => fromU(ceilU(stackWidth(deck.count + more, dims.t, s, isSleeved(c))))),
   );
   const slots = c.decks.length - 1;
   const own = displayName(c);

@@ -12,8 +12,11 @@ import { minOuter, realizeTray } from "./realize";
 import { assertTrayInvariants, at, bulk, cards, partOf } from "./test-helpers";
 import type { RealizeOptions } from "./types";
 
+// The 1 mm stack clearance of the old default: a lone card's well must stay shallower than an
+// upper tray's minimum (with the 2 mm default it is 2.33 mm and the floor leaves no headroom).
 const s: Settings = {
   ...DEFAULT_SETTINGS,
+  cardStackClearance: 1,
   lip: { ...DEFAULT_SETTINGS.lip, joint: "rim" as const },
 };
 const upper: RealizeOptions = { lipped: true, level: 2 };
@@ -28,6 +31,7 @@ const flat = (count: number, room?: "max") =>
       }),
     ],
     "flat|strip|split1",
+    s,
   );
 
 describe("realizeTray with padding: the height a tray must have beyond its contents is headroom", () => {

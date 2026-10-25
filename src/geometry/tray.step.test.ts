@@ -38,6 +38,11 @@ function solid(mesh: Mesh): Manifold {
   );
 }
 
+// The file was made with the old Standard card clearances (1.5 and 1 mm); the defaults are now 3 and
+// 2 mm (schema 0.4.0 migrates them). This test is about the joints, not card sizing, so it keeps the
+// old numbers in its own copy of the settings.
+const OLD_CLEARANCES = { cardClearance: 1.5, cardStackClearance: 1 };
+
 /** The owner's file with the stepped base. */
 function owner(): Project {
   const parsed = parseProject(owner5);
@@ -45,7 +50,14 @@ function owner(): Project {
     throw new Error(parsed.error);
   }
   const p = parsed.project;
-  return { ...p, settings: { ...p.settings, lip: { ...p.settings.lip, joint: "step" as const } } };
+  return {
+    ...p,
+    settings: {
+      ...p.settings,
+      ...OLD_CLEARANCES,
+      lip: { ...p.settings.lip, joint: "step" as const },
+    },
+  };
 }
 
 function stored(p: Project): TraySpec[] {

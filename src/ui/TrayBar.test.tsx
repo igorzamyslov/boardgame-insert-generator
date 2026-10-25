@@ -467,7 +467,7 @@ describe("TrayBar", () => {
       [
         ...pins,
         { kind: "stack", trayKeys: [low.key, high.key] },
-        { kind: "size", trayKey: high.key, w: 72, d: 96, h: 37 },
+        { kind: "size", trayKey: high.key, w: 74, d: 98, h: 75 },
       ],
     );
     bar({ project, tray: low });

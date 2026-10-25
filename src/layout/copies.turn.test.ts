@@ -151,7 +151,22 @@ describe("turning a set of alike trays", () => {
 });
 
 describe("the owner's Scythe project", { timeout: 120_000 }, () => {
-  const project = projectOf(scythe as unknown as Raw);
+  // The file was made with the old Standard card clearances (1.5 and 1 mm); the defaults are now 3
+  // and 2 mm, and at those the box no longer fits. This is about how copies turn, not card sizing,
+  // so the test keeps the old numbers in its own copy of the settings.
+  const OLD_CLEARANCES = { cardClearance: 1.5, cardStackClearance: 1 };
+  const scytheRaw: Raw = {
+    ...(scythe as unknown as Raw),
+    settings: { ...((scythe as unknown as Raw).settings as Raw), ...OLD_CLEARANCES },
+    // and the bigger minis pockets and thicker tile stacks need a few mm more room than the stored box
+    box: {
+      ...((scythe as unknown as Raw).box as Raw),
+      innerWidth: 360,
+      innerDepth: 294,
+      innerHeight: 114,
+    },
+  };
+  const project = projectOf(scytheRaw);
   const stored = project.layout as StoredLayout;
   const factions = (trays: readonly TraySpec[]): TraySpec[] =>
     trays.filter((t) => t.part === "tray" && /^faction1:p\d+:0$/.test(t.key));
@@ -192,7 +207,7 @@ describe("the owner's Scythe project", { timeout: 120_000 }, () => {
   });
 
   it("has them facing one way whichever joint Auto picks", () => {
-    const raw = scythe as unknown as Raw;
+    const raw = scytheRaw;
     const settings = raw.settings as Raw;
     const auto = projectOf({
       ...raw,
@@ -208,7 +223,13 @@ describe("the owner's Scythe project", { timeout: 120_000 }, () => {
   });
 
   it("is set straight by the last pass alone, with no search left to do it", () => {
-    const result = optimize(buildLayoutInput(project), 1, 0, { warmStart: stored });
+    // With no search the stored arrangement is only re-measured, so the new, bigger trays need
+    // room for it as it stands: a little more length than the searched layouts above need.
+    const roomier = projectOf({
+      ...scytheRaw,
+      box: { ...(scytheRaw.box as Raw), innerDepth: 300, innerHeight: 116 },
+    });
+    const result = optimize(buildLayoutInput(roomier), 1, 0, { warmStart: stored });
     const layout = result.layout as StoredLayout;
     expect(new Set(factions(layout.trays).map((t) => t.rotated)).size).toBe(1);
     expect(slivers(layout)).toEqual([]);

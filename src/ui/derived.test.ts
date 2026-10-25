@@ -10,9 +10,9 @@ const s = DEFAULT_SETTINGS;
 describe("derivedSizes", () => {
   it("says what a deck comes to: its thickness and the face of its well", () => {
     const c = cards({ name: "Starter", decks: [{ name: "Deck 1", count: 50 }] });
-    // standard sleeves: 0.32 + 0.1 mm per card, 63.5 × 88 + 3 mm, 1.5 mm card clearance
+    // standard sleeves: 0.32 + 0.1 mm per card, 63.5 × 88 + 3 mm, 3 mm card clearance
     expect(derivedSizes(c, s, 0)).toEqual([
-      "Starter — Deck 1: 50 cards ≈ 21 mm thick (0.42 mm per card), in a 68 × 92.5 mm well.",
+      "Starter — Deck 1: 50 cards ≈ 21 mm thick (0.42 mm per card), in a 69.5 × 94 mm well.",
     ]);
   });
 
@@ -44,7 +44,7 @@ describe("derivedSizes", () => {
     expect(derivedSizes(base, s, 0)[0]).toContain("100 cards ≈ 42 mm thick (0.42 mm per card)");
     expect(derivedSizes(fatter, s, 0)[0]).toContain("100 cards ≈ 46.2 mm thick (0.46 mm per card)");
     // the well's face is the same
-    expect(derivedSizes(fatter, s, 0)[0]).toContain("in a 68 × 92.5 mm well.");
+    expect(derivedSizes(fatter, s, 0)[0]).toContain("in a 69.5 × 94 mm well.");
   });
 
   it("uses a measured stack, which replaces the preset", () => {
@@ -65,7 +65,7 @@ describe("derivedSizes", () => {
 
   it("gives minis their pocket, per figure", () => {
     const c = minis({ figures: [{ name: "Hero", w: 25, d: 25, h: 40, count: 2 }] });
-    expect(derivedSizes(c, s, 0)).toEqual(["Minis — Hero: a 26 × 26 × 41 mm pocket."]);
+    expect(derivedSizes(c, s, 0)).toEqual(["Minis — Hero: a 27 × 27 × 42 mm pocket."]);
   });
 
   it("gives bulk the bin size of each shape and the volume it is based on", () => {

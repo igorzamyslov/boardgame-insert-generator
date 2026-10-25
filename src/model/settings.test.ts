@@ -32,8 +32,8 @@ describe("DEFAULT_SETTINGS", () => {
       floor: 1.2,
       divider: 1.2,
       fit: 1,
-      cardClearance: 1.5,
-      cardStackClearance: 1,
+      cardClearance: 3,
+      cardStackClearance: 2,
       cardStackClearancePct: 0.03,
       cardThickness: 0.32,
       pieceClearance: 1,
@@ -200,9 +200,10 @@ describe("simple-mode choices", () => {
 describe("effective", () => {
   it("is the base value at fit 1", () => {
     expect(effective(DEFAULT_SETTINGS)).toEqual({
-      cardClearance: 1.5,
-      cardStackClearance: 1,
+      cardClearance: 3,
+      cardStackClearance: 2,
       pieceClearance: 1,
+      miniClearance: 2,
       boxClearance: 0.5,
       trayGap: 0.2,
       lipPlay: 0.25,
@@ -211,9 +212,10 @@ describe("effective", () => {
 
   it("scales every ×Fit clearance without float noise", () => {
     expect(effective(applyFitChoice(DEFAULT_SETTINGS, "tight"))).toEqual({
-      cardClearance: 1.05,
-      cardStackClearance: 0.7,
+      cardClearance: 2.1,
+      cardStackClearance: 1.4,
       pieceClearance: 0.7,
+      miniClearance: 1.4,
       boxClearance: 0.35,
       trayGap: 0.14,
       lipPlay: 0.175,
@@ -222,13 +224,30 @@ describe("effective", () => {
 
   it("scales to clean values at fit 1.4 (loose)", () => {
     expect(effective(applyFitChoice(DEFAULT_SETTINGS, "loose"))).toEqual({
-      cardClearance: 2.1,
-      cardStackClearance: 1.4,
+      cardClearance: 4.2,
+      cardStackClearance: 2.8,
       pieceClearance: 1.4,
+      miniClearance: 2.8,
       boxClearance: 0.7,
       trayGap: 0.28,
       lipPlay: 0.35,
     });
+  });
+});
+
+describe("the Snug floor", () => {
+  it("never takes a card well's clearance under 1.5 mm or its stack allowance under 1 mm", () => {
+    const e = effective({ ...DEFAULT_SETTINGS, fit: 0.2 });
+    expect(e.cardClearance).toBe(1.5);
+    expect(e.cardStackClearance).toBe(1);
+    // the other clearances scale all the way down
+    expect(e.pieceClearance).toBe(0.2);
+  });
+
+  it("leaves Snug itself (0.7) above the floor", () => {
+    const e = effective(applyFitChoice(DEFAULT_SETTINGS, "tight"));
+    expect(e.cardClearance).toBeGreaterThan(1.5);
+    expect(e.cardStackClearance).toBeGreaterThan(1);
   });
 });
 

@@ -47,20 +47,20 @@ function cutsOf(c: CompartmentSpec): FeatureSpec[] {
 
 describe("realizeTray", () => {
   it("places one upright deck at minOuter with a half-deep channel through both end walls", () => {
-    const r = realizeTray(single, { w: 26.7, d: 95.7, h: 69.2 }, s, ground);
+    const r = realizeTray(single, { w: 29.23, d: 97.2, h: 70.7 }, s, ground);
     expect(r.wall).toBe(1.6);
     expect(r.spacers).toEqual([]);
     expect(r.compartments).toEqual([
       {
         x: 1.6,
         y: 1.6,
-        w: 23.5,
-        d: 92.5,
+        w: 26.03,
+        d: 94,
         floorZ: 1.2,
         kind: "well",
         contents: "Cards — Main ×52",
         componentId: "c1",
-        features: [cutout("left", 47.85, 34), cutout("right", 47.85, 34)],
+        features: [cutout("left", 48.6, 34.75), cutout("right", 48.6, 34.75)],
       },
     ]);
   });
@@ -70,22 +70,22 @@ describe("realizeTray", () => {
   // pocket (spec §4): that held none of the component's own pieces. How long it may be is the
   // deck's growth setting, which retention bounds (spec §5 of minimal-trays).
   it("turns spare length into one spacer, not a pocket", () => {
-    const r = realizeTray(single, { w: 46.7, d: 95.7, h: 69.2 }, s, ground);
+    const r = realizeTray(single, { w: 49.23, d: 97.2, h: 70.7 }, s, ground);
     expect(r.compartments).toHaveLength(1);
     expect(r.compartments.map((c) => c.kind)).toEqual(["well"]);
     expect(r.spacers).toHaveLength(1);
-    // The well takes the whole leaf: 23.5 mm of deck and the spacer standing in the other 20.
+    // The well takes the whole leaf: 26.03 mm of deck and the spacer standing in the other 20.
     expect(at(r.spacers, 0).w).toBe(20);
-    expect(at(r.compartments, 0).w).toBe(43.5);
+    expect(at(r.compartments, 0).w).toBe(46.03);
   });
 
   it("makes a spacer of any length up to the deck's own thickness", () => {
-    for (const extra of [5, 10, 23.5]) {
-      const outer = { w: 26.7 + extra, d: 95.7, h: 69.2 };
+    for (const extra of [5, 10, 26.03]) {
+      const outer = { w: 29.23 + extra, d: 97.2, h: 70.7 };
       const r = realizeTray(single, outer, s, ground);
       expect(r.compartments.map((c) => c.kind)).toEqual(["well"]);
       expect(r.spacers.map((sp) => sp.w)).toEqual([extra]);
-      expect(at(r.compartments, 0).w).toBe(23.5 + extra);
+      expect(at(r.compartments, 0).w).toBe(26.03 + extra);
       assertTrayInvariants(r, outer, s, ground);
     }
   });
@@ -98,16 +98,16 @@ describe("realizeTray", () => {
       ...single,
       compartments: single.compartments.map((c) => ({ ...c, growth: { w: 12 } })),
     };
-    const outer = { w: 26.7 + 30, d: 95.7, h: 69.2 };
+    const outer = { w: 29.23 + 30, d: 97.2, h: 70.7 };
     const r = realizeTray(capped, outer, s, ground);
     expect(r.spacers.map((sp) => sp.w)).toEqual([12]);
-    expect(at(r.compartments, 0).w).toBe(23.5 + 12);
+    expect(at(r.compartments, 0).w).toBe(26.03 + 12);
     assertTrayInvariants(r, outer, s, ground);
   });
 
   it("prints no spacer unless the component asks for one, however much room there is", () => {
     for (const extra of [5, 20, 60, 300]) {
-      const outer = { w: 26.7 + extra, d: 95.7, h: 69.2 };
+      const outer = { w: 29.23 + extra, d: 97.2, h: 70.7 };
       const r = realizeTray(bare, outer, s, ground);
       expect(r.spacers, `${extra}`).toEqual([]);
       expect(r.compartments.map((c) => c.kind)).toEqual(["well"]);
@@ -150,41 +150,41 @@ describe("realizeTray", () => {
   });
 
   it("widens a deck's well by what it may grow, with nothing printed in it (retention)", () => {
-    const outer = { w: 26.7 + 60, d: 95.7, h: 69.2 };
+    const outer = { w: 29.23 + 60, d: 97.2, h: 70.7 };
     const r = realizeTray(bare, outer, s, ground);
-    // `max`, 60 mm of slack, 23.5 mm of deck: more room than that and it would topple, so the
-    // well takes 23.5 mm more and the walls the rest
+    // `max`, 60 mm of slack, 26.03 mm of deck: more room than that and it would topple, so the
+    // well takes 26.03 mm more and the walls the rest
     expect(r.spacers).toEqual([]);
-    expect(at(r.compartments, 0).w).toBe(47);
+    expect(at(r.compartments, 0).w).toBe(52.06);
   });
 
   it("makes a spacer of any length up to six stacks with plates", () => {
     const plated = partOf([cards({ room: "max", separators: 2 })], "upright-long|strip|split1");
-    // 60 and 140 mm beyond a 23.5 mm deck: far past what a pocket would have taken, still one spacer
+    // 60 and 140 mm beyond a 26.03 mm deck: far past what a pocket would have taken, still one spacer
     for (const extra of [60, 140]) {
-      const outer = { w: 26.7 + extra, d: 95.7, h: 69.2 };
+      const outer = { w: 29.23 + extra, d: 97.2, h: 70.7 };
       const r = realizeTray(plated, outer, s, ground);
       expect(r.compartments.map((c) => c.kind)).toEqual(["well"]);
       expect(r.spacers.map((sp) => sp.w)).toEqual([extra]);
       assertTrayInvariants(r, outer, s, ground);
     }
-    // 150 is past the plated limit (6 × 23.5 = 141): the walls take the 9 mm
-    const past = realizeTray(plated, { w: 26.7 + 150, d: 95.7, h: 69.2 }, s, ground);
-    expect(past.spacers.map((sp) => sp.w)).toEqual([141]);
+    // 170 is past the plated limit (6 × 26.03 = 156.18): the walls take the other 13.82 mm
+    const past = realizeTray(plated, { w: 29.23 + 170, d: 97.2, h: 70.7 }, s, ground);
+    expect(past.spacers.map((sp) => sp.w)).toEqual([156.18]);
   });
 
   describe("a deck whose component asks for spacer plates", () => {
     const plates = partOf([cards({ room: "max", separators: 3 })], "upright-long|strip|split1");
-    const outer = { w: 56.7, d: 95.7, h: 69.2 };
+    const outer = { w: 59.23, d: 97.2, h: 70.7 };
 
     it("gets one spacer for the long slack", () => {
       const r = realizeTray(plates, outer, s, ground);
       expect(r.compartments).toHaveLength(1);
       expect(r.spacers).toHaveLength(1);
-      // The well takes the whole leaf: 23.5 mm of deck, the spacer standing in the rest.
+      // The well takes the whole leaf: 26.03 mm of deck, the spacer standing in the rest.
       const spacer = at(r.spacers, 0);
       expect(spacer.w).toBe(30);
-      expect(at(r.compartments, 0).w).toBe(53.5);
+      expect(at(r.compartments, 0).w).toBe(56.03);
       assertTrayInvariants(r, outer, s, ground);
     });
 
@@ -245,11 +245,11 @@ describe("realizeTray", () => {
   });
 
   it("turns a short spare stack length into one removable spacer", () => {
-    const r = realizeTray(single, { w: 36.7, d: 95.7, h: 69.2 }, s, ground);
+    const r = realizeTray(single, { w: 39.23, d: 97.2, h: 70.7 }, s, ground);
     expect(r.compartments).toHaveLength(1);
     const well = at(r.compartments, 0);
-    expect(well).toMatchObject({ x: 1.6, y: 1.6, w: 33.5, d: 92.5, floorZ: 1.2 });
-    expect(at(well.features, 0)).toMatchObject({ at: 47.85, width: 25 });
+    expect(well).toMatchObject({ x: 1.6, y: 1.6, w: 36.03, d: 94, floorZ: 1.2 });
+    expect(at(well.features, 0)).toMatchObject({ at: 48.6, width: 25 });
     expect(r.spacers).toEqual([
       {
         key: "c1:p0:0:spacer",
@@ -257,12 +257,12 @@ describe("realizeTray", () => {
         path: "",
         stack: 0,
         level: 0,
-        x: 25.1,
+        x: 27.63,
         y: 1.6,
         z: 1.2,
         w: 10,
-        d: 92.5,
-        h: 63,
+        d: 94,
+        h: 64.5,
         rotated: false,
         wall: 0,
         floor: 0,
@@ -270,33 +270,33 @@ describe("realizeTray", () => {
         solid: true,
         compartments: [],
         // The deck's finger channel runs on through the spacer.
-        features: [{ type: "spacerNotch", axis: "x", at: 46.25, width: 25, depth: 29 }],
+        features: [{ type: "spacerNotch", axis: "x", at: 47, width: 25, depth: 29.75 }],
       },
     ]);
   });
 
   it("makes a spacer only when it is long enough for its bottom chamfer", () => {
     // 6 mm of spare stack: a spacer at the default 0.4 mm chamfer (needs max(5, 2.4) mm) …
-    const six = { w: 32.7, d: 95.7, h: 69.2 };
+    const six = { w: 35.23, d: 97.2, h: 70.7 };
     expect(realizeTray(single, six, s, ground).spacers.map((sp) => sp.w)).toEqual([6]);
     // … but not at a 3 mm chamfer, which needs 2 × (3 + 0.8) = 7.6 mm (3 mm walls and floor make
     // that chamfer valid; the same deck then needs 2.8 mm more width and 1.8 mm more height).
     const steep: Settings = { ...s, wall: 3, floor: 3, bottomChamfer: 3 };
-    const sixSteep = { w: 35.5, d: 98.5, h: 71 };
+    const sixSteep = { w: 38.03, d: 100, h: 72.5 };
     const r = realizeTray(single, sixSteep, steep, ground);
     expect(r.spacers).toEqual([]);
     assertTrayInvariants(r, sixSteep, steep, ground);
-    const longer = { ...sixSteep, w: 37.1 };
+    const longer = { ...sixSteep, w: 39.63 };
     expect(realizeTray(single, longer, steep, ground).spacers.map((sp) => sp.w)).toEqual([7.6]);
   });
 
   it("puts depth slack in the walls, never a spare row, whatever wallAbsorb allows", () => {
-    const outer = { w: 26.7, d: 115.7, h: 69.2 };
+    const outer = { w: 29.23, d: 117.2, h: 70.7 };
     for (const absorb of [0, 1.6]) {
       const r = realizeTray(single, outer, { ...s, wallAbsorb: absorb }, ground);
       expect(r.compartments).toHaveLength(1);
       const deck = at(r.compartments, 0);
-      expect(deck).toMatchObject({ x: 1.6, w: 23.5, d: 92.5, kind: "well" });
+      expect(deck).toMatchObject({ x: 1.6, w: 26.03, d: 94, kind: "well" });
       // The 20 mm of depth slack is split evenly between the front and back walls.
       expect(deck.y).toBeCloseTo(1.6 + 10, 1);
       expect(outer.d - (deck.y + deck.d)).toBeCloseTo(deck.y, 1);
@@ -318,8 +318,8 @@ describe("realizeTray", () => {
       ],
       "upright-long|rows2|split1",
     );
-    expect(minOuter(part, s, ground)).toEqual({ w: 26.7, d: 189.4, h: 69.2 });
-    const outer = { w: 46.7, d: 189.4, h: 69.2 };
+    expect(minOuter(part, s, ground)).toEqual({ w: 29.23, d: 192.4, h: 70.7 });
+    const outer = { w: 49.23, d: 192.4, h: 70.7 };
     const r = realizeTray(part, outer, s, ground);
     // Both decks keep their minimum width and nothing else is added. A tray prints one spacer
     // (its key is the tray's), which goes to the first row with slack to give; the other row's
@@ -340,8 +340,8 @@ describe("realizeTray", () => {
     const outer = minOuter(part, s, ground);
     const r = realizeTray(part, outer, s, ground);
     const well = at(r.compartments, 0);
-    expect(well).toMatchObject({ x: 1.6, y: 1.6, w: 1.33, d: 89.5, floorZ: 1.2 });
-    expect(well.features).toEqual([cutout("left", 46.35, 32.5), cutout("right", 46.35, 32.5)]);
+    expect(well).toMatchObject({ x: 1.6, y: 1.6, w: 2.33, d: 91, floorZ: 1.2 });
+    expect(well.features).toEqual([cutout("left", 47.1, 33.25), cutout("right", 47.1, 33.25)]);
     expect(r.spacers).toEqual([]);
     assertTrayInvariants(r, outer, s, ground);
   });
@@ -350,25 +350,25 @@ describe("realizeTray", () => {
     const part = partOfGroup([cards(), custom({ count: 1 })], "upright-long+custom|strip|split1");
     expect(part.trayKey).toBe("g:p0:0");
     const outer = minOuter(part, s, ground);
-    expect(outer).toEqual({ w: 68.9, d: 95.7, h: 69.2 });
+    expect(outer).toEqual({ w: 71.43, d: 97.2, h: 70.7 });
     const r = realizeTray(part, outer, s, ground);
     expect(at(r.compartments, 0).floorZ).toBe(1.2);
     // The deck's channel leaves through the end wall but never opens into the custom well.
-    expect(at(r.compartments, 0).features).toEqual([cutout("left", 47.85, 34)]);
+    expect(at(r.compartments, 0).features).toEqual([cutout("left", 48.6, 34.75)]);
     // The dial's well is 11 mm deep, a short piece: cut through the front wall down to its floor.
     // Its floor stands on 57 mm of solid beside the deck's, so no floor notch: it would be a shaft
     // through that solid down to the bed.
     expect(at(r.compartments, 1)).toEqual({
-      x: 26.3,
-      y: 32.35,
+      x: 28.83,
+      y: 33.1,
       w: 41,
       d: 31,
-      floorZ: 58.2,
+      floorZ: 59.7,
       kind: "well",
       contents: "Dial",
       componentId: "x1",
       features: [
-        { type: "wallCutout", side: "front", at: 46.8, width: 25, depth: 11, floorNotch: 0 },
+        { type: "wallCutout", side: "front", at: 49.33, width: 25, depth: 11, floorNotch: 0 },
         { type: "cornerRelief", d: 3 },
       ],
     });
@@ -475,20 +475,20 @@ describe("realizeTray", () => {
   it("cuts each mini pocket through the front and back walls, half its depth, keeping 3 mm posts", () => {
     const part = partOf([minis()], "standing|strip|split1");
     const outer = minOuter(part, s, ground);
-    expect(outer).toEqual({ w: 56.4, d: 29.2, h: 42.2 });
+    expect(outer).toEqual({ w: 58.4, d: 30.2, h: 43.2 });
     const r = realizeTray(part, outer, s, ground);
     expect(r.compartments.map((c) => [c.contents, c.kind, c.x, c.y, c.w, c.d, c.floorZ])).toEqual([
-      ["Minis — Hero 1/2", "pocket", 1.6, 1.6, 26, 26, 1.2],
-      ["Minis — Hero 2/2", "pocket", 28.8, 1.6, 26, 26, 1.2],
+      ["Minis — Hero 1/2", "pocket", 1.6, 1.6, 27, 27, 1.2],
+      ["Minis — Hero 2/2", "pocket", 29.8, 1.6, 27, 27, 1.2],
     ]);
     expect(r.compartments.map((c) => c.features)).toEqual([
       [
-        { type: "wallCutout", side: "front", at: 14.6, width: 20, depth: 20.5, floorNotch: 0 },
-        { type: "wallCutout", side: "back", at: 14.6, width: 20, depth: 20.5, floorNotch: 0 },
+        { type: "wallCutout", side: "front", at: 15.1, width: 21, depth: 21, floorNotch: 0 },
+        { type: "wallCutout", side: "back", at: 15.1, width: 21, depth: 21, floorNotch: 0 },
       ],
       [
-        { type: "wallCutout", side: "front", at: 41.8, width: 20, depth: 20.5, floorNotch: 0 },
-        { type: "wallCutout", side: "back", at: 41.8, width: 20, depth: 20.5, floorNotch: 0 },
+        { type: "wallCutout", side: "front", at: 43.3, width: 21, depth: 21, floorNotch: 0 },
+        { type: "wallCutout", side: "back", at: 43.3, width: 21, depth: 21, floorNotch: 0 },
       ],
     ]);
   });
@@ -511,8 +511,8 @@ describe("realizeTray", () => {
     const lipped: RealizeOptions = { lipped: true, level: 0 };
     const r = realizeTray(single, minOuter(single, s, lipped), s, lipped);
     expect(r.wall).toBe(1.6);
-    expect(at(r.compartments, 0)).toMatchObject({ x: 2.9, y: 2.9, w: 23.5, d: 92.5 });
-    expect(at(at(r.compartments, 0).features, 0)).toMatchObject({ at: 49.15 });
+    expect(at(r.compartments, 0)).toMatchObject({ x: 2.9, y: 2.9, w: 26.03, d: 94 });
+    expect(at(at(r.compartments, 0).features, 0)).toMatchObject({ at: 49.9 });
   });
 
   it("refuses a tray whose tiny pocket has no room for a cut", () => {
@@ -550,22 +550,22 @@ describe("realizeTray", () => {
   });
 
   it("throws RangeError when the outer is below minOuter", () => {
-    expect(() => realizeTray(single, { w: 26.69, d: 95.7, h: 69.2 }, s, ground)).toThrow(
+    expect(() => realizeTray(single, { w: 29.22, d: 97.2, h: 70.7 }, s, ground)).toThrow(
       RangeError,
     );
-    expect(() => realizeTray(single, { w: 26.7, d: 95.69, h: 69.2 }, s, ground)).toThrow(
+    expect(() => realizeTray(single, { w: 29.23, d: 97.19, h: 70.7 }, s, ground)).toThrow(
       RangeError,
     );
-    expect(() => realizeTray(single, { w: 26.7, d: 95.7, h: 69.19 }, s, ground)).toThrow(
+    expect(() => realizeTray(single, { w: 29.23, d: 97.2, h: 70.69 }, s, ground)).toThrow(
       RangeError,
     );
   });
 
   it("rejects an outer a hair below minOuter instead of rounding it up", () => {
-    expect(() => realizeTray(single, { w: 26.696, d: 95.7, h: 69.2 }, s, ground)).toThrow(
+    expect(() => realizeTray(single, { w: 29.226, d: 97.2, h: 70.7 }, s, ground)).toThrow(
       RangeError,
     );
-    expect(() => realizeTray(single, { w: 26.7, d: 95.7, h: 69.1999 }, s, ground)).toThrow(
+    expect(() => realizeTray(single, { w: 29.23, d: 97.2, h: 70.6999 }, s, ground)).toThrow(
       RangeError,
     );
   });
@@ -899,7 +899,7 @@ describe("realizeTray", () => {
       expect(r.wall).toBe(1.24);
       expect(r.compartments.map((c) => [c.x, c.y, c.floorZ])).toEqual([
         [1.24, 1.24, 1.24],
-        [25.98, 1.24, 1.24],
+        [28.51, 1.24, 1.24],
       ]);
       const [a, b] = [at(r.compartments, 0), at(r.compartments, 1)];
       expect(b.x - (a.x + a.w)).toBeCloseTo(1.24, 9);
@@ -1084,7 +1084,7 @@ describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () =>
   };
 
   it("changes nothing while off: the slack is split between the two walls as before", () => {
-    const outer = { w: 26.7, d: 115.7, h: 69.2 };
+    const outer = { w: 29.23, d: 117.2, h: 70.7 };
     const r = realizeTray(single, outer, { ...s, oneWall: false }, ground);
     expect(r).toEqual(realizeTray(single, outer, s, ground));
     const w = wallsOf(r, outer);
@@ -1093,7 +1093,7 @@ describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () =>
   });
 
   it("puts all of the slack into the back wall when nothing is cut there", () => {
-    const outer = { w: 26.7, d: 115.7, h: 69.2 };
+    const outer = { w: 29.23, d: 117.2, h: 70.7 };
     const r = realizeTray(single, outer, on, ground);
     const w = wallsOf(r, outer);
     expect(w.front).toBeCloseTo(1.6, 2);
@@ -1102,7 +1102,7 @@ describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () =>
   });
 
   it("subsumes wallAbsorb: the thin-wall setting has no say while it is on", () => {
-    const outer = { w: 26.7, d: 115.7, h: 69.2 };
+    const outer = { w: 29.23, d: 117.2, h: 70.7 };
     const plain = realizeTray(single, outer, on, ground);
     expect(realizeTray(single, outer, { ...on, wallAbsorb: 3 }, ground)).toEqual(plain);
   });
@@ -1126,7 +1126,7 @@ describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () =>
 
   it("falls back to an even split where both walls on an axis carry a cut", () => {
     // A deck is cut through both end walls (left and right): neither may be deepened.
-    const outer = { w: 66.7, d: 95.7, h: 69.2 };
+    const outer = { w: 66.7, d: 97.2, h: 70.7 };
     const min = minOuter(single, on, ground);
     expect(outer.w).toBeGreaterThan(min.w);
     const w = wallsOf(realizeTray(single, outer, on, ground), outer);
@@ -1171,7 +1171,7 @@ describe("flat decks in one well (0.7.0, R7 and R21)", () => {
     const slots = slotsOf(well);
     const section = (well.w - 2 * slotOf) / 3;
     expect(slots).toHaveLength(2);
-    expect(section).toBeCloseTo(68, 1); // a card's 66.5 and its 1.5 mm of clearance
+    expect(section).toBeCloseTo(69.5, 1); // a card's 66.5 and its 3 mm of clearance
     slots.forEach((slot, k) => {
       expect(slot.axis).toBe("y");
       expect(slot.width).toBe(slotOf);

@@ -56,6 +56,9 @@ export function mainClearance(c: Component, s: Settings): number {
     return c.clearance;
   }
   const e = effective(s);
+  if (c.kind === "minis" && c.storage !== "bulk") {
+    return e.miniClearance;
+  }
   return c.kind === "cards" ? e.cardClearance : e.pieceClearance;
 }
 

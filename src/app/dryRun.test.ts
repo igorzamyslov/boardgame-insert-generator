@@ -65,7 +65,7 @@ describe("canTurn", () => {
 
   it("reports a conflict before running: a size lock on the tray holds its rotation", () => {
     // the tray's size lock only fits it as it is, so turning it contradicts it
-    const p = planned([{ kind: "size", trayKey: HIGH, w: 72, d: 96, h: 37 }]);
+    const p = planned([{ kind: "size", trayKey: HIGH, w: 74, d: 98, h: 75 }]);
     const r = canTurn(p, HIGH);
     expect(r.ok).toBe(false);
     // a whole sentence, naming the tray at fault by its label (the contents it holds)
@@ -83,7 +83,7 @@ describe("canTurn", () => {
       { kind: "position", trayKey: LOW, path: "10", rotated: false },
       { kind: "position", trayKey: HIGH, path: "10", rotated: false },
       { kind: "stack", trayKeys: [LOW, HIGH] },
-      { kind: "size", trayKey: HIGH, w: 72, d: 96, h: 37 },
+      { kind: "size", trayKey: HIGH, w: 74, d: 98, h: 75 },
     ]);
     const r = canTurn(p, LOW);
     expect(r.ok).toBe(false);

@@ -10,6 +10,23 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+### Changed
+
+- **Card wells are roomier, so decks go in without fiddling.** A well is now 3 mm bigger than the
+  sleeve each way (it was 1.5 mm), and a deck gets 10% more room across for its sleeves (3% for
+  cards with no sleeve) plus 2 mm (it was 1 mm). Snug and Loose still tighten and loosen it, but
+  Snug never goes below 1.5 mm round the card and 1 mm across the deck. A deck you measured is
+  treated as pressed together and gets the same room, so the measure field now says "with the cards
+  pressed together". Eight decks of 13 premium-sleeved cards come to a well of 69.5 × 94 mm and
+  10.6 mm across at Standard.
+- **Tile stacks and figure pockets have more room.** Tiles count 5% thicker (cardboard runs over its
+  size) and a figure's pocket is 2 mm bigger than the figure (it was 1 mm). Loose pieces and custom
+  items are as before.
+- **Your plans will change.** Projects you already have keep their own numbers: card clearances
+  that were still the old defaults move to the new ones, and ones you changed stay. Every saved
+  plan shows "This plan is from before your last changes." once, and trays come out a little
+  bigger. Reprint the trays that hold cards, tiles or figures; the rest are as they were.
+
 ## [0.25.1] - 2026-10-24
 
 ### Changed

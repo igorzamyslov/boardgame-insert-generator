@@ -364,7 +364,7 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
           <RoomOptions component={c} index={index} onChange={onChange} />
           <ExactRow
             title="Card thickness"
-            hint="From the sleeve table. Measure your stack if decks come out tight."
+            hint="From the sleeve table. Measure your stack if decks come out tight, with the cards pressed together."
             errorPaths={[
               `${at}/thickness/scale`,
               `${at}/thickness/cards`,

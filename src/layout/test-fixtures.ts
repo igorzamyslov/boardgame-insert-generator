@@ -35,6 +35,8 @@ export const TIGHT_FIXTURES = {
 
 export type TightFixtureName = keyof typeof TIGHT_FIXTURES;
 
+const OLD_CARD_CLEARANCES = { cardClearance: 1.5, cardStackClearance: 1 };
+
 export function fixtureInput(name: FixtureName | TightFixtureName): LayoutInput {
   const source: unknown =
     name in FIXTURES ? FIXTURES[name as FixtureName] : TIGHT_FIXTURES[name as TightFixtureName];
@@ -43,12 +45,17 @@ export function fixtureInput(name: FixtureName | TightFixtureName): LayoutInput 
     throw new Error(`fixture ${name}: ${parsed.error}`);
   }
   const p = parsed.project;
-  const { requirements } = size(p.components, p.settings, p.groups);
+  // The tight boxes were cut to the old Standard card clearances (1.5 and 1 mm; the defaults are now
+  // 3 and 2 and schema 0.4.0 migrates stored ones), so they keep them: the tests on them are about
+  // how the search copes with an exact fit, not about card sizing. (tight-minis.json is 0.7 mm
+  // higher than it was, for the 5% thicker tile stacks and the bigger minis pockets.)
+  const settings = name in TIGHT_FIXTURES ? { ...p.settings, ...OLD_CARD_CLEARANCES } : p.settings;
+  const { requirements } = size(p.components, settings, p.groups);
   return {
     requirements,
     box: p.box,
     printer: p.printer,
-    settings: p.settings,
+    settings,
     locks: p.locks,
     inputsHash: inputsHash(p),
     appVersion: "0.0.0-test",

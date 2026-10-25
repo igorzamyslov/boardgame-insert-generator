@@ -210,7 +210,7 @@ export function harbourKingsKitLoose(): Project {
     id: "harbkit1",
     // A row of four turned kit trays is 279 mm wide: in this box the copies, which are one size, stand
     // in a column, as the board draws them.
-    box: { ...p.box, innerWidth: 270 },
+    box: { ...p.box, innerWidth: 270, innerDepth: 300 },
     components: [
       cards("market01", "Market deck", "often", [{ name: "Market deck", count: 80 }]),
       // Mini cards, lying flat: a copy's tray is about 70 mm deep, so four copies stand in one column.
