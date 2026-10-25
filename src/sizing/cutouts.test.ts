@@ -55,19 +55,19 @@ function cutsOf(c: CompartmentSpec | undefined): FeatureSpec[] {
 }
 
 describe("upright cards and tiles: one finger channel", () => {
-  // Three sleeved Standard decks: wells 18.31, 26.96 and 13.98 wide, 92.5 long, 68 deep.
+  // Three sleeved Standard decks: wells 20.48, 29.72 and 15.86 wide, 94 long, 69.5 deep.
   const strip = partOf([cards({ decks: decks(40, 60, 30) })], "upright-long|strip|split1");
 
   it("runs one centred channel, half the wells deep, through both end walls and every divider", () => {
-    expect(minOuter(strip, s, ground)).toEqual({ w: 64.85, d: 95.7, h: 69.2 });
+    expect(minOuter(strip, s, ground)).toEqual({ w: 71.66, d: 97.2, h: 70.7 });
     const r = realize(strip);
     expect(r.compartments.map((c) => [c.x, c.y, c.w, c.d])).toEqual([
-      [1.6, 1.6, 18.31, 92.5],
-      [21.11, 1.6, 26.96, 92.5],
-      [49.27, 1.6, 13.98, 92.5],
+      [1.6, 1.6, 20.48, 94],
+      [23.28, 1.6, 29.72, 94],
+      [54.2, 1.6, 15.86, 94],
     ]);
     for (const c of r.compartments) {
-      expect(c.features).toEqual([cutout("left", 47.85, 34), cutout("right", 47.85, 34)]);
+      expect(c.features).toEqual([cutout("left", 48.6, 34.75), cutout("right", 48.6, 34.75)]);
     }
     // The geometry runs it out through both end walls and across both dividers.
     const plan = planTray(traySpecFrom(r, minOuter(strip, s, ground), ground, s, "t"), s);
@@ -270,17 +270,17 @@ describe("upright cards and tiles: one finger channel", () => {
     const min = minOuter(one, s, ground);
     const r = realize(one, s, ground, { ...min, w: min.w + 10 });
     expect(r.spacers).toHaveLength(1);
-    // Spacer frame: the well's 92.5 mm along Y from y 1.6, its top 5 mm below the rim.
-    expect(at(r.spacers, 0)).toMatchObject({ y: 1.6, w: 10, d: 92.5, h: 63 });
+    // Spacer frame: the well's 94 mm along Y from y 1.6, its top 5 mm below the rim.
+    expect(at(r.spacers, 0)).toMatchObject({ y: 1.6, w: 10, d: 94, h: 64.5 });
     expect(at(r.spacers, 0).features).toEqual([
-      { type: "spacerNotch", axis: "x", at: 46.25, width: 25, depth: 29 },
+      { type: "spacerNotch", axis: "x", at: 47, width: 25, depth: 29.75 },
     ]);
   });
 
   it("ends a spacer whose widened notch takes its whole top where the U meets its faces", () => {
     // At a 3 mm chamfer a notch side 3 mm from the spacer's face would leave less than the chamfer
-    // plus 0.8 mm beside it: the notch widens to the spacer's 26.5 mm and takes its whole top, so
-    // the 76.5 mm spacer ends where the U (bottom 40.75 mm up, radius 13.25) meets its faces.
+    // plus 0.8 mm beside it: the notch widens to the spacer's 28 mm and takes its whole top, so
+    // the 78 mm spacer ends where the U (bottom 41.5 mm up, radius 14) meets its faces.
     const steep = largestChamfer({ ...s, wall: 3, floor: 3 });
     const deck = cards({
       room: "max",
@@ -293,9 +293,9 @@ describe("upright cards and tiles: one finger channel", () => {
     const part = partOf([deck], "upright-short|strip|split1", steep);
     const min = minOuter(part, steep, ground);
     const r = realize(part, steep, ground, { ...min, w: min.w + 10 });
-    expect(at(r.spacers, 0)).toMatchObject({ w: 10, d: 26.5, h: 54 });
+    expect(at(r.spacers, 0)).toMatchObject({ w: 10, d: 28, h: 55.5 });
     expect(at(r.spacers, 0).features).toEqual([
-      { type: "spacerNotch", axis: "x", at: 13.25, width: 26.5, depth: 13.25 },
+      { type: "spacerNotch", axis: "x", at: 14, width: 28, depth: 14 },
     ]);
   });
 
@@ -304,8 +304,8 @@ describe("upright cards and tiles: one finger channel", () => {
     const r = realize(strip, s, lipped);
     expect(r.compartments.every((c) => c.y === 2.9)).toBe(true);
     expect(cutsOf(at(r.compartments, 0))).toEqual([
-      cutout("left", 49.15, 34),
-      cutout("right", 49.15, 34),
+      cutout("left", 49.9, 34.75),
+      cutout("right", 49.9, 34.75),
     ]);
   });
 });
@@ -313,19 +313,19 @@ describe("upright cards and tiles: one finger channel", () => {
 describe("flat cards and tiles: cutouts through the long walls", () => {
   it("cuts both long walls of a flat deck down to its floor and notches the floor a half-disc", () => {
     const part = partOf([cards({ storage: "flat" })], "flat|strip|split1");
-    expect(minOuter(part, s, ground)).toEqual({ w: 71.2, d: 95.7, h: 24.7 });
+    expect(minOuter(part, s, ground)).toEqual({ w: 72.7, d: 97.2, h: 27.23 });
     const r = realize(part);
     expect(r.compartments).toEqual([
       {
         x: 1.6,
         y: 1.6,
-        w: 68,
-        d: 92.5,
+        w: 69.5,
+        d: 94,
         floorZ: 1.2,
         kind: "well",
         contents: "Cards — Main ×52",
         componentId: "c1",
-        features: [cutout("left", 47.85, 23.5, 12.5), cutout("right", 47.85, 23.5, 12.5)],
+        features: [cutout("left", 48.6, 26.03, 12.5), cutout("right", 48.6, 26.03, 12.5)],
       },
     ]);
   });
@@ -359,8 +359,8 @@ describe("flat cards and tiles: cutouts through the long walls", () => {
     const r = realize(part, steep);
     const outer = minOuter(part, steep, ground);
     expect(cutsOf(at(r.compartments, 0)).map((f) => "depth" in f && f.depth)).toEqual([
-      outer.h - 1.62,
-      outer.h - 1.62,
+      expect.closeTo(outer.h - 1.62, 9),
+      expect.closeTo(outer.h - 1.62, 9),
     ]);
   });
 
@@ -538,7 +538,7 @@ describe("flat custom items and short minis: the full-depth cut with a floor not
     expect(frontCut(tall)).toMatchObject({ depth: 20.5, floorNotch: 0 });
     const hero = wellOf(partOf([minis()], "standing|strip|split1"));
     for (const f of cutsOf(hero)) {
-      expect(f).toMatchObject({ depth: 20.5, floorNotch: 0 });
+      expect(f).toMatchObject({ depth: 21, floorNotch: 0 });
     }
   });
 
@@ -577,7 +577,8 @@ describe("flat custom items and short minis: the full-depth cut with a floor not
 
     it("gets a short figure's pocket a notched cut at the front and the back too", () => {
       const part = partOf(
-        [minis({ figures: [{ name: "Pawn", w: 20, d: 20, h: 1, count: 1 }] })],
+        // no clearance: the pocket is as short as the groove allows (the default adds 2 mm)
+        [minis({ clearance: 0, figures: [{ name: "Pawn", w: 20, d: 20, h: 1, count: 1 }] })],
         "standing|strip|split1",
       );
       expect(minOuter(part, s, upper).h).toBe(least);
@@ -618,7 +619,7 @@ describe("flat custom items and short minis: the full-depth cut with a floor not
       }
       // the tall pocket is as before: half deep, plain
       for (const f of cutsOf(hero)) {
-        expect(f).toMatchObject({ depth: 20.5, floorNotch: 0 });
+        expect(f).toMatchObject({ depth: 21, floorNotch: 0 });
       }
     });
 
@@ -750,12 +751,12 @@ describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {
   const strip = partOf([cards({ decks: decks(40, 60, 30) })], "upright-long|strip|split1");
 
   it("makes the cut end walls 10 mm thicker and the tray 20 mm longer", () => {
-    expect(minOuter(strip, wallOnly, ground)).toEqual({ w: 84.85, d: 95.7, h: 69.2 });
+    expect(minOuter(strip, wallOnly, ground)).toEqual({ w: 91.66, d: 97.2, h: 70.7 });
     const r = realize(strip, wallOnly);
-    expect(r.compartments.map((c) => c.x)).toEqual([11.6, 31.11, 59.27]);
+    expect(r.compartments.map((c) => c.x)).toEqual([11.6, 33.28, 64.2]);
     expect(cutsOf(at(r.compartments, 0))).toEqual([
-      cutout("left", 47.85, 34),
-      cutout("right", 47.85, 34),
+      cutout("left", 48.6, 34.75),
+      cutout("right", 48.6, 34.75),
     ]);
   });
 
@@ -787,12 +788,12 @@ describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {
   it("reproduces the trays without finger room at 0", () => {
     // The trays from before finger room: the room-10 tray's end walls 10 mm thinner.
     const zero = { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: 0, dividerRoom: 0 } };
-    expect(minOuter(strip, zero, ground)).toEqual({ w: 64.85, d: 95.7, h: 69.2 });
+    expect(minOuter(strip, zero, ground)).toEqual({ w: 71.66, d: 97.2, h: 70.7 });
     const r = realize(strip, zero);
-    expect(r.compartments.map((c) => c.x)).toEqual([1.6, 21.11, 49.27]);
+    expect(r.compartments.map((c) => c.x)).toEqual([1.6, 23.28, 54.2]);
     expect(cutsOf(at(r.compartments, 0))).toEqual([
-      cutout("left", 47.85, 34),
-      cutout("right", 47.85, 34),
+      cutout("left", 48.6, 34.75),
+      cutout("right", 48.6, 34.75),
     ]);
   });
 });
@@ -809,11 +810,11 @@ describe("finger room in the cut dividers (fingerPocket.dividerRoom)", () => {
       );
 
   it("makes each divider the channel crosses 5 mm thicker and the tray 10 mm longer", () => {
-    expect(minOuter(strip, dividersOnly, ground)).toEqual({ w: 74.85, d: 95.7, h: 69.2 });
+    expect(minOuter(strip, dividersOnly, ground)).toEqual({ w: 81.66, d: 97.2, h: 70.7 });
     expect(gaps(realize(strip, dividersOnly))).toEqual([6.2, 6.2]);
     // The simple-mode switch: 10 mm on the end walls, 5 mm on the dividers.
-    expect(minOuter(strip, roomy, ground)).toEqual({ w: 94.85, d: 95.7, h: 69.2 });
-    expect(realize(strip, roomy).compartments.map((c) => c.x)).toEqual([11.6, 36.11, 69.27]);
+    expect(minOuter(strip, roomy, ground)).toEqual({ w: 101.66, d: 97.2, h: 70.7 });
+    expect(realize(strip, roomy).compartments.map((c) => c.x)).toEqual([11.6, 38.28, 74.2]);
   });
 
   it("leaves a divider no cut crosses alone", () => {
@@ -840,7 +841,7 @@ describe("finger room in the cut dividers (fingerPocket.dividerRoom)", () => {
   it("reproduces the trays without divider room at 0", () => {
     // The trays from before divider room: the dividers at the 1.2 mm setting.
     const zero = { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: 10, dividerRoom: 0 } };
-    expect(minOuter(strip, zero, ground)).toEqual({ w: 84.85, d: 95.7, h: 69.2 });
+    expect(minOuter(strip, zero, ground)).toEqual({ w: 91.66, d: 97.2, h: 70.7 });
     expect(gaps(realize(strip, zero))).toEqual([1.2, 1.2]);
   });
 });

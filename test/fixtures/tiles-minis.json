@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.3.4",
+  "schemaVersion": "0.4.0",
   "createdWith": "0.2.0",
   "id": "fxtile01",
   "name": "Fixture: tiles and minis",
@@ -17,8 +17,8 @@
     "floor": 1.2,
     "divider": 1.2,
     "fit": 1,
-    "cardClearance": 1.5,
-    "cardStackClearance": 1,
+    "cardClearance": 3,
+    "cardStackClearance": 2,
     "cardStackClearancePct": 0.03,
     "cardThickness": 0.32,
     "pieceClearance": 1,

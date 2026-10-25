@@ -687,11 +687,11 @@ describe("validateProject: groups", () => {
     }
   });
 
-  it("is no error when the member is a foreign component of a newer 0.3.x file", () => {
+  it("is no error when the member is a foreign component of a newer 0.4.x file", () => {
     const base = withGroups([a], [group("kit", [a.id, "dial0001"])]);
     const file = JSON.parse(JSON.stringify(base)) as Record<string, unknown>;
-    // a newer 0.3.x file: 0.2.x files are upgraded on the way in, so a foreign kind needs a newer minor
-    file.schemaVersion = "0.3.9";
+    // a newer 0.4.x file: 0.2.x files are upgraded on the way in, so a foreign kind needs a newer minor
+    file.schemaVersion = "0.4.9";
     (file.components as unknown[]).push({ id: "dial0001", name: "Dial", kind: "dial", size: 40 });
     const result = parseProject(file);
     expect(result).toMatchObject({ ok: true });

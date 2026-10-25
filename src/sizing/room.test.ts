@@ -128,7 +128,7 @@ describe("tiles: room for more tiles", () => {
   it("none: as many as there are; some: that many more, split over the stacks", () => {
     const none = first(tileOptions(tiles(), settings()));
     const some = first(tileOptions(tiles({ room: 10 }), settings()));
-    expect(some.minW).toBeCloseTo(none.minW + 10 * 2, 2);
+    expect(some.minW).toBeCloseTo(none.minW + 10 * 2.1, 2);
     expect(some.elastic.w).toBe(false);
   });
 

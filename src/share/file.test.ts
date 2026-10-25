@@ -19,7 +19,7 @@ describe("exportJsonFile / importJsonText", () => {
 
   it("keeps foreign components in the file", async () => {
     const raw = JSON.parse(serializeProject(newProject(), noForeign())) as Record<string, unknown>;
-    raw.schemaVersion = "0.3.9";
+    raw.schemaVersion = "0.4.9";
     raw.components = [{ id: "dial0001", kind: "dial" }];
     const loaded = parseProject(raw);
     if (!loaded.ok) {

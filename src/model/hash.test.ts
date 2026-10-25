@@ -151,14 +151,15 @@ describe("inputsHash", () => {
   it("hashes the fixtures to pinned values, none of them the hash they had before schema 0.3.0", () => {
     // Schema 0.3.0 put PLANNING_MODEL into every hash (growth is the last step of planning), so
     // every saved plan goes stale once, by design. These are pinned again from the code of that
-    // release; the second table is what they were before, kept to show none is current. Change a
+    // release, and again for 0.4.0 (the card clearance defaults moved, so every fixture's settings and
+    // hash did); the second table is what they were before, kept to show none is current. Change a
     // value only for a deliberate change of what the hash covers, and say why here.
     const pinned: Record<string, string> = {
-      "cards-heavy": "0eab3a2d9c44b9",
-      "bits-heavy": "0094f5b385e987",
-      "tiles-minis": "1df44efc800ca5",
-      "small-tiles": "1441a877fcde53",
-      "tiny-box": "041ccd3bfee0a1",
+      "cards-heavy": "1031691b0d75e2",
+      "bits-heavy": "15598a9db78fe7",
+      "tiles-minis": "0a6bef2b5430b8",
+      "small-tiles": "05b0ebde7a2c0c",
+      "tiny-box": "15bd08dd0a868a",
     };
     const before: Record<string, string> = {
       "cards-heavy": "01768a82dd047a",

@@ -75,14 +75,36 @@ export const CORNER_MARGIN = 0.1;
  */
 export const MIN_WALL_MM = MIN_FEATURE_MM + CORNER_MARGIN;
 
+/**
+ * What the defaults were before 0.26.0 (owner, 2026-10-25: comfortable clearances). Schema 0.4.0's
+ * migration moves a stored value that still equals one of these to the new default.
+ */
+export const OLD_CARD_CLEARANCE = 1.5;
+export const OLD_CARD_STACK_CLEARANCE = 1;
+
+/** Fit never takes a card well's footprint clearance below this (total, mm): snug, not fiddly. */
+export const MIN_CARD_CLEARANCE = 1.5;
+/** Fit never takes a deck's fixed stack allowance below this (mm). */
+export const MIN_CARD_STACK_CLEARANCE = 1;
+/**
+ * The fraction a sleeved deck grows in its well over its squeezed height: sleeves trap air (6–11 %
+ * measured for double sleeving). `cardStackClearancePct` stays the unsleeved fraction; a sleeved
+ * deck takes the larger of the two.
+ */
+export const SLEEVED_STACK_SPRING = 0.1;
+/** Tile stacks are this much thicker than nominal: cardboard runs over its size (5 %). */
+export const TILE_THICKNESS_ALLOWANCE = 0.05;
+/** Added to pieceClearance for a miniature's pocket (total, mm, before Fit): bases vary. */
+export const MINIS_EXTRA_CLEARANCE = 1;
+
 /** Spec §5 defaults. Projects store resolved values, never "use the default". Deeply frozen. */
 export const DEFAULT_SETTINGS: Settings = deepFreeze({
   wall: 1.6,
   floor: 1.2,
   divider: 1.2,
   fit: 1,
-  cardClearance: 1.5,
-  cardStackClearance: 1,
+  cardClearance: 3,
+  cardStackClearance: 2,
   cardStackClearancePct: 0.03,
   cardThickness: 0.32,
   pieceClearance: 1,
@@ -253,6 +275,8 @@ export interface Effective {
   cardClearance: number;
   cardStackClearance: number;
   pieceClearance: number;
+  /** A miniature's pocket: pieceClearance plus MINIS_EXTRA_CLEARANCE, × fit. */
+  miniClearance: number;
   boxClearance: number;
   trayGap: number;
   lipPlay: number;
@@ -266,9 +290,10 @@ function round6(x: number): number {
 /** Base clearances × fit. `cardStackClearancePct` is not included; sizing scales it by `fit` itself. */
 export function effective(s: Settings): Effective {
   return {
-    cardClearance: round6(s.cardClearance * s.fit),
-    cardStackClearance: round6(s.cardStackClearance * s.fit),
+    cardClearance: round6(Math.max(s.cardClearance * s.fit, MIN_CARD_CLEARANCE)),
+    cardStackClearance: round6(Math.max(s.cardStackClearance * s.fit, MIN_CARD_STACK_CLEARANCE)),
     pieceClearance: round6(s.pieceClearance * s.fit),
+    miniClearance: round6((s.pieceClearance + MINIS_EXTRA_CLEARANCE) * s.fit),
     boxClearance: round6(s.boxClearance * s.fit),
     trayGap: round6(s.trayGap * s.fit),
     lipPlay: round6(s.lip.play * s.fit),
