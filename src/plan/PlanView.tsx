@@ -5,11 +5,11 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { isLockable } from "../app/actions";
 import { trayNames } from "../instructions/naming";
 import { numberParts, partsByKey } from "../instructions/numbering";
-import { Icon, KindGlyph } from "../kit";
+import { FitText, Icon, KindGlyph } from "../kit";
 import type { Box, Component, Group, ReservedSpec, Settings, TraySpec } from "../model/types";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { StageSlot } from "../screens/StageSlot";
-import { componentIdsOfTray, mm, sharingTrayWith } from "../ui/identity";
+import { componentIdsOfTray, mm, sharingTrayWith, wellNamesOfTray } from "../ui/identity";
 import { PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import {
   footprintsAt,
@@ -25,6 +25,12 @@ import { DESKTOP_PILL, PHONE_PILL, hasPillRoom } from "./tileText";
 import "./plan.css";
 
 export const DRAG_THRESHOLD_PX = 6;
+
+/** The tile's tooltip: its name, and the kinds its wells hold when it has several ("Resources: Oil, Metal"). */
+const kindsTitle = (name: string, kinds: readonly string[]): string => {
+  const named = kinds.filter((k) => k !== "");
+  return named.length === 0 ? name : `${name}: ${named.join(", ")}`;
+};
 
 export interface PlanViewProps {
   trays: readonly TraySpec[];
@@ -708,7 +714,7 @@ export function PlanView(props: PlanViewProps) {
                     data-key={t.key}
                     class={cls}
                     style={{ ...shade, ...place(misfit ? inFrame(r) : r) }}
-                    title={name}
+                    title={kindsTitle(name, grouped ? [] : wellNamesOfTray(t, components))}
                     {...(readOnly
                       ? { "aria-hidden": "true" }
                       : control(t.key, name, locked, sizeLocked, selected))}
@@ -751,7 +757,12 @@ export function PlanView(props: PlanViewProps) {
                           {icon && look !== null ? (
                             <KindGlyph kind={look.kind} size={pillType.icon} />
                           ) : null}
-                          <span class="plan-name">{name}</span>
+                          <FitText
+                            class="plan-name"
+                            box={(el) => el.closest<HTMLElement>(".plan-center")}
+                          >
+                            {name}
+                          </FitText>
                         </span>
                       </span>
                     ) : null}

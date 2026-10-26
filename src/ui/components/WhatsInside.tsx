@@ -99,6 +99,10 @@ export interface WhatsInsideProps {
   onChange: (id: string, next: Component) => void;
   /** Returns false when nothing was removed. */
   onRemove: (id: string) => boolean;
+  /** Duplicate in an item's editor: a copy is added below the item and its editor opens. */
+  onDuplicate?: (id: string) => void;
+  /** The open item's placement menu (Keep here, Rotate 90°…), or none when it has no single tray to place. */
+  placementOf?: (id: string) => ComponentChildren;
   onUnpin?: (trayKeys: string[]) => void;
   onFreeTurn?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
@@ -143,6 +147,8 @@ export function WhatsInside({
   onAddGroup,
   onChange,
   onRemove,
+  onDuplicate,
+  placementOf,
   onUnpin,
   onFreeTurn,
   onUnlockSize,
@@ -458,6 +464,8 @@ export function WhatsInside({
         grouping={grouping}
         onChange={(next) => onChange(open.id, next)}
         onBack={leave}
+        onDuplicate={onDuplicate === undefined ? undefined : () => onDuplicate(open.id)}
+        placement={placementOf?.(open.id)}
         backLabel={backGroup === undefined ? undefined : backGroup.name || DEFAULT_GROUP_NAME}
         onRemove={() => {
           comeBackTo.current = { id: open.id, index, removed: true };

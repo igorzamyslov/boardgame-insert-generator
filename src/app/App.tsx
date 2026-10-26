@@ -1,4 +1,5 @@
 // src/app/App.tsx
+import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
@@ -55,6 +56,8 @@ import { SettingsSheet, settingsPageFor } from "../ui/SettingsSheet";
 import type { SettingsPage } from "../ui/SettingsSheet";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
+import { TrayMore } from "../ui/TrayBar";
+import { trayEdits } from "../ui/trayActions";
 import { componentIdsOfTray, mm } from "../ui/identity";
 import { misfitOf, namedConflicts } from "../ui/noFit";
 import { volumeNote } from "../ui/volumeFit";
@@ -71,6 +74,7 @@ import {
   addComponent,
   addGroup,
   clearChoices,
+  duplicateComponent,
   freeTurn,
   lockedKeys,
   moveToGroup,
@@ -827,6 +831,55 @@ export function App(props: AppProps) {
       return notes;
     },
   };
+  // Duplicate in an item's editor: the copy is added below the item (one undo step) and opens.
+  const duplicateItem = (id: string): void => {
+    let copyId: string | null = null;
+    store.edit((q) => {
+      const made = duplicateComponent(q, id);
+      copyId = made.copyId;
+      return made.project;
+    });
+    const copy = store.state.project.peek().components.find((c) => c.id === copyId);
+    if (copy !== undefined) {
+      setEditingId(copy.id);
+      sayNotes([`Added “${copy.name}”.`]);
+    }
+  };
+  // A Swap or a Put on begun from an item's editor leaves the editor: the other tray is picked on
+  // the plan (or in 3D), with the tray's dock showing, as when the tray itself was selected.
+  const startPick = (key: string, mode: "swap" | "putOn"): void => {
+    setEditingId(null);
+    setEditingGroupId(null);
+    s.selection.value = key;
+    s.pickMode.value = mode;
+    s.swapFrom.value = key;
+    if (phone) {
+      setSheetOpen(false);
+    }
+  };
+  // The placement menu of an item's editor: the dock's ⋯, for an item with one tray to place.
+  const placementOf = (id: string): ComponentChildren => {
+    const mine = layout
+      ? printable.filter(
+          (t) => t.part === "tray" && componentIdsOfTray(t, project.components).includes(id),
+        )
+      : [];
+    const tray = mine[0];
+    if (tray === undefined || mine.length !== 1) {
+      return null;
+    }
+    return (
+      <TrayMore
+        project={project}
+        foreign={s.foreign.value}
+        tray={tray}
+        opens="down"
+        {...trayEdits(project, tray.key, store.edit)}
+        onSwap={() => startPick(tray.key, "swap")}
+        onPutOn={() => startPick(tray.key, "putOn")}
+      />
+    );
+  };
   // What's inside: the rail's list (the sheet's, on a phone), or a component's editor in its place.
   const whatsInside = (
     <WhatsInside
@@ -851,6 +904,8 @@ export function App(props: AppProps) {
       }}
       groupActions={groupActions}
       itemActions={itemActions}
+      onDuplicate={duplicateItem}
+      placementOf={placementOf}
       trays={listTrays}
       locks={project.locks}
       groups={project.groups}

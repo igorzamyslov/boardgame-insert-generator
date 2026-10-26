@@ -1166,7 +1166,7 @@ describe("a group's trays in the plan (G1)", () => {
     const { box } = setup({ trays: [plain] });
     const tile = box.querySelector('[data-key="a:p0:0"]') as HTMLElement;
     expect(tile.outerHTML).toMatchInlineSnapshot(
-      `"<div data-key="a:p0:0" class="plan-tile" style="--tile-fill: light-dark(#C0D3F7, #263654); --tile-line: light-dark(#335AA6, #829FD9); --tile-ink: light-dark(#22457E, #C3D2E9); --x: 0.25%; --y: 0.5%; --w: 45%; --d: 99%;" title="Region deck" role="button" tabindex="0" aria-pressed="false" aria-label="Region deck, layer 1"><div class="plan-cells" aria-hidden="true"><span class="plan-cell" style="left: 1.1111%; top: 88.8889%; width: 11.1111%; height: 10.101%;"></span></div><span class="plan-center" aria-hidden="true"><span class="plan-pill"><span class="plan-name">Region deck</span></span></span></div>"`,
+      `"<div data-key="a:p0:0" class="plan-tile" style="--tile-fill: light-dark(#C0D3F7, #263654); --tile-line: light-dark(#335AA6, #829FD9); --tile-ink: light-dark(#22457E, #C3D2E9); --x: 0.25%; --y: 0.5%; --w: 45%; --d: 99%;" title="Region deck" role="button" tabindex="0" aria-pressed="false" aria-label="Region deck, layer 1"><div class="plan-cells" aria-hidden="true"><span class="plan-cell" style="left: 1.1111%; top: 88.8889%; width: 11.1111%; height: 10.101%;"></span></div><span class="plan-center" aria-hidden="true"><span class="plan-pill"><span class="plan-name ellipsis">Region deck</span></span></span></div>"`,
     );
   });
 

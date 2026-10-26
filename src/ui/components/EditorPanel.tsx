@@ -31,6 +31,13 @@ export interface EditorPanelProps {
   backLabel?: string;
   /** The removal was confirmed. */
   onRemove: () => void;
+  /** Duplicate: a copy of the item is added below it and its editor opens. Without it there is no button. */
+  onDuplicate?: () => void;
+  /**
+   * The tray's placement menu (Keep here, Rotate 90°…), when the item has one tray to place: the
+   * same menu as the tray dock's ⋯. The app builds it; the editor only gives it a place.
+   */
+  placement?: ComponentChildren;
   /**
    * The groups, for an item's Group row and its Copies; the app gives it. Without it the editor is
    * drawn alone: the item is in no group and has no Group row. An item in a group has "In <group>"
@@ -79,6 +86,8 @@ export function EditorPanel({
   onBack,
   backLabel,
   onRemove,
+  onDuplicate,
+  placement,
   onNote,
   grouping,
   phone = false,
@@ -138,6 +147,17 @@ export function EditorPanel({
       {removeLabel}
     </button>
   );
+  const duplicate =
+    onDuplicate === undefined ? null : (
+      <button
+        type="button"
+        class="ed-duplicate"
+        aria-label={`Duplicate ${who}`}
+        onClick={onDuplicate}
+      >
+        Duplicate
+      </button>
+    );
   // Escape leaves the editor, as Done does; one that something inside took (a menu, a drag) is theirs.
   const leaveOnEscape = (e: KeyboardEvent): void => {
     if (
@@ -186,6 +206,7 @@ export function EditorPanel({
           <h1 class="ed-bar__title" tabIndex={-1} ref={headingRef}>
             {name}
           </h1>
+          {placement}
           <Button variant="primary" class="ed-done" onClick={onBack}>
             Done
           </Button>
@@ -195,7 +216,16 @@ export function EditorPanel({
           <TextBox id={`${c.id}-name`} label="Name" value={c.name} onCommit={rename} />
           {inGroup}
           {kindEditor}
-          <div class="ed-remove-row">{asking ? answer : remove}</div>
+          <div class="ed-remove-row">
+            {asking ? (
+              answer
+            ) : (
+              <>
+                {duplicate}
+                {remove}
+              </>
+            )}
+          </div>
         </div>
       </section>
     );
@@ -226,6 +256,7 @@ export function EditorPanel({
             </label>
             {inGroup}
           </div>
+          {placement}
         </div>
       </div>
       {kindEditor}
@@ -234,7 +265,10 @@ export function EditorPanel({
           answer
         ) : (
           <>
-            {remove}
+            <span class="ed-foot__more">
+              {remove}
+              {duplicate}
+            </span>
             <Button variant="primary" class="ed-done" onClick={onBack}>
               Done
             </Button>
