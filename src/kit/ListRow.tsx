@@ -2,6 +2,7 @@
 import type { ButtonHTMLAttributes, CSSProperties, ComponentChildren } from "preact";
 import type { ComponentKind } from "../model/types";
 import { cx } from "./cx";
+import { FitText } from "./FitText";
 import { Icon } from "./icons";
 import { IconTile } from "./IconTile";
 
@@ -84,9 +85,9 @@ export function ListRow({
         ) : null}
         {compact ? (
           <>
-            <span class="k-row__name ellipsis" title={name}>
+            <FitText class="k-row__name" title={name}>
               {name}
-            </span>
+            </FitText>
             {meta !== undefined ? (
               <span class="k-row__meta ellipsis" title={meta}>
                 {meta}
@@ -95,9 +96,9 @@ export function ListRow({
           </>
         ) : (
           <span class="k-row__text">
-            <span class="k-row__name ellipsis" title={name}>
+            <FitText class="k-row__name" title={name}>
               {name}
-            </span>
+            </FitText>
             {meta !== undefined ? (
               <span class="k-row__meta ellipsis" title={meta}>
                 {meta}

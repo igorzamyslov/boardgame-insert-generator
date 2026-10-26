@@ -35,6 +35,8 @@ import {
   shadeOf,
   sharingTrayWith,
   traysOfGroup,
+  wellName,
+  wellNamesOfTray,
 } from "./identity";
 
 function cards(id: string, name: string): Component {
@@ -623,5 +625,63 @@ describe("group identity", () => {
       "kit:p1:0",
       "kit:p1:1",
     ]);
+  });
+});
+
+describe("wellName", () => {
+  const bulk = (name: string): Component => ({ ...newComponent("bulk"), id: "b", name });
+
+  it("takes the item's name out of what the sizing wrote", () => {
+    expect(wellName("Resources — Wood ×20", bulk("Resources"))).toBe("Wood");
+    expect(wellName("Resources — Oil 150 ml", bulk("Resources"))).toBe("Oil");
+    expect(wellName("Faction miniatures — Mech 2/4", bulk("Faction miniatures"))).toBe("Mech");
+  });
+
+  it("has no name for the one item a component is called after", () => {
+    expect(wellName("Coins ×40", bulk("Coins"))).toBe("");
+    expect(wellName("Power dials 1/2", bulk("Power dials"))).toBe("");
+  });
+
+  it("names every deck of a shared well", () => {
+    expect(wellName("Encounters — Deck 1 ×30 + Deck 2 ×30", bulk("Encounters"))).toBe(
+      "Deck 1 + Deck 2",
+    );
+  });
+
+  it("keeps an item's own name when the component has none", () => {
+    expect(wellName("Wood ×20", bulk(""))).toBe("Wood");
+  });
+});
+
+describe("wellNamesOfTray", () => {
+  const comp = { ...newComponent("bulk"), id: "b", name: "Resources" } as Component;
+  const wells = (...contents: string[]) =>
+    makeTray({
+      compartments: contents.map((c) => well({ contents: c, componentId: "b" })),
+    });
+
+  it("names each well of a tray of several kinds", () => {
+    expect(wellNamesOfTray(wells("Resources — Oil ×20", "Resources — Wood ×20"), [comp])).toEqual([
+      "Oil",
+      "Wood",
+    ]);
+  });
+
+  it("names nothing for a tray of one kind", () => {
+    expect(wellNamesOfTray(wells("Resources — Oil ×20"), [comp])).toEqual([""]);
+  });
+
+  it("says a figure's name once for the run of its pockets", () => {
+    expect(
+      wellNamesOfTray(
+        wells(
+          "Resources — Leader",
+          "Resources — Mech 1/2",
+          "Resources — Mech 2/2",
+          "Resources — Hero",
+        ),
+        [comp],
+      ),
+    ).toEqual(["Leader", "Mech", "", "Hero"]);
   });
 });

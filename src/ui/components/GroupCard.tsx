@@ -1,7 +1,7 @@
 // src/ui/components/GroupCard.tsx
 import type { ComponentChildren } from "preact";
 import { useId, useState } from "preact/hooks";
-import { GripIcon, GroupGlyph, IconTile, ListRow, RowEditButton } from "../../kit";
+import { FitText, GripIcon, GroupGlyph, IconTile, ListRow, RowEditButton } from "../../kit";
 import { DEFAULT_GROUP_NAME } from "../../model/groups";
 import type { ComponentKind, Group, TraySpec } from "../../model/types";
 
@@ -148,9 +148,9 @@ export function GroupCard({
   };
   const title = (
     <span class="gc-head__title">
-      <span class="k-row__name ellipsis" title={name}>
+      <FitText class="k-row__name" title={name}>
         {name}
-      </span>
+      </FitText>
       {copies > 1 ? <span class="gc-head__copies">{`×${copies}`}</span> : null}
     </span>
   );

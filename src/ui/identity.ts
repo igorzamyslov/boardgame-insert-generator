@@ -228,6 +228,50 @@ export function shadeIndexOf(components: readonly Component[], index: number): n
   return before;
 }
 
+/** The count a well's contents text ends with: "×20", "150 ml" or a pocket's "2/4". */
+const COUNT_TAIL = /\s+(?:×\d+|\d+(?:\.\d+)?\s?ml|\d+\/\d+)$/;
+
+/**
+ * What one well of a tray holds, by its own name: "Wood" for the well of "Resources — Wood ×20", "Leader"
+ * for a figure's pocket. Taken from the contents text the sizing writes (the component's name, a
+ * dash, the item's name, its count). Empty when the well has no name of its own: one item the
+ * component is called after (Coins ×40 in "Coins"), a custom well, a stack of tiles.
+ */
+export function wellName(contents: string, component: Component | undefined): string {
+  const own = component?.name.trim() ?? "";
+  const clean = (part: string): string => part.trim().replace(COUNT_TAIL, "").trim();
+  let text = contents;
+  if (own !== "" && text.startsWith(`${own} — `)) {
+    text = text.slice(own.length + 3);
+  }
+  // decks sharing one well: "Deck 1 ×30 + Deck 2 ×30"
+  const name = text
+    .split(" + ")
+    .map(clean)
+    .filter((x) => x !== "")
+    .join(" + ");
+  return name === own ? "" : name;
+}
+
+/**
+ * The names a tray's wells wear in the plan, one per compartment ("" for none): only a tray of one
+ * component with two or more named wells has any, and a well named as the one before it is left
+ * out (the pockets of a figure ×4 say it once).
+ */
+export function wellNamesOfTray(tray: TraySpec, components: readonly Component[]): string[] {
+  const names = tray.compartments.map((c) => {
+    if (c.kind === "spare") {
+      return "";
+    }
+    const at = componentIndexOfCompartment(c, components);
+    return wellName(c.contents, at === null ? undefined : components[at]);
+  });
+  if (names.filter((n) => n !== "").length < 2) {
+    return names.map(() => "");
+  }
+  return names.map((n, i) => (n === names[i - 1] ? "" : n));
+}
+
 /** The component a compartment holds, by the id it names, else by its words; null for none. */
 export function componentIndexOfCompartment(
   compartment: TraySpec["compartments"][number],

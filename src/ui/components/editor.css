@@ -532,6 +532,31 @@
   padding: 0 var(--s-22);
 }
 
+/* Remove… and Duplicate side by side at the foot's left; Duplicate is the quiet ink one. */
+.ed-foot__more {
+  display: flex;
+  gap: var(--s-16);
+  align-items: center;
+}
+
+.ed .ed-duplicate {
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--muted-strong);
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ed--phone .ed-duplicate {
+  font-size: var(--text-sm);
+}
+
 .ed-ask {
   display: flex;
   flex-wrap: wrap;
@@ -607,6 +632,7 @@
 
 .ed-remove-row {
   display: flex;
+  gap: var(--s-24);
   justify-content: center;
   padding-top: var(--s-8);
   border-top: 1px solid var(--rule-soft);

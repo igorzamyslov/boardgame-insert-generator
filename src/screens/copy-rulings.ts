@@ -252,6 +252,8 @@ const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
 const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
 const EDITOR_ROOM_MORE = "Room for more is one row per item, in the contents' terms";
 const RESIZE = "The rail's handle is named";
+// 0.27.0: Duplicate in an item's editor
+const DUPLICATE = "An item can be duplicated from its editor";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_CHANGED = "More options marks what differs from its default";
 const EDITOR_ROOM = "Room around the pieces shows the insert's number and lets the item change it";
@@ -1054,6 +1056,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // asking before a removal, and the note after it (it sits in the stage slot, as the option notes do)
   { text: "Remove “{name}” from the box?", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Remove", states: EDITING, ruling: EDITOR_REMOVE },
+  { text: "Duplicate", states: EDITING, ruling: DUPLICATE },
   { text: "Cancel", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Removed “{name}”.", states: ["editor-removed"], ruling: EDITOR_REMOVE },
   { text: "Undo removal", states: ["editor-removed"], ruling: EDITOR_REMOVE },
