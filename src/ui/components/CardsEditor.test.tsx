@@ -405,9 +405,9 @@ describe("CardsEditor", () => {
     it("shows the insert's extra room, and a different number gives the component its own", () => {
       const { last } = setup(cards());
       openRows();
-      // the insert's card clearance, 1.5 mm at Fit 1, is in the box: nothing is set
+      // the insert's card clearance, 3 mm at Fit 1, is in the box: nothing is set
       const box = screen.getByLabelText(/^Room around the pieces/) as HTMLInputElement;
-      expect(box.value).toBe("1.5");
+      expect(box.value).toBe("3");
       expect(
         screen.getByText("The insert's setting. Type another number to give this item its own."),
       ).toBeTruthy();
@@ -419,7 +419,7 @@ describe("CardsEditor", () => {
       const { last } = setup(cards({ clearance: 2 }));
       openRows();
       fireEvent.input(screen.getByLabelText(/^Room around the pieces/), {
-        target: { value: "1,5" },
+        target: { value: "3,0" },
       });
       expect("clearance" in last()).toBe(false);
     });
@@ -778,7 +778,7 @@ describe("the thickness correction", () => {
     openRows();
     const row = settingOf("Card thickness");
     expect(row.textContent).toContain(
-      "From the sleeve table. Measure your stack if decks come out tight.",
+      "From the sleeve table. Measure your stack if decks come out tight, with the cards pressed together.",
     );
     expect(document.body.textContent).not.toMatch(/card stack clearance/);
   });

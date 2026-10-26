@@ -188,7 +188,7 @@ describe("splitSeparators", () => {
 });
 
 describe("separators and the stored layout", () => {
-  // One deck that may grow, in a box just wider than it: the optimizer stores a spacer of 10.99 mm.
+  // One deck that may grow, in a box just wider than it: the optimizer stores a spacer of 11.02 mm.
   // (A slack past what the deck may take without plates, its own thickness, becomes a filler
   // beside it; with several plates it stays a spacer up to six thicknesses, see "a roomy box" below.)
   const raw = FIXTURES["cards-heavy"] as unknown as Record<string, unknown> & {
@@ -215,7 +215,7 @@ describe("separators and the stored layout", () => {
     }
     return parsed.project;
   };
-  const project = projectIn(33.5);
+  const project = projectIn(35.7);
   const withSeparators = (n: number): Project => ({
     ...project,
     components: project.components.map((c) => ({ ...c, separators: n })),
@@ -261,8 +261,8 @@ describe("separators and the stored layout", () => {
     const base = stored(withSeparators(1));
     const [one] = spacers(base.trays) as [TraySpec];
     expect(spacers(base.trays)).toHaveLength(1);
-    expect(along(one)).toBe(10.99);
-    // 10.99 mm holds three plates of at least 3 mm
+    expect(along(one)).toBe(11.02);
+    // 11.02 mm holds three plates of at least 3 mm
     for (const [asked, got] of [
       [1, 1],
       [2, 2],

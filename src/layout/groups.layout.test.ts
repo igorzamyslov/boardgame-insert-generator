@@ -230,7 +230,7 @@ describe("stored 0.6 plans", () => {
     expect(p.layout).toBeDefined();
     expect(p.layout?.inputsHash).toBe(hashes["per-player"]);
     expect(inputsHash(p)).not.toBe(hashes["per-player"]);
-    expect(inputsHash(p)).toBe("14f72bc153ab6a");
+    expect(inputsHash(p)).toBe("1ce59432cfce96");
     expect(p.layout?.inputsHash).not.toBe(inputsHash(p));
   });
 

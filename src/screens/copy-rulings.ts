@@ -414,10 +414,17 @@ const SET_DISPLAY = "A project opens in the view the person chose: Display";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
 const SET_GAPS = "Fill the space that's left is one choice of what the engine does with spare room";
+const PRESSED = "A measured stack is pressed together";
 const SET_KIND = "Rim between layers is one choice: Off, Auto, a rim and groove or a stepped base";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
+  // 0.26.0: the measure hint says the stack is measured pressed together (sizing adds the sleeves' spring).
+  {
+    text: "From the sleeve table. Measure your stack if decks come out tight, with the cards pressed together.",
+    states: "all",
+    ruling: PRESSED,
+  },
   // The phone's tray sheet says the filament where its board says "Printing: about 3.5 h, 58 g".
   { text: "Filament", states: SHEET_STATES, ruling: NO_TIME },
   { text: "about {n} g", states: SHEET_STATES, ruling: NO_TIME },

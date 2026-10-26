@@ -2,6 +2,7 @@ import { DEFAULT_BOX, DEFAULT_PRINTER } from "./defaults";
 import { deepFreeze } from "./freeze";
 import type { Json } from "./json";
 import { migrateTo020 } from "./migrate-0.2";
+import { migrateTo040 } from "./migrate-0.4";
 import { migrateTo030 } from "./migrate-0.3";
 import {
   isArrayIndex,
@@ -66,6 +67,8 @@ export const MIGRATIONS: Migration[] = deepFreeze([
   { from: "0.1", to: "0.2.0", migrate: migrateTo020 },
   // 0.2 → 0.3.0: per-axis `growth` becomes one `room` per item (migrate-0.3.ts).
   { from: "0.2", to: "0.3.0", migrate: migrateTo030 },
+  // 0.3 → 0.4.0: the old card clearance defaults become the comfortable ones (migrate-0.4.ts).
+  { from: "0.3", to: "0.4.0", migrate: migrateTo040 },
 ]);
 
 export interface ParseOptions {

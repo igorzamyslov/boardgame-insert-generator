@@ -73,7 +73,7 @@ describe("when it doesn't fit (the strip)", () => {
     expect(h1().textContent).toBe(`The ${misfit?.name} tray doesn't fit yet`);
     // one dimension is the cause (a figure 80 mm tall in a 70 mm box): the line says which, in the engine's figures
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "Heroes needs 103.7 mm of height. The box has 70 mm.",
+      "Heroes needs 93.7 mm of height. The box has 70 mm.",
     );
     // the status is in the stage as a region of its own, in the warn tone
     expect(

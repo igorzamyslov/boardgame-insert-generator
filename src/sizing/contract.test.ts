@@ -9,8 +9,8 @@ describe("plan 1 values that sizing relies on", () => {
       floor: 1.2,
       divider: 1.2,
       fit: 1,
-      cardClearance: 1.5,
-      cardStackClearance: 1,
+      cardClearance: 3,
+      cardStackClearance: 2,
       cardStackClearancePct: 0.03,
       cardThickness: 0.32,
       pieceClearance: 1,
@@ -38,8 +38,18 @@ describe("plan 1 values that sizing relies on", () => {
 
   it("scales clearances by fit", () => {
     const e = effective({ ...DEFAULT_SETTINGS, fit: 1.4 });
+    expect(e.cardClearance).toBeCloseTo(4.2, 9);
+    expect(e.cardStackClearance).toBeCloseTo(2.8, 9);
+    expect(e.pieceClearance).toBeCloseTo(1.4, 9);
+    expect(e.miniClearance).toBeCloseTo(2.8, 9);
+  });
+
+  it("keeps card clearances above their floors at a snug fit", () => {
+    const e = effective({ ...DEFAULT_SETTINGS, fit: 0.7 });
     expect(e.cardClearance).toBeCloseTo(2.1, 9);
     expect(e.cardStackClearance).toBeCloseTo(1.4, 9);
-    expect(e.pieceClearance).toBeCloseTo(1.4, 9);
+    const tight = effective({ ...DEFAULT_SETTINGS, fit: 0.4 });
+    expect(tight.cardClearance).toBeCloseTo(1.5, 9);
+    expect(tight.cardStackClearance).toBeCloseTo(1, 9);
   });
 });

@@ -1,6 +1,11 @@
 import { dividersOf, growthOf, separatorsOf, togglesOf } from "../model/defaults";
 import { roomOf } from "../model/room";
-import { FLOAT_EPSILON, POST_MM, reachableCutMm } from "../model/settings";
+import {
+  FLOAT_EPSILON,
+  POST_MM,
+  TILE_THICKNESS_ALLOWANCE,
+  reachableCutMm,
+} from "../model/settings";
 import type { Notice, Settings, Side, TileShape, TilesComponent } from "../model/types";
 import {
   compartment,
@@ -58,6 +63,11 @@ export function columnCounts(count: number, thickness: number): number[] {
   return out;
 }
 
+/** One tile's thickness as sized: the nominal one and the 5 % cardboard runs over it. */
+function tileThickness(c: TilesComponent): number {
+  return c.thickness * (1 + TILE_THICKNESS_ALLOWANCE);
+}
+
 /** Flat tiles: half-round cutouts through the two long walls (left and right for a square). */
 function flatColumn(
   c: TilesComponent,
@@ -76,9 +86,9 @@ function flatColumn(
     w: foot.x + clearance,
     d: foot.y + clearance,
     // Dividers of a flat stack are loose plates between its groups (see cards.ts)
-    h: (n + more) * c.thickness + clearance + plates * dividerThickness(s),
+    h: (n + more) * tileThickness(c) + clearance + plates * dividerThickness(s),
     ...(plates > 0 ? { plates } : {}),
-    grow: { h: growthMm(growthOf(c, "stack", true, s.biggerWells), (n + more) * c.thickness) },
+    grow: { h: growthMm(growthOf(c, "stack", true, s.biggerWells), (n + more) * tileThickness(c)) },
     features: featuresOf(togglesOf(c), [wallCutout(a, 1, true), wallCutout(b, 1, true)]),
   });
 }
@@ -96,14 +106,14 @@ function uprightStack(
   // Retention and reachability bound it (stackGrowthMm); no spacer unless `separators` is set.
   const grow = stackGrowthMm(
     growthOf(c, "stack", false, s.biggerWells),
-    fromU(ceilU((n + more) * c.thickness)),
+    fromU(ceilU((n + more) * tileThickness(c))),
     dividers === 0 && plates > 0,
     dividers,
     togglesOf(c).fingerCuts ? s.fingerPocket.width : undefined,
   );
-  const stack = (n + more) * c.thickness + clearance;
+  const stack = (n + more) * tileThickness(c) + clearance;
   // With plates, the planned room is a spacer's (see cards.ts)
-  const planned = more * c.thickness;
+  const planned = more * tileThickness(c);
   const spacer = dividers === 0 && plates > 0 && (grow > 0 || planned > 0);
   return compartment({
     componentId: c.id,

@@ -93,6 +93,9 @@ export function flatDecksBlock(c: Component): string | undefined {
  */
 export function insertClearance(c: Component, settings: Settings): number {
   const e = effective(settings);
+  if (c.kind === "minis" && c.storage !== "bulk") {
+    return e.miniClearance;
+  }
   return c.kind === "cards" ? e.cardClearance : e.pieceClearance;
 }
 

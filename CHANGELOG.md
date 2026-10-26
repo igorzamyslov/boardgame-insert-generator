@@ -10,6 +10,44 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-26
+
+### Added
+
+- **Duplicate an item.** In an item's editor, **Duplicate** (beside Remove…) adds a copy right below
+  it, named "<name> copy", with the same settings, in the same group if it has one. The copy's
+  editor opens, and Undo takes it back in one step. It has none of the original's pins.
+- **Placement from the editor.** An item with one tray has the tray's ⋯ menu in its editor too:
+  Keep here, Rotate 90°, Swap places with…, Put on… and Keep this size, the same as in the tray dock,
+  in Top and in 3D.
+- **A tray of several kinds names them.** Its dock says them in one more line ("Oil, Metal, Wood,
+  Food"), and its tile's tooltip too.
+
+### Changed
+
+- **Names get a smaller font before they get cut.** Plan tile names, the list's item and group names
+  and the tray dock's name and facts are set up to 20% smaller (never under 10 px) before an
+  ellipsis cuts them.
+
+## [0.26.0] - 2026-10-25
+
+### Changed
+
+- **Card wells are roomier, so decks go in without fiddling.** A well is now 3 mm bigger than the
+  sleeve each way (it was 1.5 mm), and a deck gets 10% more room across for its sleeves (3% for
+  cards with no sleeve) plus 2 mm (it was 1 mm). Snug and Loose still tighten and loosen it, but
+  Snug never goes below 1.5 mm round the card and 1 mm across the deck. A deck you measured is
+  treated as pressed together and gets the same room, so the measure field now says "with the cards
+  pressed together". Eight decks of 13 premium-sleeved cards come to a well of 69.5 × 94 mm and
+  10.6 mm across at Standard.
+- **Tile stacks and figure pockets have more room.** Tiles count 5% thicker (cardboard runs over its
+  size) and a figure's pocket is 2 mm bigger than the figure (it was 1 mm). Loose pieces and custom
+  items are as before.
+- **Your plans will change.** Projects you already have keep their own numbers: card clearances
+  that were still the old defaults move to the new ones, and ones you changed stay. Every saved
+  plan shows "This plan is from before your last changes." once, and trays come out a little
+  bigger. Reprint the trays that hold cards, tiles or figures; the rest are as they were.
+
 ## [0.25.1] - 2026-10-24
 
 ### Changed

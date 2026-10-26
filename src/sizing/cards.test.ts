@@ -90,19 +90,29 @@ describe("cardDims", () => {
 });
 
 describe("stackWidth", () => {
-  it("is n·t·(1 + pct·fit) + cardStackClearance·fit", () => {
-    expect(stackWidth(52, 0.42, s)).toBeCloseTo(23.4952, 9);
-    // 21.84 · 1.042 + 1.4
-    expect(stackWidth(52, 0.42, { ...s, fit: 1.4 })).toBeCloseTo(24.15728, 9);
+  it("is n·t·(1 + spring·fit) + cardStackClearance·fit", () => {
+    // unsleeved: the setting's 3 % spring; 21.84 · 1.03 + 2
+    expect(stackWidth(52, 0.42, s)).toBeCloseTo(24.4952, 9);
+    // 21.84 · 1.042 + 2.8
+    expect(stackWidth(52, 0.42, { ...s, fit: 1.4 })).toBeCloseTo(25.55728, 9);
+  });
+
+  it("springs 10 % for sleeved cards: sleeves trap air", () => {
+    // 21.84 · 1.1 + 2
+    expect(stackWidth(52, 0.42, s, true)).toBeCloseTo(26.024, 9);
+    // 21.84 · 1.14 + 2.8
+    expect(stackWidth(52, 0.42, { ...s, fit: 1.4 }, true)).toBeCloseTo(27.6976, 9);
+    // a setting above 10 % is kept: 21.84 · 1.2 + 2
+    expect(stackWidth(52, 0.42, { ...s, cardStackClearancePct: 0.2 }, true)).toBeCloseTo(28.208, 9);
   });
 });
 
 describe("cardOptions", () => {
   it("upright-long: stack along X, length along Y, height from the short side", () => {
     const c = deck(cards());
-    expect(c.minW).toBe(23.5);
-    expect(c.minD).toBeCloseTo(92.5, 9);
-    expect(c.minH).toBeCloseTo(68, 9);
+    expect(c.minW).toBe(26.03); // 26.024 rounded up
+    expect(c.minD).toBeCloseTo(94, 9);
+    expect(c.minH).toBeCloseTo(69.5, 9);
     expect(c.kind).toBe("well");
     expect(c.contents).toBe("Cards — Main ×52");
     expect(c.componentId).toBe("c1");
@@ -116,8 +126,8 @@ describe("cardOptions", () => {
   });
 
   describe("growth (minimal-trays spec §5)", () => {
-    // 52 cards at 0.42 mm each, 3 % and 1 mm stack clearance: a 23.5 mm stack.
-    const stack = 23.5;
+    // 52 sleeved cards at 0.42 mm each, 10 % spring and 2 mm stack clearance: a 26.03 mm stack.
+    const stack = 26.03;
     // "auto" is what the fill setting "bigger wells" gives an item that asked for nothing
     const wells: Settings = { ...s, biggerWells: true };
     const max = { room: "max" } as const;
@@ -139,10 +149,10 @@ describe("cardOptions", () => {
     it("takes a number as that many more cards, built into the well and not grown after", () => {
       // was a number of mm of growth; now "some" is counted in cards (owner, 2026-10-23)
       const c = deck(cards({ room: 20 }));
-      expect(c.minW).toBe(fromU(ceilU(stackWidth(72, 0.42, s))));
+      expect(c.minW).toBe(fromU(ceilU(stackWidth(72, 0.42, s, true))));
       expect(c.elastic).toEqual({ w: false, d: false, h: false });
       expect(c.growth).toBeUndefined();
-      expect(deck(cards({ room: 0 })).minW).toBe(23.5);
+      expect(deck(cards({ room: 0 })).minW).toBe(26.03);
     });
 
     it("never grows across the cards: width and length are not growth axes", () => {
@@ -191,10 +201,10 @@ describe("cardOptions", () => {
       });
       const grown = (width: number, biggerWells = false) =>
         deck(cards(biggerWells ? {} : max), narrow(width, biggerWells)).growth;
-      // 23.5 mm stack: a 14 mm cut leaves 14 + 23.5 - 20 = 17.5 mm of room, the default 25 mm cut
-      // the retention's 23.5
-      expect(grown(14)).toEqual({ w: 17.5 });
-      expect(grown(14, true)).toEqual({ w: 17.5 });
+      // 26.03 mm stack: a 14 mm cut leaves 14 + 26.03 - 20 = 20.03 mm of room, the default 25 mm
+      // cut the retention's 26.03
+      expect(grown(14)).toEqual({ w: 20.03 });
+      expect(grown(14, true)).toEqual({ w: 20.03 });
       expect(grown(25)).toEqual({ w: stack });
       expect(grown(10)).toEqual({ w: 10 + stack - 2 * MIN_REACH_OVERLAP });
       // not once something holds the stack: the plates' limit applies as before
@@ -235,16 +245,16 @@ describe("cardOptions", () => {
 
   it("upright-short: height from the long side, length from the short side", () => {
     const c = deck(cards({ storage: "upright-short" }));
-    expect(c.minW).toBe(23.5);
-    expect(c.minD).toBeCloseTo(68, 9);
-    expect(c.minH).toBeCloseTo(92.5, 9);
+    expect(c.minW).toBe(26.03);
+    expect(c.minD).toBeCloseTo(69.5, 9);
+    expect(c.minH).toBeCloseTo(94, 9);
   });
 
   it("flat: the stack is the height, full-depth cutouts through both long walls", () => {
     const c = deck(cards({ storage: "flat" }));
-    expect(c.minW).toBeCloseTo(68, 9);
-    expect(c.minD).toBeCloseTo(92.5, 9);
-    expect(c.minH).toBe(23.5); // 23.4952 rounded up
+    expect(c.minW).toBeCloseTo(69.5, 9);
+    expect(c.minD).toBeCloseTo(94, 9);
+    expect(c.minH).toBe(26.03); // 26.024 rounded up
     expect(c.elastic).toEqual({ w: false, d: false, h: false });
     expect(c.spacerAxis).toBeUndefined();
     expect(c.features).toEqual([cutout("left", 1, true), cutout("right", 1, true)]);
@@ -273,28 +283,28 @@ describe("cardOptions", () => {
 
   it("scales the clearances by fit", () => {
     const c = deck(cards(), { ...s, fit: 1.4 });
-    expect(c.minD).toBeCloseTo(93.1, 9);
-    expect(c.minH).toBeCloseTo(68.6, 9);
-    expect(c.minW).toBe(24.16);
+    expect(c.minD).toBeCloseTo(95.2, 9);
+    expect(c.minH).toBeCloseTo(70.7, 9);
+    expect(c.minW).toBe(27.7); // 27.6976 rounded up
   });
 
   it("a clearance override replaces cardClearance only and is not scaled", () => {
     const c = deck(cards({ clearance: 2 }), { ...s, fit: 1.4 });
     expect(c.minD).toBeCloseTo(93, 9);
     expect(c.minH).toBeCloseTo(68.5, 9);
-    expect(c.minW).toBe(24.16); // stack clearance still × fit
+    expect(c.minW).toBe(27.7); // stack clearance still × fit
   });
 
   it("drives the stack width from a measured thickness", () => {
     const c = deck(cards({ thickness: { mode: "measured", cards: 100, stackMm: 45 } }));
-    expect(c.minW).toBe(25.11);
+    expect(c.minW).toBe(27.74); // 23.4 · 1.1 + 2
   });
 
-  it("a deck of one card is a 1.33 mm well", () => {
+  it("a deck of one card is a 2.33 mm well", () => {
     const c = deck(cards({ sleeve: "none", decks: [{ name: "Solo", count: 1 }] }));
-    expect(c.minW).toBe(1.33);
-    expect(c.minD).toBeCloseTo(89.5, 9);
-    expect(c.minH).toBeCloseTo(65, 9);
+    expect(c.minW).toBe(2.33); // 0.32 · 1.03 + 2 = 2.3296
+    expect(c.minD).toBeCloseTo(91, 9);
+    expect(c.minH).toBeCloseTo(66.5, 9);
   });
 
   it("sleeved Tarot cards also get a flat option that lies low", () => {
@@ -310,10 +320,10 @@ describe("cardOptions", () => {
     );
     const upright = at(at(at(options, 0).blocks, 0), 0);
     const flat = at(at(at(options, 2).blocks, 0), 0);
-    expect(upright.minH).toBeCloseTo(74.5, 9);
-    expect(flat.minH).toBe(35.61); // 35.608 rounded up
-    expect(flat.minW).toBeCloseTo(74.5, 9);
-    expect(flat.minD).toBeCloseTo(124.5, 9);
+    expect(upright.minH).toBeCloseTo(76, 9);
+    expect(flat.minH).toBe(38.96); // 33.6 · 1.1 + 2
+    expect(flat.minW).toBeCloseTo(76, 9);
+    expect(flat.minD).toBeCloseTo(126, 9);
   });
 
   it("passes the measuredTooThin notice through", () => {
@@ -393,8 +403,9 @@ describe("cardOptions", () => {
       const scaled = deck(
         cards({ decks: [{ name: "A", count: 100 }], thickness: { mode: "preset", scale: 1.1 } }),
       );
-      // stack = n·t·(1 + pct·fit) + clearance: only the n·t·(1 + pct) part moves with the scale
-      expect(scaled.minW - plain.minW).toBeCloseTo(100 * 0.42 * 0.1 * (1 + 0.03), 1);
+      // stack = n·t·(1 + spring·fit) + clearance: only the n·t·(1 + spring) part moves with the
+      // scale (a sleeved deck's spring is 10 %)
+      expect(scaled.minW - plain.minW).toBeCloseTo(100 * 0.42 * 0.1 * (1 + 0.1), 1);
       // the card's face is untouched
       expect(scaled.minD).toBe(plain.minD);
       expect(scaled.minH).toBe(plain.minH);
@@ -418,35 +429,35 @@ describe("cardOptions", () => {
     );
     expect(options.map((o) => o.id)).toEqual(["upright-long", "upright-short", "flat"]);
     const [long, short, flat] = options.map((o) => at(at(o.blocks, 0), 0));
-    // S = 70, L = 95, t = 0.52, stack = 10 · 0.52 · 1.03 + 1 = 6.356
-    expect(long?.minW).toBe(6.36);
-    expect([long?.minD, long?.minH]).toEqual([expect.closeTo(96.5, 9), expect.closeTo(71.5, 9)]);
-    expect([short?.minD, short?.minH]).toEqual([expect.closeTo(71.5, 9), expect.closeTo(96.5, 9)]);
+    // S = 70, L = 95, t = 0.52, sleeved (a custom sleeve too): stack = 10 · 0.52 · 1.1 + 2 = 7.72
+    expect(long?.minW).toBe(7.72);
+    expect([long?.minD, long?.minH]).toEqual([expect.closeTo(98, 9), expect.closeTo(73, 9)]);
+    expect([short?.minD, short?.minH]).toEqual([expect.closeTo(73, 9), expect.closeTo(98, 9)]);
     expect([flat?.minW, flat?.minD, flat?.minH]).toEqual([
-      expect.closeTo(71.5, 9),
-      expect.closeTo(96.5, 9),
-      expect.closeTo(6.36, 9),
+      expect.closeTo(73, 9),
+      expect.closeTo(98, 9),
+      expect.closeTo(7.72, 9),
     ]);
   });
 
   it("unsleeved cards in all three storages", () => {
     const { options } = cardOptions(cards({ sleeve: "none", storage: "auto" }), s, 0);
     const [long, short, flat] = options.map((o) => at(at(o.blocks, 0), 0));
-    // S = 63.5, L = 88, t = 0.32, stack = 52 · 0.32 · 1.03 + 1 = 18.1392 → 18.14 rounded up
+    // S = 63.5, L = 88, t = 0.32, stack = 52 · 0.32 · 1.03 + 2 = 19.1392 → 19.14 rounded up
     expect([long?.minW, long?.minD, long?.minH]).toEqual([
-      expect.closeTo(18.14, 9),
-      expect.closeTo(89.5, 9),
-      expect.closeTo(65, 9),
+      expect.closeTo(19.14, 9),
+      expect.closeTo(91, 9),
+      expect.closeTo(66.5, 9),
     ]);
     expect([short?.minW, short?.minD, short?.minH]).toEqual([
-      expect.closeTo(18.14, 9),
-      expect.closeTo(65, 9),
-      expect.closeTo(89.5, 9),
+      expect.closeTo(19.14, 9),
+      expect.closeTo(66.5, 9),
+      expect.closeTo(91, 9),
     ]);
     expect([flat?.minW, flat?.minD, flat?.minH]).toEqual([
-      expect.closeTo(65, 9),
-      expect.closeTo(89.5, 9),
-      expect.closeTo(18.14, 9),
+      expect.closeTo(66.5, 9),
+      expect.closeTo(91, 9),
+      expect.closeTo(19.14, 9),
     ]);
   });
 });

@@ -36,9 +36,9 @@ describe("buildTray: a lying pocket", () => {
     const realized = realizeTray(part, outer, GEO, OPTS);
     const pocket = realized.compartments[0];
     expect(pocket?.kind).toBe("pocket");
-    // lying flat: 41 wide, 101 long, 33 deep (each with 1 mm of room)
-    expect(pocket?.w).toBeCloseTo(42, 1);
-    expect(pocket?.d).toBeCloseTo(102, 1);
+    // lying flat: 41 wide, 101 long, 33 deep (each with 2 mm of room: a non-bulk figure's pocket gets the piece clearance plus 1)
+    expect(pocket?.w).toBeCloseTo(43, 1);
+    expect(pocket?.d).toBeCloseTo(103, 1);
 
     const spec = traySpecFrom(realized, outer, OPTS, GEO, part.trayKey);
     const { mesh, volumeMm3 } = buildTray(m, spec, GEO);
