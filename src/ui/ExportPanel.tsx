@@ -122,7 +122,10 @@ export function ExportPanel(p: ExportPanelProps) {
     () => fitSlices(p.trays, components, p.settings),
     [p.trays, components, p.settings],
   );
-  const fitSpecs = useMemo(() => slices.map((s) => buildSpecOf(s.part, true, s.short)), [slices]);
+  const fitSpecs = useMemo(
+    () => slices.map((s) => buildSpecOf(s.part, true, { short: s.short })),
+    [slices],
+  );
   // Each Try again counts the filament again too: a failure of the count before it is not final.
   const [retries, setRetries] = useState(0);
   const filament = useFilament(p.meshes, buildSpecs, p.settings, p.printer, {
