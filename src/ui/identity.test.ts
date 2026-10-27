@@ -173,6 +173,16 @@ describe("a tray that holds several components", () => {
 
 const KINDS: readonly ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
 const SCHEMES = ["light", "dark"] as const;
+/** The hex tokens of one scheme: the dark block over the light one. */
+function tokensOf(scheme: "light" | "dark"): Map<string, string> {
+  const at = tokens.indexOf(':root[data-theme="dark"]');
+  const block = (css: string): [string, string][] =>
+    [...css.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1] ?? "", m[2] ?? ""]);
+  return new Map([
+    ...block(tokens.slice(0, at)),
+    ...(scheme === "dark" ? block(tokens.slice(at)) : []),
+  ]);
+}
 const TOKEN_KIND: Record<ComponentKind, string> = {
   cards: "cards",
   bulk: "bits",
@@ -197,11 +207,8 @@ describe("component shades", () => {
   });
 
   it("starts every kind on its own hue from the tokens", () => {
-    // tokens.css is light only until the opt-in dark theme (UI rebuild Task 16) restores its set
-    for (const scheme of ["light"] as const) {
-      const found = new Map(
-        [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
-      );
+    for (const scheme of SCHEMES) {
+      const found = tokensOf(scheme);
       for (const kind of KINDS) {
         const base = shadeHex(kind, 0, scheme);
         const name = TOKEN_KIND[kind];
@@ -215,11 +222,8 @@ describe("component shades", () => {
   });
 
   it("mirrors the spacer tokens", () => {
-    // tokens.css is light only until the opt-in dark theme (UI rebuild Task 16) restores its set
-    for (const scheme of ["light"] as const) {
-      const found = new Map(
-        [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
-      );
+    for (const scheme of SCHEMES) {
+      const found = tokensOf(scheme);
       expect(SPACER_SHADE[scheme].fill, `${scheme} fill`).toBe(found.get("--spacer-fill"));
       expect(SPACER_SHADE[scheme].hatch, `${scheme} hatch`).toBe(found.get("--spacer-hatch"));
       expect(SPACER_SHADE[scheme].dash, `${scheme} dash`).toBe(found.get("--spacer-dash"));

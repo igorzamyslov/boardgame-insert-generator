@@ -411,6 +411,7 @@ const SET_RISERS = "Settings' first screen also has two riser rows";
 const SET_INTRO = "My printer's intro names the values it covers";
 const SET_PAGES = "Settings is one page and three doors, not three tabs";
 const SET_DISPLAY = "A project opens in the view the person chose: Display";
+const SET_APPEARANCE = "Dark mode: System / Light / Dark in Settings → Display, default System";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
 const SET_GAPS = "Fill the space that's left is one choice of what the engine does with spare room";
@@ -436,6 +437,11 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "{projection}, opens in {view}", states: SETTINGS_STATES, ruling: SET_PAGES },
   { text: "Top", states: SETTINGS_STATES, ruling: SET_DISPLAY },
   { text: "3D", states: SETTINGS_STATES, ruling: SET_DISPLAY },
+  { text: "Appearance", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
+  { text: "System", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
+  { text: "Light", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
+  { text: "Dark", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
+  { text: "System follows your device.", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
   { text: "Open plans in", states: SETTINGS_STATES, ruling: SET_DISPLAY },
   { text: "Switching in the plan still works.", states: SETTINGS_STATES, ruling: SET_DISPLAY },
   // Task 14: Settings. The board's words, except where the Words table or the owner rules otherwise.

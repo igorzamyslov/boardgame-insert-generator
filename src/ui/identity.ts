@@ -153,8 +153,8 @@ function stepped(
 
 /**
  * The same colours as CSS: `light-dark(…)` per colour, so one inline style (or custom property)
- * follows the page's scheme. The page is light only for now (`color-scheme: light` in tokens.css), so
- * it reads the light value; the dark opt-in (UI rebuild Task 16) will set `color-scheme: dark`.
+ * follows the page's scheme (`color-scheme` is dark under `[data-theme="dark"]` in tokens.css, set
+ * by ui/theme.ts).
  *
  * Only for the page's own CSS. `light-dark()` means nothing outside it: the 3D view (three.js),
  * the PNG and SVG export (a standalone SVG, `svgDataUrl` in instructions/png.ts) and anything

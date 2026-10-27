@@ -6,6 +6,8 @@
 // is a doorway, not a sibling tab. DESIGN §5 and §7.
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { Button, CloseButton, DisclosureRow, Drawer, IconButton, Icon, Segmented } from "../kit";
+import { chooseTheme, themePref } from "./theme";
+import type { ThemeChoice } from "./theme";
 import { chooseProjection, projectionPref } from "../viewer/view";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Joint, Notice, Printer, Settings } from "../model/types";
@@ -130,6 +132,23 @@ const VIEW_NAME: Record<StageView, string> = { plan: "Top", "3d": "3D" };
 function DisplayPage() {
   return (
     <div class="st-stack">
+      <section class="st-sec" aria-labelledby="settings-appearance-title">
+        <h2 class="st-h2" id="settings-appearance-title">
+          Appearance
+        </h2>
+        <Segmented<ThemeChoice>
+          label="Appearance"
+          stretch
+          options={[
+            { value: "system", label: "System" },
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ]}
+          value={themePref.value}
+          onChange={chooseTheme}
+        />
+        <span class="st-note">System follows your device.</span>
+      </section>
       <section class="st-sec" aria-labelledby="settings-open-title">
         <h2 class="st-h2" id="settings-open-title">
           Open plans in

@@ -189,7 +189,7 @@ describe("viewer transforms", () => {
   });
 
   it("fades toward the page's own colour", () => {
-    expect(tokens).toContain(`--page: ${PAGE_HEX};`);
+    expect(tokens).toContain(`--page: ${PAGE_HEX.light};`);
   });
   describe("while an item is edited (the editor's 3D view)", () => {
     const lit = new Set(["a", "b"]);
@@ -248,8 +248,8 @@ describe("viewer transforms", () => {
 
 describe("the dimming of the other trays", () => {
   it("is the plan's: its tile at opacity 0.6 over the box's colour, not over the page", () => {
-    expect(tokens).toContain(`--box: ${DIM_TOWARD_HEX};`);
-    expect(DIM_TOWARD_HEX).not.toBe(PAGE_HEX);
+    expect(tokens).toContain(`--box: ${DIM_TOWARD_HEX.light};`);
+    expect(DIM_TOWARD_HEX.light).not.toBe(PAGE_HEX.light);
   });
 });
 

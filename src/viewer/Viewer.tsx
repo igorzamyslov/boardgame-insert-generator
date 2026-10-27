@@ -209,6 +209,10 @@ export function Viewer(p: ViewerProps) {
     handleRef.current?.setProjection?.(projection);
   }, [status, projection]);
 
+  useEffect(() => {
+    handleRef.current?.setScheme?.(scheme);
+  }, [status, scheme]);
+
   // A string key, so the scene hears of a change and not of every render.
   const slabs = reservedSlabs(p.reserved, p.box);
   const slabsKey = JSON.stringify(slabs);

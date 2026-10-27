@@ -10,6 +10,16 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-27
+
+### Added
+
+- **Dark mode.** Settings → Display → Appearance: System, Light or Dark. System, the default,
+  follows your device; the choice is kept in this browser and applied before the page paints. Every
+  screen, dialog and notice has a dark set that keeps text and edges readable, trays and groups keep
+  their colours, and the 3D view goes dark with the page. The packing guide and the files you
+  download stay on white paper.
+
 ## [0.27.0] - 2026-10-26
 
 ### Added
