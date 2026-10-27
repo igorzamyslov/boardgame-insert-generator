@@ -462,6 +462,18 @@ export interface TraySpec {
    * engraving.
    */
   partName?: string;
+  /**
+   * Longer names to try before `partName`, longest first (trayNames `options`; `partName` is the
+   * last). The geometry engraves the first that fits at a size worth printing (`planNamed`).
+   * Never stored, like `partName`. Absent: only `partName`.
+   */
+  partNames?: string[];
+  /**
+   * The kind each compartment holds, engraved on its floor ("Oil", "Metal"; "" for none), one per
+   * compartment (trayNames `wells`). Never stored. Absent or empty: no well carries a kind name,
+   * and the part's own name may go on the floor of a well instead.
+   */
+  wellNames?: string[];
 }
 
 /** An axis-aligned box in box coordinates, mm. */

@@ -4,13 +4,7 @@ import type { BoxMm, MergedPart, Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
 import { carriesName } from "../model/part-name";
-import {
-  buildEngravings,
-  hasEngraving,
-  planEngravings,
-  planMergedEngraving,
-  planMergedInside,
-} from "./engrave";
+import { buildEngravings, nameChoices, planNamedEngravings, planNamedMerged } from "./engrave";
 import type { Engravings } from "./engrave";
 import { cutFace, filletStrip, ledgeStrip } from "./plan-cuts";
 import { mergedBody, mergedOutline } from "./merged-outline";
@@ -539,12 +533,11 @@ function buildSolid(
 // a well, each that has room; null for a part that carries none (a plate: a spacer or divider), or
 // that has no face with room (planEngravings).
 function engravingsOf(plan: TrayPlan, spec: TraySpec): Engravings | null {
-  const name = spec.partName;
-  if (name === undefined || !carriesName(spec.part)) {
+  const names = nameChoices(spec);
+  if (names.length === 0 || !carriesName(spec.part)) {
     return null;
   }
-  const found = planEngravings(plan, name);
-  return hasEngraving(found) ? found : null;
+  return planNamedEngravings(plan, names, spec.wellNames)?.engravings ?? null;
 }
 
 function buildPart(
@@ -587,20 +580,18 @@ function buildMerged(
   // flipped part is turned over, front and back change places): the member where it is largest,
   // and the wall opposite when that is on the outside too. Never the underside.
   const plans = merged.members.map((member) => planTray(member, settings));
-  const found =
-    spec.partName !== undefined && carriesName(spec.part)
-      ? planMergedEngraving(spec, merged, plans, spec.partName)
-      : null;
+  const names = carriesName(spec.part) ? nameChoices(spec) : [];
+  const chosen = names.length > 0 ? planNamedMerged(spec, merged, plans, names) : null;
+  const found = chosen?.walls ?? null;
   const onMember = found?.member ?? -1;
   // ... and the floor of a well of one member (a riser's pocket): the member where it is largest.
-  const floor =
-    spec.partName !== undefined && carriesName(spec.part)
-      ? planMergedInside(merged, plans, spec.partName)
-      : null;
+  const floor = chosen?.floor ?? null;
   const engravingsFor = (i: number): Engravings | null => {
     const walls = i === onMember ? (found?.engravings ?? []) : [];
     const inside = i === floor?.member ? floor.inside : null;
-    return walls.length > 0 || inside !== null ? { walls, underside: null, inside } : null;
+    return walls.length > 0 || inside !== null
+      ? { walls, underside: null, inside, wells: [] }
+      : null;
   };
   const once = buildMergedOnce(m, scope, spec, merged, plans, engravingsFor);
   if (once) {

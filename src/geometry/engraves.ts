@@ -3,29 +3,39 @@
 // packing guide and the export panel say which parts are too small to carry their name.
 import { carriesName } from "../model/part-name";
 import type { Settings, TraySpec } from "../model/types";
-import { hasEngraving, planEngravings, planMergedEngraving, planMergedInside } from "./engrave";
+import { planNamedEngravings, planNamedMerged } from "./engrave";
 import { planTray } from "./plan";
 
 /**
- * True when the part is of a kind that carries a name and `name` has room on at least one of its
- * faces (two opposite walls, the underside and the floor of a well); false when it
- * carries none or is too small (or too thin) for every face; null when the part cannot be planned at all
- * (such a part is not built either, so nothing can be said of its name).
+ * The version of the part's name that is engraved on it (`names`: the part's `partNames` or
+ * `partName`), "" when the part carries none or is too small (or too thin) for any version on every
+ * face (two opposite walls, the underside and the floor of a well); null when the part cannot be
+ * planned at all (such a part is not built either, so nothing can be said of its name). The
+ * kinds of the wells (`wellNames`) are no part of the answer.
  */
-export function engravesName(spec: TraySpec, settings: Settings, name: string): boolean | null {
-  if (!carriesName(spec.part) || name === "") {
-    return false;
+export function engravedName(
+  spec: TraySpec,
+  settings: Settings,
+  names: readonly string[] | string,
+  wellNames: readonly string[] = [],
+): string | null {
+  const choices = typeof names === "string" ? [names] : names.filter((n) => n !== "");
+  if (!carriesName(spec.part) || choices.length === 0) {
+    return "";
   }
   try {
     if (spec.merged) {
       const plans = spec.merged.members.map((member) => planTray(member, settings));
-      return (
-        planMergedEngraving(spec, spec.merged, plans, name) !== null ||
-        planMergedInside(spec.merged, plans, name) !== null
-      );
+      return planNamedMerged(spec, spec.merged, plans, choices)?.name ?? "";
     }
-    return hasEngraving(planEngravings(planTray(spec, settings), name));
+    return planNamedEngravings(planTray(spec, settings), choices, wellNames)?.name ?? "";
   } catch {
     return null;
   }
+}
+
+/** Whether any version of `name` is engraved on the part (`engravedName`); null: it cannot be planned. */
+export function engravesName(spec: TraySpec, settings: Settings, name: string): boolean | null {
+  const chosen = engravedName(spec, settings, name);
+  return chosen === null ? null : chosen !== "";
 }

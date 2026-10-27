@@ -78,9 +78,7 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
   // The spec the viewer and the export build, so the filament line finds its mesh in the cache.
   const part = partsByKey(parts).get(key);
   const buildSpec =
-    part === undefined
-      ? tray
-      : buildSpecOf(part, project.settings.engraveNames, names.get(key)?.short);
+    part === undefined ? tray : buildSpecOf(part, project.settings.engraveNames, names.get(key));
   const levels = levelsOf(trays);
   const at = levels.indexOf(tray.level);
   const owner = isAddOn(tray) ? names.get(parentKey(tray)) : undefined;

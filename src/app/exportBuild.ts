@@ -121,7 +121,7 @@ async function collect(
   for (const [i, part] of parts.entries()) {
     try {
       const { mesh } = await opts.getMesh(
-        buildSpecOf(part, opts.engrave === true, opts.names?.get(part.spec.key)?.short),
+        buildSpecOf(part, opts.engrave === true, opts.names?.get(part.spec.key)),
       );
       built.push({ part, mesh: printMesh(part.spec, mesh) });
     } catch (e) {

@@ -179,9 +179,9 @@ describe("AssemblyPage", () => {
     const cells = [...document.querySelectorAll("tbody tr")].map(
       (tr) => tr.children[1]?.textContent,
     );
-    // the tray's short name in capitals, a dash for a plate, and a note for a part with no room
+    // the tray's name in capitals, a dash for a plate, and a note for a part with no room
     // (the small tray is in the layer above: layer 2's table follows layer 1's)
-    expect(cells).toEqual(["DECK", "—", "Too small for its name"]);
+    expect(cells).toEqual(["DECK A", "—", "Too small for its name"]);
     const off = { ...deckProject(), settings: { ...deckProject().settings, engraveNames: false } };
     rerender(<AssemblyPage project={off} layout={withSpacer} onBack={vi.fn()} />);
     expect(screen.queryByText("Engraved as")).toBeNull();

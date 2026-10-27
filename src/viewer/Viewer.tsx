@@ -251,7 +251,7 @@ export function Viewer(p: ViewerProps) {
         try {
           const part = byKey.get(spec.key);
           const asked = part
-            ? buildSpecOf(part, p.settings.engraveNames, names.get(spec.key)?.short)
+            ? buildSpecOf(part, p.settings.engraveNames, names.get(spec.key))
             : spec;
           const built = await p.meshes.get(asked, p.settings, controller.signal);
           results[i] = {

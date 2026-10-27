@@ -10,6 +10,21 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-27
+
+### Added
+
+- **A kind's name in each well.** A tray of several kinds (Oil, Metal, Wood, Food) engraves each
+  kind's name on the floor of its own well, when the name fits at 4 mm or larger. The tray's own name
+  stays on its walls and underside. It is part of "Engrave tray names".
+
+### Changed
+
+- **Engraved names shrink before they are cut.** A part's whole name is set at 5, 6 or 8 mm when it
+  fits ("Structure bonus tiles 1" instead of "Structur 1"); only when it fits at nothing but 4 mm is
+  a shorter version tried at 5 mm or more. The packing guide's "Engraved as" shows what is on the
+  part. Geometry 0.9.14: printed parts change, and still mate with those before.
+
 ## [0.27.0] - 2026-10-26
 
 ### Added
