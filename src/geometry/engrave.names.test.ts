@@ -15,7 +15,18 @@ import { CAP_WORTH_MM } from "./glyphs";
 import { loadManifold } from "./load";
 import { planTray } from "./plan";
 import { problemsOf } from "./test-build";
-import { GEO, compartment, traySpec } from "./test-specs";
+import {
+  FIXTURE_SETTINGS,
+  GEO,
+  PROFILES,
+  compartment,
+  flatCutouts,
+  lippedLower,
+  scoopBulk,
+  strip,
+  traySpec,
+  upperLevel1,
+} from "./test-specs";
 
 let m: ManifoldToplevel;
 beforeAll(async () => {
@@ -172,5 +183,125 @@ describe("a kind's name in each well", () => {
     const plan = planTray(resources(), GEO);
     expect(planWellNames(plan, KINDS, true)).toEqual([]);
     expect(planNamedMerged).toBeTypeOf("function");
+  });
+});
+
+describe("tricky cases", () => {
+  const NAMES = ["Combat cards deck", "Combat cards", "Combat", "Comb"];
+
+  it("a tight deck tray: a tall narrow tray whose wall has no room for the full name takes a shorter one", () => {
+    // 68 wide, like a standard-card deck: the full name cannot be 5 mm on 68 mm less the corners
+    const plan = planTray(flatCutouts, GEO);
+    const chosen = planNamedEngravings(plan, NAMES);
+    expect(chosen).not.toBeNull();
+    expect(NAMES).toContain(chosen?.name);
+    // whatever is chosen is built whole and printable, with finger cuts through both walls
+    const spec = { ...flatCutouts, partName: "Comb", partNames: NAMES };
+    expect(problemsOf(m, spec, GEO)).toEqual([]);
+  });
+
+  it("never chooses a version that is longer than the one before it can use: the answer is the first that reaches 5 mm", () => {
+    const plan = planTray(flatCutouts, GEO);
+    const chosen = planNamedEngravings(plan, NAMES);
+    const best = (name: string) => {
+      const e = planEngravings(plan, name);
+      return Math.max(0, ...e.walls.map((w) => w.cap), e.underside?.cap ?? 0, e.inside?.cap ?? 0);
+    };
+    const reached = NAMES.filter((n) => best(n) >= CAP_WORTH_MM);
+    if (reached.length > 0) {
+      expect(chosen?.name).toBe(reached[0]);
+    } else {
+      expect(chosen?.name).toBe(NAMES.find((n) => best(n) > 0));
+    }
+  });
+
+  it("kinds on scoop wells: a name keeps clear of the scoop's fillet and stays on the flat floor", () => {
+    const plan = planTray(scoopBulk, GEO);
+    const wells = planWellNames(plan, ["Oil", "Metal", "Wood"]);
+    expect(wells.length).toBeGreaterThan(0);
+    for (const w of wells) {
+      const c = plan.compartments.find((q) => w.box.x0 >= q.rect.x0 && w.box.x1 <= q.rect.x1);
+      expect(c).toBeDefined();
+      // the front fillet r = 12 takes the first 12 mm of the well from its front wall
+      expect(w.box.y0).toBeGreaterThanOrEqual((c?.rect.y0 ?? 0) + 12);
+    }
+    expect(
+      problemsOf(m, { ...scoopBulk, partName: "Bulk", wellNames: ["Oil", "Metal", "Wood"] }, GEO),
+    ).toEqual([]);
+  });
+
+  it("kinds on a thin floor and a low tray stay printable and keep the thinnest feature", () => {
+    for (const [floor, h] of [
+      [1.2, 12],
+      [1.2, 40],
+      [3, 12],
+    ] as const) {
+      const spec = { ...resources(floor, h), partName: "Res", wellNames: KINDS };
+      expect(problemsOf(m, spec, GEO)).toEqual([]);
+    }
+  });
+
+  it("kinds with odd texts: characters the font lacks and long names are left off, the rest engraved", () => {
+    const plan = planTray(resources(), GEO);
+    const wells = planWellNames(plan, ["Oil", "Wood \u2605", "", "A very long kind name indeed"]);
+    expect(wells.map((w) => w.text)).toEqual(["Oil"]);
+  });
+
+  it("the same two kinds twice (pockets of one figure) are both engraved, in separate wells", () => {
+    const plan = planTray(resources(), GEO);
+    const wells = planWellNames(plan, ["Leader", "Leader", "", ""]);
+    expect(wells).toHaveLength(2);
+    expect(wells[0]?.box.x1).toBeLessThan(wells[1]?.box.x0 ?? 0);
+  });
+
+  it("a lipped lower tray and an upper tray with its groove take kinds and names, printably", () => {
+    const two = (base: TraySpec): TraySpec => ({
+      ...base,
+      compartments: [
+        {
+          ...(base.compartments[0] as TraySpec["compartments"][number]),
+          w: (base.compartments[0]?.w ?? 0) / 2 - 0.6,
+        },
+        {
+          ...(base.compartments[0] as TraySpec["compartments"][number]),
+          x: (base.compartments[0]?.x ?? 0) + (base.compartments[0]?.w ?? 0) / 2 + 0.6,
+          w: (base.compartments[0]?.w ?? 0) / 2 - 0.6,
+        },
+      ],
+    });
+    for (const base of [two(lippedLower), two(upperLevel1)]) {
+      const spec = {
+        ...base,
+        partName: "Tray",
+        partNames: ["Tray of things", "Tray"],
+        wellNames: ["Oil", "Wood"],
+      };
+      expect(problemsOf(m, spec, GEO)).toEqual([]);
+    }
+  });
+
+  it("is printable under every settings profile (thin walls, largest chamfer, stepped joints)", () => {
+    for (const [label, profile] of PROFILES) {
+      const settings = profile(FIXTURE_SETTINGS(GEO));
+      const spec = {
+        ...resources(settings.floor, 24),
+        partName: "Resources",
+        partNames: ["Resources of all", "Resources"],
+        wellNames: KINDS,
+      };
+      expect(problemsOf(m, spec, settings), label).toEqual([]);
+    }
+  }, 120_000);
+
+  it("a strip of wells sized by strip() takes a kind per well", () => {
+    const spec = traySpec({
+      key: "s:p0:0",
+      w: 1.6 * 2 + 30 * 3 + 1.2 * 2,
+      d: 40,
+      h: 20,
+      compartments: strip([30, 30, 30], 1.6, 36.8, 1.6, 1.2, () => ({})),
+    });
+    const wells = planWellNames(planTray(spec, GEO), ["Ab", "Cd", "Ef"]);
+    expect(wells).toHaveLength(3);
   });
 });
