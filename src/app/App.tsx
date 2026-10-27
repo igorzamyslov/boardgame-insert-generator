@@ -1066,7 +1066,7 @@ export function App(props: AppProps) {
                     : undefined
         }
         // A blocked Download pressed while the old plan is kept brings its banner back:
-        // Reprint everything is the way out, and the person asked where it is.
+        // Update plan is the way out, and the person asked where it is.
         onBlockedDownload={() => {
           if (s.geometryOld.value && geometryKept !== null) {
             setGeometryKept(null);

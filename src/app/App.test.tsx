@@ -141,9 +141,8 @@ function addCards(): void {
   addKind("Cards");
 }
 
-/** The editor in the aside asks before it removes: the Remove… button, then the answer. */
+/** The editor in the aside removes at once: the Remove button. */
 function removeFromEditor(name: string): void {
-  fireEvent.click(screen.getByRole("button", { name: `Remove ${name}…` }));
   fireEvent.click(screen.getByRole("button", { name: `Remove ${name}` }));
 }
 
@@ -985,15 +984,15 @@ describe("App", () => {
         document.getElementById(button.getAttribute("aria-describedby") ?? "")?.textContent ??
         undefined;
 
-      it("keeps Download off, with one short line that points to Reprint everything", async () => {
+      it("keeps Download off, with one short line that points to Update plan", async () => {
         renderWorkspace({ project: oldPlan() });
-        expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+        expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
         expect(download().getAttribute("aria-disabled")).toBe("true");
         expect(download().getAttribute("disabled")).toBeNull();
-        expect(download().getAttribute("title")).toBe("Reprint everything to download");
-        expect(reasonOf(download())).toBe("Reprint everything to download");
+        expect(download().getAttribute("title")).toBe("Update plan to download");
+        expect(reasonOf(download())).toBe("Update plan to download");
         // short and on one line
-        expect("Reprint everything to download".length).toBeLessThanOrEqual(40);
+        expect("Update plan to download".length).toBeLessThanOrEqual(40);
         expect(download().getAttribute("title")).not.toMatch(/\n/);
         fireEvent.click(download());
         expect(screen.queryByRole("heading", { name: "Ready to print" })).toBeNull();
@@ -1002,23 +1001,23 @@ describe("App", () => {
       it("keeps it off after Use the old plan, and a press on it brings the banner back", async () => {
         renderWorkspace({ project: oldPlan() });
         fireEvent.click(await screen.findByRole("button", { name: "Use the old plan" }));
-        expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
         expect(download().getAttribute("aria-disabled")).toBe("true");
-        expect(download().getAttribute("title")).toBe("Reprint everything to download");
-        expect(reasonOf(download())).toBe("Reprint everything to download");
+        expect(download().getAttribute("title")).toBe("Update plan to download");
+        expect(reasonOf(download())).toBe("Update plan to download");
         // still focusable, and pressing it opens nothing; the way out shows again
         download().focus();
         expect(document.activeElement).toBe(download());
         fireEvent.click(download());
         expect(screen.queryByRole("heading", { name: "Ready to print" })).toBeNull();
-        expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+        expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
       });
 
       it("says Make a new plan first when the plan is also stale and its own banner shows", async () => {
         // older and stale: the older-geometry banner speaks for both, and so does the reason
         renderWorkspace({ project: oldPlan("an-older-hash") });
-        expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
-        expect(download().getAttribute("title")).toBe("Reprint everything to download");
+        expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
+        expect(download().getAttribute("title")).toBe("Update plan to download");
         cleanup();
         // kept, then stale: the stale banner is the one in view, with its own button
         const { store } = renderWorkspace({ project: oldPlan() });
@@ -1034,7 +1033,7 @@ describe("App", () => {
         expect(download().getAttribute("title")).toBe("Make a new plan first");
       });
 
-      it("is cleared by Reprint everything: a plan from the current geometry downloads", async () => {
+      it("is cleared by Update plan: a plan from the current geometry downloads", async () => {
         const { store } = renderWorkspace({ project: oldPlan() });
         const refit = vi.spyOn(store, "refit").mockImplementation(() => {
           // what the run does when it succeeds: a layout made by this version of the app
@@ -1043,12 +1042,12 @@ describe("App", () => {
             layout: makeLayout(store.state.currentHash.value),
           };
         });
-        fireEvent.click(await screen.findByRole("button", { name: "Reprint everything" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Update plan" }));
         expect(refit).toHaveBeenCalled();
         expect(store.state.geometryOld.value).toBe(false);
         await waitFor(() => expect(download().getAttribute("aria-disabled")).toBeNull());
         expect(download().getAttribute("title") ?? "").toBe("");
-        expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
         fireEvent.click(download());
         expect(screen.getByRole("heading", { name: "Ready to print" })).toBeTruthy();
       });
@@ -1113,7 +1112,7 @@ describe("App", () => {
     expect(screen.queryByText(/Preview:/)).toBeNull();
   });
 
-  it("offers Reprint everything, not Try another arrangement, for a layout made under older geometry", async () => {
+  it("offers Update plan, not Try another arrangement, for a layout made under older geometry", async () => {
     const p = fixtureProject();
     renderApp({
       project: {
@@ -1121,14 +1120,13 @@ describe("App", () => {
         layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
       },
     });
-    expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Try another arrangement" }).getAttribute("aria-disabled"),
     ).toBe("true");
     const banner = document.querySelector('.k-notice[data-tone="warn"]');
     expect(banner?.textContent).toContain(
-      "Made with an older version of the app. Trays printed from it won't stack with trays you print now.",
+      "Made with an older version of the app. Update the plan to get the current tray shapes. Trays already printed from the old plan may not stack with new ones.",
     );
     // the banner itself is not live: the region that was there before it speaks for it
     expect(banner?.getAttribute("role")).toBeNull();
@@ -1138,7 +1136,7 @@ describe("App", () => {
         .some((r) => r.textContent?.startsWith("Made with an older version of the app.")),
     ).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Use the old plan" }));
-    expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
   });
 
   it("shows the stale banner after Use the old plan and an edit", () => {
@@ -1162,7 +1160,7 @@ describe("App", () => {
     expect(store.state.stale.value).toBe(true);
     expect(screen.getByText("This plan is from before your last changes.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Make a new plan" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
   });
 
   describe("status heading", () => {
@@ -1525,7 +1523,7 @@ describe("App", () => {
   });
 
   describe("notice placement", () => {
-    it("Reprint everything re-plans with the current geometry", async () => {
+    it("Update plan re-plans with the current geometry", async () => {
       const p = fixtureProject();
       const { store } = renderApp({
         project: {
@@ -1534,7 +1532,7 @@ describe("App", () => {
         },
       });
       const refit = vi.spyOn(store, "refit").mockImplementation(() => undefined);
-      fireEvent.click(await screen.findByRole("button", { name: "Reprint everything" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Update plan" }));
       expect(refit).toHaveBeenCalled();
       expect(screen.queryByRole("heading", { name: "Ready to print" })).toBeNull();
     });
@@ -1547,7 +1545,7 @@ describe("App", () => {
           layout: makeLayout("an-older-hash", undefined, { geometryVersion: "0.1.0" }),
         },
       });
-      expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+      expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
       expect(screen.queryByText("This plan is from before your last changes.")).toBeNull();
     });
 

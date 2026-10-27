@@ -5,7 +5,6 @@ import fixture031 from "../../test/fixtures/schema/0.3.1.json";
 import { newProject } from "./defaults";
 import { inputsHash } from "./hash";
 import { parseProject, serializeProject } from "./schema";
-import { SCHEMA_NOTICE_CODES } from "./schema-reader";
 import {
   DEFAULT_AREA_NAME,
   DEFAULT_SETTINGS,
@@ -110,7 +109,7 @@ describe("reading and writing", () => {
     if (!first.ok) {
       throw new Error(first.error);
     }
-    expect(first.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.migrated]);
+    expect(first.notices.map((n) => n.code)).toEqual([]);
     expect(first.project.box.headroomAreas).toEqual([{ name: "Rulebook", w: 220, d: 150 }]);
     const again = parseProject(JSON.parse(serializeProject(first.project, first.foreign)));
     if (!again.ok) {

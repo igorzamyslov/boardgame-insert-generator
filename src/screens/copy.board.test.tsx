@@ -632,7 +632,6 @@ const CASES: readonly Case[] = [
     region: "plan",
     steps: () => {
       editRow(/^Market deck, /)();
-      fireEvent.click(screen.getByRole("button", { name: "Remove Market deck…" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove Market deck" }));
     },
   },
@@ -650,7 +649,7 @@ const CASES: readonly Case[] = [
     phone: true,
     steps: editMore(/^Heroes, /),
   },
-  // 0.7.0 Task 11: GroupEdit's editor (rail and stage), its Remove group… question, the toast of
+  // 0.7.0 Task 11: GroupEdit's editor (rail and stage), its removal, the toast of
   // a removal (the copy test's own state), and the phone's sheet (no board draws it: MobileEdit)
   {
     state: "kit-edit",
@@ -669,23 +668,12 @@ const CASES: readonly Case[] = [
     steps: editRow(/^Player kit, /),
   },
   {
-    state: "kit-remove",
-    board: "GroupEdit",
-    region: "rail",
-    seed: "harbour-kings-kit",
-    steps: () => {
-      editRow(/^Player kit, /)();
-      fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
-    },
-  },
-  {
     state: "kit-removed",
     board: "GroupEdit",
     region: "plan",
     seed: "harbour-kings-kit",
     steps: () => {
       editRow(/^Player kit, /)();
-      fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove group" }));
     },
   },

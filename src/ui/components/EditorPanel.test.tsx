@@ -243,7 +243,7 @@ describe("EditorPanel", () => {
     expect(head.contains(screen.getByRole("textbox", { name: /^Name/ }))).toBe(true);
     // the form and the foot are the panel's other children, outside the head
     expect(head.contains(screen.getByRole("button", { name: "Done" }))).toBe(false);
-    expect(head.contains(screen.getByRole("button", { name: "Remove Starter deck…" }))).toBe(false);
+    expect(head.contains(screen.getByRole("button", { name: "Remove Starter deck" }))).toBe(false);
     expect(head.parentElement?.classList.contains("ed")).toBe(true);
   });
 
@@ -255,49 +255,26 @@ describe("EditorPanel", () => {
   });
 
   describe("removing", () => {
-    it("asks first, in place, and removes only on the answer", () => {
+    it("acts at once: one press calls onRemove, with no question and no Cancel", () => {
       const c = { ...of("cards"), name: "Main deck" };
       const { onRemove } = panel(c);
-      fireEvent.click(screen.getByRole("button", { name: "Remove Main deck…" }));
-      expect(onRemove).not.toHaveBeenCalled();
-      expect(screen.getByText("Remove “Main deck” from the box?")).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Remove Main deck" }));
       expect(onRemove).toHaveBeenCalledTimes(1);
-    });
-
-    it("keeps the component when asked to keep it", () => {
-      const { onRemove } = panel({ ...of("cards"), name: "Main deck" });
-      fireEvent.click(screen.getByRole("button", { name: "Remove Main deck…" }));
-      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-      expect(onRemove).not.toHaveBeenCalled();
-      expect(screen.getByRole("button", { name: "Remove Main deck…" })).toBeTruthy();
+      expect(screen.queryByText(/from the box\?/)).toBeNull();
       expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
-    });
-
-    it("hands the focus to the answer that appears, and back to Remove… on Cancel", async () => {
-      vi.useFakeTimers();
-      panel({ ...of("cards"), name: "Main deck" });
-      fireEvent.click(screen.getByRole("button", { name: "Remove Main deck…" }));
-      await vi.runAllTimersAsync();
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
-      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-      await vi.runAllTimersAsync();
-      expect(document.activeElement).toBe(
-        screen.getByRole("button", { name: "Remove Main deck…" }),
-      );
     });
 
     it("names an unnamed one, and a repeated name by its position", () => {
       const view = panel({ ...of("cards"), name: "" });
-      expect(screen.getByRole("button", { name: "Remove (unnamed)…" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Remove (unnamed)" })).toBeTruthy();
       view.view.unmount();
       panel({ ...of("cards"), name: "Dial" }, { index: 2, sameName: true });
-      expect(screen.getByRole("button", { name: "Remove Dial (item 3)…" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Remove Dial (item 3)" })).toBeTruthy();
     });
 
-    it("is quiet at the foot: Remove… with no more words, and Done beside it", () => {
+    it("is quiet at the foot: Remove with no more words, and Done beside it", () => {
       panel({ ...of("cards"), name: "Main deck" });
-      expect(screen.getByRole("button", { name: "Remove Main deck…" }).textContent).toBe("Remove…");
+      expect(screen.getByRole("button", { name: "Remove Main deck" }).textContent).toBe("Remove");
     });
   });
 
@@ -349,15 +326,14 @@ describe("EditorPanel", () => {
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     });
 
-    it("keeps the name editable, and Remove <name>… at the end", () => {
+    it("keeps the name editable, and Remove <name> at the end", () => {
       const c = { ...of("minis"), name: "Heroes" };
       const { onChange, onRemove } = panel(c, { phone: true });
       fireEvent.input(screen.getByLabelText("Name"), { target: { value: "Villains" } });
       expect(onChange).toHaveBeenLastCalledWith({ ...c, name: "Villains" });
-      const remove = screen.getByRole("button", { name: "Remove Heroes…" });
-      expect(remove.textContent).toBe("Remove Heroes…");
+      const remove = screen.getByRole("button", { name: "Remove Heroes" });
+      expect(remove.textContent).toBe("Remove Heroes");
       fireEvent.click(remove);
-      fireEvent.click(screen.getByRole("button", { name: "Remove Heroes" }));
       expect(onRemove).toHaveBeenCalledTimes(1);
     });
 

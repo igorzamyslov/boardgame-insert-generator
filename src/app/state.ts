@@ -35,10 +35,10 @@ export const MAKING_PLAN_MESSAGE = "Making a new plan…";
 export const SEARCHING_MESSAGE = "Searching…";
 export const STALE_MESSAGE = "This plan is from before your last changes.";
 export const GEOMETRY_OLD_MESSAGE =
-  "Made with an older version of the app. Trays printed from it won't stack with trays you print now.";
+  "Made with an older version of the app. Update the plan to get the current tray shapes. Trays already printed from the old plan may not stack with new ones.";
 
-/** Why Download is off while an older-geometry plan is kept: Reprint everything is the way out. */
-export const GEOMETRY_REPRINT_REASON = "Reprint everything to download";
+/** Why Download is off while an older-geometry plan is kept: Update plan is the way out. */
+export const GEOMETRY_REPRINT_REASON = "Update plan to download";
 
 export interface State {
   project: Signal<Project>;
