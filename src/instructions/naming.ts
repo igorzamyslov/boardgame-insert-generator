@@ -2,17 +2,35 @@
 import { KIND_NAMES } from "../model/defaults";
 import { DEFAULT_GROUP_NAME, groupById, parseTrayKey } from "../model/groups";
 import type { Component, Group, TraySpec } from "../model/types";
-import { componentIndexOfContents } from "../ui/identity";
+import { componentIndexOfCompartment, componentIndexOfContents, wellName } from "../ui/identity";
 import { type NumberedPart, parentKey } from "./numbering";
 
 /** What a part is called: `full` on screens, `short` where it is engraved on the part. */
 export interface TrayName {
   full: string;
   short: string;
+  /**
+   * What may be engraved on the part, longest first: the whole name, then shorter cuts of it, the
+   * last being `short`. Each is shorter than the one before it and unique among the part's
+   * group at its own length.
+   */
+  options?: string[];
+  /**
+   * The kind each well holds, one per compartment, as it is engraved on that well's floor: "Oil",
+   * "Metal" for a tray of several kinds. "" for a well with none (a spare one, a kind shared with
+   * another well, a pocket of the only kind); all "" unless two or more kinds are named.
+   */
+  wells?: string[];
 }
 
-/** The longest engraved name, characters. */
+/** The longest `short` name, characters: the shortest name the geometry may fall back to. */
 export const SHORT_NAME_MAX = 10;
+
+/**
+ * The lengths a name is tried at, longest first: the whole name, then these cuts of it. The
+ * geometry takes the first that fits at a size worth printing (`CAP_WORTH_MM`).
+ */
+const NAME_LENGTHS = [Infinity, 20, 14, SHORT_NAME_MAX];
 
 /** How far apart two parts may sit and still count as touching, mm (tray gaps, box clearance). */
 const TOUCH_MM = 1;
@@ -249,6 +267,25 @@ function wordsOf(text: string): string[] {
     .filter((w) => w !== "");
 }
 
+/**
+ * The kind each well of a tray holds, for engraving on its floor (`TrayName.wells`). A tray holds
+ * several kinds when its wells carry two or more different names ("Oil", "Wood"); then every well
+ * with a name of its own has it, repeats included (each pocket of a figure ×4). A name the font
+ * cannot print at all, or a well shared by several ("A + B"), has none.
+ */
+function wellKinds(spec: TraySpec, components: readonly Component[]): string[] {
+  const names = spec.compartments.map((c) => {
+    if (c.kind === "spare") {
+      return "";
+    }
+    const at = componentIndexOfCompartment(c, components);
+    const name = wellName(c.contents, at === null ? undefined : components[at]);
+    return name.includes(" + ") ? "" : printable(name);
+  });
+  const kinds = new Set(names.filter((n) => n !== "").map((n) => n.toUpperCase()));
+  return kinds.size < 2 ? names.map(() => "") : names;
+}
+
 const cut = (text: string, room: number): string => text.slice(0, Math.max(room, 0));
 
 /** The head of a disambiguated short name: "Wooden" -> "Woo". */
@@ -266,7 +303,18 @@ const LEAD_CUT = 4;
  * keeps the plain first word while another is cut down, and the result does not depend on the
  * order of the parts.
  */
-function trayShorts(trays: readonly Draft[]): Map<string, string> {
+function trayShorts(trays: readonly Draft[], max: number): Map<string, string> {
+  // A longer name keeps as many whole leading words as fit ("Structure bonus"); the shortest keeps
+  // the first word, cut.
+  const lead = (words: readonly string[], room: number): string => {
+    let kept = cut(words[0] ?? "", room);
+    if (max > SHORT_NAME_MAX) {
+      for (let n = 2; n <= words.length && words.slice(0, n).join(" ").length <= room; n += 1) {
+        kept = words.slice(0, n).join(" ");
+      }
+    }
+    return kept;
+  };
   const wordsOfDraft = (d: Draft): string[] => {
     const words = wordsOf(d.base);
     return words.length > 0 ? words : [d.kindName];
@@ -274,7 +322,7 @@ function trayShorts(trays: readonly Draft[]): Map<string, string> {
   const tailOf = (d: Draft) => d.tail ?? (d.index === null ? "" : ` ${d.index}`);
   const groups = new Map<string, Draft[]>();
   for (const d of [...trays].sort((x, y) => x.order - y.order)) {
-    const k = cut(wordsOfDraft(d)[0] ?? "", SHORT_NAME_MAX).toUpperCase();
+    const k = cut(wordsOfDraft(d)[0] ?? "", max).toUpperCase();
     groups.set(k, [...(groups.get(k) ?? []), d]);
   }
   const out = new Map<string, string>();
@@ -285,7 +333,7 @@ function trayShorts(trays: readonly Draft[]): Map<string, string> {
     if (blank.length === group.length) {
       group.forEach((d, i) => {
         const tail = group.length > 1 ? ` ${i + 1}` : "";
-        out.set(d.key, `${cut(d.kindName, SHORT_NAME_MAX - tail.length)}${tail}`);
+        out.set(d.key, `${cut(d.kindName, max - tail.length)}${tail}`);
       });
       continue;
     }
@@ -293,7 +341,7 @@ function trayShorts(trays: readonly Draft[]): Map<string, string> {
     if (bases.length === 1) {
       for (const d of group) {
         const tail = tailOf(d);
-        out.set(d.key, `${cut(wordsOfDraft(d)[0] ?? "", SHORT_NAME_MAX - tail.length)}${tail}`);
+        out.set(d.key, `${lead(wordsOfDraft(d), max - tail.length)}${tail}`);
       }
       continue;
     }
@@ -308,8 +356,9 @@ function trayShorts(trays: readonly Draft[]): Map<string, string> {
       wordsOfDraft(d).filter((w) => !shared.has(w.toLowerCase()));
     const form = (d: Draft, k: number): string => {
       const first = wordsOfDraft(d)[0] ?? "";
-      const head = cut(first, HEAD);
-      const room = SHORT_NAME_MAX - tailOf(d).length - head.length - 1;
+      // a longer name keeps the whole first word; only the shortest cuts it to a head
+      const head = cut(first, max > SHORT_NAME_MAX ? max : HEAD);
+      const room = max - tailOf(d).length - head.length - 1;
       const more = cut(distinct(d).slice(0, k).join(" "), room).trimEnd();
       return `${head}${more === "" ? "" : ` ${more}`}${tailOf(d)}`;
     };
@@ -588,44 +637,71 @@ export function trayNames(
     (d) => stemBy(d, numbered(d)),
   );
 
-  // Short names: trays first, as a group; then the parts by a tray, from that tray's final name.
-  const shortOf = trayShorts(trays);
-  const takenShort = new Set<string>();
-  const claim = (d: Draft, wanted: string) => {
-    const base = wanted.trim() === "" ? d.kindName || "Part" : wanted.trim();
-    let chosen = base;
-    // A name already taken: its end is replaced by a counter.
-    for (let n = 2; takenShort.has(chosen.toUpperCase()); n += 1) {
-      const tail = ` ${n}`;
-      chosen = `${base.slice(0, SHORT_NAME_MAX - tail.length).trimEnd()}${tail}`;
+  // Engraved names at each length: trays first, as a group; then the parts by a tray, from that
+  // tray's name at the same length. The longest is the full name; the shortest is `short`.
+  const namesAt = (max: number): Map<string, string> => {
+    const shortOf =
+      max === Infinity
+        ? new Map(trays.map((d) => [d.key, printable(d.full)]))
+        : trayShorts(trays, max);
+    const takenShort = new Set<string>();
+    const claim = (d: Draft, wanted: string) => {
+      const base = wanted.trim() === "" ? d.kindName || "Part" : wanted.trim();
+      let chosen = base;
+      // A name already taken: its end is replaced by a counter.
+      for (let n = 2; takenShort.has(chosen.toUpperCase()); n += 1) {
+        const tail = ` ${n}`;
+        chosen = `${base.slice(0, max - tail.length).trimEnd()}${tail}`;
+      }
+      takenShort.add(chosen.toUpperCase());
+      shortOf.set(d.key, chosen);
+    };
+    for (const d of trays) {
+      claim(d, cut(shortOf.get(d.key) ?? "", max));
     }
-    takenShort.add(chosen.toUpperCase());
-    shortOf.set(d.key, chosen);
+    for (const d of others) {
+      const lead = d.lead as Lead;
+      // Several by one tray: "Spa1 Dice", "Spa2 Dice"; one: "Spac Dice". The tray's own short is
+      // cut to what is left, its trailing number kept ("Spar Hex 2"). Longer names keep the whole
+      // lead word ("Spacer 1 Dice").
+      const own = d.index === null ? "" : String(d.index);
+      const word =
+        cut(lead.word, (max > SHORT_NAME_MAX ? lead.word.length : LEAD_CUT) - own.length) + own;
+      const tray = shortOf.get(d.by ?? "") ?? "";
+      const digits = /( \d+)$/.exec(tray)?.[1] ?? "";
+      const stem = tray.slice(0, tray.length - digits.length);
+      const room =
+        max - word.length - (max > SHORT_NAME_MAX ? lead.link.length + 1 : 0) - 1 - digits.length;
+      const kept = cut(stem, room).trimEnd();
+      const link = max > SHORT_NAME_MAX ? ` ${lead.link}` : "";
+      claim(d, tray === "" ? word : `${word}${link} ${kept}${digits}`);
+    }
+    return shortOf;
   };
-  for (const d of trays) {
-    claim(d, cut(shortOf.get(d.key) ?? "", SHORT_NAME_MAX));
-  }
-  for (const d of others) {
-    const lead = d.lead as Lead;
-    // Several by one tray: "Spa1 Dice", "Spa2 Dice"; one: "Spac Dice". The tray's own short is
-    // cut to what is left, its trailing number kept ("Spar Hex 2").
-    const own = d.index === null ? "" : String(d.index);
-    const word = cut(lead.word, LEAD_CUT - own.length) + own;
-    const tray = shortOf.get(d.by ?? "") ?? "";
-    const digits = /( \d+)$/.exec(tray)?.[1] ?? "";
-    const stem = tray.slice(0, tray.length - digits.length);
-    const room = SHORT_NAME_MAX - word.length - 1 - digits.length;
-    const kept = cut(stem, room).trimEnd();
-    claim(d, tray === "" ? word : `${word} ${kept}${digits}`);
-  }
+  const levels = NAME_LENGTHS.map(namesAt);
+  const shortOf = levels[levels.length - 1] as Map<string, string>;
 
   return new Map(
-    ordered.map((part) => [
-      part.spec.key,
-      {
-        full: draftByKey.get(part.spec.key)?.full ?? part.label,
-        short: shortOf.get(part.spec.key) ?? "Part",
-      },
-    ]),
+    ordered.map((part) => {
+      const key = part.spec.key;
+      // longest first, each shorter than the one before: a repeat or a longer one adds nothing
+      const options: string[] = [];
+      for (const level of levels) {
+        const name = level.get(key);
+        const last = options[options.length - 1];
+        if (name !== undefined && (last === undefined || name.length < last.length)) {
+          options.push(name);
+        }
+      }
+      return [
+        key,
+        {
+          full: draftByKey.get(key)?.full ?? part.label,
+          short: shortOf.get(key) ?? "Part",
+          options: options.length > 0 ? options : [shortOf.get(key) ?? "Part"],
+          wells: wellKinds(part.spec, components),
+        },
+      ];
+    }),
   );
 }

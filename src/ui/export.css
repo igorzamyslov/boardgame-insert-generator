@@ -179,6 +179,19 @@
   font-weight: 400;
 }
 
+/* The fit test's menu item: its one-line description under the name. */
+.k-btn.export-format--fit {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
+}
+
+.export-format__note {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
 /* ---- Support: one quiet line of text ---- */
 .export-support {
   margin: 0;

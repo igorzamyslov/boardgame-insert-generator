@@ -53,7 +53,7 @@ function named(trays: TraySpec[], components: Component[]) {
 describe("trayNames", () => {
   it("uses the component name for a single tray", () => {
     const names = named([trayOf("a:p0:0", "c1")], [cards("c1", "Market deck")]);
-    expect(names.get("a:p0:0")).toEqual({ full: "Market deck", short: "Market" });
+    expect(names.get("a:p0:0")).toMatchObject({ full: "Market deck", short: "Market" });
   });
 
   it("numbers the trays of one component in plan order", () => {
@@ -220,14 +220,14 @@ describe("trayNames", () => {
 
   it("calls an empty component name by its kind", () => {
     const names = named([trayOf("a:p0:0", "c1")], [cards("c1", "  ")]);
-    expect(names.get("a:p0:0")).toEqual({ full: "Cards", short: "Cards" });
+    expect(names.get("a:p0:0")).toMatchObject({ full: "Cards", short: "Cards" });
   });
 
   it("keeps two components with the same name apart", () => {
     const trays = [trayOf("a:p0:0", "c1"), trayOf("b:p0:0", "c2")];
     const names = named(trays, [cards("c1", "Dice"), cards("c2", "Dice")]);
-    expect(names.get("a:p0:0")).toEqual({ full: "Dice 1", short: "Dice 1" });
-    expect(names.get("b:p0:0")).toEqual({ full: "Dice 2", short: "Dice 2" });
+    expect(names.get("a:p0:0")).toMatchObject({ full: "Dice 1", short: "Dice 1" });
+    expect(names.get("b:p0:0")).toMatchObject({ full: "Dice 2", short: "Dice 2" });
   });
 
   it("gives every tray of a shared first word the same treatment", () => {
@@ -272,8 +272,11 @@ describe("trayNames", () => {
       w: 50,
     });
     const names = named([a, b, c, f, g], [cards("c1", "Dice"), cards("c2", "Hex tiles")]);
-    expect(names.get("leftover:0")).toEqual({ full: "Spacer by Dice", short: "Spac Dice" });
-    expect(names.get("leftover:1")).toEqual({ full: "Spare by Hex tiles 1", short: "Spar Hex 1" });
+    expect(names.get("leftover:0")).toMatchObject({ full: "Spacer by Dice", short: "Spac Dice" });
+    expect(names.get("leftover:1")).toMatchObject({
+      full: "Spare by Hex tiles 1",
+      short: "Spar Hex 1",
+    });
   });
 
   it("does not depend on the order the parts are passed in", () => {
@@ -561,5 +564,103 @@ describe("trayNames for a group", () => {
     expect(new Set(full).size).toBe(full.length);
     const short = [...names.values()].map((n) => n.short.toUpperCase());
     expect(new Set(short).size).toBe(short.length);
+  });
+});
+
+describe("trayNames: what may be engraved, longest first", () => {
+  const options = (names: ReturnType<typeof named>, key: string) => names.get(key)?.options ?? [];
+
+  it("offers the whole name, then shorter ones, the last being `short`", () => {
+    const names = named([trayOf("a:p0:0", "c1")], [cards("c1", "Faction miniatures")]);
+    const list = options(names, "a:p0:0");
+    expect(list[0]).toBe("Faction miniatures");
+    expect(list[list.length - 1]).toBe(names.get("a:p0:0")?.short);
+    expect(list).toEqual(["Faction miniatures", "Faction"]);
+    for (let i = 1; i < list.length; i += 1) {
+      expect((list[i] as string).length).toBeLessThan((list[i - 1] as string).length);
+    }
+  });
+
+  it("keeps whole leading words between the full name and the first word", () => {
+    const names = named([trayOf("a:p0:0", "c1")], [cards("c1", "Structure bonus tiles")]);
+    expect(options(names, "a:p0:0")).toEqual([
+      "Structure bonus tiles",
+      "Structure bonus",
+      "Structure",
+    ]);
+  });
+
+  it("is just the name when it is short already", () => {
+    const names = named([trayOf("a:p0:0", "c1")], [cards("c1", "Dice")]);
+    expect(options(names, "a:p0:0")).toEqual(["Dice"]);
+  });
+
+  it("keeps the names of a group apart at every length", () => {
+    const comps = [
+      cards("c1", "Wooden meeples red"),
+      cards("c2", "Wooden meeples blue"),
+      cards("c3", "Wooden cubes green"),
+    ];
+    const names = named(
+      [
+        trayOf("a:p0:0", "c1"),
+        trayOf("b:p0:1", "c2", { x: 200 }),
+        trayOf("c:p0:2", "c3", { x: 400 }),
+      ],
+      comps,
+    );
+    const lengths = Math.max(
+      ...["a", "b", "c"].map((k) => options(names, `${k}:p0:${"abc".indexOf(k)}`).length),
+    );
+    for (let level = 0; level < lengths; level += 1) {
+      const at = ["a", "b", "c"].map((k) => {
+        const list = options(names, `${k}:p0:${"abc".indexOf(k)}`);
+        return (list[Math.min(level, list.length - 1)] as string).toUpperCase();
+      });
+      expect(new Set(at).size).toBe(3);
+    }
+  });
+
+  it("names a part by a tray with the lead word whole, until the short one", () => {
+    const a = makeTray({ key: "a:p0:0", compartments: [well("c1", "Dice ×3")] });
+    const f = makeTray({
+      key: "leftover:0",
+      part: "leftover",
+      solid: true,
+      compartments: [],
+      x: 0,
+      y: 80,
+      w: 100,
+    });
+    const names = named([a, f], [cards("c1", "Dice")]);
+    expect(options(names, "leftover:0")).toEqual(["Spacer by Dice", "Spac Dice"]);
+  });
+});
+
+describe("trayNames: the kind of each well", () => {
+  const kinds = (items: string[]): Component =>
+    ({
+      id: "b1",
+      name: "Resources",
+      access: "often",
+      kind: "bulk",
+      items: items.map((name) => ({ name, count: 20, w: 16, d: 16, h: 12 })),
+    }) as unknown as Component;
+  const wellsOf = (items: string[], contents: string[]) =>
+    named(
+      [makeTray({ key: "b:p0:0", compartments: contents.map((c) => well("b1", c)) })],
+      [kinds(items)],
+    ).get("b:p0:0")?.wells;
+
+  it("names each well after its kind when a tray holds several", () => {
+    expect(wellsOf(["Oil", "Metal"], ["Resources — Oil ×20", "Resources — Metal ×20"])).toEqual([
+      "Oil",
+      "Metal",
+    ]);
+  });
+
+  it("names none when there is one kind, however many wells", () => {
+    expect(wellsOf(["Oil"], ["Resources — Oil ×20", "Resources — Oil ×20"])).toEqual(["", ""]);
+    expect(wellsOf(["Oil"], ["Resources ×20"])).toEqual([""]);
   });
 });

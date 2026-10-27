@@ -130,7 +130,6 @@ describe("WhatsInside", () => {
 
   describe("after a removal", () => {
     function remove(name: string): void {
-      fireEvent.click(screen.getByRole("button", { name: `Remove ${name}…` }));
       fireEvent.click(screen.getByRole("button", { name: `Remove ${name}` }));
     }
 

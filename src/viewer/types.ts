@@ -54,6 +54,11 @@ export interface SceneHandle {
    * same apparent size. The scene starts in perspective.
    */
   setProjection?(projection: Projection): void;
+  /**
+   * The colour scheme the page shows: the faded trays blend toward the page's and the box's colours
+   * of that scheme. The trays' own colours come with `setTrays`.
+   */
+  setScheme?(scheme: "light" | "dark"): void;
   /** Where the camera stands now (view.ts), to put it back later with `setView`. */
   getView?(): ViewState;
   /**

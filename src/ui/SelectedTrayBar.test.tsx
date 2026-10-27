@@ -149,7 +149,7 @@ describe("SelectedTrayBar for a group's tray", () => {
     const part = numberParts(p.trays).find((n) => n.spec.key === "market:p0:0");
     const short = trayNames(numberParts(p.trays), project.components, project.groups).get(
       "market:p0:0",
-    )?.short;
+    );
     expect(part).toBeDefined();
     expect(asked).toEqual([buildSpecOf(part as NumberedPart, true, short)]);
     expect(asked[0]?.partName).toBeTruthy();

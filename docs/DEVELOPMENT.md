@@ -310,7 +310,7 @@ it only with a written reason in the code or the PR.
 ### CSS and tokens
 
 - MUST take colours, spacing, radii, fonts, sizes and `--control-h` from `src/styles/tokens.css`.
-  Light is the only theme for now; dark is opt-in and not built (DESIGN §4 Dark mode). The page,
+  Light and dark are both built: dark is one `[data-theme="dark"]` block in tokens.css, set by `src/ui/theme.ts` (DESIGN §4 Dark mode); a new colour token needs a value in both. The page,
   type, focus ring, `.tap` and `.visually-hidden` live in `src/styles/base.css`.
 - MUST decide a component's shade in one place only: `shadeIndexOf(components, index)` in
   `src/ui/identity.ts`. Then pick the format by consumer:

@@ -209,6 +209,10 @@ export function Viewer(p: ViewerProps) {
     handleRef.current?.setProjection?.(projection);
   }, [status, projection]);
 
+  useEffect(() => {
+    handleRef.current?.setScheme?.(scheme);
+  }, [status, scheme]);
+
   // A string key, so the scene hears of a change and not of every render.
   const slabs = reservedSlabs(p.reserved, p.box);
   const slabsKey = JSON.stringify(slabs);
@@ -251,7 +255,7 @@ export function Viewer(p: ViewerProps) {
         try {
           const part = byKey.get(spec.key);
           const asked = part
-            ? buildSpecOf(part, p.settings.engraveNames, names.get(spec.key)?.short)
+            ? buildSpecOf(part, p.settings.engraveNames, names.get(spec.key))
             : spec;
           const built = await p.meshes.get(asked, p.settings, controller.signal);
           results[i] = {

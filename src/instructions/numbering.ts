@@ -160,19 +160,27 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
 }
 
 /**
- * The spec to build a printed part from: with its short name to engrave (`partName`; `name` is
- * the part's `short` from trayNames) when `engrave` (settings.engraveNames) is on and the part is
- * of a kind that carries one. The name is the one every screen and the assembly page give the
- * part, so the printed part can be found in its step.
+ * The spec to build a printed part from: with its names to engrave (`partName` is the part's
+ * `short` from trayNames, `partNames` the longer ones to try first, `wellNames` the kind of each
+ * well) when `engrave` (settings.engraveNames) is on and the part is of a kind that carries one.
+ * The name is the one every screen and the assembly page give the part, so the printed part can
+ * be found in its step.
  */
 export function buildSpecOf(
   part: NumberedPart,
   engrave: boolean,
-  name: string | undefined,
+  name: { short: string; options?: string[]; wells?: string[] } | undefined,
 ): TraySpec {
-  return engrave && name !== undefined && name !== "" && carriesName(part.spec.part)
-    ? { ...part.spec, partName: name }
-    : part.spec;
+  if (!engrave || name === undefined || name.short === "" || !carriesName(part.spec.part)) {
+    return part.spec;
+  }
+  const wells = name.wells ?? [];
+  return {
+    ...part.spec,
+    partName: name.short,
+    ...(name.options !== undefined && name.options.length > 1 ? { partNames: name.options } : {}),
+    ...(wells.some((w) => w !== "") ? { wellNames: wells } : {}),
+  };
 }
 
 export function partsByKey(parts: readonly NumberedPart[]): Map<string, NumberedPart> {

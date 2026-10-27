@@ -446,16 +446,16 @@ describe("packing order and parts list", () => {
     ]);
   });
 
-  it("says what each part is engraved as: its short name in capitals, nothing for a plate or a tiny part", () => {
+  it("says what each part is engraved as: its name in capitals as far as it fits, nothing for a plate or a tiny part", () => {
     // the same trays as above, with the lip left off the one that could not be planned with it
     const valid = makeLayout("h", [{ ...bottom, lip: false, w: 120, d: 90 }, spacer, top, side]);
     const rows = whatGoesWhere(valid, named);
-    // trays carry the short name drawn on the diagrams; the spacer is a plate and carries none
+    // trays carry the longest version of their name that fits (the diagrams draw the short one); the spacer is a plate and carries none
     expect(rows.map((r) => [r.name, r.engraved, r.tooSmall])).toEqual([
-      ["Deck A 1", "DECK 1", false],
+      ["Deck A 1", "DECK A 1", false],
       ["Spacer by Deck A 2", null, false],
-      ["<Coins> & gems", "COINS", false],
-      ["Deck A 2", "DECK 2", false],
+      ["<Coins> & gems", "COINS GEMS", false],
+      ["Deck A 2", "DECK A 2", false],
     ]);
     // a tray 4 mm across has no room for any name, and the guide says so
     const tiny = makeLayout("h", [
@@ -858,7 +858,7 @@ describe("a group's trays in the packing guide (spec §7.7)", () => {
       ["Deck A ×50", "Coins ×12"],
     ]);
     expect(rows.every((r) => r.contents.every((c) => !/\(P\d+\)/.test(c)))).toBe(true);
-    expect(rows.map((r) => r.engraved)).toEqual(["PLAYER 1", "PLAYER 2"]);
+    expect(rows.map((r) => r.engraved)).toEqual(["PLAYER KIT 1", "PLAYER KIT 2"]);
   });
 
   it("says Player kit 1 … in the guide and the layer lists", () => {

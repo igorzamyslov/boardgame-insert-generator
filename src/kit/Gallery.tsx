@@ -1,6 +1,8 @@
 // src/kit/Gallery.tsx
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
+import { chooseTheme, themePref } from "../ui/theme";
+import type { ThemeChoice } from "../ui/theme";
 import {
   Button,
   Card,
@@ -329,6 +331,16 @@ export function Gallery() {
       <header class="gal__head">
         <h1>Kit gallery</h1>
         <p>Every primitive in each state the boards show. For development only.</p>
+        <Segmented<ThemeChoice>
+          label="Appearance"
+          options={[
+            { value: "system", label: "System" },
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ]}
+          value={themePref.value}
+          onChange={chooseTheme}
+        />
       </header>
       <div class="gal__grid">
         <Section

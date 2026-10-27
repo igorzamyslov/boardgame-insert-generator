@@ -130,13 +130,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
     version = to;
     versionText = step.to;
   }
-  if (version !== file) {
-    notices.push({
-      level: "info",
-      code: SCHEMA_NOTICE_CODES.migrated,
-      message: `Upgraded from schema ${fileVersion} to ${opts.appSchemaVersion}.`,
-    });
-  }
+  // An upgrade is silent: a person has no use for a schema number. A real consequence gets its own notice.
 
   const fileCompat = compat(version);
   if (compareRank(fileCompat.rank, appCompat.rank) > 0) {

@@ -300,8 +300,17 @@ import type { Semver } from "../model/version";
  * does, as before, so no trench opens between two parts. The slope is cut through the joint in the
  * merged solid. A mesh-only change on a derived filler; outer size, footprint, fit and every tray
  * are as before, so printed parts still mate. A PATCH.
+ *
+ * 0.9.14 engraves a longer name when it fits at a size worth printing and puts each kind's name on
+ * the floor of its own well (owner, 2026-10-25). A part is given its whole name and shorter
+ * versions of it (`TraySpec.partNames`) and takes the first that fits at 5 mm or more on some face,
+ * so "Structure bonus tiles" at 5 mm replaces "Structur" at 8; a tray of several kinds
+ * (`TraySpec.wellNames`) engraves "Oil", "Metal" on its wells' floors, and its own name then stays
+ * on the walls and underside. The same recesses as before (two layers, upright sides on a floor, no
+ * overhang); outer size, footprint, fit and every tray are as before, so printed parts still mate.
+ * A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.13";
+export const GEOMETRY_VERSION = "0.9.14";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

@@ -10,6 +10,36 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-27
+
+### Added
+
+- **Fit test.** "Other formats" in the Download dialog has a **Fit test print**: a small plate to
+  print before the whole insert. It holds a low ring of each kind of well in your plan at its real
+  size, with your Fit, walls and corner radius, each cut with its item's name. Drop your cards and
+  pieces in; the packing guide says what to change if they are tight.
+- **A kind's name in each well.** A tray of several kinds (Oil, Metal, Wood, Food) engraves each
+  kind's name on the floor of its own well, when the name fits at 4 mm or larger. The tray's own name
+  stays on its walls and underside. It is part of "Engrave tray names".
+- **Dark mode.** Settings → Display → Appearance: System, Light or Dark. System, the default,
+  follows your device; the choice is kept in this browser and applied before the page paints. Every
+  screen, dialog and notice has a dark set that keeps text and edges readable, trays and groups keep
+  their colours, and the 3D view goes dark with the page. The packing guide and the files you
+  download stay on white paper.
+
+### Changed
+
+- **Engraved names shrink before they are cut.** A part's whole name is set at 5, 6 or 8 mm when it
+  fits ("Structure bonus tiles 1" instead of "Structur 1"); only when it fits at nothing but 4 mm is
+  a shorter version tried at 5 mm or more. The packing guide's "Engraved as" shows what is on the
+  part. Geometry 0.9.14: printed parts change, and still mate with those before.
+- **Remove acts at once.** Removing an item or a group no longer asks first; the note at the top
+  of the plan says what went and has Undo, which brings back the item exactly as it was. Deleting
+  an insert from this browser still asks, because that can't be undone.
+- **The old-plan notice speaks plainly.** It says the plan was made with an older version of the
+  app, and the button is now "Update plan". The note about trays you already printed stays.
+- **Opening an older file is silent.** The "Upgraded from schema …" note is gone.
+
 ## [0.27.0] - 2026-10-26
 
 ### Added

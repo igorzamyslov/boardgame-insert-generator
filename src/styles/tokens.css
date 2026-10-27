@@ -1,10 +1,13 @@
 /*
  * The tokens, taken from the design boards (docs/design/boards): surfaces, lines, ink, meaning
- * colours, shadows, spacing, radii, sizes and type. Light is the default and the only theme; the
- * old dark set (a prefers-color-scheme block) is in git history at 68733a9, for the opt-in dark
- * theme to restore. The kind colours are mirrored in src/ui/identity.ts (shadeOf), which steps
+ * colours, shadows, spacing, radii, sizes and type. Light is the default theme. The kind colours are mirrored in src/ui/identity.ts (shadeOf), which steps
  * each kind's hue per component; src/ui/identity.test.ts checks the two agree. Hex lives only in
  * this file (src/rules.test.ts).
+ *
+ * Dark: the block at the end, under [data-theme="dark"]. src/ui/theme.ts (and the script in
+ * index.html before first paint) puts the resolved scheme there, so the rules read one name
+ * whether the person chose Dark or System follows a dark system. Text keeps 4.5:1 and edges 3:1
+ * in both schemes; paper (the packing guide, exports) stays light.
  */
 :root {
   color-scheme: light;
@@ -21,6 +24,7 @@
   --fill-quiet: #efede7; /* Edit/Box/Settings segment track, progress track, small tags */
   --chip: #e9e5db; /* Empty's size chips */
   --track: #e9e7e0; /* Main's Layer and View segments */
+  --thumb: var(--sheet); /* a segment's raised thumb */
   --icon-ground: #edeae2; /* box card icon, step badge 2 */
   --scrim-see: rgb(29 31 28 / 49%); /* behind a dialog and the drawer: the page shows, dimmed */
 
@@ -235,4 +239,88 @@
   --on-ochre: var(--on-warn);
   --ochre-wash: var(--bits-fill);
   --tint-8: var(--rule);
+}
+
+/* Dark. Only what differs from light; sizes, spacing and type are shared. The kind colours mirror KIND_BASES.dark in src/ui/identity.ts. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page: #1b1a17;
+  --sheet: #25241f;
+  --row: #201f1b;
+  --fill-quiet: #1c1b17;
+  --thumb: #3f3d35;
+  --chip: #36342d;
+  --track: #2e2c26;
+  --icon-ground: #34322b;
+  --scrim-see: rgb(0 0 0 / 60%);
+
+  --rule: #3a382f;
+  --rule-soft: #2e2c26;
+  --field-line: #4d4a40;
+  --line-strong: #6e6a5c;
+  --handle: #4a473d;
+
+  --ink: #edebe5;
+  --muted: #aaa79d;
+  --muted-strong: #d0cec5;
+  --ink-dim: #bebbb1;
+  --ink-off: #8f8c82;
+
+  --box: #3a372f;
+  --box-edge: #4e4a3f;
+  --box-dash: #8f8b7e;
+  --cell-fill: rgb(255 255 255 / 12%);
+  --pill-fill: rgb(37 36 31 / 92%);
+
+  --focus: #8faef0;
+  --field-glow: #2c3e66;
+
+  --info-bg: #1f2c47;
+  --info-ink: #bdd0f6;
+  --fit-bg: #1f3527;
+  --ok: #7ccb98;
+  --danger: #ee9884;
+  --danger-bg: #3a2320;
+  --danger-ink: #f6bcae;
+  --destructive: #ee9884;
+  --warn: #e0a04e;
+  --warn-bg: #3b2c17;
+  --warn-ink: #f0c98f;
+  --warn-ink-strong: #f8dcb2;
+  --warn-icon: #e0a04e;
+  --changed: #8faef0;
+  --changed-bg: #232b3d;
+  --changed-ink: #b9ccf1;
+
+  --cards-fill: #263654;
+  --cards-line: #829fd9;
+  --cards-ink: #c3d2e9;
+  --bits-fill: #584523;
+  --bits-line: #f6c465;
+  --bits-ink: #efdebd;
+  --tiles-fill: #314938;
+  --tiles-line: #8dcea1;
+  --tiles-ink: #c8e4cf;
+  --minis-fill: #4e2c3b;
+  --minis-line: #ce8dab;
+  --minis-ink: #e7c5d6;
+  --custom-fill: #36304b;
+  --custom-line: #9d91ca;
+  --custom-ink: #cfcae2;
+
+  --spacer-fill: #2e2c26;
+  --spacer-hatch: #3a372f;
+  --spacer-dash: #9a9688;
+
+  --shadow-menu: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --shadow-dialog: 0 30px 80px rgba(0, 0, 0, 0.7);
+  --shadow-drawer: -20px 0 60px rgba(0, 0, 0, 0.6);
+  --shadow-bar: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-toast: 0 10px 24px rgba(0, 0, 0, 0.5);
+  --shadow-peek: 0 -8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-sheet-modal: 0 -8px 30px rgba(0, 0, 0, 0.55);
+  --shadow-lift-drop: 0 2px 2px -1px rgba(0, 0, 0, 0.7);
+  --shadow-sheet: 0 1px 0 rgb(0 0 0 / 50%), 0 10px 24px -14px rgb(0 0 0 / 80%);
 }

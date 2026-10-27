@@ -10,15 +10,14 @@ import {
   shadeIndexOf,
 } from "../ui/identity";
 import type { ColorScheme } from "../ui/identity";
+import { schemeNow } from "../ui/theme";
 
 /**
- * The colour scheme the page shows now. three.js can't read `light-dark()`, so the scene asks for
- * plain hex of the right scheme. The page is light only, whatever the system says: it stays this
- * way until dark is opt-in (UI rebuild Task 16), which will read its choice here and watch it in
- * Viewer.tsx.
+ * The colour scheme the page shows now (ui/theme.ts). three.js can't read `light-dark()`, so the
+ * scene asks for plain hex of the right scheme. Read in a render, it makes the view follow a change.
  */
 export function pageScheme(): ColorScheme {
-  return "light";
+  return schemeNow.value;
 }
 
 /**
@@ -48,13 +47,13 @@ export function shadeColorOf(
 }
 
 /** The share of white a plan cell lays over its tile (`--cell-fill` in tokens.css). */
-const CELL_WHITE = 0.38;
+const CELL_WHITE: Record<ColorScheme, number> = { light: 0.38, dark: 0.12 };
 
-/** `hex` with `CELL_WHITE` of white laid over it, as the plan composes a cell over its tile. */
-function lightened(hex: string): string {
+/** `hex` with the scheme's share of white laid over it, as the plan composes a cell over its tile. */
+function lightened(hex: string, scheme: ColorScheme): string {
   const n = Number.parseInt(hex.slice(1), 16);
   const channel = (shift: number): string =>
-    Math.round(((n >> shift) & 255) * (1 - CELL_WHITE) + 255 * CELL_WHITE)
+    Math.round(((n >> shift) & 255) * (1 - CELL_WHITE[scheme]) + 255 * CELL_WHITE[scheme])
       .toString(16)
       .padStart(2, "0");
   return `#${channel(16)}${channel(8)}${channel(0)}`;
@@ -76,6 +75,8 @@ export function wellColorsOf(
   const grouped = isGroupTray(spec, { components, groups });
   return spec.compartments.map((c) => {
     const member = grouped ? memberShadeOfCompartment(c, components) : null;
-    return member === null ? lightened(body) : shadeHex(member.kind, member.index, scheme).fill;
+    return member === null
+      ? lightened(body, scheme)
+      : shadeHex(member.kind, member.index, scheme).fill;
   });
 }
