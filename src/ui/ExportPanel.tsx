@@ -7,14 +7,12 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "preact
 import { bytesToBlob, downloadBlob, fileSlug } from "../app/download";
 import {
   buildCombined3mf,
-  buildFitTest3mf,
   buildPartsZip,
   buildStlZip,
   planExport,
   usableBed,
 } from "../app/exportBuild";
 import type { ExportOptions, ExportOutput } from "../app/exportBuild";
-import { fitNames, fitSlices } from "../app/fitTest";
 import type { MeshSource } from "../app/meshes";
 import { shotsHold } from "../app/shotsHold";
 import { buildErrorReason } from "../app/support";
@@ -35,7 +33,7 @@ import {
 import { useFilament } from "./useFilament";
 import "./export.css";
 
-export type ExportKind = "parts" | "combined" | "stl" | "fit";
+export type ExportKind = "parts" | "combined" | "stl";
 
 /** The two files kept behind "Other formats": the default is the one combined 3MF. */
 const OTHER_KINDS: ExportKind[] = ["parts", "stl"];
@@ -44,7 +42,6 @@ export const EXPORT_LABELS: Record<ExportKind, string> = {
   parts: "One 3MF per part (.zip)",
   combined: "3MF",
   stl: "STL files (.zip)",
-  fit: "Fit test print",
 };
 
 export const SUPPORT_LINKS = [
@@ -117,22 +114,9 @@ export function ExportPanel(p: ExportPanelProps) {
       ),
     [plan, names, p.settings.engraveNames],
   );
-  // The fit test: a slice of each distinct well, cut with its item's name, counted like the parts.
-  const slices = useMemo(
-    () => fitSlices(p.trays, components, p.settings),
-    [p.trays, components, p.settings],
-  );
-  const fitSpecs = useMemo(
-    () => slices.map((s) => buildSpecOf(s.part, true, { short: s.short })),
-    [slices],
-  );
   // Each Try again counts the filament again too: a failure of the count before it is not final.
   const [retries, setRetries] = useState(0);
   const filament = useFilament(p.meshes, buildSpecs, p.settings, p.printer, {
-    stale: p.stale === true,
-    retry: retries,
-  });
-  const fitFilament = useFilament(p.meshes, fitSpecs, p.settings, p.printer, {
     stale: p.stale === true,
     retry: retries,
   });
@@ -236,7 +220,7 @@ export function ExportPanel(p: ExportPanelProps) {
     setError(null);
     setFailed([]);
     setDownloaded(null);
-    setBusy({ kind, done: 0, total: kind === "fit" ? slices.length : plan.parts.length });
+    setBusy({ kind, done: 0, total: plan.parts.length });
     let firstMesh = true;
     const opts: ExportOptions = {
       getMesh: async (spec) => {
@@ -264,13 +248,7 @@ export function ExportPanel(p: ExportPanelProps) {
       }
     };
     try {
-      if (kind === "fit") {
-        finish(
-          await buildFitTest3mf(slices, usableBed(p.printer), opts),
-          "model/3mf",
-          `${slug}-fit-test.3mf`,
-        );
-      } else if (kind === "parts") {
+      if (kind === "parts") {
         finish(await buildPartsZip(plan.parts, opts), "application/zip", `${slug}-3mf-parts.zip`);
       } else if (kind === "combined") {
         finish(
@@ -341,11 +319,7 @@ export function ExportPanel(p: ExportPanelProps) {
     // The specs that were built (with their engraved name), not the plain ones: the mesh cache keys
     // on the whole spec.
     p.meshes.forget(
-      failed.map((f) =>
-        lastKind === "fit"
-          ? buildSpecOf(f.part, true, fitNames(slices).get(f.part.spec.key))
-          : buildSpecOf(f.part, p.settings.engraveNames, names.get(f.part.spec.key)),
-      ),
+      failed.map((f) => buildSpecOf(f.part, p.settings.engraveNames, names.get(f.part.spec.key))),
       p.settings,
     );
     setRetries((n) => n + 1);
@@ -357,9 +331,6 @@ export function ExportPanel(p: ExportPanelProps) {
   if (view === "building") {
     heading = "Building your print file";
     line = `${busy?.done ?? 0} of ${noun(busy?.total ?? total, "part", "parts")} built`;
-  } else if (view === "done" && downloaded?.kind === "fit") {
-    heading = "The fit test print is ready";
-    line = "Print it, try your cards and pieces in it, then print the insert.";
   } else if (view === "done") {
     heading = total === 1 ? "The part is ready" : `All ${total} parts are ready`;
     line =
@@ -367,8 +338,7 @@ export function ExportPanel(p: ExportPanelProps) {
         ? "One file with every part."
         : `Downloaded ${downloaded?.filename ?? ""}.`;
   } else if (view === "partial") {
-    const of = downloaded?.kind === "fit" ? slices.length : total;
-    heading = `${of - failed.length} of ${of} ${of === 1 ? "part is" : "parts are"} ready`;
+    heading = `${total - failed.length} of ${total} ${total === 1 ? "part is" : "parts are"} ready`;
   } else {
     heading = "Ready to print";
   }
@@ -512,7 +482,6 @@ export function ExportPanel(p: ExportPanelProps) {
       <Icon name={moreOpen ? "chevron-up" : "chevron-down"} size={14} />
     </Button>
   );
-  const fitOff = off || slices.length === 0;
   const formatList = moreOpen ? (
     <div class="export-formats" id={moreId}>
       {OTHER_KINDS.map((k) => (
@@ -527,26 +496,6 @@ export function ExportPanel(p: ExportPanelProps) {
           {EXPORT_LABELS[k]}
         </Button>
       ))}
-      {slices.length > 0 ? (
-        <Button
-          variant="secondary"
-          class="export-format export-format--fit"
-          aria-disabled={fitOff ? "true" : undefined}
-          aria-describedby={describedBy}
-          onClick={() => {
-            if (!fitOff) {
-              void run("fit");
-            }
-          }}
-        >
-          {EXPORT_LABELS.fit}
-          <span class="export-format__note">
-            {fitFilament.status === "ready"
-              ? `A slice of each well, ${formatGrams(fitFilament.grams)}: check pieces fit first`
-              : "A slice of each well: check pieces fit first"}
-          </span>
-        </Button>
-      ) : null}
     </div>
   ) : null;
 

@@ -10,6 +10,24 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.28.2] - 2026-10-27
+
+### Removed
+
+- **Fit test print.** Tried in 0.28.0 and taken out: a plate of slices did not make clear how it
+  tested the finished insert. The "Fit test print" item in Download's "Other formats" and the
+  "Too tight?" line in the packing guide are gone.
+
+### Fixed
+
+- **Engraved kind names in trays of several items.** In a tray that holds different items (a
+  faction's Airships beside its wooden pieces, a card box with one lone deck among others), a
+  well of an item with one kind is now named by its item, so "Combat cards" is cut beside "Base"
+  and "Promo", and each well of the Faction tray says what it holds. Before, those wells had no
+  name or a kind that said nothing. A kind two items share is told apart by its item, and a name
+  the font cannot print no longer hides the names of the other wells. A well too small for its
+  name is still left plain. Geometry 0.9.15: printed parts change, and still mate with those before.
+
 ## [0.28.1] - 2026-10-27
 
 ### Changed

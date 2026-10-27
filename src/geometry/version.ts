@@ -309,8 +309,14 @@ import type { Semver } from "../model/version";
  * on the walls and underside. The same recesses as before (two layers, upright sides on a floor, no
  * overhang); outer size, footprint, fit and every tray are as before, so printed parts still mate.
  * A PATCH.
+ *
+ * 0.9.15 names the wells of a tray of several items (a group's Airships beside its wooden pieces,
+ * a card box's lone deck beside the decks of other items) by their item, which 0.9.14 left
+ * unnamed or named by a kind that said nothing. Which kinds are cut where is the app's
+ * (`TraySpec.wellNames`); the recesses are as before. Outer size, footprint, fit and every tray are
+ * as before, so printed parts still mate. A PATCH.
  */
-export const GEOMETRY_VERSION = "0.9.14";
+export const GEOMETRY_VERSION = "0.9.15";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

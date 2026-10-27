@@ -1,5 +1,4 @@
 // src/instructions/AssemblyPage.tsx
-import { FIT_GUIDE_LINE } from "../app/fitTest";
 import { useMemo, useRef, useState } from "preact/hooks";
 import { downloadBlob, fileSlug } from "../app/download";
 import { Button } from "../kit";
@@ -79,7 +78,6 @@ export function AssemblyPage(p: AssemblyPageProps) {
       <p class="assembly-meta">
         {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Pack from the bottom layer up. Layers are drawn from above, with the front of the box at the bottom.`}
       </p>
-      <p class="assembly-meta no-print">{FIT_GUIDE_LINE}</p>
       {svgs.length > 0 ? (
         <div class="assembly-takeout">
           <p>
