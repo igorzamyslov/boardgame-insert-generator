@@ -269,21 +269,60 @@ function wordsOf(text: string): string[] {
 
 /**
  * The kind each well of a tray holds, for engraving on its floor (`TrayName.wells`). A tray holds
- * several kinds when its wells carry two or more different names ("Oil", "Wood"); then every well
- * with a name of its own has it, repeats included (each pocket of a figure ×4). A name the font
- * cannot print at all, or a well shared by several ("A + B"), has none.
+ * several kinds when its wells hold two or more different things: the decks of one item ("Base",
+ * "Promo"), the kinds of one item (Oil, Metal), or different items sharing the tray (a group's
+ * Airships and Faction wooden pieces). Then every well has a name of its own, repeats included
+ * (each pocket of a figure ×4):
+ * - a well of an item with several kinds is named by its kind ("Leader", "Mech");
+ * - a well of an item with one kind is named by the item, in a tray of several items
+ *   ("Combat cards" beside "Base" and "Promo"), where a kind alone would say nothing;
+ * - a kind that two items share is told apart by its item ("Encounter Base", "Market Base").
+ * A name the font cannot print at all, or a well shared by several ("A + B"), has none, and nor
+ * has a spare well.
  */
 function wellKinds(spec: TraySpec, components: readonly Component[]): string[] {
-  const names = spec.compartments.map((c) => {
+  const wells = spec.compartments.map((c) => {
     if (c.kind === "spare") {
-      return "";
+      return null;
     }
     const at = componentIndexOfCompartment(c, components);
-    const name = wellName(c.contents, at === null ? undefined : components[at]);
-    return name.includes(" + ") ? "" : printable(name);
+    const item = at === null ? undefined : components[at];
+    const sub = wellName(c.contents, item);
+    return sub.includes(" + ") ? null : { at, item, sub };
+  });
+  const items = new Set(wells.map((w) => w?.at ?? null).filter((a) => a !== null));
+  const several = items.size > 1;
+  // the kinds each item has in this tray: an item of one kind is named by the item
+  const subsOf = new Map<number | null, Set<string>>();
+  for (const w of wells) {
+    if (w !== null && w.sub !== "") {
+      subsOf.set(w.at, (subsOf.get(w.at) ?? new Set()).add(w.sub.toUpperCase()));
+    }
+  }
+  const raw = wells.map((w) => {
+    if (w === null) {
+      return "";
+    }
+    if (!several || w.item === undefined || (subsOf.get(w.at)?.size ?? 0) > 1) {
+      return w.sub;
+    }
+    return componentName(w.item);
+  });
+  // two items' kinds that read alike are told apart by their item
+  const owners = new Map<string, Set<number | null>>();
+  raw.forEach((name, i) => {
+    const key = name.toUpperCase();
+    owners.set(key, (owners.get(key) ?? new Set()).add(wells[i]?.at ?? null));
+  });
+  const names = raw.map((name, i) => {
+    const w = wells[i];
+    const alike = (owners.get(name.toUpperCase())?.size ?? 0) > 1;
+    return alike && w?.item !== undefined && w.sub !== "" && name !== ""
+      ? `${componentName(w.item)} ${name}`
+      : name;
   });
   const kinds = new Set(names.filter((n) => n !== "").map((n) => n.toUpperCase()));
-  return kinds.size < 2 ? names.map(() => "") : names;
+  return kinds.size < 2 ? names.map(() => "") : names.map(printable);
 }
 
 const cut = (text: string, room: number): string => text.slice(0, Math.max(room, 0));

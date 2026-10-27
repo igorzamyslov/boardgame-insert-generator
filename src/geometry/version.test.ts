@@ -4,7 +4,7 @@ import source from "./version.ts?raw";
 
 describe("isOlderGeometryLine", () => {
   it("pre-1.0, treats each 0.MINOR as a major line (spec §9)", () => {
-    expect(GEOMETRY_VERSION).toBe("0.9.14");
+    expect(GEOMETRY_VERSION).toBe("0.9.15");
     expect(isOlderGeometryLine("0.0.9")).toBe(true);
     expect(isOlderGeometryLine("0.1.1")).toBe(true); // finger pockets: refused now, reprint
     expect(isOlderGeometryLine("0.2.0")).toBe(true); // finger-cut minis and scoop walls: reprint
