@@ -378,6 +378,7 @@ const DL_COUNT = "The Download dialog counts trays and spacers";
 const DL_FLOW = "The Download dialog's title and body follow the build";
 const DL_NOT = "Exporting's report, partial download and Start again are not built";
 const DL_PLAN = "The Download dialog is a print plan by layer";
+const DL_FIT = "The Download dialog offers a fit test";
 const DL_BLOCKED = "The Download dialog says why it is blocked in its caption line";
 /** "8 trays and 2 spacers for Harbour Kings" in each of its forms: the board has the plural one. */
 const HOLDS: readonly string[] = [
@@ -548,6 +549,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     "Support this tool",
     "·",
   ].map((text) => ({ text, states: DOWNLOAD, ruling: DL_PLAN })),
+  // 0.28.0: the fit test, a small plate printed before the whole insert
+  ...[
+    "Fit test",
+    "Check your cards and pieces fit before printing the whole insert.",
+    "Too tight? Set Fit to Loose in Settings, or give the item its own clearance.",
+    "The fit test is ready",
+    "Print it, try your cards and pieces in it, then print the insert.",
+  ].map((text) => ({ text, states: DOWNLOAD, ruling: DL_FIT })),
   { text: "One file with the part.", states: DOWNLOAD, ruling: DL_COUNT },
   { text: "The part is ready", states: DOWNLOAD, ruling: DL_FLOW },
   { text: "{n} of 1 part built", states: DOWNLOAD, ruling: DL_FLOW },

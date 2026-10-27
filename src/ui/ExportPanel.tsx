@@ -7,12 +7,14 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "preact
 import { bytesToBlob, downloadBlob, fileSlug } from "../app/download";
 import {
   buildCombined3mf,
+  buildFitTest3mf,
   buildPartsZip,
   buildStlZip,
   planExport,
   usableBed,
 } from "../app/exportBuild";
 import type { ExportOptions, ExportOutput } from "../app/exportBuild";
+import { fitNames, fitSlices } from "../app/fitTest";
 import type { MeshSource } from "../app/meshes";
 import { shotsHold } from "../app/shotsHold";
 import { buildErrorReason } from "../app/support";
@@ -33,7 +35,7 @@ import {
 import { useFilament } from "./useFilament";
 import "./export.css";
 
-export type ExportKind = "parts" | "combined" | "stl";
+export type ExportKind = "parts" | "combined" | "stl" | "fit";
 
 /** The two files kept behind "Other formats": the default is the one combined 3MF. */
 const OTHER_KINDS: ExportKind[] = ["parts", "stl"];
@@ -42,7 +44,13 @@ export const EXPORT_LABELS: Record<ExportKind, string> = {
   parts: "One 3MF per part (.zip)",
   combined: "3MF",
   stl: "STL files (.zip)",
+  fit: "Fit test",
 };
+
+/** The fit test's lines (DESIGN §7: "The Download dialog offers a fit test"). */
+export const FIT_LINE = "Check your cards and pieces fit before printing the whole insert.";
+export const FIT_TIGHT_LINE =
+  "Too tight? Set Fit to Loose in Settings, or give the item its own clearance.";
 
 export const SUPPORT_LINKS = [
   { name: "Ko-fi", href: "https://ko-fi.com/igorzamyslov" },
@@ -114,9 +122,19 @@ export function ExportPanel(p: ExportPanelProps) {
       ),
     [plan, names, p.settings.engraveNames],
   );
+  // The fit test: a slice of each distinct well, cut with its item's name, counted like the parts.
+  const slices = useMemo(
+    () => fitSlices(p.trays, components, p.settings),
+    [p.trays, components, p.settings],
+  );
+  const fitSpecs = useMemo(() => slices.map((s) => buildSpecOf(s.part, true, s.short)), [slices]);
   // Each Try again counts the filament again too: a failure of the count before it is not final.
   const [retries, setRetries] = useState(0);
   const filament = useFilament(p.meshes, buildSpecs, p.settings, p.printer, {
+    stale: p.stale === true,
+    retry: retries,
+  });
+  const fitFilament = useFilament(p.meshes, fitSpecs, p.settings, p.printer, {
     stale: p.stale === true,
     retry: retries,
   });
@@ -220,7 +238,7 @@ export function ExportPanel(p: ExportPanelProps) {
     setError(null);
     setFailed([]);
     setDownloaded(null);
-    setBusy({ kind, done: 0, total: plan.parts.length });
+    setBusy({ kind, done: 0, total: kind === "fit" ? slices.length : plan.parts.length });
     let firstMesh = true;
     const opts: ExportOptions = {
       getMesh: async (spec) => {
@@ -248,7 +266,13 @@ export function ExportPanel(p: ExportPanelProps) {
       }
     };
     try {
-      if (kind === "parts") {
+      if (kind === "fit") {
+        finish(
+          await buildFitTest3mf(slices, usableBed(p.printer), opts),
+          "model/3mf",
+          `${slug}-fit-test.3mf`,
+        );
+      } else if (kind === "parts") {
         finish(await buildPartsZip(plan.parts, opts), "application/zip", `${slug}-3mf-parts.zip`);
       } else if (kind === "combined") {
         finish(
@@ -320,7 +344,9 @@ export function ExportPanel(p: ExportPanelProps) {
     // on the whole spec.
     p.meshes.forget(
       failed.map((f) =>
-        buildSpecOf(f.part, p.settings.engraveNames, names.get(f.part.spec.key)?.short),
+        lastKind === "fit"
+          ? buildSpecOf(f.part, true, fitNames(slices).get(f.part.spec.key)?.short)
+          : buildSpecOf(f.part, p.settings.engraveNames, names.get(f.part.spec.key)?.short),
       ),
       p.settings,
     );
@@ -333,6 +359,9 @@ export function ExportPanel(p: ExportPanelProps) {
   if (view === "building") {
     heading = "Building your print file";
     line = `${busy?.done ?? 0} of ${noun(busy?.total ?? total, "part", "parts")} built`;
+  } else if (view === "done" && downloaded?.kind === "fit") {
+    heading = "The fit test is ready";
+    line = "Print it, try your cards and pieces in it, then print the insert.";
   } else if (view === "done") {
     heading = total === 1 ? "The part is ready" : `All ${total} parts are ready`;
     line =
@@ -340,7 +369,8 @@ export function ExportPanel(p: ExportPanelProps) {
         ? "One file with every part."
         : `Downloaded ${downloaded?.filename ?? ""}.`;
   } else if (view === "partial") {
-    heading = `${total - failed.length} of ${total} ${total === 1 ? "part is" : "parts are"} ready`;
+    const of = downloaded?.kind === "fit" ? slices.length : total;
+    heading = `${of - failed.length} of ${of} ${of === 1 ? "part is" : "parts are"} ready`;
   } else {
     heading = "Ready to print";
   }
@@ -501,6 +531,32 @@ export function ExportPanel(p: ExportPanelProps) {
     </div>
   ) : null;
 
+  const fitOff = off || slices.length === 0;
+  const fit =
+    slices.length > 0 ? (
+      <div class="export-fit">
+        <div class="export-fit__row">
+          <Button
+            variant="secondary"
+            aria-disabled={fitOff ? "true" : undefined}
+            aria-describedby={describedBy}
+            onClick={() => {
+              if (!fitOff) {
+                void run("fit");
+              }
+            }}
+          >
+            {EXPORT_LABELS.fit}
+          </Button>
+          {fitFilament.status === "ready" ? (
+            <span class="export-fit__grams">{formatGrams(fitFilament.grams)}</span>
+          ) : null}
+        </div>
+        <p class="export-fit__line">{FIT_LINE}</p>
+        <p class="export-fit__line">{FIT_TIGHT_LINE}</p>
+      </div>
+    ) : null;
+
   const support = (
     <p class="export-support">
       Support this tool
@@ -637,6 +693,7 @@ export function ExportPanel(p: ExportPanelProps) {
           {formatsToggle}
         </div>
         {formatList}
+        {fit}
         {support}
       </>
     );

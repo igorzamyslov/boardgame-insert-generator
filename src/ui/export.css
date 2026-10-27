@@ -179,6 +179,27 @@
   font-weight: 400;
 }
 
+/* ---- Fit test: a button and two quiet lines ---- */
+.export-fit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-8);
+}
+
+.export-fit__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+}
+
+.export-fit__grams,
+.export-fit__line {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
 /* ---- Support: one quiet line of text ---- */
 .export-support {
   margin: 0;

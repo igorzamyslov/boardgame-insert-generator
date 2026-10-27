@@ -10,6 +10,15 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+### Added
+
+- **Fit test.** The Download dialog has a **Fit test** button: a small plate to print in a short
+  time before the whole insert. It holds a low ring of each kind of well in your plan (cards, tiles,
+  a figure's pocket, one scoop for loose pieces) at its real size, with your Fit, walls and corner
+  radius, each cut with its item's name. Drop your cards and pieces in; if they are tight, set Fit
+  to Loose in Settings or give the item its own clearance. Shows the filament it takes; there is no
+  print time, as elsewhere in the app. The insert's own files are built as before.
+
 ## [0.27.0] - 2026-10-26
 
 ### Added

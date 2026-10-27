@@ -13,7 +13,7 @@ import type { Component, FeatureSpec } from "../model/types";
 import { loadSeed } from "../test-support/harbourKings";
 import css from "./export.css?raw";
 import { shadeOf } from "./identity";
-import { ExportPanel } from "./ExportPanel";
+import { ExportPanel, FIT_LINE, FIT_TIGHT_LINE } from "./ExportPanel";
 import type { ExportPanelProps } from "./ExportPanel";
 
 afterEach(cleanup);
@@ -244,12 +244,32 @@ describe("ExportPanel", () => {
     const p = props();
     render(<ExportPanel {...p} />);
     await waitFor(() => expect(layerGrams()).toEqual(["about 1 g"]));
-    const counted = vi.mocked(p.meshes.get).mock.calls.map(([spec]) => JSON.stringify(spec));
+    // the fit test's slices are counted too, but are not part of this file
+    const notFit = (json: string): boolean => !json.includes('"key":"fit-');
+    const counted = vi
+      .mocked(p.meshes.get)
+      .mock.calls.map(([spec]) => JSON.stringify(spec))
+      .filter(notFit);
     vi.mocked(p.meshes.get).mockClear();
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await screen.findByRole("heading", { level: 1, name: "All 2 parts are ready" });
     const exported = vi.mocked(p.meshes.get).mock.calls.map(([spec]) => JSON.stringify(spec));
     expect(exported).toEqual(counted);
+  });
+
+  it("downloads a fit test: one plate with a slice of each well, cut with its item's name", async () => {
+    const p = props();
+    render(<ExportPanel {...p} />);
+    expect(screen.getByText(FIT_LINE, { exact: false })).toBeTruthy();
+    expect(screen.getByText(FIT_TIGHT_LINE)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Fit test" }));
+    await screen.findByRole("heading", { level: 1, name: "The fit test is ready" });
+    const [, name] = vi.mocked(p.download).mock.calls[0] ?? [];
+    expect(name).toBe("Wing-span-fit-test.3mf");
+    const asked = vi.mocked(p.meshes.get).mock.calls.map(([spec]) => spec);
+    expect(
+      asked.filter((s) => s.key.startsWith("fit-")).every((s) => s.partName !== undefined),
+    ).toBe(true);
   });
 
   it("leaves the grams out when a part cannot be built", async () => {
