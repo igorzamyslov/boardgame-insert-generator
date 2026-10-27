@@ -5,6 +5,7 @@ import { optimize, printableParts } from "../layout";
 import { FIXTURES } from "../layout/test-fixtures";
 import { inputsHash } from "../model/hash";
 import { parseProject } from "../model/schema";
+import type { TraySpec } from "../model/types";
 import { size } from "../sizing";
 import { buildFitTest3mf } from "./exportBuild";
 import { FIT_RING_MM, FIT_SLICE_MAX, fitNames, fitSlices } from "./fitTest";
@@ -42,7 +43,7 @@ function planned(fixture: keyof typeof FIXTURES) {
 }
 
 describe("the fit test", () => {
-  it.each(["cards-heavy", "tiles-minis", "bits-heavy"] as const)(
+  it.each(["cards-heavy", "tiles-minis"] as const)(
     "%s: a manifold slice for each distinct well, as wide inside as the real well",
     async (fixture) => {
       const { p, trays } = planned(fixture);
@@ -73,6 +74,72 @@ describe("the fit test", () => {
     const { p, trays } = planned("cards-heavy");
     const slices = fitSlices([...trays, ...trays], p.components, p.settings);
     expect(slices).toEqual(fitSlices(trays, p.components, p.settings));
+  });
+
+  it("gives loose bits no ring: no scoop, whatever the plan holds", () => {
+    const { p, trays } = planned("bits-heavy");
+    expect(trays.some((t) => t.compartments.some((c) => c.kind === "scoop"))).toBe(true);
+    const slices = fitSlices(trays, p.components, p.settings);
+    expect(slices.some((s) => s.part.spec.compartments.some((c) => c.kind === "scoop"))).toBe(
+      false,
+    );
+  });
+
+  it("takes the tightest well of alike decks, not the first", () => {
+    const { p, trays } = planned("cards-heavy");
+    const deck = (t: TraySpec) => t.compartments.some((c) => c.kind === "well" && c.componentId);
+    const tray = trays.find(deck);
+    expect(tray).toBeDefined();
+    const at = tray?.compartments.findIndex((c) => c.kind === "well" && c.componentId) ?? 0;
+    const tight = tray?.compartments[at];
+    if (tray === undefined || tight === undefined) {
+      throw new Error("no deck");
+    }
+    // the same deck's well with 3 mm to spare on both sides, and a copy of the real one
+    const roomy = (t: TraySpec): TraySpec => ({
+      ...t,
+      compartments: t.compartments.map((c, i) => (i === at ? { ...c, w: c.w + 3, d: c.d + 3 } : c)),
+    });
+    const cardWell = (list: readonly TraySpec[]) =>
+      fitSlices(list, p.components, p.settings)
+        .map((s) => s.part.spec.compartments[0])
+        .find((c) => c?.componentId === tight.componentId);
+    for (const order of [
+      [roomy(tray), tray],
+      [tray, roomy(tray)],
+    ]) {
+      const well = cardWell(order);
+      expect(well?.w).toBeCloseTo(tight.w, 6);
+      expect(well?.d).toBeCloseTo(tight.d, 6);
+    }
+  });
+
+  it("takes the thickest deck for cards, not the first or the thinnest", () => {
+    const { p, trays } = planned("cards-heavy");
+    const tray = trays.find((t) => t.compartments.some((c) => c.kind === "well" && c.componentId));
+    const at = tray?.compartments.findIndex((c) => c.kind === "well" && c.componentId) ?? 0;
+    const real = tray?.compartments[at];
+    if (tray === undefined || real === undefined) {
+      throw new Error("no deck");
+    }
+    const count = Number(/×(\d+)$/.exec(real.contents)?.[1]);
+    expect(count).toBeGreaterThan(3);
+    // the same deck with only 3 cards: a thinner well, and a tighter one by spare room
+    const thin: TraySpec = {
+      ...tray,
+      compartments: [{ ...real, contents: real.contents.replace(/×\d+$/, "×3"), w: 2.5 }],
+    };
+    const own: TraySpec = { ...tray, compartments: [real] };
+    for (const order of [
+      [thin, own],
+      [own, thin],
+    ]) {
+      const slices = fitSlices(order, p.components, p.settings);
+      const wells = slices.map((s) => s.part.spec.compartments[0]);
+      expect(wells.filter((c) => c?.componentId === real.componentId)).toEqual([
+        expect.objectContaining({ contents: real.contents, w: real.w }),
+      ]);
+    }
   });
 
   it("builds one 3MF file with every slice", async () => {
