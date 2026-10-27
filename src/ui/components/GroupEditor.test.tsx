@@ -1,10 +1,10 @@
 // src/ui/components/GroupEditor.test.tsx
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Group } from "../../model/types";
 import editorCss from "./editor.css?raw";
-import { GroupEditor, movedWords, removeQuestion } from "./GroupEditor";
+import { GroupEditor, movedWords } from "./GroupEditor";
 import type { GroupEditorMember, GroupEditorProps } from "./GroupEditor";
 
 afterEach(() => {
@@ -47,19 +47,6 @@ function editor(over: Partial<GroupEditorProps> = {}) {
 }
 
 describe("the words", () => {
-  it("asks 'Remove the group “Player kit”? Its 3 items stay, with 4 copies each.' (the second clause only with copies)", () => {
-    expect(removeQuestion("Player kit", 3, 4)).toBe(
-      "Remove the group “Player kit”? Its 3 items stay, with 4 copies each.",
-    );
-    expect(removeQuestion("Player kit", 3, 1)).toBe(
-      "Remove the group “Player kit”? Its 3 items stay.",
-    );
-    expect(removeQuestion("Hero", 1, 2)).toBe(
-      "Remove the group “Hero”? Its 1 item stays, with 2 copies.",
-    );
-    expect(removeQuestion("Group", 0, 1)).toBe("Remove the group “Group”?");
-  });
-
   it("says a move by names, never by place", () => {
     expect(movedWords("Hero", "Starter deck")).toBe("Hero is now after Starter deck.");
     expect(movedWords("Hero", undefined)).toBe("Hero is now first.");
@@ -77,7 +64,7 @@ describe("GroupEditor (the rail's panel)", () => {
       within(panel).getByText("Each copy is its own tray."),
       within(panel).getByText("How often you reach for it"),
       within(panel).getByText("Order in the tray"),
-      within(panel).getByRole("button", { name: "Remove group…" }),
+      within(panel).getByRole("button", { name: "Remove group" }),
       within(panel).getByRole("button", { name: "Done" }),
     ];
     parts.reduce((before, next) => {
@@ -224,28 +211,12 @@ describe("GroupEditor (the rail's panel)", () => {
     expect(document.activeElement?.textContent).toBe("Resources");
   });
 
-  it("asks before removing, in place: the question, Remove group and Cancel; Cancel hands the focus back", () => {
-    vi.useFakeTimers();
+  it("removes at once: one press, no question, onRemove called once", () => {
     const { onRemove } = editor();
-    const open = screen.getByRole("button", { name: "Remove group…" });
-    fireEvent.click(open);
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
-    expect(
-      screen.getByText("Remove the group “Player kit”? Its 3 items stay, with 4 copies each."),
-    ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
-    expect(onRemove).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove group…" }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove group" }));
     expect(onRemove).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Remove the group/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
   });
 
   it("goes back from the back link and from Done", () => {
@@ -269,7 +240,7 @@ describe("GroupEditor on a phone (MobileEdit's sheet)", () => {
       "Player kit",
     );
     expect(screen.getByRole("list", { name: "Order in the tray" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Remove group…" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove group" })).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Extra room/);
     // no dragging on a phone (spec §7.8): no grips, Up and Down are the way
     expect(document.querySelector(".gc-grip")).toBeNull();

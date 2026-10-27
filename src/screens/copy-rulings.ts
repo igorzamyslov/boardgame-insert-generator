@@ -66,8 +66,7 @@ const GROUP_COUNTS = "A group's card in the rail says its counts";
 // 0.7.0 Task 10: a group's tray bar and the stage sentence of a split copy
 const GROUP_BAR = "A group's tray bar says its size";
 const SPLIT = "A split copy's stage sentence adds";
-// 0.7.0 Task 11: the group editor (GroupEdit) and its Remove group… question and note
-const GROUP_REMOVE = "Remove group… asks in place";
+// 0.7.0 Task 11: the group editor (GroupEdit) and its removal note
 const GROUP_REMOVED = "A group's removal is one note";
 const GROUP_ORDER = "The order of a group's items is set with";
 /** What a removal's lock notes can say, as sentences: pins, a size lock, or both (the actions' own words). */
@@ -77,13 +76,7 @@ const GROUP_LOCK_NOTES: readonly string[] = (() => {
   return [...pins, ...sizes, ...pins.flatMap((p) => sizes.map((z) => `${p} ${z}`))];
 })();
 /** The group editor's states (copy.board.test.tsx has a case for each; `kit-removed` is the copy test's own). */
-const GROUP_EDITS = [
-  "kit-edit",
-  "kit-remove",
-  "kit-removed",
-  "kit-split-edit",
-  "m-kit-edit",
-] as const;
+const GROUP_EDITS = ["kit-edit", "kit-removed", "kit-split-edit", "m-kit-edit"] as const;
 /** The rail's states and the phone sheet's (copy.board.test.tsx has a case for each). */
 const RAIL = [
   ...KIT_RAIL,
@@ -254,7 +247,8 @@ const EDITOR_ROOM_MORE = "Room for more is one row per item, in the contents' te
 const RESIZE = "The rail's handle is named";
 // 0.27.0: Duplicate in an item's editor
 const DUPLICATE = "An item can be duplicated from its editor";
-const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
+const EDITOR_REMOVE =
+  "Removing acts at once, with Undo; an upgrade is silent; the old-plan notice speaks of updating";
 const EDITOR_CHANGED = "More options marks what differs from its default";
 const EDITOR_ROOM = "Room around the pieces shows the insert's number and lets the item change it";
 const THIN_WALLS = "Walls' Thin choice is 1.0 mm all through";
@@ -278,8 +272,7 @@ const EDITOR_LABELS: readonly string[] = [
   "Something else",
   // the panel's frame
   "What's inside",
-  "Remove…",
-  "Remove {name}…",
+  "Remove {name}",
   // groups and their choices
   "None",
   "Auto",
@@ -741,10 +734,17 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Doesn't fit", states: FIT_PROBLEMS, ruling: FIT_ROW },
   { text: "Make a new plan", states: ["workspace-banner"], ruling: BANNERS },
   {
-    text: "Trays printed from it won't stack with trays you print now.",
+    text: "Made with an older version of the app.",
     states: ["workspace-older"],
-    ruling: BANNERS,
+    ruling: EDITOR_REMOVE,
   },
+  {
+    text: "Update the plan to get the current tray shapes. Trays already printed from the old plan may not stack with new ones.",
+    states: ["workspace-older"],
+    ruling: EDITOR_REMOVE,
+  },
+  { text: "Update plan", states: ["workspace-older"], ruling: EDITOR_REMOVE },
+  { text: "Update plan to download", states: ["workspace-older"], ruling: EDITOR_REMOVE },
   { text: "Use the old plan", states: ["workspace-older"], ruling: BANNERS },
   { text: "Show all", states: ["workspace-notes"], ruling: NOTES },
   { text: "Warning:", states: ["workspace-notes"], ruling: NOTES },
@@ -1060,37 +1060,13 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     "Fills the room left in {name}'s tray. The tray doesn't get bigger.",
   ].map((text) => ({ text, states: EDITING, ruling: EDITOR_ROOM_MORE })),
   // asking before a removal, and the note after it (it sits in the stage slot, as the option notes do)
-  { text: "Remove “{name}” from the box?", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Remove", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Duplicate", states: EDITING, ruling: DUPLICATE },
-  { text: "Cancel", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Removed “{name}”.", states: ["editor-removed"], ruling: EDITOR_REMOVE },
   { text: "Undo removal", states: ["editor-removed"], ruling: EDITOR_REMOVE },
   { text: "Dismiss", states: ["editor-removed", "kit-removed"], ruling: EDITOR_REMOVE },
-  // Remove group… (spec §7.4, §8): GroupEdit draws the button alone; the app asks, and says what went
-  {
-    text: "Remove the group “{name}”? Its {n} items stay, with {n} copies each.",
-    states: GROUP_EDITS,
-    ruling: GROUP_REMOVE,
-  },
-  {
-    text: "Remove the group “{name}”? Its {n} items stay.",
-    states: GROUP_EDITS,
-    ruling: GROUP_REMOVE,
-  },
-  {
-    text: "Remove the group “{name}”? Its 1 item stays, with {n} copies.",
-    states: GROUP_EDITS,
-    ruling: GROUP_REMOVE,
-  },
-  {
-    text: "Remove the group “{name}”? Its 1 item stays.",
-    states: GROUP_EDITS,
-    ruling: GROUP_REMOVE,
-  },
-  { text: "Remove the group “{name}”?", states: GROUP_EDITS, ruling: GROUP_REMOVE },
-  { text: "Remove group", states: GROUP_EDITS, ruling: GROUP_REMOVE },
-  { text: "Cancel", states: GROUP_EDITS, ruling: GROUP_REMOVE },
+  // Remove group (spec §7.4, §8): it acts at once; the app says what went
+  { text: "Remove group", states: GROUP_EDITS, ruling: EDITOR_REMOVE },
   {
     text: "{name} removed. Its items are back in the list.",
     states: ["kit-removed"],

@@ -15,7 +15,7 @@ import { COPY_RULINGS, DOWNLOAD_STATES } from "../screens/copy-rulings";
  * Two lists are checked (spec "Words"):
  *
  * - RETIRED: phrases and capitalised words the redesign dropped ("Copy link", "Advanced",
- *   "advanced mode", "Update plan", a "#" and a digit, ...).
+ *   "advanced mode", a "#" and a digit, ...).
  * - NOT_WORDS: the spec's "Not" column, as whole words, case-insensitively ("bits", "minis",
  *   "components", "filler", "lock", "keep", "placement", "bin", "part", "things", ...).
  *
@@ -179,7 +179,6 @@ const RETIRED: readonly { name: string; test: (text: string) => boolean }[] = [
   { name: "Locking rim", test: (t) => /\bLocking rim\b/i.test(t) },
   { name: "loose dividers", test: (t) => /\bloose dividers\b/i.test(t) },
   { name: "loose plates", test: (t) => /\bloose plates\b/i.test(t) },
-  { name: "Update plan", test: (t) => /\bUpdate (?:the )?plan\b/i.test(t) },
   { name: "Improve more", test: (t) => /\bImprove more\b/i.test(t) },
   { name: "Lock position", test: (t) => /\bLock position\b/i.test(t) },
   { name: "Exact values", test: (t) => /\bExact values\b/i.test(t) },

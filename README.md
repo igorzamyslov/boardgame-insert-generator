@@ -128,7 +128,7 @@ is being made, or what is wrong, with the way out beside it ("Try another arrang
 <name>", "Settings"). If you change the inputs after a plan was made, the plan stays as it was
 and a banner says "This plan is from before your last changes." with "Make a new plan". Download
 and the packing guide are off until you do. A plan made under an older line of tray geometry gets
-a banner too ("Reprint everything" or "Use the old plan"): its trays no longer mate with trays
+a banner too ("Update plan" or "Use the old plan"): its trays no longer mate with trays
 exported now.
 
 ## Look

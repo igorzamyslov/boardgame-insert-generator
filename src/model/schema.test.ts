@@ -320,7 +320,7 @@ describe("toSerializable", () => {
       expect(read.ok && read.project.settings.engraveNames).toBe(value);
       // the old key is read, so it is not reported as an unknown field (the file is of the
       // 0.1 line, so its one notice says it was upgraded)
-      expect(read.ok && read.notices.map((n) => n.code)).toEqual(["schema.migrated"]);
+      expect(read.ok && read.notices.map((n) => n.code)).toEqual([]);
     }
     // a file that has the new key reads it
     delete written.settings.engraveNumbers;

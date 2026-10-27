@@ -20,6 +20,15 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
   their colours, and the 3D view goes dark with the page. The packing guide and the files you
   download stay on white paper.
 
+### Changed
+
+- **Remove acts at once.** Removing an item or a group no longer asks first; the note at the top
+  of the plan says what went and has Undo, which brings back the item exactly as it was. Deleting
+  an insert from this browser still asks, because that can't be undone.
+- **The old-plan notice speaks plainly.** It says the plan was made with an older version of the
+  app, and the button is now "Update plan". The note about trays you already printed stays.
+- **Opening an older file is silent.** The "Upgraded from schema …" note is gone.
+
 ## [0.27.0] - 2026-10-26
 
 ### Added
