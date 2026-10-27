@@ -13,6 +13,7 @@ export interface CopyRuling {
   ruling: string;
 }
 
+import { FIT_GUIDE_LINE } from "../app/fitTest";
 import {
   LIFT_LINES,
   LIFT_TEMPLATES,
@@ -551,10 +552,10 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   ].map((text) => ({ text, states: DOWNLOAD, ruling: DL_PLAN })),
   // 0.28.0: the fit test, a small plate printed before the whole insert
   ...[
-    "Fit test",
-    "Check your cards and pieces fit before printing the whole insert.",
-    "Too tight? Set Fit to Loose in Settings, or give the item its own clearance.",
-    "The fit test is ready",
+    "Fit test print",
+    "A slice of each well: check pieces fit first",
+    "A slice of each well, about {n} g: check pieces fit first",
+    "The fit test print is ready",
     "Print it, try your cards and pieces in it, then print the insert.",
   ].map((text) => ({ text, states: DOWNLOAD, ruling: DL_FIT })),
   { text: "One file with the part.", states: DOWNLOAD, ruling: DL_COUNT },
@@ -1128,6 +1129,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     NO_GRIP_TAG,
     NO_GRIP_TEMPLATE,
   ].map((text) => ({ text, states: GUIDE_STATES, ruling: GUIDE_LIFT })),
+  { text: FIT_GUIDE_LINE, states: GUIDE_STATES, ruling: DL_FIT },
   // 0.21.0: a note under the plan closes with a ×, and the hidden ones are one quiet button.
   { text: "Hide this note", states: "all", ruling: HIDE },
   { text: "Show {n} hidden", states: "all", ruling: HIDE },

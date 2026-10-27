@@ -13,7 +13,7 @@ import type { Component, FeatureSpec } from "../model/types";
 import { loadSeed } from "../test-support/harbourKings";
 import css from "./export.css?raw";
 import { shadeOf } from "./identity";
-import { ExportPanel, FIT_LINE, FIT_TIGHT_LINE } from "./ExportPanel";
+import { ExportPanel } from "./ExportPanel";
 import type { ExportPanelProps } from "./ExportPanel";
 
 afterEach(cleanup);
@@ -260,11 +260,12 @@ describe("ExportPanel", () => {
   it("downloads a fit test: one plate with a slice of each well, cut with its item's name", async () => {
     const p = props();
     render(<ExportPanel {...p} />);
-    expect(screen.getByText(FIT_LINE, { exact: false })).toBeTruthy();
-    expect(screen.getByText(FIT_TIGHT_LINE)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Fit test" }));
-    await screen.findByRole("heading", { level: 1, name: "The fit test is ready" });
-    const [, name] = vi.mocked(p.download).mock.calls[0] ?? [];
+    // quiet: no button in the body, one item in "Other formats"
+    expect(screen.queryByRole("button", { name: /^Fit test print/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Other formats" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Fit test print/ }));
+    await screen.findByRole("heading", { level: 1, name: "The fit test print is ready" });
+    const name = vi.mocked(p.download ?? vi.fn()).mock.calls[0]?.[1];
     expect(name).toBe("Wing-span-fit-test.3mf");
     const asked = vi.mocked(p.meshes.get).mock.calls.map(([spec]) => spec);
     expect(

@@ -44,13 +44,8 @@ export const EXPORT_LABELS: Record<ExportKind, string> = {
   parts: "One 3MF per part (.zip)",
   combined: "3MF",
   stl: "STL files (.zip)",
-  fit: "Fit test",
+  fit: "Fit test print",
 };
-
-/** The fit test's lines (DESIGN §7: "The Download dialog offers a fit test"). */
-export const FIT_LINE = "Check your cards and pieces fit before printing the whole insert.";
-export const FIT_TIGHT_LINE =
-  "Too tight? Set Fit to Loose in Settings, or give the item its own clearance.";
 
 export const SUPPORT_LINKS = [
   { name: "Ko-fi", href: "https://ko-fi.com/igorzamyslov" },
@@ -360,7 +355,7 @@ export function ExportPanel(p: ExportPanelProps) {
     heading = "Building your print file";
     line = `${busy?.done ?? 0} of ${noun(busy?.total ?? total, "part", "parts")} built`;
   } else if (view === "done" && downloaded?.kind === "fit") {
-    heading = "The fit test is ready";
+    heading = "The fit test print is ready";
     line = "Print it, try your cards and pieces in it, then print the insert.";
   } else if (view === "done") {
     heading = total === 1 ? "The part is ready" : `All ${total} parts are ready`;
@@ -514,6 +509,7 @@ export function ExportPanel(p: ExportPanelProps) {
       <Icon name={moreOpen ? "chevron-up" : "chevron-down"} size={14} />
     </Button>
   );
+  const fitOff = off || slices.length === 0;
   const formatList = moreOpen ? (
     <div class="export-formats" id={moreId}>
       {OTHER_KINDS.map((k) => (
@@ -528,34 +524,28 @@ export function ExportPanel(p: ExportPanelProps) {
           {EXPORT_LABELS[k]}
         </Button>
       ))}
+      {slices.length > 0 ? (
+        <Button
+          variant="secondary"
+          class="export-format export-format--fit"
+          aria-disabled={fitOff ? "true" : undefined}
+          aria-describedby={describedBy}
+          onClick={() => {
+            if (!fitOff) {
+              void run("fit");
+            }
+          }}
+        >
+          {EXPORT_LABELS.fit}
+          <span class="export-format__note">
+            {fitFilament.status === "ready"
+              ? `A slice of each well, ${formatGrams(fitFilament.grams)}: check pieces fit first`
+              : "A slice of each well: check pieces fit first"}
+          </span>
+        </Button>
+      ) : null}
     </div>
   ) : null;
-
-  const fitOff = off || slices.length === 0;
-  const fit =
-    slices.length > 0 ? (
-      <div class="export-fit">
-        <div class="export-fit__row">
-          <Button
-            variant="secondary"
-            aria-disabled={fitOff ? "true" : undefined}
-            aria-describedby={describedBy}
-            onClick={() => {
-              if (!fitOff) {
-                void run("fit");
-              }
-            }}
-          >
-            {EXPORT_LABELS.fit}
-          </Button>
-          {fitFilament.status === "ready" ? (
-            <span class="export-fit__grams">{formatGrams(fitFilament.grams)}</span>
-          ) : null}
-        </div>
-        <p class="export-fit__line">{FIT_LINE}</p>
-        <p class="export-fit__line">{FIT_TIGHT_LINE}</p>
-      </div>
-    ) : null;
 
   const support = (
     <p class="export-support">
@@ -693,7 +683,6 @@ export function ExportPanel(p: ExportPanelProps) {
           {formatsToggle}
         </div>
         {formatList}
-        {fit}
         {support}
       </>
     );

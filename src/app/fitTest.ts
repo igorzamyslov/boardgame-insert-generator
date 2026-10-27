@@ -9,6 +9,10 @@ import { componentName, SHORT_NAME_MAX } from "../instructions/naming";
 import type { TrayName } from "../instructions/naming";
 import { componentIndexOfContents } from "../ui/identity";
 
+/** The guide's line on the fit test (DESIGN §7: "The Download dialog offers a fit test"). */
+export const FIT_GUIDE_LINE =
+  "Before printing, the fit test in Download checks your cards and pieces fit. If they are tight, set Fit to Loose in Settings, or give the item its own clearance.";
+
 /** How tall a slice is, mm: a low ring the real thing drops into. */
 export const FIT_RING_MM = 8;
 
