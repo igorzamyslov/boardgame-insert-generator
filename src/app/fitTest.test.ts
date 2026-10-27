@@ -85,7 +85,7 @@ describe("the fit test", () => {
     );
   });
 
-  it("takes the tightest well of a kind, not the first", () => {
+  it("takes the tightest well of alike decks, not the first", () => {
     const { p, trays } = planned("cards-heavy");
     const deck = (t: TraySpec) => t.compartments.some((c) => c.kind === "well" && c.componentId);
     const tray = trays.find(deck);
@@ -111,6 +111,34 @@ describe("the fit test", () => {
       const well = cardWell(order);
       expect(well?.w).toBeCloseTo(tight.w, 6);
       expect(well?.d).toBeCloseTo(tight.d, 6);
+    }
+  });
+
+  it("takes the thickest deck for cards, not the first or the thinnest", () => {
+    const { p, trays } = planned("cards-heavy");
+    const tray = trays.find((t) => t.compartments.some((c) => c.kind === "well" && c.componentId));
+    const at = tray?.compartments.findIndex((c) => c.kind === "well" && c.componentId) ?? 0;
+    const real = tray?.compartments[at];
+    if (tray === undefined || real === undefined) {
+      throw new Error("no deck");
+    }
+    const count = Number(/×(\d+)$/.exec(real.contents)?.[1]);
+    expect(count).toBeGreaterThan(3);
+    // the same deck with only 3 cards: a thinner well, and a tighter one by spare room
+    const thin: TraySpec = {
+      ...tray,
+      compartments: [{ ...real, contents: real.contents.replace(/×\d+$/, "×3"), w: 2.5 }],
+    };
+    const own: TraySpec = { ...tray, compartments: [real] };
+    for (const order of [
+      [thin, own],
+      [own, thin],
+    ]) {
+      const slices = fitSlices(order, p.components, p.settings);
+      const wells = slices.map((s) => s.part.spec.compartments[0]);
+      expect(wells.filter((c) => c?.componentId === real.componentId)).toEqual([
+        expect.objectContaining({ contents: real.contents, w: real.w }),
+      ]);
     }
   });
 

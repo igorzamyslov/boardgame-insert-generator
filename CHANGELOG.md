@@ -14,9 +14,10 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ### Changed
 
-- **Fit test print.** It no longer has a ring for loose pieces (bulk always fits a bin), and each
-  ring is cut from the tightest well of its kind, the one with the least room around its cards,
-  tiles or figures, instead of the first in the plan. The plate is smaller and tests the worst case.
+- **Fit test print.** It no longer has a ring for loose pieces (bulk always fits a bin). Each
+  ring is cut from the well most likely to go wrong instead of the first in the plan: for cards the
+  thickest deck, which springs and fans most; for tiles and figures the one with the least room
+  around its pieces. The plate is smaller and tests the worst case.
 
 ## [0.28.0] - 2026-10-27
 

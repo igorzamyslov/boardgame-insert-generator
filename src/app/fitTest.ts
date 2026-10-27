@@ -113,11 +113,21 @@ interface Candidate {
   c: CompartmentSpec;
   item: string;
   room?: number;
+  /** A deck's thickness, mm (cards only): count × per-card thickness. */
+  stack?: number;
   area: number;
 }
 
-/** Whether `a` is a tighter well than `b`: less spare room, else (not known) the larger well. */
+/**
+ * Whether `a` is the better well to test than `b`. Cards: the THICKER deck (the one that springs
+ * and fans most; every deck of a card size shares a footprint, so it tests that too), then the less
+ * spare room. Anything else: the tighter well, the one with less spare room, else (not known) the
+ * larger well.
+ */
 function tighter(a: Candidate, b: Candidate): boolean {
+  if (a.stack !== undefined && b.stack !== undefined && Math.abs(a.stack - b.stack) > 0.01) {
+    return a.stack > b.stack;
+  }
   if (a.room !== undefined && b.room !== undefined) {
     return a.room < b.room - 1e-6;
   }
@@ -125,10 +135,11 @@ function tighter(a: Candidate, b: Candidate): boolean {
 }
 
 /**
- * The slices of a plan's trays: for each kind of well (cards, tiles, a figure's pocket…) the
- * TIGHTEST one in the plan, a tray with only that well, cut off low. The tightest is the well with
- * the least spare room around the piece it holds (`spareRoom`), the one a print is most likely to
- * get wrong; the first wins a tie, so copies and alike trays count once. A spare holds nothing,
+ * The slices of a plan's trays: for each kind of well (cards, tiles, a figure's pocket…) the one
+ * most likely to go wrong, a tray with only that well, cut off low. For cards it is the THICKEST
+ * deck (count × card thickness; a thin deck is a flimsy sliver, and a thick sleeved one is what
+ * springs), ties to the least spare room. For tiles, figures and custom pieces it is the TIGHTEST
+ * well, the one with the least spare room around its piece (`spareRoom`). The first wins a tie, so copies and alike trays count once. A spare holds nothing,
  * bulk is loose and always fits a bin (no scoop gets a slice), and parts that are no tray (spacers,
  * risers) have no well.
  */
@@ -151,7 +162,13 @@ export function fitSlices(
         const item = component === undefined ? c.contents.trim() : componentName(component);
         const id = `${component?.kind ?? item}|${c.kind}`;
         const room = spareRoom(c, component, settings);
+        const count = Number(/×(\d+)$/.exec(c.contents.trim())?.[1] ?? NaN);
+        const stack =
+          component?.kind === "cards" && Number.isFinite(count)
+            ? count * cardDims(component, settings, 0).dims.t
+            : undefined;
         const candidate: Candidate = {
+          ...(stack === undefined ? {} : { stack }),
           owner,
           c,
           item,
