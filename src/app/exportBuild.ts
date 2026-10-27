@@ -6,6 +6,8 @@ import type { NumberedPart } from "../instructions/numbering";
 import type { TrayName } from "../instructions/naming";
 import type { Printer, TraySpec } from "../model/types";
 import { nextMacrotask } from "../util/macrotask";
+import { fitNames } from "./fitTest";
+import type { FitSlice } from "./fitTest";
 import type { BuiltMesh } from "./meshes";
 import { buildErrorReason, unsupportedReason } from "./support";
 
@@ -179,6 +181,19 @@ export async function buildCombined3mf(
     })),
   );
   return { data, failed, included: built.length };
+}
+
+/** The fit-test plate: the slices of fitTest.ts as one 3MF, each cut with its item's short name. */
+export async function buildFitTest3mf(
+  slices: readonly FitSlice[],
+  bed: { x: number; y: number },
+  opts: Omit<ExportOptions, "names" | "engrave">,
+): Promise<ExportOutput> {
+  return buildCombined3mf(
+    slices.map((s) => s.part),
+    bed,
+    { ...opts, names: fitNames(slices), engrave: true },
+  );
 }
 
 export async function buildStlZip(

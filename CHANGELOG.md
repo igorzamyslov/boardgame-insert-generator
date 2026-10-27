@@ -14,6 +14,10 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ### Added
 
+- **Fit test.** "Other formats" in the Download dialog has a **Fit test print**: a small plate to
+  print before the whole insert. It holds a low ring of each kind of well in your plan at its real
+  size, with your Fit, walls and corner radius, each cut with its item's name. Drop your cards and
+  pieces in; the packing guide says what to change if they are tight.
 - **A kind's name in each well.** A tray of several kinds (Oil, Metal, Wood, Food) engraves each
   kind's name on the floor of its own well, when the name fits at 4 mm or larger. The tray's own name
   stays on its walls and underside. It is part of "Engrave tray names".

@@ -13,6 +13,7 @@ export interface CopyRuling {
   ruling: string;
 }
 
+import { FIT_GUIDE_LINE } from "../app/fitTest";
 import {
   LIFT_LINES,
   LIFT_TEMPLATES,
@@ -378,6 +379,7 @@ const DL_COUNT = "The Download dialog counts trays and spacers";
 const DL_FLOW = "The Download dialog's title and body follow the build";
 const DL_NOT = "Exporting's report, partial download and Start again are not built";
 const DL_PLAN = "The Download dialog is a print plan by layer";
+const DL_FIT = "The Download dialog offers a fit test";
 const DL_BLOCKED = "The Download dialog says why it is blocked in its caption line";
 /** "8 trays and 2 spacers for Harbour Kings" in each of its forms: the board has the plural one. */
 const HOLDS: readonly string[] = [
@@ -548,6 +550,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     "Support this tool",
     "·",
   ].map((text) => ({ text, states: DOWNLOAD, ruling: DL_PLAN })),
+  // 0.28.0: the fit test, a small plate printed before the whole insert
+  ...[
+    "Fit test print",
+    "A slice of each well: check pieces fit first",
+    "A slice of each well, about {n} g: check pieces fit first",
+    "The fit test print is ready",
+    "Print it, try your cards and pieces in it, then print the insert.",
+  ].map((text) => ({ text, states: DOWNLOAD, ruling: DL_FIT })),
   { text: "One file with the part.", states: DOWNLOAD, ruling: DL_COUNT },
   { text: "The part is ready", states: DOWNLOAD, ruling: DL_FLOW },
   { text: "{n} of 1 part built", states: DOWNLOAD, ruling: DL_FLOW },
@@ -1119,6 +1129,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     NO_GRIP_TAG,
     NO_GRIP_TEMPLATE,
   ].map((text) => ({ text, states: GUIDE_STATES, ruling: GUIDE_LIFT })),
+  { text: FIT_GUIDE_LINE, states: GUIDE_STATES, ruling: DL_FIT },
   // 0.21.0: a note under the plan closes with a ×, and the hidden ones are one quiet button.
   { text: "Hide this note", states: "all", ruling: HIDE },
   { text: "Show {n} hidden", states: "all", ruling: HIDE },
