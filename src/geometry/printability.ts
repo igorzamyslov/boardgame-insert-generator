@@ -136,7 +136,10 @@ export function checkPrintability(
   for (let t = 0; t < tri.count; t += 1) {
     const ray = probe(tri, t);
     if (ray !== null) {
-      minFeatureMm = Math.min(minFeatureMm, nearestHit(bvh, ray.origin, ray.dir, ray.accept));
+      minFeatureMm = Math.min(
+        minFeatureMm,
+        nearestHit(bvh, ray.origin, ray.dir, ray.accept, minFeatureMm),
+      );
     }
   }
   if (!Number.isFinite(minFeatureMm)) {

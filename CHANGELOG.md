@@ -10,6 +10,14 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.28.3] - 2026-10-30
+
+### Changed
+
+- **Faster printability check.** The check that measures wall and floor thickness on built meshes
+  stops each ray at the thinnest feature found so far, so it runs about 1.7 times faster. Its
+  results are unchanged.
+
 ## [0.28.2] - 2026-10-27
 
 ### Removed
