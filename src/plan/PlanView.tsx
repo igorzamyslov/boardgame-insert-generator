@@ -489,8 +489,13 @@ export function PlanView(props: PlanViewProps) {
   };
 
   // Escape works wherever the focus is inside the plan (a tray, a button, the tray bar).
-  const onPlanKeyDown = (e: { key: string }): void => {
+  // An Escape that ends a swap or a put-on is the pick's alone: it is marked taken, so the editor
+  // that may be open does not close on it too (App's Escape listener).
+  const onPlanKeyDown = (e: { key: string; preventDefault?: () => void }): void => {
     if (e.key === "Escape") {
+      if (swapFrom !== null) {
+        e.preventDefault?.();
+      }
       clearSwap();
       onSelect(null);
     }

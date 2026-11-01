@@ -387,6 +387,38 @@ export function App(props: AppProps) {
     };
   }, [store]);
 
+  // Escape closes the open item or group editor wherever the focus is (the plan, the 3D canvas,
+  // the page itself), not only inside the editor: one window listener while an editor is open
+  // (DESIGN decision log, 0.28.3). It runs after every inner handler, so it takes only an Escape
+  // nobody took: a menu, a drag or a pick that ended (they preventDefault), a select's list, a
+  // dialog, a text field (the project name reverts on it).
+  const editorOpen = editingId !== null || editingGroupId !== null;
+  // Raised by that listener: the editor closes as its Done does, the focus back on its row.
+  const [closeRequest, setCloseRequest] = useState(0);
+  useEffect(() => {
+    if (!editorOpen) {
+      return;
+    }
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (
+        e.key !== "Escape" ||
+        e.defaultPrevented ||
+        e.isComposing ||
+        hasNativeUndo(e.target) ||
+        modalIsOpen(document)
+      ) {
+        return;
+      }
+      e.preventDefault();
+      setCloseRequest((n) => n + 1);
+    };
+    // On the window: after every document listener, such as the project menu's own Escape.
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [editorOpen]);
+
   const download = props.download ?? downloadBlob;
 
   if (showAssembly) {
@@ -894,6 +926,7 @@ export function App(props: AppProps) {
         }
       }}
       openGroupId={editingGroupId}
+      closeRequest={closeRequest}
       onOpenGroupChange={(id) => {
         setEditingGroupId(id);
         if (id !== null) {
@@ -1468,8 +1501,10 @@ export function App(props: AppProps) {
                         tapHint: true,
                         onSelect: pickIn3d,
                         onEscape: () => {
+                          const picking = s.swapFrom.value !== null;
                           s.swapFrom.value = null;
                           setPickNote(null);
+                          return picking;
                         },
                         ...props.viewerProps,
                       },

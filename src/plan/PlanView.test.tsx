@@ -443,6 +443,19 @@ describe("PlanView", () => {
     expect(view.container.querySelectorAll("[data-key]").length).toBeGreaterThan(0);
   });
 
+  it("takes the Escape that ends a swap, and leaves one that ends nothing to the page", () => {
+    const { p } = setup({ selectedKey: "a:p0:0", swapFrom: "a:p0:0" });
+    const tile = screen.getByRole("button", { name: /^Region deck/ });
+    // not taken: a listener on the document sees it was not prevented
+    expect(fireEvent.keyDown(tile, { key: "Escape" })).toBe(false);
+    expect(p.onSelect).toHaveBeenCalledWith(null);
+    cleanup();
+    setup({ selectedKey: "a:p0:0", swapFrom: null });
+    expect(
+      fireEvent.keyDown(screen.getByRole("button", { name: /^Region deck/ }), { key: "Escape" }),
+    ).toBe(true);
+  });
+
   it("ignores the cancel of another pointer and a second press during a drag", () => {
     const { p, box } = setup();
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Region deck/ }), {

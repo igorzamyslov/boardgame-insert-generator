@@ -10,6 +10,16 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.28.7] - 2026-11-01
+
+### Fixed
+
+- **Escape closes the item editor wherever you are.** Pressing Escape while an item's or a
+  group's editor is open now takes you back to the list even after you have clicked the 3D view
+  or the plan, or when nothing on the page has the focus. Before, it only worked while the focus
+  was inside the editor. A menu, a dialog or a swap that is under way still takes the first
+  Escape, and the next one closes the editor.
+
 ## [0.28.4] - 2026-11-01
 
 ### Changed
