@@ -89,50 +89,64 @@ function hitsBox(node: Node, o: number[], inv: number[], best: number): boolean 
 
 // Möller–Trumbore; returns t > 0 or Infinity.
 function hitTriangle(mesh: Mesh, tri: number, o: number[], dir: number[]): number {
-  const [a, b, c] = corners(mesh, tri);
-  const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-  const e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+  const pos = mesh.positions;
+  const ix = mesh.indices;
+  const ia = (ix[tri * 3] ?? 0) * 3;
+  const ib = (ix[tri * 3 + 1] ?? 0) * 3;
+  const ic = (ix[tri * 3 + 2] ?? 0) * 3;
+  const ax = pos[ia] ?? 0;
+  const ay = pos[ia + 1] ?? 0;
+  const az = pos[ia + 2] ?? 0;
+  const e1x = (pos[ib] ?? 0) - ax;
+  const e1y = (pos[ib + 1] ?? 0) - ay;
+  const e1z = (pos[ib + 2] ?? 0) - az;
+  const e2x = (pos[ic] ?? 0) - ax;
+  const e2y = (pos[ic + 1] ?? 0) - ay;
+  const e2z = (pos[ic + 2] ?? 0) - az;
   const d0 = dir[0] ?? 0;
   const d1 = dir[1] ?? 0;
   const d2 = dir[2] ?? 0;
-  const px = d1 * (e2[2] ?? 0) - d2 * (e2[1] ?? 0);
-  const py = d2 * (e2[0] ?? 0) - d0 * (e2[2] ?? 0);
-  const pz = d0 * (e2[1] ?? 0) - d1 * (e2[0] ?? 0);
-  const det = (e1[0] ?? 0) * px + (e1[1] ?? 0) * py + (e1[2] ?? 0) * pz;
+  const px = d1 * e2z - d2 * e2y;
+  const py = d2 * e2x - d0 * e2z;
+  const pz = d0 * e2y - d1 * e2x;
+  const det = e1x * px + e1y * py + e1z * pz;
   if (Math.abs(det) < 1e-12) {
     return Infinity;
   }
   const inv = 1 / det;
-  const sx = (o[0] ?? 0) - a[0];
-  const sy = (o[1] ?? 0) - a[1];
-  const sz = (o[2] ?? 0) - a[2];
+  const sx = (o[0] ?? 0) - ax;
+  const sy = (o[1] ?? 0) - ay;
+  const sz = (o[2] ?? 0) - az;
   const u = (sx * px + sy * py + sz * pz) * inv;
   if (u < -1e-9 || u > 1 + 1e-9) {
     return Infinity;
   }
-  const qx = sy * (e1[2] ?? 0) - sz * (e1[1] ?? 0);
-  const qy = sz * (e1[0] ?? 0) - sx * (e1[2] ?? 0);
-  const qz = sx * (e1[1] ?? 0) - sy * (e1[0] ?? 0);
+  const qx = sy * e1z - sz * e1y;
+  const qy = sz * e1x - sx * e1z;
+  const qz = sx * e1y - sy * e1x;
   const v = (d0 * qx + d1 * qy + d2 * qz) * inv;
   if (v < -1e-9 || u + v > 1 + 1e-9) {
     return Infinity;
   }
-  const t = ((e2[0] ?? 0) * qx + (e2[1] ?? 0) * qy + (e2[2] ?? 0) * qz) * inv;
+  const t = (e2x * qx + e2y * qy + e2z * qz) * inv;
   return t > 1e-6 ? t : Infinity;
 }
 
-// Nearest t > 0 along origin + t·dir over triangles accepted by `accept`.
+// Nearest t > 0 along origin + t·dir over triangles accepted by `accept`. A hit at or beyond
+// `limit` is not looked for: the result is then `limit` itself (Infinity by default), so a caller
+// that keeps only the shortest of many rays passes the shortest so far and skips the rest of the tree.
 export function nearestHit(
   bvh: Bvh,
   origin: number[],
   dir: number[],
   accept: (tri: number) => boolean,
+  limit = Infinity,
 ): number {
   if (bvh.root === null) {
     return Infinity;
   }
   const inv = dir.map((v) => 1 / v);
-  let best = Infinity;
+  let best = limit;
   const stack: Node[] = [bvh.root];
   while (stack.length > 0) {
     const node = stack.pop();
