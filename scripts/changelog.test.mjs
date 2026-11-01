@@ -7,6 +7,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkChangelog } from "./check-changelog.mjs";
+import { compareVersions } from "./check-version-bump.mjs";
 import { lintChangelog, notesFor, parseChangelog, releaseTitle } from "./changelog.mjs";
 
 const SAMPLE = `# Changelog
@@ -104,8 +105,13 @@ describe("CHANGELOG.md of this repository", () => {
   it("is sound", () => {
     expect(lintChangelog(text)).toEqual([]);
   });
-  it("covers the current version (its own section or Unreleased)", () => {
-    expect(checkChangelog("0.0.0", pkg.version, text)).toEqual([]);
+  // Whether a change has an entry is the version-bump job's check (check-changelog.mjs, which lets
+  // Renovate through). Renovate raises the version without an entry, so this only holds the file
+  // to not being ahead of the package.
+  it("has no release newer than the package version", () => {
+    const newest = parseChangelog(text).find((section) => section.name !== "Unreleased");
+    expect(newest).toBeDefined();
+    expect(compareVersions(newest?.name ?? "0.0.0", pkg.version)).toBeLessThanOrEqual(0);
   });
   it("uses no file names in its entries", () => {
     expect(text).not.toMatch(/\b[\w-]+\.(?:ts|tsx|mjs|json|yml)\b/);

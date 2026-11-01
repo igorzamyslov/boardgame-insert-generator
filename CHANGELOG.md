@@ -10,6 +10,13 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.28.4] - 2026-11-01
+
+### Changed
+
+- **Dependency updates pass the changelog check.** An automatic dependency update raises the
+  version without a changelog entry, which the repository's own changelog test used to reject.
+
 ## [0.28.3] - 2026-10-30
 
 ### Changed
