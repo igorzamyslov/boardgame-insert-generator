@@ -210,6 +210,8 @@ export function HeaderMenu(p: HeaderMenuProps) {
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // taken: an open editor does not close on this Escape too (App's listener)
+        e.preventDefault();
         close();
       }
     };
