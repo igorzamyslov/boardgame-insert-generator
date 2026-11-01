@@ -267,19 +267,20 @@ describe("schema history", () => {
     expect(older.project.settings.infill).toBe(15);
   });
 
-  it("reads wallAbsorb from the 0.1.8 file, and wallGrowth, its old name, from the 0.1.6 and 0.1.7 files", () => {
+  it("turns the wall thickness of the 0.1.8 file, and wallGrowth, its old name, of the 0.1.6 and 0.1.7 files, into thicker walls (schema 0.5.0)", () => {
     const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.1.8.json"]);
     expect(notices).toEqual([]);
-    expect(project.settings.wallAbsorb).toBe(0.8);
+    expect(project.settings.thickerWalls).toBe(true);
     for (const old of ["0.1.6", "0.1.7"]) {
       const file = loadOld(HISTORY[`../../test/fixtures/schema/${old}.json`]);
-      // the old key is read, not reported as an unknown field, and not written back
+      // neither key is reported as an unknown field or written back
       expect(file.notices).toEqual([]);
-      expect(file.project.settings.wallAbsorb).toBe(1.2);
+      expect(file.project.settings.thickerWalls).toBe(true);
       expect("wallGrowth" in file.project.settings).toBe(false);
+      expect("wallAbsorb" in file.project.settings).toBe(false);
     }
     const older = loadOld(HISTORY["../../test/fixtures/schema/0.1.5.json"]);
-    expect(older.project.settings.wallAbsorb).toBe(0);
+    expect(older.project.settings.thickerWalls).toBe(false);
   });
 
   it("reads the merge switches from the 0.1.9 file, and defaults them for older files", () => {
@@ -356,13 +357,13 @@ describe("schema history", () => {
     expect(older.project.settings.engraveNames).toBe(false);
   });
 
-  it("reads the one-wall switch from the 0.1.15 file, and defaults it off for older files", () => {
+  it("turns the one-wall switch of the 0.1.15 file into thicker walls, and leaves older files off", () => {
     const { project, notices } = loadOld(HISTORY["../../test/fixtures/schema/0.1.15.json"]);
     expect(notices).toEqual([]);
-    expect(project.settings.oneWall).toBe(true);
+    expect(project.settings.thickerWalls).toBe(true);
     const older = loadOld(HISTORY["../../test/fixtures/schema/0.1.14.json"]);
     expect(older.notices).toEqual([]);
-    expect(older.project.settings.oneWall).toBe(false);
+    expect("oneWall" in older.project.settings).toBe(false);
   });
 
   it("reads the play limit from the 0.1.11 file, and defaults it for older files", () => {
@@ -388,14 +389,14 @@ describe("schema history", () => {
     expect(first?.kind === "cards" && first.thickness).toEqual({ mode: "preset" });
   });
 
-  it("prefers wallAbsorb when a file has both keys", () => {
+  it("reads a file that has both wall keys as thicker walls, and reports neither", () => {
     const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.8.json"]) as {
       settings: Record<string, number>;
     };
     raw.settings.wallGrowth = 2.5;
     const { project, notices } = loadOld(raw);
     expect(notices).toEqual([]);
-    expect(project.settings.wallAbsorb).toBe(0.8);
+    expect(project.settings.thickerWalls).toBe(true);
   });
 
   it("reads the separators option of the 0.1.5 file, and leaves it unset for older files", () => {

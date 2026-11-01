@@ -221,9 +221,6 @@ function readSettings(r: Reader | undefined): Settings {
   }
   const fp = r.optChild("fingerPocket");
   const lip = r.optChild("lip");
-  // `wallAbsorb` was called `wallGrowth` up to schema 0.1.7: a file that only has the old key keeps
-  // its value (read either way, so the old key is never reported as an unknown field).
-  const legacyWallAbsorb = r.num("wallGrowth", d.wallAbsorb);
   // `engraveNames` was called `engraveNumbers` up to schema 0.1.15 (it engraved the part's number):
   // a file that only has the old key keeps its value.
   const legacyEngrave = r.bool("engraveNumbers", d.engraveNames);
@@ -265,8 +262,7 @@ function readSettings(r: Reader | undefined): Settings {
     leftover: r.oneOf("leftover", ["spare", "solid"], d.leftover),
     fillToTop: r.bool("fillToTop", d.fillToTop),
     minRiser: r.num("minRiser", d.minRiser),
-    wallAbsorb: r.num("wallAbsorb", legacyWallAbsorb),
-    oneWall: r.bool("oneWall", d.oneWall),
+    thickerWalls: r.bool("thickerWalls", d.thickerWalls),
     biggerWells: r.bool("biggerWells", d.biggerWells),
     mergeFillers: r.bool("mergeFillers", d.mergeFillers),
     mergeRisers: r.bool("mergeRisers", d.mergeRisers),

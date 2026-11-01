@@ -17,7 +17,7 @@ import {
 import type { Settings } from "../model/types";
 import { minOuter, outerCutSides, wallFor, type OuterCutSides } from "../sizing";
 import { growthCapU, partGrowthCapOf } from "../sizing/growth";
-import { MIN_GRIP, ONE_WALL_MAX_MM } from "../sizing/constants";
+import { MIN_GRIP } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import { fitsBed, type Bed } from "./bed";
 import type { LayoutInput } from "./types";
@@ -52,6 +52,12 @@ export interface PartMetrics {
   /** The part of capW / capD that is room for the contents (growth, spec §5), without the walls. */
   readonly growW: U;
   readonly growD: U;
+  /**
+   * The part of capW / capD that is thicker outer walls (`thickerWalls`; 0 when off), already part
+   * of the caps. It is room the contents cannot use, so the score counts it as wasted.
+   */
+  readonly wallW: U;
+  readonly wallD: U;
   /** Some compartment can grow deeper (scoop): height slack goes here first, up to `growH`. */
   readonly elasticH: boolean;
   /** Most height slack the compartments that grow deeper can take, in the part's own frame (unbounded → INF_U). */
@@ -94,12 +100,6 @@ export interface Ctx {
   /** `riserMin` as it is when stacks are filled to the top (what a stack under an area needs). */
   readonly riserMinFilled: U;
   readonly boxClearance: U;
-  /**
-   * What `oneWall` lets one wall take per axis (0 when off), already part of every part's capW /
-   * capD. It is room the contents cannot use, so the score counts it as wasted, unlike
-   * wallAbsorb's thin walls: the setting trades filament for parts, not for free space.
-   */
-  readonly oneWallCap: U;
   readonly gap: U;
   /** Nominal lateral play above this is penalized and warned about (hard rule 1): settings.playLimit. */
   readonly playLimit: U;
@@ -252,10 +252,22 @@ export function createCtx(
   // Rounded up like sizing (roadmap §4.7): never below MIN_WALL_MM.
   const wall = toUCeil(wallFor(settings, false));
   const upperWall = toUCeil(wallFor(settings, false, 1));
-  // Walls thicken inward by at most `wallAbsorb` each, so both sides of an axis absorb twice that
-  // (spec §7.2). Rounded down like realize's cap: it is a maximum.
-  // With `oneWall` one wall on each axis takes up to ONE_WALL_MAX_MM instead (it subsumes wallAbsorb).
-  const wallCap = settings.oneWall ? toUFloor(ONE_WALL_MAX_MM) : 2 * toUFloor(settings.wallAbsorb);
+  // With `thickerWalls` the outer walls take whatever room the contents cannot, as far as the print
+  // bed lets the tray grow (`wallRoom`); without it no wall does.
+  const bedW = toUFloor(printer.bedX - 2 * printer.bedMargin);
+  const bedD = toUFloor(printer.bedY - 2 * printer.bedMargin);
+  const wallRoom = (w: U, d: U): { w: U; d: U } => {
+    if (!settings.thickerWalls) {
+      return { w: 0, d: 0 };
+    }
+    // The bed orientation that leaves the tray the most room, for both axes at once.
+    const fits = [
+      { w: bedW - w, d: bedD - d },
+      { w: bedD - w, d: bedW - d },
+    ].filter((r) => r.w >= 0 && r.d >= 0);
+    const best = fits.sort((a, b) => b.w + b.d - (a.w + a.d))[0];
+    return best ?? { w: 0, d: 0 };
+  };
   const cache = new Map<number, PartMetrics>();
   const cutCache = new Map<number, OuterCutSides>();
   const byKey = new Map<string, PartRef[]>();
@@ -353,7 +365,6 @@ export function createCtx(
       ? roundUpTo(toUCeil(leastRiser(settings)), Math.max(1, toU(printer.layerHeight)))
       : 0,
     boxClearance,
-    oneWallCap: settings.oneWall ? toUFloor(ONE_WALL_MAX_MM) : 0,
     gap: toU(eff.trayGap),
     playLimit: toU(settings.playLimit),
     layer: Math.max(1, toU(printer.layerHeight)),
@@ -391,14 +402,19 @@ export function createCtx(
       const o = measure(p, settings, { lipped, level });
       const growW = growing ? growth(p, "w") : 0;
       const growD = growing ? growth(p, "d") : 0;
+      const w = toUCeil(o.w);
+      const d = toUCeil(o.d);
+      const wall = wallRoom(w, d);
       const m: PartMetrics = {
-        w: toUCeil(o.w),
-        d: toUCeil(o.d),
+        w,
+        d,
         h: toUCeil(o.h),
-        capW: Math.min(INF_U, growW + wallCap),
-        capD: Math.min(INF_U, growD + wallCap),
+        capW: Math.min(INF_U, growW + wall.w),
+        capD: Math.min(INF_U, growD + wall.d),
         growW,
         growD,
+        wallW: wall.w,
+        wallD: wall.d,
         elasticH: growing && p.compartments.some((c) => c.elastic.h),
         growH: growing ? growthH(p) : 0,
       };

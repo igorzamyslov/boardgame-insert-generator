@@ -132,19 +132,13 @@ describe("inputsHash", () => {
     expect(inputsHash(divided(2))).toBe(inputsHash(divided(2)));
   });
 
-  it("changes with wallAbsorb, since it moves where leaf slack goes", () => {
+  it("changes with thickerWalls when on, and is the hash it was before the setting when off", () => {
     const base = sample();
-    const grown: Project = { ...base, settings: { ...base.settings, wallAbsorb: 1 } };
-    expect(inputsHash(grown)).not.toBe(inputsHash(base));
-  });
-
-  it("changes with oneWall when on, and is the hash it was before the setting when off", () => {
-    const base = sample();
-    const on: Project = { ...base, settings: { ...base.settings, oneWall: true } };
+    const on: Project = { ...base, settings: { ...base.settings, thickerWalls: true } };
     expect(inputsHash(on)).not.toBe(inputsHash(base));
     // Off is left out of the hashed settings, so no saved plan goes stale: the pinned fixture
     // hashes below are the same as before the setting existed.
-    const off: Project = { ...base, settings: { ...base.settings, oneWall: false } };
+    const off: Project = { ...base, settings: { ...base.settings, thickerWalls: false } };
     expect(inputsHash(off)).toBe(inputsHash(base));
   });
 

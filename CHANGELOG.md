@@ -10,6 +10,27 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-01
+
+### Changed
+
+- **Thicker walls print no separate spacers.** Choose "Thicker walls" under "Fill the space that's
+  left" and the room a tray can't use goes into the outer walls of the trays around it, as much as
+  is needed. The 3 mm limit and the "Extra thickness per wall" box are gone, and so is "One thick
+  wall": where a finger cut goes through a wall, the wall on the other side takes the room. The
+  only limit is what your printer bed can hold; room past that is still a separate spacer.
+  Projects that used either old setting open on Thicker walls.
+- **"Fill the space that's left" and "Unused space" moved to Settings → This insert**, under
+  Walls, because they are choices, not numbers. Exact numbers keeps only numbers.
+
+### Fixed
+
+- **A group's trays stay together, and one way round.** With wall growth on, a plan could keep
+  another tray between a group's trays and turn one tray of a stack, which made every tray of
+  that stack square so Rotate said it did nothing. A tray standing between a group's trays now
+  costs more than moving two trays, so "Make a new plan" regroups them, and walls no longer count
+  as free room for what a stack forces on a tray.
+
 ## [0.28.7] - 2026-11-01
 
 ### Fixed

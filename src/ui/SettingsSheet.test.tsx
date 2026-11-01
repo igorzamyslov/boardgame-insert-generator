@@ -166,7 +166,13 @@ describe("SettingsSheet", () => {
   it("every setting is reachable", () => {
     sheet({ myPrinter: { ...MINE, bedX: 123 } });
     // This insert: the plain choices, the switches and the printing options
-    for (const name of ["Fit in the box", "Walls", "Rim between layers"]) {
+    for (const name of [
+      "Fit in the box",
+      "Walls",
+      "Fill the space that's left",
+      "Unused space",
+      "Rim between layers",
+    ]) {
       expect(screen.getByRole("group", { name }), name).toBeTruthy();
     }
     for (const name of [
@@ -190,26 +196,10 @@ describe("SettingsSheet", () => {
         continue;
       }
       fireEvent.input(screen.getByRole("searchbox"), { target: { value: r.label } });
-      if (r.path === "wallAbsorb") {
-        // its box is drawn by "Fill the space that's left", under Thicker walls
-        expect(screen.getByRole("group", { name: "Fill the space that's left" })).toBeTruthy();
-        continue;
-      }
       // a unit is part of a number's name: "Wall (mm)"
       const label = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\((mm|%)\\))?$`);
       expect(screen.getAllByLabelText(label).length, r.path).toBeGreaterThan(0);
     }
-    fireEvent.input(screen.getByRole("searchbox"), { target: { value: "unused" } });
-    expect(screen.getByRole("group", { name: "Unused space" })).toBeTruthy();
-    fireEvent.input(screen.getByRole("searchbox"), { target: { value: "one thick wall" } });
-    expect(
-      within(screen.getByRole("group", { name: "Fill the space that's left" })).getByRole(
-        "button",
-        {
-          name: "One thick wall",
-        },
-      ),
-    ).toBeTruthy();
     // My printer: the bed and its details
     back();
     go("My printer");
@@ -514,14 +504,14 @@ describe("This insert", () => {
     expect(within(body).getByRole("region", { name: "More settings" })).toBeTruthy();
   });
 
-  it("finds Unused space under Exact numbers", () => {
+  it("has Unused space on the first page, and not among the Exact numbers", () => {
     sheet();
+    expect(screen.getByRole("group", { name: "Unused space" })).toBeTruthy();
     go("Exact numbers");
-    expect(screen.queryByText("Unused space")).toBeNull();
     fireEvent.input(screen.getByRole("searchbox", { name: "Find a setting" }), {
       target: { value: "unused" },
     });
-    expect(screen.getByText("Unused space")).toBeTruthy();
+    expect(screen.queryByText("Unused space")).toBeNull();
   });
 });
 

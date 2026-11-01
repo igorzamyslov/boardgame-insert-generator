@@ -48,12 +48,16 @@ describe("createCtx", () => {
     expect(a.w).toBe(5401);
     expect(a.d).toBe(4400);
     expect(a.h).toBe(2120);
-    expect(a.capW).toBe(0); // wallAbsorb defaults to 0: walls never take slack
+    expect(a.capW).toBe(0); // thickerWalls is off by default: walls never take slack
     const grown = createCtx(
-      makeInput([boxReq("a", 50.001, 40, 20)], { settings: { wallAbsorb: 1.6 } }),
+      makeInput([boxReq("a", 50.001, 40, 20)], { settings: { thickerWalls: true } }),
       fakeMeasure,
     );
-    expect(grown.metrics({ req: 0, variant: 0, part: 0 }, false, 0).capW).toBe(320);
+    const walled = grown.metrics({ req: 0, variant: 0, part: 0 }, false, 0);
+    // as much as the print bed leaves the tray, all of it wall
+    expect(walled.wallW).toBeGreaterThan(0);
+    expect(walled.capW).toBe(walled.wallW);
+    expect(walled.w + walled.wallW).toBeLessThanOrEqual(Math.max(grown.bed.w, grown.bed.d));
     expect(a.elasticH).toBe(false);
     const b = ctx.metrics({ req: 1, variant: 0, part: 0 }, true, 1);
     expect(b.w).toBe(5600);

@@ -5,7 +5,7 @@ import { DIVIDER_GROOVE } from "./constants";
 import { dividerSlotWidth } from "./dividers";
 import { CutFitError } from "./errors";
 import { size } from "./group";
-import { minOuter, oneWallOf, realizeTray } from "./realize";
+import { minOuter, thickWallOf, realizeTray } from "./realize";
 import { rotateRealized } from "./rotate";
 import {
   assertTrayInvariants,
@@ -290,17 +290,17 @@ describe("realizeTray", () => {
     expect(realizeTray(single, longer, steep, ground).spacers.map((sp) => sp.w)).toEqual([7.6]);
   });
 
-  it("puts depth slack in the walls, never a spare row, whatever wallAbsorb allows", () => {
+  it("puts depth slack in the walls, never a spare row, with thicker walls or without", () => {
     const outer = { w: 29.23, d: 117.2, h: 70.7 };
-    for (const absorb of [0, 1.6]) {
-      const r = realizeTray(single, outer, { ...s, wallAbsorb: absorb }, ground);
+    for (const thickerWalls of [false, true]) {
+      const r = realizeTray(single, outer, { ...s, thickerWalls }, ground);
       expect(r.compartments).toHaveLength(1);
       const deck = at(r.compartments, 0);
       expect(deck).toMatchObject({ x: 1.6, w: 26.03, d: 94, kind: "well" });
       // The 20 mm of depth slack is split evenly between the front and back walls.
       expect(deck.y).toBeCloseTo(1.6 + 10, 1);
       expect(outer.d - (deck.y + deck.d)).toBeCloseTo(deck.y, 1);
-      assertTrayInvariants(r, outer, { ...s, wallAbsorb: absorb }, ground);
+      assertTrayInvariants(r, outer, { ...s, thickerWalls }, ground);
     }
   });
 
@@ -946,16 +946,14 @@ describe("realizeTray", () => {
       expect(c.d).toBeGreaterThanOrEqual(30.001);
     });
 
-    it("grows walls and dividers by at most wallAbsorb each, rounded down", () => {
-      const cfg: Settings = { ...s, wall: 1.7976, divider: 1.7976, wallAbsorb: 1.7976 };
+    it("with thickerWalls leaves a divider as thin as set: the room goes to the outer walls", () => {
+      const cfg: Settings = { ...s, wall: 1.7976, divider: 1.7976, thickerWalls: true };
       const part = partOf([custom({ count: 2 })], "custom|strip|split1", cfg);
       const outer = minOuter(part, cfg, ground);
       const wide = { ...outer, w: outer.w + 40 };
       const r = realizeTray(part, wide, cfg, ground);
       const [a, b] = [at(r.compartments, 0), at(r.compartments, 1)];
-      // The divider takes 1.7976 mm on top of its own 1.8 (rounded down, 3.59), and so does each
-      // outer wall; what no wall may take is split between the two outer walls, not a pocket.
-      expect(b.x - (a.x + a.w)).toBeCloseTo(3.59, 9);
+      expect(b.x - (a.x + a.w)).toBeCloseTo(1.8, 1);
       expect(r.compartments).toHaveLength(2);
       assertTrayInvariants(r, wide, cfg, ground);
     });
@@ -1068,8 +1066,8 @@ describe("realizeTray", () => {
   });
 });
 
-describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () => {
-  const on: Settings = { ...s, oneWall: true };
+describe("thickerWalls: the slack goes into the outer walls, never one a finger cut goes through", () => {
+  const on: Settings = { ...s, thickerWalls: true };
   const wallsOf = (
     r: ReturnType<typeof realizeTray>,
     outer: OuterSize,
@@ -1085,26 +1083,20 @@ describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () =>
 
   it("changes nothing while off: the slack is split between the two walls as before", () => {
     const outer = { w: 29.23, d: 117.2, h: 70.7 };
-    const r = realizeTray(single, outer, { ...s, oneWall: false }, ground);
+    const r = realizeTray(single, outer, { ...s, thickerWalls: false }, ground);
     expect(r).toEqual(realizeTray(single, outer, s, ground));
     const w = wallsOf(r, outer);
     expect(w.front).toBeCloseTo(w.back, 1);
     expect(w.front).toBeCloseTo(11.6, 1);
   });
 
-  it("puts all of the slack into the back wall when nothing is cut there", () => {
+  it("shares the slack between the two walls when nothing is cut there", () => {
     const outer = { w: 29.23, d: 117.2, h: 70.7 };
     const r = realizeTray(single, outer, on, ground);
     const w = wallsOf(r, outer);
-    expect(w.front).toBeCloseTo(1.6, 2);
-    expect(w.back).toBeCloseTo(1.6 + 20, 2);
+    expect(w.front).toBeCloseTo(w.back, 1);
+    expect(w.back).toBeCloseTo(11.6, 1);
     assertTrayInvariants(r, outer, on, ground);
-  });
-
-  it("subsumes wallAbsorb: the thin-wall setting has no say while it is on", () => {
-    const outer = { w: 29.23, d: 117.2, h: 70.7 };
-    const plain = realizeTray(single, outer, on, ground);
-    expect(realizeTray(single, outer, { ...on, wallAbsorb: 3 }, ground)).toEqual(plain);
   });
 
   it("never deepens a wall a finger cut goes through", () => {
@@ -1119,8 +1111,11 @@ describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () =>
     expect(cutsOf(c).map((f) => (f as { side: string }).side)).toEqual(["front"]);
     expect(c.y).toBeCloseTo(at(atMin.compartments, 0).y, 2);
     expect(outer.d - (c.y + c.d)).toBeCloseTo(min.d - (c.y + c.d) + 12, 1);
-    // Width has no cut at either end, so the right wall takes it and the left stays flush.
-    expect(c.x).toBeCloseTo(at(atMin.compartments, 0).x, 2);
+    // Width has no cut at either end, so the two walls share it evenly.
+    expect(c.x - at(atMin.compartments, 0).x).toBeCloseTo(
+      outer.w - (c.x + c.w) - (min.w - (at(atMin.compartments, 0).x + c.w)),
+      1,
+    );
     assertTrayInvariants(r, outer, on, ground);
   });
 
@@ -1133,11 +1128,11 @@ describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () =>
     expect(w.left).toBeCloseTo(w.right, 1);
   });
 
-  it("picks the far wall, then the near one, and neither when both are cut", () => {
-    expect(oneWallOf(false, false)).toBe("back");
-    expect(oneWallOf(false, true)).toBe("back");
-    expect(oneWallOf(true, false)).toBe("front");
-    expect(oneWallOf(true, true)).toBeNull();
+  it("picks both walls, the one without a cut where one has it, and both when both are cut", () => {
+    expect(thickWallOf(false, false)).toBeNull();
+    expect(thickWallOf(false, true)).toBe("back");
+    expect(thickWallOf(true, false)).toBe("front");
+    expect(thickWallOf(true, true)).toBeNull();
   });
 });
 

@@ -273,26 +273,21 @@ export interface Settings {
    */
   minRiser: number;
   /**
-   * Most extra thickness (mm) each wall or divider may take on to soak up leaf slack instead of
-   * the slack becoming a filler part (spec §7.2). 0 = never thicken: slack is printed as a filler.
-   * This is absorption, not growth: a thicker wall gives the contents no more room (spec §4).
-   * Called `wallGrowth` up to schema 0.1.7; the reader still accepts that key.
+   * "Fill the space that's left" with thicker walls: no separate spacers. The room a tray cannot
+   * give its contents goes into the outer walls of the trays around it, as much as is needed, as
+   * far as the print bed allows (what the bed cannot take is a spacer after all, and a notice says
+   * so). The slack on an axis is shared by its two outer walls, or taken whole by one of them
+   * where the other has a finger cut through it. A thicker wall holds nothing and gives the
+   * contents no more room. Replaces `wallAbsorb` and `oneWall` (schema 0.5.0). In the inputs hash
+   * only when on. Default off.
    */
-  wallAbsorb: number;
-  /**
-   * Let one wall take the room a filler would have (minimal-trays spec §6, "An escape hatch"):
-   * the slack a tray cannot give its contents, up to ONE_WALL_MAX_MM per axis, goes into ONE outer
-   * wall on each axis, never one a finger cut passes through, instead of becoming a filler part.
-   * Trades honest geometry for fewer parts. It replaces `wallAbsorb` while on (which then does
-   * nothing), and is part of the inputs hash only when on. Default off.
-   */
-  oneWall: boolean;
+  thickerWalls: boolean;
   /**
    * "Fill the space that's left" with bigger wells: after the plan is made, the room left beside a
    * tray goes into the wells of its items, those set to "as much as fits" first, as far as each
    * kind may take it (`AUTO_GROWTH_*`, retention), and what is still left stays a separate spacer.
    * Off (the default): spacers take it, and only an item set to "as much as fits" grows. Excludes
-   * the thick-walls choices (`wallAbsorb`, `oneWall`), which are the other ways to fill it. In the
+   * the thicker-walls choice (`thickerWalls`), which is the other way to fill it. In the
    * inputs hash only when on.
    */
   biggerWells: boolean;

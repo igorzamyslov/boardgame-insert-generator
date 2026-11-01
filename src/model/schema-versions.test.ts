@@ -454,9 +454,9 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
     expect(result.project.groups?.[0]?.id).toBe("setup");
   });
 
-  it("keeps the unknown fields of a group in a newer 0.4.x file, and writes them back", () => {
-    // 0.2.x files are older than this app's line now, so a "newer minor" has to be a 0.4.x one.
-    const raw: Json = { ...current(), schemaVersion: "0.4.7" };
+  it("keeps the unknown fields of a group in a newer 0.5.x file, and writes them back", () => {
+    // 0.2.x files are older than this app's line now, so a "newer minor" has to be a 0.5.x one.
+    const raw: Json = { ...current(), schemaVersion: "0.5.7" };
     (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], future: 1 };
     const result = expectOk(parseProject(raw));
     expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.newerMinor]);
@@ -473,7 +473,7 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
   });
 
   it("refuses a group that uses a value this app doesn't know, rather than lose it", () => {
-    const raw: Json = { ...current(), schemaVersion: "0.4.7" };
+    const raw: Json = { ...current(), schemaVersion: "0.5.7" };
     (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], access: "never" };
     expect(expectError(parseProject(raw))).toMatch(/groups\/0\/access/);
   });
@@ -686,5 +686,47 @@ describe("schema 0.4.0: comfortable card clearances", () => {
     const first = expectOk(parseProject(fixtureAt("0.3.4")));
     expect(first.notices.map((n) => n.code)).toEqual([]);
     expect(first.project.settings).toMatchObject({ cardClearance: 3, cardStackClearance: 2 });
+  });
+});
+
+describe("schema 0.5.0: thicker walls replace the wall growth and one-wall settings", () => {
+  const HISTORY = import.meta.glob<unknown>("../../test/fixtures/schema/*.json", {
+    eager: true,
+    import: "default",
+  });
+  const fixtureAt = (version: string): Json =>
+    structuredClone(HISTORY[`../../test/fixtures/schema/${version}.json`]) as Json;
+
+  it("reads the 0.5.0 fixture with no notices, and it round-trips", () => {
+    const first = expectOk(parseProject(fixtureAt("0.5.0")));
+    expect(first.notices).toEqual([]);
+    expect(first.project.settings.thickerWalls).toBe(true);
+    const text = serializeProject(first.project, first.foreign);
+    expect(text).toContain('"thickerWalls":true');
+    expect(text).not.toContain("wallAbsorb");
+    expect(text).not.toContain("oneWall");
+    const again = expectOk(parseProject(JSON.parse(text)));
+    expect(again.notices).toEqual([]);
+    expect({ ...again.project, createdWith: first.project.createdWith }).toEqual(first.project);
+  });
+
+  it("opens the 0.4.0 fixture (bigger wells chosen, a wall thickness and one thick wall left in the file) on bigger wells, with no unknown-field notice", () => {
+    const first = expectOk(parseProject(fixtureAt("0.4.0")));
+    expect(first.notices.map((n) => n.code)).toEqual([]);
+    expect(first.project.settings.biggerWells).toBe(true);
+    expect(first.project.settings.thickerWalls).toBe(false);
+    expect("wallAbsorb" in first.project.settings).toBe(false);
+    expect("oneWall" in first.project.settings).toBe(false);
+  });
+
+  it("opens a 0.4.0 file that used one thick wall or a wall thickness as thicker walls", () => {
+    for (const used of [{ oneWall: true }, { wallAbsorb: 2 }]) {
+      const raw = fixtureAt("0.4.0") as { settings: Record<string, unknown> };
+      delete raw.settings.biggerWells;
+      Object.assign(raw.settings, { oneWall: false, wallAbsorb: 0 }, used);
+      const first = expectOk(parseProject(raw as unknown as Json));
+      expect(first.notices.map((n) => n.code)).toEqual([]);
+      expect(first.project.settings.thickerWalls).toBe(true);
+    }
   });
 });

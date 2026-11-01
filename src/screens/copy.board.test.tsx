@@ -411,17 +411,16 @@ const CASES: readonly Case[] = [
     state: "settings-search",
     board: "Settings",
     region: "drawer",
-    steps: searchSettings("unused"),
+    steps: searchSettings("clearance"),
   },
   { state: "settings-nomatch", board: "Settings", region: "drawer", steps: searchSettings("zzzz") },
   {
-    // Fill the space that's left on Thicker walls: its hint, the thickness box and the way back
+    // Fill the space that's left on Thicker walls: its hint, with no number under it
     state: "settings-spacers-walls",
     board: "Settings",
     region: "drawer",
     steps: () => {
-      openNumbers();
-      inDrawer(/^Spacers and space/);
+      openSettings();
       inDrawer("Thicker walls");
     },
   },

@@ -4,6 +4,7 @@ import type { Json } from "./json";
 import { migrateTo020 } from "./migrate-0.2";
 import { migrateTo040 } from "./migrate-0.4";
 import { migrateTo030 } from "./migrate-0.3";
+import { migrateTo050 } from "./migrate-0.5";
 import {
   isArrayIndex,
   isRecord,
@@ -69,6 +70,8 @@ export const MIGRATIONS: Migration[] = deepFreeze([
   { from: "0.2", to: "0.3.0", migrate: migrateTo030 },
   // 0.3 → 0.4.0: the old card clearance defaults become the comfortable ones (migrate-0.4.ts).
   { from: "0.3", to: "0.4.0", migrate: migrateTo040 },
+  // 0.4 → 0.5.0: `wallAbsorb` and `oneWall` become the one choice `thickerWalls` (migrate-0.5.ts).
+  { from: "0.4", to: "0.5.0", migrate: migrateTo050 },
 ]);
 
 export interface ParseOptions {
@@ -328,8 +331,8 @@ function compactSettings(out: Json): void {
   if (settings.engraveNames === DEFAULT_SETTINGS.engraveNames) {
     delete settings.engraveNames;
   }
-  if (settings.oneWall === DEFAULT_SETTINGS.oneWall) {
-    delete settings.oneWall;
+  if (settings.thickerWalls === DEFAULT_SETTINGS.thickerWalls) {
+    delete settings.thickerWalls;
   }
   if (settings.biggerWells === DEFAULT_SETTINGS.biggerWells) {
     delete settings.biggerWells;
