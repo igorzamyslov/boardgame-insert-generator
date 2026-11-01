@@ -10,6 +10,12 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-11-01
+
+### Changed
+
+- Once your print file has downloaded, the dialog still shows "Support this tool · Ko-fi · PayPal", beside "Back to the plan".
+
 ## [0.29.0] - 2026-11-01
 
 ### Changed

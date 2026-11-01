@@ -465,6 +465,8 @@ const CASES: readonly Case[] = [
   {
     state: "exporting-done",
     board: "Exporting",
+    // the support line is the Download dialog's
+    also: "Export",
     region: "dialog",
     steps: async () => {
       startBuild();
