@@ -109,7 +109,7 @@ describe("upright cards and tiles: one finger channel", () => {
     expect(cutsOf(row1)).toEqual([cutout("left", 26.8, 8, 0, 10), cutout("right", 26.8, 8, 0, 10)]);
   });
 
-  it("keeps the two rows' channels apart through a shared end wall when the rows have room to widen", () => {
+  it("keeps the two rows' channels apart through a shared end wall with thicker walls: the shared wall stays as set", () => {
     // Upright 13.7 mm hexes: rows of different lengths, 3 mm slack across the rows.
     const part = partOf(
       [
@@ -122,21 +122,21 @@ describe("upright cards and tiles: one finger channel", () => {
       ],
       "upright-c2|rows2|split1",
     );
-    // The walls may take the slack (wallAbsorb), which widens both rows into the shared end wall.
-    const grow: Settings = { ...s, wallAbsorb: 1.6 };
+    // Thicker walls take the slack in the outer walls only: the wall the rows share stays as set.
+    const grow: Settings = { ...s, thickerWalls: true };
     const min = minOuter(part, grow, ground);
     const r = realize(part, grow, ground, { ...min, d: min.d + 3 });
     const [row0, row1] = r.compartments;
-    expect([row0?.y, row0?.d, row1?.y, row1?.d]).toEqual([2.6, 16.82, 21.62, 16.82]);
-    // Row 0's channel spans y 5.6–16.42 and row 1's 24.62–35.44: each keeps 3 mm posts to its
-    // wells' faces (review 1, C2: both widened into the end wall they share, 0.5 mm apart).
+    expect([row0?.y, row0?.d, row1?.y, row1?.d]).toEqual([3.1, 16.82, 21.12, 16.82]);
+    // Row 0's channel spans y 6.1–16.92 and row 1's 24.12–34.94: each keeps 3 mm posts to its
+    // wells' faces (review 1, C2: the rows must not widen into the end wall they share).
     expect(cutsOf(row0)).toEqual([
-      cutout("left", 11.01, 7.35, 0, 10.82),
-      cutout("right", 11.01, 7.35, 0, 10.82),
+      cutout("left", 11.51, 7.35, 0, 10.82),
+      cutout("right", 11.51, 7.35, 0, 10.82),
     ]);
     expect(cutsOf(row1)).toEqual([
-      cutout("left", 30.03, 7.35, 0, 10.82),
-      cutout("right", 30.03, 7.35, 0, 10.82),
+      cutout("left", 29.53, 7.35, 0, 10.82),
+      cutout("right", 29.53, 7.35, 0, 10.82),
     ]);
   });
 

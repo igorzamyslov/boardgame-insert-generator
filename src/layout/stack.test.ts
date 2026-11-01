@@ -13,7 +13,7 @@ import {
 } from "./stack";
 import { boxReq, comp, fakeMeasure, item, makeInput, part, req, variant } from "./test-utils";
 
-function ctxFor(box: { innerHeight?: number; headroom?: number } = {}, wallAbsorb = 0): Ctx {
+function ctxFor(box: { innerHeight?: number; headroom?: number } = {}, thickerWalls = false): Ctx {
   return createCtx(
     makeInput(
       [
@@ -23,7 +23,7 @@ function ctxFor(box: { innerHeight?: number; headroom?: number } = {}, wallAbsor
         boxReq("tall", 50, 40, 45),
         boxReq("flat", 50, 40, 2),
       ],
-      { box, settings: { wallAbsorb } },
+      { box, settings: { thickerWalls } },
     ),
     fakeMeasure,
   );
@@ -75,10 +75,17 @@ describe("stack feasibility", () => {
     expect(levelMinFootprints([])).toEqual([]);
   });
 
-  it("reports absorbable slack: elastic axes unlimited, else the wall growth the user allows", () => {
-    const ctx = ctxFor({}, 1.6);
+  it("reports absorbable slack: elastic axes unlimited, else the thicker walls the user allows", () => {
+    const ctx = ctxFor({}, true);
     const solo = stackLevels(ctx, [item(1)]);
-    expect(levelAbsorb(lvl(solo, 0), stackMinFootprint(ctx, solo))).toEqual({ w: 320, d: 320 });
+    const walls = lvl(solo, 0);
+    // thicker walls take what the bed leaves the tray, and it is all wall
+    expect(walls.wallW).toBeGreaterThan(0);
+    expect(levelAbsorb(walls, stackMinFootprint(ctx, solo))).toEqual({
+      w: walls.wallW,
+      d: walls.wallD,
+    });
+    expect(walls.minW + walls.wallW).toBeLessThanOrEqual(Math.max(ctx.bed.w, ctx.bed.d));
     // The default allows no growth: nothing but an elastic axis absorbs slack.
     const none = ctxFor();
     const soloNone = stackLevels(none, [item(1)]);

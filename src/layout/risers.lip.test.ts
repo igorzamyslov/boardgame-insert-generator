@@ -269,7 +269,8 @@ describe("the owner's Star Realms file: risers follow the rim setting", { timeou
     const plain = parts.find((r) => r.stack === 1) as TraySpec;
     // 9.6 mm and the 2 mm lip it prints
     expect(outerSizeText(lipped, p.settings)).toMatch(/× 11\.6 mm with its lip$/);
-    expect(outerSizeText(plain, p.settings)).toBe("92.7 × 88.2 × 6.4 mm");
+    // the same size, whichever way the search turned the Trade deck (it stood the other way until 0.29.0)
+    expect(outerSizeText(plain, p.settings)).toBe("88.2 × 92.7 × 6.4 mm");
   });
 
   it("keeps the Trade deck's riser plain: the tray has no wall to spare for a groove", () => {

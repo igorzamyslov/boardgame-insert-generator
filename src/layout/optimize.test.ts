@@ -23,10 +23,10 @@ const input = makeInput(reqs, { box: { innerWidth: 280, innerDepth: 200, innerHe
 
 // A 103.2 × 63.2 mm tray in a 106.2 × 63.25 mm floor: 3 mm of slack along X, a 0.05 mm sliver along Y.
 describe("leaf slack: a filler part, or thicker walls only when the user allows them", () => {
-  const run = (wallAbsorb: number) => {
+  const run = (thickerWalls: boolean) => {
     const inp = makeInput([boxReq("a", 100, 60, 20)], {
       box: { innerWidth: 107.2, innerDepth: 64.25, innerHeight: 60 },
-      settings: { wallAbsorb },
+      settings: { thickerWalls },
     });
     const r = optimize(inp, 1, 500);
     const trays = r.layout?.trays ?? [];
@@ -38,23 +38,21 @@ describe("leaf slack: a filler part, or thicker walls only when the user allows 
   };
 
   it("prints a filler by default instead of thickening the walls", () => {
-    const { tray, leftovers } = run(0);
+    const { tray, leftovers } = run(false);
     expect(tray).toMatchObject({ w: 103.2, wall: 1.6 });
     expect(leftovers.map((l) => l.w)).toEqual([2.8]);
   });
 
-  it("absorbs the slack into thicker walls once wallAbsorb covers it, and not before", () => {
-    // Two walls each take wallAbsorb: 2 × 1.4 = 2.8 mm is under the 3 mm, 2 × 1.6 = 3.2 is over.
-    expect(run(1.4).leftovers).toHaveLength(1);
-    const absorbed = run(1.6);
+  it("absorbs the slack into thicker walls with thickerWalls, and prints no spacer", () => {
+    const absorbed = run(true);
     expect(absorbed.leftovers).toEqual([]);
     expect(absorbed.tray?.w).toBe(106.2);
   });
 
-  it("absorbs a gap too small to be a part even with wallAbsorb 0", () => {
+  it("absorbs a gap too small to be a part without thicker walls", () => {
     // The 0.05 mm of depth slack never becomes a leftover.
-    expect(run(0).tray?.d).toBe(63.25);
-    expect(run(0).leftovers.every((l) => l.d > 60)).toBe(true);
+    expect(run(false).tray?.d).toBe(63.25);
+    expect(run(false).leftovers.every((l) => l.d > 60)).toBe(true);
   });
 });
 
@@ -354,11 +352,11 @@ describe("optimize", () => {
     });
 
     it("shrinks the total, never grows it, when a chain finds a layout", () => {
-      // case1 seed 5 (20 before growth became the last step of planning, 7 before the search kept its shares, 39 before 0.5.3 moved the
+      // case1 seed 6 (seed 5 until 0.29.0 raised the cost of a tray between an item's trays; 20 before growth became the last step of planning, 7 before the search kept its shares, 39 before 0.5.3 moved the
       // search; the seed is whichever first chain dead-ends at this small budget, so the
       // derived-seed chain finds the layout; at the default budget the first chain finds one on
       // every seed measured)
-      const steps = progress(createRun(bedLipInput("case1"), 5, 1000));
+      const steps = progress(createRun(bedLipInput("case1"), 6, 1000));
       expect(steps[0]?.total).toBe(2000);
       expect(steps.at(-1)).toEqual({ done: 2000, total: 2000 });
       expect(monotone(steps)).toBe(true);

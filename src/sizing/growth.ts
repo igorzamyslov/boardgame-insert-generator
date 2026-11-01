@@ -147,7 +147,7 @@ export function rowDepthCapU(row: readonly CompartmentReq[]): number {
  * How much slack a part's tray can give to its contents along its width or depth, in units
  * (UNBOUNDED_U: all of it), for the layout to decide whether a gap becomes a filler or is absorbed.
  * Width: every row takes the slack, so it is the least any row can take. Depth: rows grow
- * separately, so what each can take adds. What a part can't give goes to the walls (`wallAbsorb`),
+ * separately, so what each can take adds. What a part can't give goes to the outer walls with `thickerWalls`,
  * and past that to a filler.
  */
 export function partGrowthCapU(rows: readonly CompartmentReq[][], axis: "w" | "d"): number {

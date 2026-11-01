@@ -12,50 +12,68 @@ import type { Rect } from "./units";
 // gap up to what the contents may take is absorbed, and past it the tray stays that much bigger
 // than it needs to be while the rest of the gap is a filler.
 
-const ctxOf = (growth: Record<string, number> | undefined, o: { wallAbsorb?: number } = {}): Ctx =>
+const ctxOf = (
+  growth: Record<string, number> | undefined,
+  o: { thickerWalls?: boolean } = {},
+): Ctx =>
   createCtx(
     makeInput(
       [
         boxReq("bin", 50, 40, 10, { elastic: { w: true, d: true, h: true }, growth }),
         boxReq("rigid", 50, 40, 10),
       ],
-      { settings: { wallAbsorb: o.wallAbsorb ?? 0 } },
+      { settings: { thickerWalls: o.thickerWalls ?? false } },
     ),
     fakeMeasure,
   );
 
 describe("the room a part's contents may take (PartMetrics)", () => {
   it("is unbounded when elastic with no cap, and the walls' share when it cannot grow", () => {
-    const ctx = ctxOf(undefined, { wallAbsorb: 1.6 });
+    const ctx = ctxOf(undefined, { thickerWalls: true });
     const bin = ctx.metrics({ req: 0, variant: 0, part: 0 }, false, 0);
     expect(bin.capW).toBe(INF_U);
     expect(bin.growW).toBe(INF_U);
     const rigid = ctx.metrics({ req: 1, variant: 0, part: 0 }, false, 0);
     expect(rigid.growW).toBe(0);
-    expect(rigid.capW).toBe(320);
+    expect(rigid.capW).toBeGreaterThan(0);
+    expect(rigid.capW).toBe(rigid.wallW);
   });
 
-  it("with oneWall, is the one wall's ceiling on top instead of both thin walls, and says so", () => {
+  it("with thickerWalls, is what the bed leaves the tray, all of it wall: no more than the bed holds", () => {
     const ctx = createCtx(
-      makeInput([boxReq("rigid", 50, 40, 10)], { settings: { oneWall: true, wallAbsorb: 3 } }),
+      makeInput([boxReq("rigid", 50, 40, 10)], { settings: { thickerWalls: true } }),
       fakeMeasure,
     );
     const rigid = ctx.metrics({ req: 0, variant: 0, part: 0 }, false, 0);
-    expect(rigid.capW).toBe(2000);
-    expect(rigid.capD).toBe(2000);
-    expect(ctx.oneWallCap).toBe(2000);
-    // Off, the context has none and the thin walls count as before.
-    expect(ctxOf(undefined, { wallAbsorb: 1.6 }).oneWallCap).toBe(0);
+    expect(rigid.capW).toBe(rigid.wallW);
+    expect(rigid.capD).toBe(rigid.wallD);
+    expect(rigid.w + rigid.wallW).toBeLessThanOrEqual(Math.max(ctx.bed.w, ctx.bed.d));
+    expect(rigid.d + rigid.wallD).toBeLessThanOrEqual(Math.max(ctx.bed.w, ctx.bed.d));
+    // Off, no wall takes any room.
+    const off = ctxOf(undefined).metrics({ req: 1, variant: 0, part: 0 }, false, 0);
+    expect(off.wallW).toBe(0);
+    expect(off.capW).toBe(0);
+  });
+
+  it("with thickerWalls, a tray that fills the bed has no room left to thicken", () => {
+    const ctx = createCtx(
+      makeInput([boxReq("wide", 245, 40, 10)], { settings: { thickerWalls: true } }),
+      fakeMeasure,
+    );
+    const wide = ctx.metrics({ req: 0, variant: 0, part: 0 }, false, 0);
+    expect(wide.w).toBeGreaterThan(Math.max(ctx.bed.w, ctx.bed.d));
+    expect(wide.wallW).toBe(0);
   });
 
   it("is the cap, in units, with the walls' share on top in capW", () => {
-    const ctx = ctxOf({ w: 12.5, d: 3, h: 20 }, { wallAbsorb: 1.6 });
+    const ctx = ctxOf({ w: 12.5, d: 3, h: 20 }, { thickerWalls: true });
     const bin = ctx.metrics({ req: 0, variant: 0, part: 0 }, false, 0);
     expect(bin.growW).toBe(1250);
     expect(bin.growD).toBe(300);
     expect(bin.growH).toBe(2000);
-    expect(bin.capW).toBe(1250 + 320);
-    expect(bin.capD).toBe(300 + 320);
+    expect(bin.wallW).toBeGreaterThan(0);
+    expect(bin.capW).toBe(1250 + bin.wallW);
+    expect(bin.capD).toBe(300 + bin.wallD);
   });
 
   it("swaps with the part's rotation", () => {
@@ -108,10 +126,11 @@ describe("a tray in a gap wider than its contents may take", () => {
   });
 
   it("does not use the walls for what the contents may not take, once there is a filler", () => {
-    // wallAbsorb would take 3.2 mm of a 3.2 mm gap, but 20 mm is past cap + walls: the tray is
-    // cap-sized and the rest a filler, never a cap-sized tray with fat walls and a filler too
-    const ctx = ctxOf({ w: 4 }, { wallAbsorb: 1.6 });
-    const sp = place(ctx, 54 + 20, 44);
+    // thicker walls take a 7 mm gap whole, but a gap past cap + what the bed leaves is cap-sized
+    // tray and a filler, never a cap-sized tray with fat walls and a filler too
+    const ctx = ctxOf({ w: 4 }, { thickerWalls: true });
+    const past = ctx.bed.w - 5400 + 400 + 1000;
+    const sp = place(ctx, (5400 + past) / 100, 44);
     expect(sp.trays[0]?.w).toBe(5400 + 400);
     expect(sp.leftovers).toHaveLength(1);
     // within cap + walls, all of it is absorbed

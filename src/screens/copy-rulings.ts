@@ -397,7 +397,7 @@ export const SETTINGS_STATES: readonly string[] = [
   ...EXACT_GROUPS.map((g) => `settings-${g.id}`),
 ];
 const SET_FIRST = "Settings' first screen is the board's plain choices";
-const SET_EXACT = "Every setting the board does not show is under Exact numbers";
+const SET_EXACT = "Every number the board does not show is under Exact numbers";
 const SET_PRINTER = "My printer shows another printer on this insert as a row with Apply";
 const SET_DETAILS = "Printer details holds the own bed size, margin and layer height";
 const SET_RISERS = "Settings' first screen also has two riser rows";
@@ -408,6 +408,9 @@ const SET_APPEARANCE = "Dark mode: System / Light / Dark in Settings → Display
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
 const SET_GAPS = "Fill the space that's left is one choice of what the engine does with spare room";
+const SET_GAPS_FIRST =
+  "Fill the space that's left and Unused space are on Settings' first screen, not among the Exact numbers";
+const SET_WALLS = "Thicker walls print no separate spacers";
 const PRESSED = "A measured stack is pressed together";
 const SET_KIND = "Rim between layers is one choice: Off, Auto, a rim and groove or a stepped base";
 
@@ -442,15 +445,18 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Room around trays and pieces", states: SETTINGS_STATES, ruling: SET_WORDS },
   { text: "Back to on", states: SETTINGS_STATES, ruling: SET_BACK },
   { text: "Back to off", states: SETTINGS_STATES, ruling: SET_BACK },
-  { text: "Spacers and space", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "Unused space", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "Solid block", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "Unused space", states: SETTINGS_STATES, ruling: SET_GAPS_FIRST },
+  { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_GAPS_FIRST },
+  { text: "Solid block", states: SETTINGS_STATES, ruling: SET_GAPS_FIRST },
+  {
+    text: "What a separate spacer is printed as.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS_FIRST,
+  },
   { text: "Fill the space that's left", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "Separate spacers", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "Bigger wells", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "Thicker walls", states: SETTINGS_STATES, ruling: SET_GAPS },
-  { text: "One thick wall", states: SETTINGS_STATES, ruling: SET_GAPS },
   {
     text: "Room left beside a tray is printed as separate spacers.",
     states: SETTINGS_STATES,
@@ -462,18 +468,12 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: SET_GAPS,
   },
   {
-    text: "Instead of a spacer, every wall and divider may get up to {n} mm thicker.",
+    text: "No separate spacers: the walls of the trays around the room take it, the outer walls first. Only room a printer bed cannot take is a spacer.",
     states: SETTINGS_STATES,
-    ruling: SET_GAPS,
-  },
-  {
-    text: "Instead of a spacer, one outer wall in each direction takes up to {n} mm, avoiding walls with a finger cut. A bigger gap still gets a spacer.",
-    states: SETTINGS_STATES,
-    ruling: SET_GAPS,
+    ruling: SET_WALLS,
   },
   { text: "{name} stays upright", states: MINIS_STATES, ruling: UPRIGHT },
   { text: "Never laid on its side", states: MINIS_STATES, ruling: UPRIGHT },
-  { text: "Back to separate spacers", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
   { text: "Thin", states: SETTINGS_STATES, ruling: THIN_WALLS },
   { text: "You set the floor or the dividers below.", states: SETTINGS_STATES, ruling: THIN_WALLS },

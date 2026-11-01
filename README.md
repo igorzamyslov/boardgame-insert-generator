@@ -87,8 +87,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit in the
    "Done" at its foot. "This insert" is "How the trays sit" (Fit in the box, Walls, Room for
    fingers, Rim between layers: Off, Auto (the default: the plan is made with a rim and groove and
    with a stepped base that leaves the walls thin, and the better one is kept) or one of the two,
-   Fill to the lid) and "Exact numbers": a search, then groups of
-   numbers (Walls and floors, Cards, Finger cuts, Rim between layers, Spacers and space and more),
+   Fill to the lid, Fill the space that's left: Separate spacers, Bigger wells or Thicker walls,
+   which print no spacer at all) and "Exact numbers": a search, then groups of
+   numbers (Walls and floors, Cards, Finger cuts, Rim between layers and more),
    each value with a dot and "Back to <default>" when it differs. "My printer" is the bed (Small,
    Medium, Large or your own size), "Printer details" (margin, layer height) and "Printing"
    ("Engrave tray names", joining spacers). **The printer is a preference in this browser** and

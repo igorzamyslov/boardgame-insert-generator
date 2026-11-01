@@ -12,7 +12,7 @@ const settingsOf = (out: Json): Json => out.settings as Json;
 
 describe("the migration from 0.3 to 0.4", () => {
   it("is registered for the line 0.3 and is the one the schema version needs", () => {
-    expect(parseSemver(SCHEMA_VERSION)).toMatchObject({ major: 0, minor: 4 });
+    expect(parseSemver(SCHEMA_VERSION)?.minor).toBeGreaterThanOrEqual(4);
     expect(MIGRATIONS.find((m) => m.from === "0.3")).toMatchObject({ to: "0.4.0" });
   });
 

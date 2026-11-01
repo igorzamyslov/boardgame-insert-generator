@@ -339,10 +339,19 @@ describe("fill", () => {
     }
   });
 
-  it("with oneWall, absorbs up to ONE_WALL_MAX_MM per axis instead of a filler, and not a unit more", () => {
+  it("with thickerWalls, absorbs the whole gap into the walls as far as the bed allows, and not a unit more", () => {
     const req = boxReq("a", 100, 60, 20);
-    const room = 2000; // 20 mm, ONE_WALL_MAX_MM
-    const on = ctxOf([req], { settings: { oneWall: true } });
+    const on = ctxOf([req], { settings: { thickerWalls: true } });
+    const room = on.bed.w - 10400; // what the bed leaves the tray along its width
+    // A 60 mm gap, far past any old limit, is all wall.
+    const huge = placeStack(on, stackLevels(on, [item(0)]), {
+      x: 0,
+      y: 0,
+      w: 10400 + 6000,
+      d: 6400,
+    });
+    expect(huge.leftovers).toEqual([]);
+    expect(huge.trays[0]?.w).toBe(10400 + 6000);
     const fits = placeStack(on, stackLevels(on, [item(0)]), {
       x: 0,
       y: 0,
@@ -351,66 +360,25 @@ describe("fill", () => {
     });
     expect(fits.leftovers).toEqual([]);
     expect(fits.trays[0]?.w).toBe(10400 + room);
-    // Past the ceiling the gap stays a filler, and the tray stays as small as it needs to be.
+    // Past the bed the gap stays a filler, and the tray stays as small as it needs to be.
     const over = placeStack(on, stackLevels(on, [item(0)]), {
       x: 0,
       y: 0,
-      w: 10400 + room + 1,
+      w: 10400 + room + 1000,
       d: 6400,
     });
     expect(over.trays[0]?.w).toBe(10400);
     expect(over.leftovers).toHaveLength(1);
-    // A 60 mm gap never becomes a 60 mm wall.
-    const huge = placeStack(on, stackLevels(on, [item(0)]), {
-      x: 0,
-      y: 0,
-      w: 10400 + 6000,
-      d: 6400,
-    });
-    expect(huge.trays[0]?.w).toBe(10400);
-    // Off (the default), the same 20 mm is a filler.
+    // Off (the default), the same gap is a filler.
     const off = ctxOf([req]);
     const printed = placeStack(off, stackLevels(off, [item(0)]), {
       x: 0,
       y: 0,
-      w: 10400 + room,
+      w: 10400 + 2000,
       d: 6400,
     });
     expect(printed.trays[0]?.w).toBe(10400);
     expect(printed.leftovers).toHaveLength(1);
-  });
-
-  it("with oneWall, replaces wallAbsorb rather than adding to it", () => {
-    const ctx = ctxOf([boxReq("a", 100, 60, 20)], { settings: { oneWall: true, wallAbsorb: 3 } });
-    const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), {
-      x: 0,
-      y: 0,
-      w: 10400 + 2000 + 600, // the ceiling plus what two 3 mm walls would have added
-      d: 6400,
-    });
-    expect(sp.leftovers).toHaveLength(1);
-  });
-
-  it("absorbs up to wallAbsorb per wall, and prints a filler for more", () => {
-    const ctx = ctxOf([boxReq("a", 100, 60, 20)], { settings: { wallAbsorb: 1.6 } });
-    // Two walls take 2 × 1.6 mm = 320 units.
-    const fits = placeStack(ctx, stackLevels(ctx, [item(0)]), {
-      x: 0,
-      y: 0,
-      w: 10400 + 320,
-      d: 6400,
-    });
-    expect(fits.leftovers).toEqual([]);
-    expect(fits.trays[0]?.w).toBe(10720);
-    // One unit more than the walls may take: a filler, and the walls stay as set.
-    const over = placeStack(ctx, stackLevels(ctx, [item(0)]), {
-      x: 0,
-      y: 0,
-      w: 10400 + 321,
-      d: 6400,
-    });
-    expect(over.trays[0]?.w).toBe(10400);
-    expect(over.leftovers).toEqual([{ x: 0, y: 0, w: 301, d: 6400 }]);
   });
 
   it("gives all slack to an elastic tray", () => {

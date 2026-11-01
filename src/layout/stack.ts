@@ -38,6 +38,9 @@ export interface Level {
   /** The part of capW / capD that is room for the contents, without the walls (spec §5). */
   readonly growW: U;
   readonly growD: U;
+  /** The part of capW / capD that is thicker outer walls (`thickerWalls`), room for no contents. */
+  readonly wallW: U;
+  readonly wallD: U;
   readonly elasticH: boolean;
   /** Most height slack the tray's deeper-growing compartments take. */
   readonly growH: U;
@@ -89,6 +92,8 @@ export function stackLevels(
       capD: rot ? m.capW : m.capD,
       growW: rot ? m.growD : m.growW,
       growD: rot ? m.growW : m.growD,
+      wallW: rot ? m.wallD : m.wallW,
+      wallD: rot ? m.wallW : m.wallD,
       elasticH: m.elasticH,
       growH: m.growH,
       fixed,

@@ -138,9 +138,7 @@ function boxForHash(box: Project["box"]): Project["box"] {
  */
 export function inputsHash(p: Project): string {
   // infill only scales the filament estimate; no part depends on it, so it must not stale the plan.
-  // wallAbsorb is hashed under its old name, wallGrowth: renaming the setting must not change the
-  // hash of every saved project and so mark all of their plans stale.
-  const { wallAbsorb, oneWall, biggerWells, playLimit, lip, ...rest } = p.settings;
+  const { thickerWalls, biggerWells, playLimit, lip, ...rest } = p.settings;
   // The joint and the step's height are hashed in the shape they had before `joint` (lipForHash):
   // off and the rim leave the step's height out, the stepped base hashes it as `stepBase`, a key no
   // file holds (an older app keeps a newer file's `stepHeight` as it is and hashes it so, which must
@@ -151,10 +149,12 @@ export function inputsHash(p: Project): string {
   const settings = {
     ...rest,
     lip: hashedLip,
-    wallGrowth: wallAbsorb,
+    // The wall growth setting is gone (schema 0.5.0) but its place in the hash stays at its old
+    // default, so every plan saved with it off is still current.
+    wallGrowth: 0,
     // It moves where leaf slack goes, so it is hashed, but only when on: off is left out so every
     // project saved before the setting existed keeps its hash and its plan stays current.
-    oneWall: oneWall ? true : undefined,
+    thickerWalls: thickerWalls ? true : undefined,
     // The same for the fill setting "bigger wells": it decides which wells the last step gives the
     // room left, so it is hashed, but only when on.
     biggerWells: biggerWells ? true : undefined,

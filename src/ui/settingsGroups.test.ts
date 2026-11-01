@@ -6,7 +6,7 @@ import { EXACT_GROUPS, FIRST_SCREEN_PATHS, groupOfPath } from "./settingsGroups"
 import { changedByTab, changedCount } from "./settingsFields";
 
 describe("EXACT_GROUPS", () => {
-  it("names the board's groups, in its order, and adds Spacers and space last", () => {
+  it("names the board's groups, in its order, and holds numbers only", () => {
     expect(EXACT_GROUPS.map((g) => g.title)).toEqual([
       "Walls and floors",
       "Room around trays and pieces",
@@ -14,7 +14,6 @@ describe("EXACT_GROUPS", () => {
       "Finger cuts",
       "Rim between layers",
       "Shape and printing",
-      "Spacers and space",
     ]);
   });
 
@@ -37,12 +36,6 @@ describe("EXACT_GROUPS", () => {
     expect(count("Cards")).toBe(4);
     expect(count("Finger cuts")).toBe(4);
     expect(count("Rim between layers")).toBe(6);
-  });
-
-  it("puts Unused space and Fill the space that's left under Spacers and space, which draws the wall thickness", () => {
-    const g = EXACT_GROUPS.find((x) => x.title === "Spacers and space");
-    expect(g?.extras).toEqual(["leftover", "spareRoom"]);
-    expect(g?.paths).toEqual(["wallAbsorb"]);
   });
 
   it("finds the group of an error's path", () => {
@@ -91,11 +84,10 @@ describe("changedCount: what the header says is what the sheet shows", () => {
   });
 
   it("counts Fill the space that's left once, though it writes two settings", () => {
-    expect(changedCount({ ...DEFAULT_SETTINGS, wallAbsorb: 2 })).toBe(1);
-    expect(changedCount({ ...DEFAULT_SETTINGS, oneWall: true })).toBe(1);
+    expect(changedCount({ ...DEFAULT_SETTINGS, thickerWalls: true })).toBe(1);
     expect(changedCount({ ...DEFAULT_SETTINGS, biggerWells: true })).toBe(1);
-    expect(changedCount({ ...DEFAULT_SETTINGS, oneWall: true, wallAbsorb: 2 })).toBe(1);
-    expect(changedByTab({ ...DEFAULT_SETTINGS, oneWall: true, wallAbsorb: 2 })).toEqual({
+    expect(changedCount({ ...DEFAULT_SETTINGS, thickerWalls: true, biggerWells: true })).toBe(1);
+    expect(changedByTab({ ...DEFAULT_SETTINGS, thickerWalls: true })).toEqual({
       insert: 1,
       printer: 0,
     });
@@ -107,7 +99,7 @@ describe("changedCount: what the header says is what the sheet shows", () => {
         ...DEFAULT_SETTINGS,
         lip: { ...DEFAULT_SETTINGS.lip, joint: "off" as const },
         fillToTop: !DEFAULT_SETTINGS.fillToTop,
-        oneWall: !DEFAULT_SETTINGS.oneWall,
+        thickerWalls: !DEFAULT_SETTINGS.thickerWalls,
         engraveNames: !DEFAULT_SETTINGS.engraveNames,
         mergeFillers: !DEFAULT_SETTINGS.mergeFillers,
         mergeRisers: !DEFAULT_SETTINGS.mergeRisers,
