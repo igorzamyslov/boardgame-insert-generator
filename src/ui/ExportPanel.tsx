@@ -644,7 +644,8 @@ export function ExportPanel(p: ExportPanelProps) {
         {view === "done" ? skippedNote : problemBoxes}
         {reasonLine}
         {view === "done" ? (
-          <div class="export-actions">
+          <div class="export-actions export-actions--done">
+            {support}
             <Button ref={back} variant="secondary" size="dialog" onClick={p.onClose}>
               Back to the plan
             </Button>

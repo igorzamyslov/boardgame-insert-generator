@@ -207,6 +207,12 @@
   justify-content: flex-end;
 }
 
+/* Done: the support line at the left, "Back to the plan" at the right. */
+.export-actions--done {
+  align-items: center;
+  justify-content: space-between;
+}
+
 /* ---- Not exported: a part the files cannot hold, or that failed. Plain (DESIGN §7). ---- */
 .export-failed {
   display: flex;
