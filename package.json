@@ -1,6 +1,6 @@
 {
   "name": "insert-generator",
-  "version": "0.29.6",
+  "version": "0.29.7",
   "private": true,
   "type": "module",
   "scripts": {
@@ -46,7 +46,7 @@
     "playwright": "^1.65.0",
     "prettier": "^3.9.10",
     "rollup-plugin-license": "^3.7.1",
-    "stylelint": "^17.16.0",
+    "stylelint": "^18.0.0",
     "stylelint-config-standard": "^40.0.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1",
