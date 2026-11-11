@@ -1,6 +1,6 @@
 {
   "name": "insert-generator",
-  "version": "0.29.9",
+  "version": "0.29.10",
   "private": true,
   "type": "module",
   "scripts": {
@@ -50,7 +50,7 @@
     "stylelint-config-standard": "^40.0.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.2",
-    "vite": "^8.3.7",
+    "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
   "engines": {
