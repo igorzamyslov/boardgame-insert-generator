@@ -10,3 +10,10 @@ declare var __shotsHold: Partial<Record<"export" | "search", Promise<void>>> | u
 // read of it. Absent in every real run.
 // eslint-disable-next-line no-var
 declare var __shotsScene: import("./viewer/shotsScene").ShotsScene | undefined;
+
+// The feedback form (src/feedback/config.ts): set from the repository's variables when the site
+// is built; both are absent in dev and in forks, and the form then opens GitHub instead.
+interface ImportMetaEnv {
+  readonly VITE_FEEDBACK_URL?: string;
+  readonly VITE_TURNSTILE_SITEKEY?: string;
+}

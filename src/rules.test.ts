@@ -180,6 +180,11 @@ describe("rules", () => {
     const NETWORK_CALLS =
       /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b/;
     const NAMESPACE_HOSTS = ["www.w3.org", "schemas.openxmlformats.org", "schemas.microsoft.com"];
+    // The feedback form (decision log 2026-11-13): GitHub's new-issue page is a link a person
+    // follows, and Turnstile's script loads only when the dialog opens and a site key is set.
+    // The Worker's own address comes from the build's settings, so it is not written in the source.
+    const FEEDBACK_HOSTS = ["github.com", "challenges.cloudflare.com"];
+    const FEEDBACK_FILES = ["/src/feedback/feedback.ts", "/src/feedback/turnstile.ts"];
 
     /** Every string, template and JSX text in a file: what can end up as an address. */
     function literals(path: string): string[] {
@@ -204,7 +209,7 @@ describe("rules", () => {
 
     it("calls no network API", () => {
       const found: string[] = [];
-      for (const path of appFiles) {
+      for (const path of appFiles.filter((p) => p !== "/src/feedback/feedback.ts")) {
         const file = parse(path);
         const visit = (node: ts.Node): void => {
           // a call or a `new`, by name: `fetch(…)`, `new WebSocket(…)`, `navigator.sendBeacon(…)`
@@ -221,10 +226,16 @@ describe("rules", () => {
       expect(found).toEqual([]);
     });
 
-    it("writes an absolute URL only for the support links and XML namespaces", () => {
+    it("lets only the feedback module call fetch", () => {
+      const found = appFiles.filter((p) => /fetch/i.test(sources.get(p) ?? ""));
+      expect(found.filter((p) => !p.startsWith("/src/feedback/"))).toEqual([]);
+    });
+
+    it("writes an absolute URL only for the support links, XML namespaces and the feedback form", () => {
       const allowed = new Set([
         ...NAMESPACE_HOSTS,
         ...SUPPORT_LINKS.map((l) => new URL(l.href).host),
+        ...FEEDBACK_HOSTS,
       ]);
       expect(allowed).toContain("ko-fi.com");
       expect(allowed).toContain("paypal.me");
@@ -232,7 +243,11 @@ describe("rules", () => {
       for (const path of appFiles) {
         for (const text of literals(path)) {
           for (const m of text.matchAll(/\bhttps?:\/\/([^/\s"'<>)]+)/gi)) {
-            if (!allowed.has((m[1] ?? "").toLowerCase())) {
+            const host = (m[1] ?? "").toLowerCase();
+            const forFeedback = FEEDBACK_HOSTS.includes(host);
+            if (forFeedback && !FEEDBACK_FILES.includes(path)) {
+              found.push(`${path}: ${m[0]}`);
+            } else if (!allowed.has(host)) {
               found.push(`${path}: ${m[0]}`);
             }
           }

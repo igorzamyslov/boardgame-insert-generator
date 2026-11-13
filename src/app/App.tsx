@@ -7,9 +7,10 @@ import type { Access, ComponentKind, Lock, Project } from "../model/types";
 import { groupById, requirementKeyOf } from "../model/groups";
 import { engineProject, jointOf } from "../model/lip";
 import { lidPlane } from "../model/settings";
+import { APP_VERSION, BUILD_ID } from "../model/version";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
-import { exportJsonFile, jsonFileName } from "../share";
+import { exportJsonFile, exportJsonText, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
 import { BoxStage } from "../screens/BoxStage";
 import { BoxSideView } from "../screens/BoxSideView";
@@ -20,6 +21,8 @@ import { Header } from "../screens/Header";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { FirstVisit } from "../screens/FirstVisit";
 import { AddMenu } from "../screens/KindPicker";
+import { FeedbackDialog } from "../feedback/FeedbackDialog";
+import { readConfig } from "../feedback/feedback";
 import { ProjectMenu } from "../screens/ProjectMenu";
 import {
   RemovedToast,
@@ -260,6 +263,8 @@ export function App(props: AppProps) {
   const [exportOpen, setExportOpen] = useState(false);
   // The settings sheet is a dialog too; null while it is closed.
   const [settingsOpen, setSettingsOpen] = useState<{ page: SettingsPage } | null>(null);
+  // The feedback dialog, opened from the project menu.
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   // What was just removed, in the words the toast says, for the Undo toast (cleared when another
   // project opens): an item's, or a group's with what its trays' rules lost.
   // A drop in the rail that gave a note shows its toast the same way, with "Undo move"; the rail's own
@@ -1050,6 +1055,7 @@ export function App(props: AppProps) {
       onOpenFile={() => fileRef.current?.click()}
       onSaveFile={saveFile}
       onSettings={() => openSettings()}
+      onFeedback={() => setFeedbackOpen(true)}
       phone={phone}
       canRedo={store.canRedo.value}
       onRedo={() => store.redo()}
@@ -1552,6 +1558,15 @@ export function App(props: AppProps) {
             setAssemblyFor(project.id);
             guideHistory.push(project.id);
           }}
+        />
+      ) : null}
+      {feedbackOpen ? (
+        <FeedbackDialog
+          config={readConfig(import.meta.env)}
+          appVersion={`${APP_VERSION} (${BUILD_ID})`}
+          userAgent={navigator.userAgent}
+          getProject={() => exportJsonText(saved, s.foreign.value)}
+          onClose={() => setFeedbackOpen(false)}
         />
       ) : null}
       {removedLive}
