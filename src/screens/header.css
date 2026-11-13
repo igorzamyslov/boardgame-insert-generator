@@ -293,11 +293,32 @@ input.hd-name__input {
   --k-edge: var(--line-strong);
 }
 
-/* ---- The foot of the panel: the version, then the licences ---- */
+/* ---- The foot of the panel: the version, then one line of quiet links ---- */
 .pm-version {
   padding: var(--s-6) var(--s-12) var(--s-2);
   color: var(--muted);
   font-size: var(--text-xs);
+}
+
+/* "Licences · Legal notice · Privacy", the Download dialog's support line in the menu. */
+.pm-links {
+  margin: 0;
+  padding: var(--s-2) var(--s-12) var(--s-8);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.pm-links a {
+  position: relative;
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* The line is 20 px tall; the target is 44 (DESIGN §2: 44 px controls). */
+.pm-links a::before {
+  position: absolute;
+  inset: -12px -4px;
+  content: "";
 }
 
 /* ---- Your inserts: a page of the panel ---- */

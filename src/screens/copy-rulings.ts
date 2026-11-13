@@ -563,6 +563,10 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 4: the header and the project menu
   { text: "Insert Generator {version}", states: "all", ruling: FOOTER },
   { text: "Licences", states: "all", ruling: FOOTER },
+  { text: "Legal notice", states: "all", ruling: FOOTER },
+  { text: "Privacy", states: "all", ruling: FOOTER },
+  // the menu's "Licences · Legal notice · Privacy" line, judged a part at a time like the support line
+  { text: "·", states: "all", ruling: FOOTER },
   { text: "Redo", states: "all", ruling: REDO },
   { text: "Couldn't save", states: "all", ruling: SAVED },
   { text: "Not saved: this browser blocks storage", states: "all", ruling: SAVED },
