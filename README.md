@@ -112,7 +112,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit in the
     that works (it speaks up only when saving is paused, fails or is blocked). There are no share
     links: the address bar never changes. The project menu (the header's menu button) has New
     insert, Your inserts (open or delete one), "Open file…", "Save file" and Settings, then, at
-    its end, the version and build id and a link to "Licences"; there is no footer. A phone's
+    its end, the version and build id and one quiet line, "Licences · Legal notice · Privacy"; there is no footer. A phone's
     menu starts with Redo, and its header has Undo and "Send file". A file holds the whole
     insert, so sending the file is how you share one. Opening a file opens it as a separate
     insert (a file whose id and content match a stored one just opens that one; one whose id

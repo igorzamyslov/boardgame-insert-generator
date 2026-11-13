@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { CONFLICT_CODE } from "../app/persistence";
 import type { ConflictChoice } from "../app/persistence";
-import { Button, Icon, MenuItem, MenuLink, MenuPanel, MenuSeparator } from "../kit";
+import { Button, Icon, MenuItem, MenuPanel, MenuSeparator } from "../kit";
 import type { Notice } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
 import type { ProjectListEntry } from "../share";
@@ -199,7 +199,13 @@ export function ProjectMenu(props: ProjectMenuProps) {
       <MenuItem onClick={choose(props.onSettings)}>Settings</MenuItem>
       <MenuSeparator />
       <span class="pm-version">{`Insert Generator ${APP_VERSION} (${BUILD_ID})`}</span>
-      <MenuLink href="./third-party-licenses.txt">Licences</MenuLink>
+      <p class="pm-links">
+        <a href="./third-party-licenses.txt">Licences</a>
+        {" · "}
+        <a href="./legal.html">Legal notice</a>
+        {" · "}
+        <a href="./privacy.html">Privacy</a>
+      </p>
     </MenuPanel>
   );
 }

@@ -74,14 +74,19 @@ describe("ProjectMenu", () => {
     expect(screen.queryByRole("button", { name: "Send file" })).toBeNull();
   });
 
-  it("ends with the version and Licences", () => {
+  it("ends with the version and one line: Licences · Legal notice · Privacy", () => {
     render(<ProjectMenu {...props()} />);
     const panel = screen.getByRole("group", { name: "Project" });
-    const [version, licences] = [...panel.children].slice(-2);
+    const [version, line] = [...panel.children].slice(-2);
     expect(version?.textContent).toBe(`Insert Generator ${APP_VERSION} (${BUILD_ID})`);
     expect(version?.localName).not.toBe("button");
-    expect(licences?.textContent).toBe("Licences");
-    expect(licences?.getAttribute("href")).toBe("./third-party-licenses.txt");
+    expect(line?.textContent).toBe("Licences · Legal notice · Privacy");
+    const links = [...(line?.querySelectorAll("a") ?? [])];
+    expect(links.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
+      ["Licences", "./third-party-licenses.txt"],
+      ["Legal notice", "./legal.html"],
+      ["Privacy", "./privacy.html"],
+    ]);
   });
 
   it("offers Redo first on a phone, blocked while there is nothing to redo", () => {
