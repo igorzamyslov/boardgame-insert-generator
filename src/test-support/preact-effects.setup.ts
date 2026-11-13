@@ -10,7 +10,7 @@
 //
 // After every test: unmount whatever is left, then flush Preact's after-paint queues inside
 // `act`, so every pending cleanup and effect runs now, while the page still exists.
-import { afterEach } from "vitest";
+import { afterAll, afterEach } from "vitest";
 
 // Only the jsdom test files have a page to flush; the Node ones skip the imports.
 if (typeof document !== "undefined") {
@@ -31,6 +31,18 @@ if (typeof document !== "undefined") {
     void act(() => {
       render(h(Flush, null), host);
     });
-    render(null, host);
+    // Flush's own unmount queues its effect cleanup on the same after-paint timer: inside `act`
+    // too, or that timer outlives a file's last test and calls `cancelAnimationFrame` once jsdom
+    // is gone ("cancelAnimationFrame is not defined", seen on main's CI on 2026-11-13).
+    void act(() => {
+      render(null, host);
+    });
+  });
+
+  // Anything that still scheduled an after-paint flush (a component mounted outside the testing
+  // library, a signal that re-rendered after the last test) gets its frame, or its 35 ms timer,
+  // while the page is still here: the file waits one timer's length before jsdom is torn down.
+  afterAll(async () => {
+    await new Promise((done) => setTimeout(done, 50));
   });
 }
