@@ -74,17 +74,17 @@ describe("ProjectMenu", () => {
     expect(screen.queryByRole("button", { name: "Send file" })).toBeNull();
   });
 
-  it("ends with the version and one line: Licences · Legal notice · Privacy", () => {
+  it("ends with the version and one line: Licences · Terms · Privacy", () => {
     render(<ProjectMenu {...props()} />);
     const panel = screen.getByRole("group", { name: "Project" });
     const [version, line] = [...panel.children].slice(-2);
     expect(version?.textContent).toBe(`Insert Generator ${APP_VERSION} (${BUILD_ID})`);
     expect(version?.localName).not.toBe("button");
-    expect(line?.textContent).toBe("Licences · Legal notice · Privacy");
+    expect(line?.textContent).toBe("Licences · Terms · Privacy");
     const links = [...(line?.querySelectorAll("a") ?? [])];
     expect(links.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
       ["Licences", "./third-party-licenses.txt"],
-      ["Legal notice", "./legal.html"],
+      ["Terms", "./terms.html"],
       ["Privacy", "./privacy.html"],
     ]);
   });

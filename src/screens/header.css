@@ -300,7 +300,7 @@ input.hd-name__input {
   font-size: var(--text-xs);
 }
 
-/* "Licences · Legal notice · Privacy", the Download dialog's support line in the menu. */
+/* "Licences · Terms · Privacy", the Download dialog's small print in the menu. */
 .pm-links {
   margin: 0;
   padding: var(--s-2) var(--s-12) var(--s-8);

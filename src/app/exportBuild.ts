@@ -28,6 +28,8 @@ export interface ExportOptions {
   names?: ReadonlyMap<string, TrayName>;
   /** Ask for each part with its short name to engrave (settings.engraveNames). Default: off. */
   engrave?: boolean;
+  /** The insert's name: the Title written into every 3MF. */
+  title?: string;
   onProgress: (p: ExportProgress) => void;
   yieldToUi?: () => Promise<void>;
 }
@@ -153,7 +155,7 @@ export async function buildPartsZip(
   for (const [i, b] of built.entries()) {
     files.push({
       name: fileNames[i] ?? "part.3mf",
-      data: to3mf([{ name: objectName(b.part, opts.names), mesh: b.mesh }]),
+      data: to3mf([{ name: objectName(b.part, opts.names), mesh: b.mesh }], { title: opts.title }),
     });
     await pause();
   }
@@ -177,6 +179,7 @@ export async function buildCombined3mf(
       mesh: b.mesh,
       transform: offsets[i] ?? [0, 0, 0],
     })),
+    { title: opts.title },
   );
   return { data, failed, included: built.length };
 }

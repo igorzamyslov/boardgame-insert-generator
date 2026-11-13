@@ -207,7 +207,7 @@ export function ProjectMenu(props: ProjectMenuProps) {
       <p class="pm-links">
         <a href="./third-party-licenses.txt">Licences</a>
         {" · "}
-        <a href="./legal.html">Legal notice</a>
+        <a href="./terms.html">Terms</a>
         {" · "}
         <a href="./privacy.html">Privacy</a>
       </p>

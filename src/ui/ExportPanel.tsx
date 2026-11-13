@@ -56,11 +56,6 @@ const COUNT_OF_KIND: Record<ExportKind, CountEvent> = {
 // The app's own page, which says what is counted and links GoatCounter.
 const PRIVACY_HREF = "./privacy.html";
 
-export const SUPPORT_LINKS = [
-  { name: "Ko-fi", href: "https://ko-fi.com/igorzamyslov" },
-  { name: "PayPal", href: "https://paypal.me/igorzamyslov" },
-] as const;
-
 export interface ExportPanelProps {
   trays: readonly TraySpec[];
   /** The components the trays hold: the trays are named after them. */
@@ -244,6 +239,7 @@ export function ExportPanel(p: ExportPanelProps) {
         return p.meshes.get(spec, p.settings, controller.signal);
       },
       names,
+      title: p.projectName,
       engrave: p.settings.engraveNames,
       onProgress: (progress) => {
         if (!controller.signal.aborted) {
@@ -513,18 +509,14 @@ export function ExportPanel(p: ExportPanelProps) {
     </div>
   ) : null;
 
-  const support = (
+  const terms = (
     <p class="export-support">
-      Support this tool
-      {SUPPORT_LINKS.map((l) => (
-        <Fragment key={l.name}>
-          {" · "}
-          <a href={l.href} target="_blank" rel="noopener noreferrer">
-            {l.name}
-            <span class="visually-hidden"> (opens in a new tab)</span>
-          </a>
-        </Fragment>
-      ))}
+      For personal use
+      {" · "}
+      <a href="./terms.html" target="_blank" rel="noopener noreferrer">
+        Terms
+        <span class="visually-hidden"> (opens in a new tab)</span>
+      </a>
     </p>
   );
 
@@ -659,7 +651,7 @@ export function ExportPanel(p: ExportPanelProps) {
           {formatsToggle}
         </div>
         {formatList}
-        {support}
+        {terms}
         {privacy}
       </>
     );
@@ -669,8 +661,7 @@ export function ExportPanel(p: ExportPanelProps) {
         {view === "done" ? skippedNote : problemBoxes}
         {reasonLine}
         {view === "done" ? (
-          <div class="export-actions export-actions--done">
-            {support}
+          <div class="export-actions">
             <Button ref={back} variant="secondary" size="dialog" onClick={p.onClose}>
               Back to the plan
             </Button>

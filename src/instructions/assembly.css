@@ -154,6 +154,13 @@
   font-size: var(--text-xs);
 }
 
+/* The guide's one quiet closing line; it prints too, in the same muted caption. */
+.assembly .assembly-made {
+  margin: var(--s-24) 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
 .parts-table {
   width: 100%;
   border-collapse: collapse;
@@ -284,7 +291,8 @@
     font-family: var(--font-display);
   }
 
-  .assembly-meta {
+  .assembly-meta,
+  .assembly .assembly-made {
     color: #000;
   }
 

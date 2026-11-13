@@ -530,7 +530,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 13: Export, Exporting and MobileDownload have the plural forms only, and no failure of a whole build
   ...HOLDS.map((text) => ({ text, states: DOWNLOAD, ruling: DL_COUNT })),
   { text: "1 spacer", states: DOWNLOAD, ruling: DL_COUNT },
-  // 2026-10-24 board 8: the print plan (a layer's card, its pills, the total and the support line);
+  // 2026-10-24 board 8: the print plan (a layer's card, its pills, the total and the terms line);
   // the copy check judges each part of a " · " line on its own
   ...[
     "Layer {n}",
@@ -544,7 +544,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     "1 spacer included",
     "+ {n}",
     "about {n} g",
-    "Support this tool",
+    "For personal use",
+    "Terms",
     "·",
   ].map((text) => ({ text, states: DOWNLOAD, ruling: DL_PLAN })),
   { text: "One file with the part.", states: DOWNLOAD, ruling: DL_COUNT },
@@ -563,9 +564,9 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 4: the header and the project menu
   { text: "Insert Generator {version}", states: "all", ruling: FOOTER },
   { text: "Licences", states: "all", ruling: FOOTER },
-  { text: "Legal notice", states: "all", ruling: FOOTER },
+  { text: "Terms", states: "all", ruling: FOOTER },
   { text: "Privacy", states: "all", ruling: FOOTER },
-  // the menu's "Licences · Legal notice · Privacy" line, judged a part at a time like the support line
+  // the menu's "Licences · Terms · Privacy" line, judged a part at a time like the terms line
   { text: "·", states: "all", ruling: FOOTER },
   { text: "Send feedback", states: "all", ruling: "Feedback is sent from a dialog" },
   { text: "Redo", states: "all", ruling: REDO },

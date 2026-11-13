@@ -192,7 +192,7 @@ describe("App", () => {
     const panel = screen.getByRole("group", { name: "Project" });
     const [version, links] = [...panel.children].slice(-2);
     expect(version?.textContent).toBe(`Insert Generator ${APP_VERSION} (${BUILD_ID})`);
-    expect(links?.textContent).toBe("Licences · Legal notice · Privacy");
+    expect(links?.textContent).toBe("Licences · Terms · Privacy");
     expect(links?.querySelector("a")?.getAttribute("href")).toBe("./third-party-licenses.txt");
   });
 

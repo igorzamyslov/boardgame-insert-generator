@@ -4,6 +4,8 @@ import { strFromU8, unzipSync } from "fflate";
 import { Mesh as ThreeMesh } from "three";
 import type { BufferGeometry } from "three";
 import { ThreeMFLoader } from "three/examples/jsm/loaders/3MFLoader.js";
+import { APP_VERSION } from "../model/version";
+import { TERMS_URL } from "./terms";
 import { modelXmlChunks, num, to3mf, xmlAttr } from "./threemf";
 import { cubeMesh } from "../geometry/test-mesh";
 import type { Mesh } from "../geometry/types";
@@ -42,12 +44,19 @@ describe("num and xmlAttr", () => {
 describe("to3mf", () => {
   it("writes the exact model XML", () => {
     const xml = [
-      ...modelXmlChunks([{ name: "Tetra & co", mesh: tetra, transform: [5, 6.5, 0] }]),
+      ...modelXmlChunks([{ name: "Tetra & co", mesh: tetra, transform: [5, 6.5, 0] }], {
+        title: "Star <Realms>",
+      }),
     ].join("");
     expect(xml).toBe(
       [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">',
+        ' <metadata name="Title">Star &lt;Realms&gt;</metadata>',
+        ' <metadata name="Designer">Made with Insert Generator</metadata>',
+        ` <metadata name="Application">Insert Generator ${APP_VERSION}</metadata>`,
+        ` <metadata name="LicenseTerms">Personal use only. Not for sale. ${TERMS_URL}</metadata>`,
+        ' <metadata name="Copyright">Insert Generator, Igor Zamyslov</metadata>',
         " <resources>",
         '  <object id="1" type="model" name="Tetra &amp; co">',
         "   <mesh>",
@@ -73,6 +82,16 @@ describe("to3mf", () => {
         "",
       ].join("\n"),
     );
+  });
+
+  it("writes the metadata before the resources, and no Title without a name", () => {
+    const xml = [...modelXmlChunks([{ name: "a", mesh: tetra }])].join("");
+    expect(xml).not.toContain('name="Title"');
+    expect(xml).toContain('name="LicenseTerms">Personal use only.');
+    expect(xml.indexOf("<metadata")).toBeLessThan(xml.indexOf("<resources>"));
+    expect(
+      new DOMParser().parseFromString(xml, "application/xml").querySelector("parsererror"),
+    ).toBeNull();
   });
 
   it("packages content types, relationships and the model", () => {
