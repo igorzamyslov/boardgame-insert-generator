@@ -10,6 +10,10 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+### Added
+
+- **Legal notice and Privacy at the end of the project menu.** The Licences link is now one quiet line, "Licences · Legal notice · Privacy"; the two new pages say who runs the site and what the app does with your data (your inserts stay in this browser and nothing is sent anywhere).
+
 ## [0.25.1] - 2026-10-24
 
 ### Changed

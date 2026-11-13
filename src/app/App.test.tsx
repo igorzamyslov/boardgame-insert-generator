@@ -191,9 +191,10 @@ describe("App", () => {
     expect(screen.queryByText(/Third-party licenses/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
     const panel = screen.getByRole("group", { name: "Project" });
-    const [version, licences] = [...panel.children].slice(-2);
+    const [version, links] = [...panel.children].slice(-2);
     expect(version?.textContent).toBe(`Insert Generator ${APP_VERSION} (${BUILD_ID})`);
-    expect(licences?.getAttribute("href")).toBe("./third-party-licenses.txt");
+    expect(links?.textContent).toBe("Licences · Legal notice · Privacy");
+    expect(links?.querySelector("a")?.getAttribute("href")).toBe("./third-party-licenses.txt");
   });
 
   // The first visit's own tests are in screens/FirstVisit.test.tsx.
