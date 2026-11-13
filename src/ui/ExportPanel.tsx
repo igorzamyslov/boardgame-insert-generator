@@ -21,6 +21,8 @@ import { buildSpecOf, numberParts } from "../instructions/numbering";
 import type { NumberedPart } from "../instructions/numbering";
 import type { Component, Group, Printer, Settings, TraySpec } from "../model/types";
 import { Button, CloseButton, Dialog, Icon, ProgressBar } from "../kit";
+import { count, countingOn } from "../app/analytics";
+import type { CountEvent } from "../app/analytics";
 import { formatGrams } from "./estimates";
 import {
   componentIndexOfTray,
@@ -43,6 +45,16 @@ export const EXPORT_LABELS: Record<ExportKind, string> = {
   combined: "3MF",
   stl: "STL files (.zip)",
 };
+
+/** The event each file counts as (which format, nothing else about it). */
+const COUNT_OF_KIND: Record<ExportKind, CountEvent> = {
+  combined: "download-3mf",
+  parts: "download-zip",
+  stl: "download-stl",
+};
+
+// The app's own page, which says what is counted and links GoatCounter.
+const PRIVACY_HREF = "./privacy.html";
 
 export const SUPPORT_LINKS = [
   { name: "Ko-fi", href: "https://ko-fi.com/igorzamyslov" },
@@ -243,6 +255,7 @@ export function ExportPanel(p: ExportPanelProps) {
     const finish = (out: ExportOutput, type: string, filename: string): void => {
       if (!controller.signal.aborted) {
         download(bytesToBlob(out.data, type), filename);
+        count(COUNT_OF_KIND[kind]);
         setFailed(out.failed);
         setDownloaded({ kind, filename });
       }
@@ -262,6 +275,7 @@ export function ExportPanel(p: ExportPanelProps) {
     } catch (e) {
       if (!controller.signal.aborted) {
         setError({ kind, message: buildErrorReason(e) });
+        count("build-failed");
       }
     } finally {
       if (running.current === controller) {
@@ -514,6 +528,16 @@ export function ExportPanel(p: ExportPanelProps) {
     </p>
   );
 
+  const privacy = countingOn() ? (
+    <p class="export-support">
+      Counts visits and downloads anonymously, with no cookies.{" "}
+      <a href={PRIVACY_HREF} target="_blank" rel="noopener noreferrer">
+        Privacy
+        <span class="visually-hidden"> (opens in a new tab)</span>
+      </a>
+    </p>
+  ) : null;
+
   const pill = (part: NumberedPart) => {
     const name = names.get(part.spec.key)?.full ?? part.label;
     const at = componentIndexOfTray(part.spec, components);
@@ -636,6 +660,7 @@ export function ExportPanel(p: ExportPanelProps) {
         </div>
         {formatList}
         {support}
+        {privacy}
       </>
     );
   } else {

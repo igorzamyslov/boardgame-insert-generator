@@ -29,6 +29,10 @@ jobs:
       # takes pull requests whose CI (sharded tests included) passed, and CI runs again on
       # the push to main.
       - run: npm run build:deploy
+        env:
+          # The GoatCounter site code, a repository variable (not a secret). Absent: the build
+          # counts nothing.
+          VITE_GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

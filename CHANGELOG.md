@@ -13,6 +13,7 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 ### Added
 
 - **Legal notice and Privacy at the end of the project menu.** The Licences link is now one quiet line, "Licences · Legal notice · Privacy"; the two new pages say who runs the site and what the app does with your data (your inserts stay in this browser and nothing is sent anywhere).
+- The app now counts visits and a few actions anonymously, with GoatCounter: no cookies, no address kept, and nothing you type, name or size ever leaves. It counts that the app opened, which kinds of item get added, whether a plan was found, whether the 3D view, settings and packing guide were opened, which print file format was downloaded, and whether a project file was saved or opened. Nothing is sent when your browser says Do Not Track or Global Privacy Control. The download dialog says so in one quiet line, and the Privacy page now says what is counted.
 
 ### Changed
 

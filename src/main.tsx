@@ -1,6 +1,7 @@
 // src/main.tsx
 import { render } from "preact";
 import { App } from "./app/App";
+import { countPageview } from "./app/analytics";
 import { startTheme } from "./ui/theme";
 import { loadGeometryClient, loadLayoutClient } from "./app/clients";
 import { createMeshSource } from "./app/meshes";
@@ -18,6 +19,7 @@ import "./screens/stage.css";
 import "./screens/firstVisit.css";
 
 startTheme();
+countPageview();
 
 const store = createAppStore({
   projectStore: createProjectStore(),
