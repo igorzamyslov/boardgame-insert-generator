@@ -1,6 +1,6 @@
 {
   "name": "insert-generator",
-  "version": "0.32.2",
+  "version": "0.32.3",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
@@ -47,7 +47,7 @@
     "playwright": "^1.65.0",
     "prettier": "^3.10.1",
     "rollup-plugin-license": "^3.7.2",
-    "stylelint": "^17.16.0",
+    "stylelint": "^18.0.0",
     "stylelint-config-standard": "^40.0.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.2",
