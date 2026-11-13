@@ -66,13 +66,13 @@ describe("the Player kit in columns", () => {
     ]);
   });
 
-  it("is 107.1 mm wide instead of 159.5, as deep as the deck", () => {
-    // Inner width 45.5 + 1.2 + 25 + 1.2 + 31 = 103.9, and 2 × 1.6 of wall.
+  it("is 109.6 mm wide instead of 162, as deep as the deck", () => {
+    // Inner width 47 + 1.2 + 25 + 1.2 + 32 = 106.4 (the Hero's pocket is 30 + 2), and 2 × 1.6 of wall.
     const min = minOuter(part, s, ground);
-    expect(min.w).toBeCloseTo(107.1, 5);
-    expect(min.d).toBeCloseTo(69.7, 5);
+    expect(min.w).toBeCloseTo(109.6, 5);
+    expect(min.d).toBeCloseTo(71.2, 5);
     const strip = at(req.variants.find((v) => v.id.endsWith("|strip|split1"))?.parts ?? [], 0);
-    expect(minOuter(strip, s, ground).w).toBeCloseTo(159.5, 5);
+    expect(minOuter(strip, s, ground).w).toBeCloseTo(162, 5);
   });
 
   it("fills the bins to their column's depth and the Grain bin to its column's width", () => {
@@ -81,20 +81,20 @@ describe("the Player kit in columns", () => {
     const [deck, wood, stone, grain, hero] = ["Starter", "Wood", "Stone", "Grain", "Hero"].map(
       (name) => byName(tray.compartments, name),
     ) as [CompartmentSpec, CompartmentSpec, CompartmentSpec, CompartmentSpec, CompartmentSpec];
-    expect([deck.x, deck.y, deck.w, deck.d]).toEqual([1.6, 1.6, 45.5, 66.5]);
-    // Wood and Stone share the 15.3 mm their column has spare.
-    expect(wood.x).toBeCloseTo(48.3, 5);
-    expect(stone.x).toBeCloseTo(48.3, 5);
+    expect([deck.x, deck.y, deck.w, deck.d]).toEqual([1.6, 1.6, 47, 68]);
+    // Wood and Stone share the 16.8 mm their column has spare.
+    expect(wood.x).toBeCloseTo(49.8, 5);
+    expect(stone.x).toBeCloseTo(49.8, 5);
     expect(wood.w).toBeCloseTo(25, 5);
-    expect(wood.d + stone.d).toBeCloseTo(66.5 - 1.2, 5);
+    expect(wood.d + stone.d).toBeCloseTo(68 - 1.2, 5);
     expect(wood.y).toBeCloseTo(1.6, 5);
-    expect(stone.y + stone.d).toBeCloseTo(68.1, 5);
-    // Grain takes the Hero's column width and the column's spare depth; the Hero stays 31 × 31.
-    expect(grain.x).toBeCloseTo(74.5, 5);
-    expect(grain.w).toBeCloseTo(31, 5);
-    expect(grain.d).toBeCloseTo(66.5 - 1.2 - 31, 5);
-    expect([hero.x, hero.w, hero.d]).toEqual([74.5, 31, 31]);
-    expect(hero.y + hero.d).toBeCloseTo(68.1, 5);
+    expect(stone.y + stone.d).toBeCloseTo(69.6, 5);
+    // Grain takes the Hero's column width and the column's spare depth; the Hero stays 32 × 32.
+    expect(grain.x).toBeCloseTo(76, 5);
+    expect(grain.w).toBeCloseTo(32, 5);
+    expect(grain.d).toBeCloseTo(68 - 1.2 - 32, 5);
+    expect([hero.x, hero.w, hero.d]).toEqual([76, 32, 32]);
+    expect(hero.y + hero.d).toBeCloseTo(69.6, 5);
     // The Hero's front faces the Grain bin, which has no cut: only its back cut goes through.
     const heroCuts = hero.features.flatMap((f) => (f.type === "wallCutout" ? [f.side] : []));
     expect(heroCuts).toEqual(["back"]);

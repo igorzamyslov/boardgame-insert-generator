@@ -340,7 +340,7 @@
 }
 
 .k-seg__item[aria-pressed="true"] {
-  --k-bg: var(--sheet);
+  --k-bg: var(--thumb);
 
   box-shadow: var(--shadow-thumb);
   color: var(--ink);

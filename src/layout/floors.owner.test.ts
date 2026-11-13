@@ -24,12 +24,17 @@ import { size } from "../sizing";
 import { DEFAULT_ITERATIONS, optimize } from "./optimize";
 import { printableParts } from "./printable";
 
+// The file was made with the old Standard card clearances (1.5 and 1 mm); the defaults are now 3 and
+// 2 mm (schema 0.4.0 migrates them). This test is about the joints, not card sizing, so it keeps the
+// old numbers in its own copy of the settings.
+const OLD_CLEARANCES = { cardClearance: 1.5, cardStackClearance: 1 };
+
 function owner(): Project {
   const parsed = parseProject(owner5);
   if (!parsed.ok) {
     throw new Error(parsed.error);
   }
-  return parsed.project;
+  return { ...parsed.project, settings: { ...parsed.project.settings, ...OLD_CLEARANCES } };
 }
 
 /** The stored plan the optimizer makes for the file today (seed 1, as auto-storage.test.ts). */
@@ -74,15 +79,16 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const starter = trays(plan)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
-    // Counter, a 5-card deck (4 mm: 1.2 mm of floor, 2.65 mm of well, to a 0.2 mm layer), Deck 1,
-    // the other 5-card deck with the stack's padding. The optimizer stacks them in this order (the
+    // Counter, the two 5-card decks (4 mm: 1.2 mm of floor, 2.65 mm of well, to a 0.2 mm layer), Deck 1
+    // with the stack's padding (0.29.0: the decks stand together, Deck 1 on top, where the Counter
+    // stood between them before). The optimizer stacks them in this order (the
     // stack's order is the search's, not a rule). All three decks carry the rim, the top one too
     // (0.21.0: the split parts of one item stack in any order), so the top deck stands 2 mm lower.
     expect(starter.map((t) => [t.h, t.lip])).toEqual([
       [8.2, true],
       [4, true],
-      [7.2, true],
-      [13.6, true],
+      [4, true],
+      [16.8, true],
     ]);
   });
 
@@ -112,12 +118,12 @@ describe("the owner's Star Realms file: one floor under every tray", { timeout: 
     const printed = trays(printableParts(plan, inputsOf(p)).trays)
       .filter((t) => t.stack === 0)
       .sort((a, b) => a.level - b.level);
-    // riser 9.6, then 8.2, 4, 7.2 and 4 = 33, and the top deck's 2 mm rim to 35
+    // riser 9.6, then 8.2, 4, 4 and 7.2 = 33, and the top deck's 2 mm rim to 35
     expect(printed.map((t) => [t.z, t.h])).toEqual([
       [9.6, 8.2],
       [17.8, 4],
-      [21.8, 7.2],
-      [29, 4],
+      [21.8, 4],
+      [25.8, 7.2],
     ]);
   });
 

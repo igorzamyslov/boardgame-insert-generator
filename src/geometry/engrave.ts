@@ -1,8 +1,15 @@
 // src/geometry/engrave.ts
 import type { CrossSection, Manifold, ManifoldToplevel } from "manifold-3d";
 import { MIN_FEATURE_MM } from "../model/settings";
-import type { MergedPart, Side } from "../model/types";
-import { CAP_GOOD_MM, CAP_MAX_MM, CAP_SIZES_MM, isEngravable, layoutText } from "./glyphs";
+import type { MergedPart, Side, TraySpec } from "../model/types";
+import {
+  CAP_GOOD_MM,
+  CAP_MAX_MM,
+  CAP_SIZES_MM,
+  CAP_WORTH_MM,
+  isEngravable,
+  layoutText,
+} from "./glyphs";
 import type { Point, TextLayout } from "./glyphs";
 import { notchFloorBox } from "./plan-cuts";
 import { FINGER_FILLET_MM } from "./plan-types";
@@ -208,8 +215,7 @@ export function planWallEngravings(
 /**
  * The largest size of CAP_SIZES_MM at which `text` fits a room `width` by `height`, mm, or null
  * when even the smallest does not. The sizes are tried largest first: a name is as large as the
- * room allows. (Naming fixes the short name before the geometry sees the room, so there is no
- * shorter name to trade for a larger size here; a name that fits at no size is left off.)
+ * room allows. Which version of a name to set is `planNamed`'s choice, made over whole parts.
  */
 export function fitCap(
   text: string,
@@ -579,7 +585,7 @@ export interface UndersidePlan {
 export function planUnderside(
   plan: TrayPlan,
   text: string,
-  inside: InsidePlan | null = null,
+  inside: InsidePlan | null | readonly InsidePlan[] = null,
 ): UndersidePlan | null {
   if (text === "" || !isEngravable(text)) {
     return null;
@@ -606,11 +612,10 @@ export function planUnderside(
   }));
   // The floor over the inside name keeps its own thinnest feature: where it could not also hold
   // this recess, the inside name has the place.
-  if (
-    inside !== null &&
-    floorUnder(plan, inside.box) - inside.depth < UNDERSIDE_DEPTH_MM + MIN_FEATURE_MM - SLACK
-  ) {
-    blocked.push(inside.box);
+  for (const name of inside === null ? [] : "box" in inside ? [inside] : inside) {
+    if (floorUnder(plan, name.box) - name.depth < UNDERSIDE_DEPTH_MM + MIN_FEATURE_MM - SLACK) {
+      blocked.push(name.box);
+    }
   }
   const found = placeText(text, free, blocked, (box) =>
     floorUnder(plan, box) >= UNDERSIDE_DEPTH_MM + MIN_FEATURE_MM - SLACK ? UNDERSIDE_DEPTH_MM : 0,
@@ -729,7 +734,13 @@ function flatFloor(c: CompartmentPlan): Rect {
  * INSIDE_MIN_DEPTH_MM. The well where the name comes out largest wins (the larger floor, then the
  * first, on a tie). A part built upside down with wells is left plain, as its walls are.
  */
-export function planInside(plan: TrayPlan, text: string, flipped = false): InsidePlan | null {
+export function planInside(
+  plan: TrayPlan,
+  text: string,
+  flipped = false,
+  /** Only the wells these indices name (`CompartmentPlan.index`); all of them when absent. */
+  wells: readonly number[] | null = null,
+): InsidePlan | null {
   if (text === "" || !isEngravable(text) || (flipped && plan.compartments.length > 0)) {
     return null;
   }
@@ -746,7 +757,10 @@ export function planInside(plan: TrayPlan, text: string, flipped = false): Insid
   let best: (Placement & { depth: number; area: number; floorZ: number }) | null = null;
   for (const c of plan.compartments) {
     // A socket takes away everything above its own depth under the rim: a floor up there is gone.
-    if (plan.socket && c.floorZ > plan.h - plan.socket.depth) {
+    if (
+      (plan.socket && c.floorZ > plan.h - plan.socket.depth) ||
+      wells?.includes(c.index) === false
+    ) {
       continue;
     }
     const reliefs: Rect[] = c.reliefs.map((r) => ({
@@ -802,26 +816,145 @@ export interface Engravings {
   /** Up to two opposite outer walls. */
   walls: EngravePlan[];
   underside: UndersidePlan | null;
-  /** The floor of one well, as seen from above. */
+  /** The part's name on the floor of one well, as seen from above. */
   inside: InsidePlan | null;
+  /** The kind each well holds, on its own floor: the wells that have room for it. */
+  wells: InsidePlan[];
+}
+
+/**
+ * The kind of each well, engraved on its floor (`wellNames`: one per compartment, "" for none, as
+ * `TraySpec.wellNames`): each at the largest size its floor takes (the room test of `planInside`,
+ * on that well alone), left off a well where it fits at none. A part built upside down with wells
+ * carries none.
+ */
+export function planWellNames(
+  plan: TrayPlan,
+  wellNames: readonly string[],
+  flipped = false,
+): InsidePlan[] {
+  return plan.compartments.flatMap((c) => {
+    const name = wellNames[c.index] ?? "";
+    const found = name === "" ? null : planInside(plan, name, flipped, [c.index]);
+    return found === null ? [] : [found];
+  });
 }
 
 /**
  * Where the name goes on a part (not a merged one): the walls, the floor of a well and the
- * underside that have room. The inside name is planned first, because the underside gives way to it.
+ * underside that have room, and the kind of each well on its floor (`wellNames`). The wells'
+ * kinds come first, because the part's name gives way to them: where there are kinds, the floors
+ * carry them and the part's own name goes on its walls and its underside only. The inside name is
+ * planned before the underside, which gives way to it.
  */
-export function planEngravings(plan: TrayPlan, text: string): Engravings {
-  const inside = planInside(plan, text);
+export function planEngravings(
+  plan: TrayPlan,
+  text: string,
+  wellNames: readonly string[] = [],
+): Engravings {
+  const wells = planWellNames(plan, wellNames);
+  const inside = wellNames.some((n) => n !== "") ? null : planInside(plan, text);
   return {
     walls: planWallEngravings(plan, text),
-    underside: planUnderside(plan, text, inside),
+    underside: planUnderside(plan, text, inside === null ? wells : [inside, ...wells]),
     inside,
+    wells,
   };
 }
 
 /** Whether any face carries the name. */
 export function hasEngraving(e: Engravings): boolean {
-  return e.walls.length > 0 || e.underside !== null || e.inside !== null;
+  return e.walls.length > 0 || e.underside !== null || e.inside !== null || e.wells.length > 0;
+}
+
+/** The largest size the part's own name is set at on any face, mm; 0 when no face carries it. */
+function nameCap(e: Engravings): number {
+  return Math.max(0, ...e.walls.map((w) => w.cap), e.underside?.cap ?? 0, e.inside?.cap ?? 0);
+}
+
+/**
+ * Which of the versions of a name to set, `names` longest first: the first that fits at
+ * CAP_WORTH_MM or larger on some face, so a full name at 5 or 6 mm beats a shortened one at 8; if
+ * none does, the first that fits at all (the smallest size is only a last resort, so a full name
+ * at 4 mm beats a short one at 4); null when none fits anywhere. `plan` plans a version, `capOf`
+ * says how large it came out.
+ */
+export function planNamed<T>(
+  names: readonly string[],
+  plan: (name: string) => T | null,
+  capOf: (found: T) => number,
+): { name: string; found: T } | null {
+  let fallback: { name: string; found: T } | null = null;
+  for (const name of names) {
+    const found = plan(name);
+    const cap = found === null ? 0 : capOf(found);
+    if (found !== null && cap >= CAP_WORTH_MM) {
+      return { name, found };
+    }
+    if (found !== null && cap > 0 && fallback === null) {
+      fallback = { name, found };
+    }
+  }
+  return fallback;
+}
+
+/** The versions of a part's name the geometry may choose from, longest first. */
+export function nameChoices(spec: Pick<TraySpec, "partName" | "partNames">): string[] {
+  const names = spec.partNames ?? (spec.partName === undefined ? [] : [spec.partName]);
+  return spec.partName !== undefined && !names.includes(spec.partName)
+    ? [...names, spec.partName]
+    : names;
+}
+
+/**
+ * The engravings of a part (not a merged one) and the version of its name they carry: the version
+ * `planNamed` picks, with the kinds of the wells. When no version of the name fits anywhere the
+ * wells' kinds are still engraved, with an empty name; null when nothing at all is.
+ */
+export function planNamedEngravings(
+  plan: TrayPlan,
+  names: readonly string[],
+  wellNames: readonly string[] = [],
+): { name: string; engravings: Engravings } | null {
+  const chosen = planNamed(
+    names,
+    (name) => {
+      const e = planEngravings(plan, name, wellNames);
+      return hasEngraving(e) ? e : null;
+    },
+    nameCap,
+  );
+  if (chosen !== null && nameCap(chosen.found) > 0) {
+    return { name: chosen.name, engravings: chosen.found };
+  }
+  const wells = planEngravings(plan, "", wellNames);
+  return wells.wells.length > 0 ? { name: "", engravings: wells } : null;
+}
+
+/**
+ * The same for a merged part: the version whose walls or well floor come out largest, and where
+ * (`planMergedEngraving`, `planMergedInside`). Null when no version fits.
+ */
+export function planNamedMerged(
+  spec: { x: number; y: number; w: number; d: number },
+  merged: MergedPart,
+  plans: readonly (TrayPlan | undefined)[],
+  names: readonly string[],
+): {
+  name: string;
+  walls: ReturnType<typeof planMergedEngraving>;
+  floor: ReturnType<typeof planMergedInside>;
+} | null {
+  const chosen = planNamed(
+    names,
+    (name) => {
+      const walls = planMergedEngraving(spec, merged, plans, name);
+      const floor = planMergedInside(merged, plans, name);
+      return walls === null && floor === null ? null : { walls, floor };
+    },
+    (f) => Math.max(f.walls?.engravings[0]?.cap ?? 0, f.floor?.inside.cap ?? 0),
+  );
+  return chosen === null ? null : { name: chosen.name, ...chosen.found };
 }
 
 /** The cutters of every engraving (walls, underside and inside), as one solid, or null when there is none. */
@@ -837,6 +970,7 @@ export function buildEngravings(
     ...e.walls.map((w) => buildEngraving(m, scope, w, part)),
     ...(e.underside ? [buildUnderside(m, scope, e.underside, bed)] : []),
     ...(e.inside ? [buildInside(m, scope, e.inside)] : []),
+    ...e.wells.map((w) => buildInside(m, scope, w)),
   ];
   return pieces.length === 0 ? null : scope.track(m.Manifold.union(pieces));
 }

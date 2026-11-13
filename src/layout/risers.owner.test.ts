@@ -16,12 +16,17 @@ import { printableParts } from "./printable";
 import { splitRisers } from "./risers";
 import { toU } from "./units";
 
+// The file was made with the old Standard card clearances (1.5 and 1 mm); the defaults are now 3 and
+// 2 mm (schema 0.4.0 migrates them). This test is about the joints, not card sizing, so it keeps the
+// old numbers in its own copy of the settings.
+const OLD_CLEARANCES = { cardClearance: 1.5, cardStackClearance: 1 };
+
 function owner(): Project {
   const parsed = parseProject(starRealmsOwner4);
   if (!parsed.ok) {
     throw new Error(parsed.error);
   }
-  return parsed.project;
+  return { ...parsed.project, settings: { ...parsed.project.settings, ...OLD_CLEARANCES } };
 }
 
 /** The stored plan the optimizer makes for the file today (seed 1, as auto-storage.test.ts). */

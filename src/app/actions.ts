@@ -1,12 +1,14 @@
 // src/app/actions.ts
 import { componentName } from "../instructions/naming";
 import { newComponent, newGroup } from "../model/defaults";
+import { newId } from "../model/ids";
 import {
   DEFAULT_GROUP_NAME,
   groupById,
   groupOfItem,
   listOrderWith,
   nextGroupName,
+  railEntries,
   requirementKeyOf,
 } from "../model/groups";
 import type {
@@ -85,6 +87,67 @@ export function updateComponent(p: Project, id: string, next: Component): Projec
     p,
     p.components.map((c) => (c.id === id ? next : c)),
   );
+}
+
+/** "<name> copy", or "<name> copy 2", "… copy 3" when that is taken: a copy never has its original's name. */
+function copyName(p: Project, c: Component): string {
+  const base = `${componentName(c)} copy`;
+  const taken = new Set(p.components.map((x) => x.name));
+  let name = base;
+  for (let n = 2; taken.has(name); n++) {
+    name = `${base} ${n}`;
+  }
+  return name;
+}
+
+/**
+ * Adds a copy of an item right below it in the list, in the same group if it is in one: the same
+ * settings under a new id, named "<name> copy". It has none of the original's locks (they are of
+ * its trays). The copy is last in `components`, so no other item's colour (its place among the
+ * items of its kind) changes; the list shows it below its original through `listOrder`/the group's
+ * members. Returns the new item's id, or none when there is no such item.
+ */
+export function duplicateComponent(
+  p: Project,
+  id: string,
+): { project: Project; copyId: string | null } {
+  const original = p.components.find((c) => c.id === id);
+  if (original === undefined) {
+    return { project: p, copyId: null };
+  }
+  const copy: Component = {
+    ...structuredClone(original),
+    id: newId(),
+    name: copyName(p, original),
+  };
+  const own = groupOfItem(p, id);
+  const added: Project = {
+    ...p,
+    components: [...p.components, copy],
+    ...(own === undefined
+      ? {}
+      : {
+          groups: (p.groups ?? []).map((g) => {
+            if (g.id !== own.id) {
+              return g;
+            }
+            const at = g.memberIds.indexOf(id) + 1;
+            return {
+              ...g,
+              memberIds: [...g.memberIds.slice(0, at), copy.id, ...g.memberIds.slice(at)],
+            };
+          }),
+        }),
+  };
+  if (own !== undefined) {
+    return { project: added, copyId: copy.id };
+  }
+  const entries = railEntries(added).filter((e) => !(e.kind === "item" && e.id === copy.id));
+  const at = entries.findIndex((e) => e.kind === "item" && e.id === id);
+  return {
+    project: { ...added, listOrder: listOrderWith(added, copy.id, at + 1) },
+    copyId: copy.id,
+  };
 }
 
 /** Removes the item, and its id from its group's members, in the same step. */

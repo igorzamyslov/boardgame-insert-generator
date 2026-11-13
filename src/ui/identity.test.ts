@@ -35,6 +35,8 @@ import {
   shadeOf,
   sharingTrayWith,
   traysOfGroup,
+  wellName,
+  wellNamesOfTray,
 } from "./identity";
 
 function cards(id: string, name: string): Component {
@@ -171,6 +173,16 @@ describe("a tray that holds several components", () => {
 
 const KINDS: readonly ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
 const SCHEMES = ["light", "dark"] as const;
+/** The hex tokens of one scheme: the dark block over the light one. */
+function tokensOf(scheme: "light" | "dark"): Map<string, string> {
+  const at = tokens.indexOf(':root[data-theme="dark"]');
+  const block = (css: string): [string, string][] =>
+    [...css.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1] ?? "", m[2] ?? ""]);
+  return new Map([
+    ...block(tokens.slice(0, at)),
+    ...(scheme === "dark" ? block(tokens.slice(at)) : []),
+  ]);
+}
 const TOKEN_KIND: Record<ComponentKind, string> = {
   cards: "cards",
   bulk: "bits",
@@ -195,11 +207,8 @@ describe("component shades", () => {
   });
 
   it("starts every kind on its own hue from the tokens", () => {
-    // tokens.css is light only until the opt-in dark theme (UI rebuild Task 16) restores its set
-    for (const scheme of ["light"] as const) {
-      const found = new Map(
-        [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
-      );
+    for (const scheme of SCHEMES) {
+      const found = tokensOf(scheme);
       for (const kind of KINDS) {
         const base = shadeHex(kind, 0, scheme);
         const name = TOKEN_KIND[kind];
@@ -213,11 +222,8 @@ describe("component shades", () => {
   });
 
   it("mirrors the spacer tokens", () => {
-    // tokens.css is light only until the opt-in dark theme (UI rebuild Task 16) restores its set
-    for (const scheme of ["light"] as const) {
-      const found = new Map(
-        [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
-      );
+    for (const scheme of SCHEMES) {
+      const found = tokensOf(scheme);
       expect(SPACER_SHADE[scheme].fill, `${scheme} fill`).toBe(found.get("--spacer-fill"));
       expect(SPACER_SHADE[scheme].hatch, `${scheme} hatch`).toBe(found.get("--spacer-hatch"));
       expect(SPACER_SHADE[scheme].dash, `${scheme} dash`).toBe(found.get("--spacer-dash"));
@@ -623,5 +629,63 @@ describe("group identity", () => {
       "kit:p1:0",
       "kit:p1:1",
     ]);
+  });
+});
+
+describe("wellName", () => {
+  const bulk = (name: string): Component => ({ ...newComponent("bulk"), id: "b", name });
+
+  it("takes the item's name out of what the sizing wrote", () => {
+    expect(wellName("Resources — Wood ×20", bulk("Resources"))).toBe("Wood");
+    expect(wellName("Resources — Oil 150 ml", bulk("Resources"))).toBe("Oil");
+    expect(wellName("Faction miniatures — Mech 2/4", bulk("Faction miniatures"))).toBe("Mech");
+  });
+
+  it("has no name for the one item a component is called after", () => {
+    expect(wellName("Coins ×40", bulk("Coins"))).toBe("");
+    expect(wellName("Power dials 1/2", bulk("Power dials"))).toBe("");
+  });
+
+  it("names every deck of a shared well", () => {
+    expect(wellName("Encounters — Deck 1 ×30 + Deck 2 ×30", bulk("Encounters"))).toBe(
+      "Deck 1 + Deck 2",
+    );
+  });
+
+  it("keeps an item's own name when the component has none", () => {
+    expect(wellName("Wood ×20", bulk(""))).toBe("Wood");
+  });
+});
+
+describe("wellNamesOfTray", () => {
+  const comp = { ...newComponent("bulk"), id: "b", name: "Resources" } as Component;
+  const wells = (...contents: string[]) =>
+    makeTray({
+      compartments: contents.map((c) => well({ contents: c, componentId: "b" })),
+    });
+
+  it("names each well of a tray of several kinds", () => {
+    expect(wellNamesOfTray(wells("Resources — Oil ×20", "Resources — Wood ×20"), [comp])).toEqual([
+      "Oil",
+      "Wood",
+    ]);
+  });
+
+  it("names nothing for a tray of one kind", () => {
+    expect(wellNamesOfTray(wells("Resources — Oil ×20"), [comp])).toEqual([""]);
+  });
+
+  it("says a figure's name once for the run of its pockets", () => {
+    expect(
+      wellNamesOfTray(
+        wells(
+          "Resources — Leader",
+          "Resources — Mech 1/2",
+          "Resources — Mech 2/2",
+          "Resources — Hero",
+        ),
+        [comp],
+      ),
+    ).toEqual(["Leader", "Mech", "", "Hero"]);
   });
 });

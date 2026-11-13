@@ -86,6 +86,11 @@ export interface WhatsInsideProps {
    * the list keeps this to itself.
    */
   openGroupId?: string | null;
+  /**
+   * Asks the open editor, whichever it is, to close as its Done does (focus back on its row). The
+   * app raises the number: Escape pressed anywhere closes the editor (App's Escape listener).
+   */
+  closeRequest?: number;
   onOpenGroupChange?: (groupId: string | null) => void;
   /** What the group editor does to the project. */
   groupActions?: GroupEditActions;
@@ -99,6 +104,10 @@ export interface WhatsInsideProps {
   onChange: (id: string, next: Component) => void;
   /** Returns false when nothing was removed. */
   onRemove: (id: string) => boolean;
+  /** Duplicate in an item's editor: a copy is added below the item and its editor opens. */
+  onDuplicate?: (id: string) => void;
+  /** The open item's placement menu (Keep here, Rotate 90°…), or none when it has no single tray to place. */
+  placementOf?: (id: string) => ComponentChildren;
   onUnpin?: (trayKeys: string[]) => void;
   onFreeTurn?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
@@ -136,6 +145,7 @@ export function WhatsInside({
   onLight,
   openGroupId: controlledGroupId,
   onOpenGroupChange,
+  closeRequest,
   groupActions,
   itemActions,
   onClearChoices,
@@ -143,6 +153,8 @@ export function WhatsInside({
   onAddGroup,
   onChange,
   onRemove,
+  onDuplicate,
+  placementOf,
   onUnpin,
   onFreeTurn,
   onUnlockSize,
@@ -163,6 +175,16 @@ export function WhatsInside({
   const [focusMember, setFocusMember] = useState<string | undefined>(undefined);
   // What the rail says aloud (a polite live region): the group editor's moves, by names.
   const [said, setSaid] = useState("");
+  // How the open editor leaves, as its Done does (set while it renders); `closeRequest` calls it.
+  const leaveRef = useRef<(() => void) | null>(null);
+  leaveRef.current = null;
+  const lastCloseRequest = useRef(closeRequest);
+  useEffect(() => {
+    if (closeRequest !== lastCloseRequest.current) {
+      lastCloseRequest.current = closeRequest;
+      leaveRef.current?.();
+    }
+  }, [closeRequest]);
   const comeBackTo = useRef<{
     id: string;
     index: number;
@@ -321,6 +343,7 @@ export function WhatsInside({
       };
       setOpenGroupId(null);
     };
+    leaveRef.current = leaveGroup;
     return (
       <div class="wi ws-interim wi--edit" ref={rootRef}>
         <GroupEditor
@@ -421,6 +444,7 @@ export function WhatsInside({
     setOpenGroupId(backGroup.id);
   };
   const leave = (): void => closeItem(false);
+  leaveRef.current = leave;
   // The item's Group row and Copies: the groups as the row names them, and what it may ask for.
   const choices: GroupChoice[] = (groups ?? []).map((g) => ({
     id: g.id,
@@ -458,6 +482,8 @@ export function WhatsInside({
         grouping={grouping}
         onChange={(next) => onChange(open.id, next)}
         onBack={leave}
+        onDuplicate={onDuplicate === undefined ? undefined : () => onDuplicate(open.id)}
+        placement={placementOf?.(open.id)}
         backLabel={backGroup === undefined ? undefined : backGroup.name || DEFAULT_GROUP_NAME}
         onRemove={() => {
           comeBackTo.current = { id: open.id, index, removed: true };

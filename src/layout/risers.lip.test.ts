@@ -208,12 +208,17 @@ describe("splitRisers: the riser follows the lip setting", () => {
 
 // The owner's file: the Starter stack (four trays) can have a lipped riser and a grooved Counter;
 // the Trade deck stands alone, with a 1.6 mm wall.
+// The file was made with the old Standard card clearances (1.5 and 1 mm); the defaults are now 3 and
+// 2 mm (schema 0.4.0 migrates them). This test is about the joints, not card sizing, so it keeps the
+// old numbers in its own copy of the settings.
+const OLD_CLEARANCES = { cardClearance: 1.5, cardStackClearance: 1 };
+
 function owner(): Project {
   const parsed = parseProject(owner5);
   if (!parsed.ok) {
     throw new Error(parsed.error);
   }
-  return parsed.project;
+  return { ...parsed.project, settings: { ...parsed.project.settings, ...OLD_CLEARANCES } };
 }
 
 function stored(p: Project): TraySpec[] {
@@ -264,7 +269,8 @@ describe("the owner's Star Realms file: risers follow the rim setting", { timeou
     const plain = parts.find((r) => r.stack === 1) as TraySpec;
     // 9.6 mm and the 2 mm lip it prints
     expect(outerSizeText(lipped, p.settings)).toMatch(/× 11\.6 mm with its lip$/);
-    expect(outerSizeText(plain, p.settings)).toBe("92.7 × 88.2 × 6.4 mm");
+    // the same size, whichever way the search turned the Trade deck (it stood the other way until 0.29.0)
+    expect(outerSizeText(plain, p.settings)).toBe("88.2 × 92.7 × 6.4 mm");
   });
 
   it("keeps the Trade deck's riser plain: the tray has no wall to spare for a groove", () => {

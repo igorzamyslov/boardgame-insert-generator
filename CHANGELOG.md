@@ -14,6 +14,153 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 - **Legal notice and Privacy at the end of the project menu.** The Licences link is now one quiet line, "Licences · Legal notice · Privacy"; the two new pages say who runs the site and what the app does with your data (your inserts stay in this browser and nothing is sent anywhere).
 
+## [0.29.1] - 2026-11-01
+
+### Changed
+
+- Once your print file has downloaded, the dialog still shows "Support this tool · Ko-fi · PayPal", beside "Back to the plan".
+
+## [0.29.0] - 2026-11-01
+
+### Changed
+
+- **Thicker walls print no separate spacers.** Choose "Thicker walls" under "Fill the space that's
+  left" and the room a tray can't use goes into the outer walls of the trays around it, as much as
+  is needed. The 3 mm limit and the "Extra thickness per wall" box are gone, and so is "One thick
+  wall": where a finger cut goes through a wall, the wall on the other side takes the room. The
+  only limit is what your printer bed can hold; room past that is still a separate spacer.
+  Projects that used either old setting open on Thicker walls.
+- **"Fill the space that's left" and "Unused space" moved to Settings → This insert**, under
+  Walls, because they are choices, not numbers. Exact numbers keeps only numbers.
+
+### Fixed
+
+- **A group's trays stay together, and one way round.** With wall growth on, a plan could keep
+  another tray between a group's trays and turn one tray of a stack, which made every tray of
+  that stack square so Rotate said it did nothing. A tray standing between a group's trays now
+  costs more than moving two trays, so "Make a new plan" regroups them, and walls no longer count
+  as free room for what a stack forces on a tray.
+
+## [0.28.7] - 2026-11-01
+
+### Fixed
+
+- **Escape closes the item editor wherever you are.** Pressing Escape while an item's or a
+  group's editor is open now takes you back to the list even after you have clicked the 3D view
+  or the plan, or when nothing on the page has the focus. Before, it only worked while the focus
+  was inside the editor. A menu, a dialog or a swap that is under way still takes the first
+  Escape, and the next one closes the editor.
+
+## [0.28.4] - 2026-11-01
+
+### Changed
+
+- **Dependency updates pass the changelog check.** An automatic dependency update raises the
+  version without a changelog entry, which the repository's own changelog test used to reject.
+
+## [0.28.3] - 2026-10-30
+
+### Changed
+
+- **Faster printability check.** The check that measures wall and floor thickness on built meshes
+  stops each ray at the thinnest feature found so far, so it runs about 1.7 times faster. Its
+  results are unchanged.
+
+## [0.28.2] - 2026-10-27
+
+### Removed
+
+- **Fit test print.** Tried in 0.28.0 and taken out: a plate of slices did not make clear how it
+  tested the finished insert. The "Fit test print" item in Download's "Other formats" and the
+  "Too tight?" line in the packing guide are gone.
+
+### Fixed
+
+- **Engraved kind names in trays of several items.** In a tray that holds different items (a
+  faction's Airships beside its wooden pieces, a card box with one lone deck among others), a
+  well of an item with one kind is now named by its item, so "Combat cards" is cut beside "Base"
+  and "Promo", and each well of the Faction tray says what it holds. Before, those wells had no
+  name or a kind that said nothing. A kind two items share is told apart by its item, and a name
+  the font cannot print no longer hides the names of the other wells. A well too small for its
+  name is still left plain. Geometry 0.9.15: printed parts change, and still mate with those before.
+
+## [0.28.1] - 2026-10-27
+
+### Changed
+
+- **Fit test print.** It no longer has a ring for loose pieces (bulk always fits a bin). Each
+  ring is cut from the well most likely to go wrong instead of the first in the plan: for cards the
+  thickest deck, which springs and fans most; for tiles and figures the one with the least room
+  around its pieces. The plate is smaller and tests the worst case.
+
+## [0.28.0] - 2026-10-27
+
+### Added
+
+- **Fit test.** "Other formats" in the Download dialog has a **Fit test print**: a small plate to
+  print before the whole insert. It holds a low ring of each kind of well in your plan at its real
+  size, with your Fit, walls and corner radius, each cut with its item's name. Drop your cards and
+  pieces in; the packing guide says what to change if they are tight.
+- **A kind's name in each well.** A tray of several kinds (Oil, Metal, Wood, Food) engraves each
+  kind's name on the floor of its own well, when the name fits at 4 mm or larger. The tray's own name
+  stays on its walls and underside. It is part of "Engrave tray names".
+- **Dark mode.** Settings → Display → Appearance: System, Light or Dark. System, the default,
+  follows your device; the choice is kept in this browser and applied before the page paints. Every
+  screen, dialog and notice has a dark set that keeps text and edges readable, trays and groups keep
+  their colours, and the 3D view goes dark with the page. The packing guide and the files you
+  download stay on white paper.
+
+### Changed
+
+- **Engraved names shrink before they are cut.** A part's whole name is set at 5, 6 or 8 mm when it
+  fits ("Structure bonus tiles 1" instead of "Structur 1"); only when it fits at nothing but 4 mm is
+  a shorter version tried at 5 mm or more. The packing guide's "Engraved as" shows what is on the
+  part. Geometry 0.9.14: printed parts change, and still mate with those before.
+- **Remove acts at once.** Removing an item or a group no longer asks first; the note at the top
+  of the plan says what went and has Undo, which brings back the item exactly as it was. Deleting
+  an insert from this browser still asks, because that can't be undone.
+- **The old-plan notice speaks plainly.** It says the plan was made with an older version of the
+  app, and the button is now "Update plan". The note about trays you already printed stays.
+- **Opening an older file is silent.** The "Upgraded from schema …" note is gone.
+
+## [0.27.0] - 2026-10-26
+
+### Added
+
+- **Duplicate an item.** In an item's editor, **Duplicate** (beside Remove…) adds a copy right below
+  it, named "<name> copy", with the same settings, in the same group if it has one. The copy's
+  editor opens, and Undo takes it back in one step. It has none of the original's pins.
+- **Placement from the editor.** An item with one tray has the tray's ⋯ menu in its editor too:
+  Keep here, Rotate 90°, Swap places with…, Put on… and Keep this size, the same as in the tray dock,
+  in Top and in 3D.
+- **A tray of several kinds names them.** Its dock says them in one more line ("Oil, Metal, Wood,
+  Food"), and its tile's tooltip too.
+
+### Changed
+
+- **Names get a smaller font before they get cut.** Plan tile names, the list's item and group names
+  and the tray dock's name and facts are set up to 20% smaller (never under 10 px) before an
+  ellipsis cuts them.
+
+## [0.26.0] - 2026-10-25
+
+### Changed
+
+- **Card wells are roomier, so decks go in without fiddling.** A well is now 3 mm bigger than the
+  sleeve each way (it was 1.5 mm), and a deck gets 10% more room across for its sleeves (3% for
+  cards with no sleeve) plus 2 mm (it was 1 mm). Snug and Loose still tighten and loosen it, but
+  Snug never goes below 1.5 mm round the card and 1 mm across the deck. A deck you measured is
+  treated as pressed together and gets the same room, so the measure field now says "with the cards
+  pressed together". Eight decks of 13 premium-sleeved cards come to a well of 69.5 × 94 mm and
+  10.6 mm across at Standard.
+- **Tile stacks and figure pockets have more room.** Tiles count 5% thicker (cardboard runs over its
+  size) and a figure's pocket is 2 mm bigger than the figure (it was 1 mm). Loose pieces and custom
+  items are as before.
+- **Your plans will change.** Projects you already have keep their own numbers: card clearances
+  that were still the old defaults move to the new ones, and ones you changed stay. Every saved
+  plan shows "This plan is from before your last changes." once, and trays come out a little
+  bigger. Reprint the trays that hold cards, tiles or figures; the rest are as they were.
+
 ## [0.25.1] - 2026-10-24
 
 ### Changed

@@ -6,10 +6,12 @@ import "../styles/tokens.css";
 import "../styles/base.css";
 import "./kit.css";
 import "./gallery.css";
+import { startTheme } from "../ui/theme";
 import { Gallery } from "./Gallery";
 
 const root = document.getElementById("app");
 if (!root) {
   throw new Error("Missing #app element");
 }
+startTheme();
 render(<Gallery />, root);

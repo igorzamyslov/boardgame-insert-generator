@@ -181,8 +181,9 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   let edited = false;
   let misfit: string | null = null;
   const warnColor = new Color(MISFIT_COLOR);
-  const pageColor = new Color(PAGE_HEX);
-  const dimColor = new Color(DIM_TOWARD_HEX);
+  const pageColor = new Color(PAGE_HEX.light);
+  const dimColor = new Color(DIM_TOWARD_HEX.light);
+  let scheme: "light" | "dark" = "light";
   let pick: ((key: string | null) => void) | null = null;
   let frameId = 0;
   let down: { x: number; y: number } | null = null;
@@ -421,7 +422,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
     emissive: () =>
       Object.fromEntries(trays.map((t) => [t.spec.key, t.materials[0]?.emissive.getHex() ?? 0])),
     tints: () => ({
-      page: PAGE_HEX,
+      page: PAGE_HEX[scheme],
       trays: Object.fromEntries(
         trays.map((t) => [
           t.spec.key,
@@ -607,6 +608,13 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
     },
     setProjection(next) {
       showProjection(next);
+    },
+    setScheme(next) {
+      scheme = next;
+      pageColor.set(PAGE_HEX[next]);
+      dimColor.set(DIM_TOWARD_HEX[next]);
+      apply();
+      requestDraw();
     },
     getView() {
       return currentView();

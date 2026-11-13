@@ -134,9 +134,11 @@ it only with a written reason in the code or the PR.
 - MUST change the project only through `store.edit(fn)` (or the store's named methods: `undo`,
   `unpin`, `refit`…), with `fn` a pure `Project → Project` function, usually from
   `app/actions.ts`. Never assign `state.project.value` from UI code.
-- MUST NOT add a global key handler without a decision-log row (DESIGN.md). The one that exists
-  is App's Undo and Redo listener (`src/ui/historyKeys.ts`): added in an effect, removed in its
-  cleanup, skipped in fields that have their own undo and behind modal dialogs. Put its checks in
+- MUST NOT add a global key handler without a decision-log row (DESIGN.md). The two that exist
+  are App's Undo and Redo listener (`src/ui/historyKeys.ts`) and App's Escape listener that closes
+  an open editor wherever the focus is (only while an editor is open, and only for an Escape that
+  nothing took: inner handlers `preventDefault` theirs). Both are added in an effect, removed in
+  their cleanup; the Undo one is skipped in fields that have their own undo and behind modal dialogs. Put its checks in
   `historyKeys.ts` and test them with plain events.
 - MUST keep shared view state in App (`State` signals or App `useState`) and pass it down as
   controlled props (`openId`/`onOpenChange`, `swapFrom`/`onSwapFromChange`, `level`/…). Don't
@@ -310,7 +312,7 @@ it only with a written reason in the code or the PR.
 ### CSS and tokens
 
 - MUST take colours, spacing, radii, fonts, sizes and `--control-h` from `src/styles/tokens.css`.
-  Light is the only theme for now; dark is opt-in and not built (DESIGN §4 Dark mode). The page,
+  Light and dark are both built: dark is one `[data-theme="dark"]` block in tokens.css, set by `src/ui/theme.ts` (DESIGN §4 Dark mode); a new colour token needs a value in both. The page,
   type, focus ring, `.tap` and `.visually-hidden` live in `src/styles/base.css`.
 - MUST decide a component's shade in one place only: `shadeIndexOf(components, index)` in
   `src/ui/identity.ts`. Then pick the format by consumer:

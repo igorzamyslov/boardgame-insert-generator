@@ -893,7 +893,7 @@ describe("PlanBanner", () => {
     );
   });
 
-  it("warns of an older version, with Reprint everything and Use the old plan", () => {
+  it("warns of an older version, with Update plan and Use the old plan", () => {
     const p = banner({ geometryOld: true });
     const { container } = render(<PlanBanner {...p} />);
     const box = container.querySelector(".k-notice") as HTMLElement;
@@ -901,7 +901,7 @@ describe("PlanBanner", () => {
     expect(box.textContent).toContain(GEOMETRY_OLD_MESSAGE);
     expect(box.querySelector("strong")?.textContent).toBe("Made with an older version of the app.");
     expect(screen.getByRole("status").textContent).toBe(GEOMETRY_OLD_MESSAGE);
-    fireEvent.click(screen.getByRole("button", { name: "Reprint everything" }));
+    fireEvent.click(screen.getByRole("button", { name: "Update plan" }));
     expect(p.onReprint).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Use the old plan" }));
     expect(p.onKeepOld).toHaveBeenCalledTimes(1);

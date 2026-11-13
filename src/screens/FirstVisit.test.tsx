@@ -43,9 +43,8 @@ const buttonNames = (root: HTMLElement): (string | null)[] =>
     .getAllByRole("button")
     .map((b) => b.textContent || b.getAttribute("aria-label"));
 
-/** The editor in the rail asks before it removes: the Remove… button, then the answer. */
+/** The editor in the rail removes at once: the Remove button. */
 function removeFromEditor(name: string): void {
-  fireEvent.click(screen.getByRole("button", { name: `Remove ${name}…` }));
   fireEvent.click(screen.getByRole("button", { name: `Remove ${name}` }));
 }
 

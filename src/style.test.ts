@@ -70,7 +70,7 @@ const normal = (value: string): string =>
 
 describe("tokens.css", () => {
   const stripped = tokens.replace(/\/\*[\s\S]*?\*\//g, "");
-  const light = declarations(stripped);
+  const light = declarations(stripped.slice(0, stripped.indexOf(':root[data-theme="dark"]')));
   /** A token's value with `var(--other)` followed through to the hex it ends in. */
   const resolve = (name: string): string => {
     let value = light.get(name) ?? "";
@@ -256,11 +256,27 @@ describe("tokens.css", () => {
     expect(light.get("--font-ui")).toContain('"Figtree"');
   });
 
-  it("keeps dark opt-in", () => {
-    // Task 16 brings dark back behind [data-theme="dark"] and restores a per-token check.
+  it('puts dark behind [data-theme="dark"], which ui/theme.ts resolves, not behind a media query', () => {
     expect(stripped).not.toContain("prefers-color-scheme");
     expect(stripped).toMatch(/:root\s*\{[^}]*color-scheme:\s*light\s*;/);
-    expect(stripped).not.toMatch(/color-scheme:[^;]*dark/);
+    expect(stripped).toMatch(/:root\[data-theme="dark"\]\s*\{[^}]*color-scheme:\s*dark\s*;/);
+  });
+
+  it("gives every colour token a dark value or says why not", () => {
+    const at = stripped.indexOf(':root[data-theme="dark"]');
+    const names = (css: string): string[] =>
+      [...css.matchAll(/(--[\w-]+):\s*(?:#|rgb)/g)].map((m) => m[1] ?? "");
+    const dark = new Set(names(stripped.slice(at)));
+    // Same in both: the logo's squares and the paper the packing guide is drawn on.
+    const shared = new Set([
+      "--logo-cards",
+      "--logo-bits",
+      "--logo-tiles",
+      "--logo-minis",
+      "--paper-white",
+    ]);
+    const missing = names(stripped.slice(0, at)).filter((n) => !dark.has(n) && !shared.has(n));
+    expect(missing).toEqual([]);
   });
 
   it("keeps the legacy names", () => {

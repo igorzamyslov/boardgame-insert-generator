@@ -7,6 +7,7 @@ import {
   addComponent,
   addGroup,
   clearChoices,
+  duplicateComponent,
   freeTurn,
   isLockable,
   lockedKeys,
@@ -792,5 +793,69 @@ describe("group actions", () => {
     expect(setGroupAccess(p, "kit", "setup").groups?.[0]?.access).toBe("setup");
     expect(renameGroup(p, "zz", "x")).toBe(p);
     expect(setGroupAccess(p, "zz", "setup")).toBe(p);
+  });
+});
+
+describe("duplicateComponent", () => {
+  const bulk = (name: string, over: Partial<BulkComponent> = {}): BulkComponent => ({
+    ...(newComponent("bulk") as BulkComponent),
+    name,
+    ...over,
+  });
+
+  it("adds a copy named '<name> copy' with the same settings and its own id, below the original", () => {
+    const a = bulk("Coins", { copies: 2, clearance: 1.5 });
+    const b = bulk("Dice");
+    const p: Project = { ...newProject(), components: [a, b] };
+    const { project, copyId } = duplicateComponent(p, a.id);
+    const copy = project.components.find((c) => c.id === copyId);
+    expect(copy).toMatchObject({ kind: "bulk", name: "Coins copy", copies: 2, clearance: 1.5 });
+    expect(copy?.id).not.toBe(a.id);
+    // the list shows it right below the original; no one else moved, so no colour changed
+    expect(project.components.map((c) => c.id).slice(0, 2)).toEqual([a.id, b.id]);
+    expect(project.listOrder).toEqual([a.id, copyId, b.id]);
+  });
+
+  it("copies deeply: editing the copy's items leaves the original's alone", () => {
+    const a = bulk("Coins");
+    const { project, copyId } = duplicateComponent({ ...newProject(), components: [a] }, a.id);
+    const copy = project.components.find((c) => c.id === copyId) as BulkComponent;
+    expect(copy.items).toEqual(a.items);
+    expect(copy.items).not.toBe(a.items);
+    expect(copy.items[0]).not.toBe(a.items[0]);
+  });
+
+  it("numbers the name when '<name> copy' is taken", () => {
+    const a = bulk("Coins");
+    const first = duplicateComponent({ ...newProject(), components: [a] }, a.id);
+    const second = duplicateComponent(first.project, a.id);
+    expect(second.project.components.map((c) => c.name)).toEqual([
+      "Coins",
+      "Coins copy",
+      "Coins copy 2",
+    ]);
+  });
+
+  it("names an unnamed item by its kind", () => {
+    const a = bulk("");
+    const { project } = duplicateComponent({ ...newProject(), components: [a] }, a.id);
+    expect(project.components[1]?.name).toBe("Tokens and dice copy");
+  });
+
+  it("puts the copy in the original's group, right after it", () => {
+    const a = bulk("Hero");
+    const b = bulk("Cards");
+    const group: Group = { id: "g", name: "Kit", access: "often", memberIds: [a.id, b.id] };
+    const p: Project = { ...newProject(), components: [a, b], groups: [group] };
+    const { project, copyId } = duplicateComponent(p, a.id);
+    expect(project.groups?.[0]?.memberIds).toEqual([a.id, copyId, b.id]);
+  });
+
+  it("does not copy the original's locks, and leaves the project alone for an unknown id", () => {
+    const a = bulk("Coins");
+    const lock: Lock = { kind: "position", trayKey: `${a.id}:p0:0`, path: "0", rotated: false };
+    const p: Project = { ...newProject(), components: [a], locks: [lock] };
+    expect(duplicateComponent(p, a.id).project.locks).toEqual([lock]);
+    expect(duplicateComponent(p, "nope")).toEqual({ project: p, copyId: null });
   });
 });

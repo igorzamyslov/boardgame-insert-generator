@@ -35,7 +35,7 @@ import type { LabelRequest } from "./labels";
 import { chamfersFacingTrays } from "../layout/chamfers";
 import { carriedBy, contactOf, extentsOf, gripOf, liftLine } from "./lift";
 import type { Extent, Grip, GripKind } from "./lift";
-import { engravesName } from "../geometry/engraves";
+import { engravedName } from "../geometry/engraves";
 import { carriesName } from "../model/part-name";
 import { trayNames } from "./naming";
 import type { TrayName } from "./naming";
@@ -376,16 +376,20 @@ export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[]
   const names = trayNames(parts, project.components, project.groups);
   return parts.map((p) => {
     const parent = fullNameOf(parts, names, p.parentNumber);
-    const short = names.get(p.spec.key)?.short ?? "";
+    const name = names.get(p.spec.key);
+    const short = name?.short ?? "";
     const carries = project.settings.engraveNames && carriesName(p.spec.part) && short !== "";
-    // null: a part that cannot be planned is not built, and says nothing of its name
-    const fits = carries ? engravesName(p.spec, project.settings, short) : false;
+    // "": no version of the name fits; null: a part that cannot be planned is not built, and says
+    // nothing of its name
+    const fits = carries
+      ? engravedName(p.spec, project.settings, name?.options ?? short, name?.wells)
+      : "";
     const grip = gripOf(p.spec, facing);
     return {
       key: p.spec.key,
       name: names.get(p.spec.key)?.full ?? p.label,
-      engraved: fits === true ? short.toUpperCase() : null,
-      tooSmall: fits === false && carries,
+      engraved: fits === null || fits === "" ? null : fits.toUpperCase(),
+      tooSmall: fits === "" && carries,
       size: outerSizeText(p.spec, project.settings),
       position: positionText(p.spec),
       layer: layerNumber(levels, p.spec.level),

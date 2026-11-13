@@ -58,7 +58,8 @@ describe("tileOptions", () => {
     const column = first(tiles());
     expect(column.minW).toBe(47.19);
     expect(column.minD).toBeCloseTo(41, 9);
-    expect(column.minH).toBeCloseTo(121, 9);
+    // 60 tiles of 2 mm count 5 % thicker (2.1 mm each) + 1 mm
+    expect(column.minH).toBeCloseTo(127, 9);
     expect(column.kind).toBe("well");
     expect(column.contents).toBe("Hexes ×60");
     expect(column.elastic).toEqual({ w: false, d: false, h: false });
@@ -81,13 +82,13 @@ describe("tileOptions", () => {
     const { options } = tileOptions(tiles(), s);
     const three = at(options, 1);
     expect(three.blocks).toHaveLength(3);
-    expect(three.blocks.map((b) => at(b, 0).minH)).toEqual([41, 41, 41]);
-    expect(at(options, 2).blocks.map((b) => at(b, 0).minH)).toEqual([25, 25, 25, 25, 25]);
+    expect(three.blocks.map((b) => at(b, 0).minH)).toEqual([43, 43, 43]);
+    expect(at(options, 2).blocks.map((b) => at(b, 0).minH)).toEqual([26.2, 26.2, 26.2, 26.2, 26.2]);
   });
 
   it("spreads uneven counts with the extra tiles in the first columns", () => {
     const { options } = tileOptions(tiles({ count: 7, thickness: 10 }), s);
-    expect(at(options, 2).blocks.map((b) => at(b, 0).minH)).toEqual([31, 21, 21]);
+    expect(at(options, 2).blocks.map((b) => at(b, 0).minH)).toEqual([32.5, 22, 22]);
     expect(at(options, 2).blocks.map((b) => at(b, 0).contents)).toEqual([
       "Hexes ×3",
       "Hexes ×2",
@@ -103,7 +104,7 @@ describe("tileOptions", () => {
       "upright-c5",
     ]);
     const stack = first(upright);
-    expect(stack.minW).toBeCloseTo(121, 9);
+    expect(stack.minW).toBeCloseTo(127, 9);
     expect(stack.minD).toBe(47.19);
     expect(stack.minH).toBeCloseTo(41, 9);
     // The stack never grows on its own (owner, 2026-10-23), with no spacer axis (that takes
@@ -124,8 +125,8 @@ describe("tileOptions", () => {
 
     it("is `auto` for an upright stack under bigger wells: its thickness, at most 50 mm", () => {
       expect(stack({}, wells).growth).toEqual({ w: AUTO_GROWTH_CEILING });
-      // 10 tiles of 2 mm: a 20 mm stack, so it binds
-      expect(stack({ count: 10 }, wells).growth).toEqual({ w: 20 });
+      // 10 tiles of 2 mm, counted 2.1 mm each: a 21 mm stack, so it binds
+      expect(stack({ count: 10 }, wells).growth).toEqual({ w: 21 });
     });
 
     it("is off by default: content-tight, no spacer, the footprint never grows", () => {
@@ -138,7 +139,7 @@ describe("tileOptions", () => {
       // was a number of mm of growth; now "some" is counted in tiles (owner, 2026-10-23)
       const none = stack({ count: 10 });
       const c = stack({ count: 10, room: 5 });
-      expect(c.minW).toBeCloseTo(none.minW + 5 * 2, 9);
+      expect(c.minW).toBeCloseTo(none.minW + 5 * 2.1, 9);
       expect(c.elastic).toEqual({ w: false, d: false, h: false });
       expect(c.growth).toBeUndefined();
     });
@@ -149,10 +150,10 @@ describe("tileOptions", () => {
     });
 
     it("holds the stack to its own thickness without plates, and to 6× with them", () => {
-      // 60 tiles of 2 mm: a 120 mm stack
-      expect(stack(max).growth).toEqual({ w: 120 });
+      // 60 tiles of 2 mm, counted 2.1 mm each: a 126 mm stack
+      expect(stack(max).growth).toEqual({ w: 126 });
       expect(stack({ ...max, separators: 2 }).growth).toEqual({
-        w: 120 * PLATED_RETENTION,
+        w: 126 * PLATED_RETENTION,
       });
     });
 
@@ -171,20 +172,20 @@ describe("tileOptions", () => {
       // some room with plates: the planned room is the spacer's, as wide as the room
       const planned = stack({ room: 5, separators: 1 });
       expect(planned.spacerAxis).toBe("w");
-      expect(planned.spacerRoom).toBeCloseTo(5 * 2, 2);
+      expect(planned.spacerRoom).toBeCloseTo(5 * 2.1, 2);
     });
 
     it("holds the stack to what keeps it under its finger cut, when that is tighter", () => {
       const narrow: Settings = { ...s, fingerPocket: { ...s.fingerPocket, width: 12 } };
-      // 10 tiles of 2 mm: a 20 mm stack; a 12 mm cut leaves 12 + 20 - 20 = 12 mm of room
+      // 10 tiles of 2 mm: a 21 mm stack; a 12 mm cut leaves 12 + 21 - 20 = 13 mm of room
       const narrowStack = (over: Partial<TilesComponent>) =>
         first(tiles({ storage: "upright", count: 10, ...over }), 0, 0, narrow);
-      expect(narrowStack(max).growth).toEqual({ w: 12 });
+      expect(narrowStack(max).growth).toEqual({ w: 13 });
       expect(narrowStack({ ...max, separators: 2 }).growth).toEqual({
-        w: 20 * PLATED_RETENTION,
+        w: 21 * PLATED_RETENTION,
       });
       // the default 25 mm cut leaves retention the tighter
-      expect(stack({ count: 10, ...max }).growth).toEqual({ w: 20 });
+      expect(stack({ count: 10, ...max }).growth).toEqual({ w: 21 });
       // a flat stack is unaffected: as much as fits has no cap of its own
       const flat = first(tiles({ storage: "flat", ...max }), 0, 0, narrow);
       expect(flat.growth).toBeUndefined();
@@ -200,7 +201,7 @@ describe("tileOptions", () => {
       expect(asked.spacerAxis).toBeUndefined();
       // some: more tiles in the stack, so a taller well and nothing grown after
       const some = first(tiles({ storage: "flat", room: 4 }));
-      expect(some.minH).toBeCloseTo(first(tiles({ storage: "flat" })).minH + 4 * 2, 9);
+      expect(some.minH).toBeCloseTo(first(tiles({ storage: "flat" })).minH + 4 * 2.1, 9);
       expect(some.elastic.h).toBe(false);
     });
   });
@@ -217,7 +218,8 @@ describe("tileOptions", () => {
     const stack = first(
       tiles({ shape: { type: "rect", w: 30, d: 20 }, count: 10, storage: "upright" }),
     );
-    expect(stack.minW).toBeCloseTo(21, 9);
+    // 10 tiles at 2.1 mm + 1 mm clearance
+    expect(stack.minW).toBeCloseTo(22, 9);
     expect(stack.minD).toBeCloseTo(31, 9);
     expect(stack.minH).toBeCloseTo(21, 9);
   });

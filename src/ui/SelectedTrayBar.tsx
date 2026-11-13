@@ -1,6 +1,5 @@
 // src/ui/SelectedTrayBar.tsx
 import { useMemo } from "preact/hooks";
-import { toggleLock, toggleSizeLock, turnTray } from "../app/actions";
 import type { MeshSource } from "../app/meshes";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, parentKey, partsByKey } from "../instructions/numbering";
@@ -13,8 +12,10 @@ import {
   groupOfTray,
   memberCellsOfTray,
   shadeOf,
+  wellNamesOfTray,
 } from "./identity";
 import { TrayBar } from "./TrayBar";
+import { trayEdits } from "./trayActions";
 
 export interface SelectedTrayBarProps {
   project: Project;
@@ -77,9 +78,7 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
   // The spec the viewer and the export build, so the filament line finds its mesh in the cache.
   const part = partsByKey(parts).get(key);
   const buildSpec =
-    part === undefined
-      ? tray
-      : buildSpecOf(part, project.settings.engraveNames, names.get(key)?.short);
+    part === undefined ? tray : buildSpecOf(part, project.settings.engraveNames, names.get(key));
   const levels = levelsOf(trays);
   const at = levels.indexOf(tray.level);
   const owner = isAddOn(tray) ? names.get(parentKey(tray)) : undefined;
@@ -96,13 +95,7 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
         }));
   const compartmentCount = tray.compartments.filter((c) => c.kind !== "spare").length;
   const onEditGroup = p.onEditGroup;
-  // Locks are written against the stored plan's trays.
-  const withStored = (fn: (stored: TraySpec) => (q: Project) => Project): void => {
-    const stored = project.layout?.trays.find((t) => t.key === key);
-    if (stored) {
-      p.edit(fn(stored));
-    }
-  };
+  const edits = trayEdits(project, key, p.edit);
   return (
     <TrayBar
       project={project}
@@ -117,6 +110,13 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
       {...(cells === undefined ? {} : { cells })}
       layerCount={levels.length}
       carries={tray.part === "riser" ? (owner?.full ?? null) : null}
+      holds={
+        group === undefined
+          ? wellNamesOfTray(tray, project.components)
+              .filter((k) => k !== "")
+              .join(", ")
+          : null
+      }
       compartments={
         group === undefined
           ? compartmentWords(tray, component)
@@ -124,15 +124,15 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
       }
       swapping={p.swapFrom === key && p.pickMode !== "putOn"}
       puttingOn={p.swapFrom === key && p.pickMode === "putOn"}
-      onPin={() => withStored((stored) => (q) => toggleLock(q, stored))}
-      onTurn={() => withStored((stored) => (q) => turnTray(q, stored))}
+      onPin={edits.onPin}
+      onTurn={edits.onTurn}
       onSwap={() =>
         p.onSwapFromChange(p.swapFrom === key && p.pickMode !== "putOn" ? null : key, "swap")
       }
       onPutOn={() =>
         p.onSwapFromChange(p.swapFrom === key && p.pickMode === "putOn" ? null : key, "putOn")
       }
-      onToggleSizeLock={() => withStored((stored) => (q) => toggleSizeLock(q, stored))}
+      onToggleSizeLock={edits.onToggleSizeLock}
       onEdit={
         // G1 draws Edit on a group's tray; the group's editor is wired by the app (a no-op until it is)
         group !== undefined

@@ -55,8 +55,8 @@ export interface ViewerProps {
    * scene tinted in the warn colour and lifted out of its slot, the same marking the plan gives it.
    */
   misfitKey?: string | null;
-  /** Escape on the canvas: it ends a swap that is chosen in this view. */
-  onEscape?: () => void;
+  /** Escape on the canvas: it ends a swap that is chosen in this view. Returns true when it ended one (the key is then taken). */
+  onEscape?: () => boolean;
   /** The caption says what a click does ("tap a tray for details"): the normal stage, not the editor's. */
   tapHint?: boolean;
   /**
@@ -209,6 +209,10 @@ export function Viewer(p: ViewerProps) {
     handleRef.current?.setProjection?.(projection);
   }, [status, projection]);
 
+  useEffect(() => {
+    handleRef.current?.setScheme?.(scheme);
+  }, [status, scheme]);
+
   // A string key, so the scene hears of a change and not of every render.
   const slabs = reservedSlabs(p.reserved, p.box);
   const slabsKey = JSON.stringify(slabs);
@@ -251,7 +255,7 @@ export function Viewer(p: ViewerProps) {
         try {
           const part = byKey.get(spec.key);
           const asked = part
-            ? buildSpecOf(part, p.settings.engraveNames, names.get(spec.key)?.short)
+            ? buildSpecOf(part, p.settings.engraveNames, names.get(spec.key))
             : spec;
           const built = await p.meshes.get(asked, p.settings, controller.signal);
           results[i] = {
@@ -384,7 +388,9 @@ export function Viewer(p: ViewerProps) {
   // to every tray, now that the scene has no row of chips for it.
   const stepTray = (e: KeyboardEvent): void => {
     if (e.key === "Escape" && p.onEscape !== undefined) {
-      p.onEscape();
+      if (p.onEscape() === true) {
+        e.preventDefault();
+      }
       return;
     }
     const forward = e.key === "ArrowRight" || e.key === "ArrowDown";

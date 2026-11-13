@@ -87,8 +87,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit in the
    "Done" at its foot. "This insert" is "How the trays sit" (Fit in the box, Walls, Room for
    fingers, Rim between layers: Off, Auto (the default: the plan is made with a rim and groove and
    with a stepped base that leaves the walls thin, and the better one is kept) or one of the two,
-   Fill to the lid) and "Exact numbers": a search, then groups of
-   numbers (Walls and floors, Cards, Finger cuts, Rim between layers, Spacers and space and more),
+   Fill to the lid, Fill the space that's left: Separate spacers, Bigger wells or Thicker walls,
+   which print no spacer at all) and "Exact numbers": a search, then groups of
+   numbers (Walls and floors, Cards, Finger cuts, Rim between layers and more),
    each value with a dot and "Back to <default>" when it differs. "My printer" is the bed (Small,
    Medium, Large or your own size), "Printer details" (margin, layer height) and "Printing"
    ("Engrave tray names", joining spacers). **The printer is a preference in this browser** and
@@ -128,7 +129,7 @@ is being made, or what is wrong, with the way out beside it ("Try another arrang
 <name>", "Settings"). If you change the inputs after a plan was made, the plan stays as it was
 and a banner says "This plan is from before your last changes." with "Make a new plan". Download
 and the packing guide are off until you do. A plan made under an older line of tray geometry gets
-a banner too ("Reprint everything" or "Use the old plan"): its trays no longer mate with trays
+a banner too ("Update plan" or "Use the old plan"): its trays no longer mate with trays
 exported now.
 
 ## Look
@@ -136,8 +137,9 @@ exported now.
 The redesign's tokens live in `src/styles/tokens.css`: page, sheet, ink, muted, rule, edge, box
 and focus colours, one fill/line/ink triple per kind (cards blue, tokens and dice amber, tiles
 green, miniatures rose, custom violet; the tokens and dice colour is named `--bits-*`), the hatched spacer, spacing, radii and the two typefaces.
-Light is the default; a warm dark set redefines the same names under
-`prefers-color-scheme: dark` (screen only, so printing stays on white). Text stays at 4.5:1 and
+A warm dark set redefines the same names under `[data-theme="dark"]`, which
+`src/ui/theme.ts` sets from the Appearance choice in Settings (System follows the device; printing
+stays on white). Text stays at 4.5:1 and
 edges 3:1 against their ground in both, and `src/style.test.ts` checks it. Every focusable
 element gets a 3 px `--focus` outline (`:focus-visible` in `tokens.css`).
 

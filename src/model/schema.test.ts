@@ -212,9 +212,9 @@ describe("toSerializable", () => {
     expect(out.box).toEqual({ ...p.box, headroomCoverage: "none" });
     // the two merge switches and the engraving switch at their defaults are left out of what is written
     // (biggerWells, off by default, is left out the same way)
-    const { mergeFillers, mergeRisers, engraveNames, oneWall, biggerWells, ...written } =
+    const { mergeFillers, mergeRisers, engraveNames, thickerWalls, biggerWells, ...written } =
       p.settings;
-    expect([mergeFillers, mergeRisers, engraveNames, oneWall, biggerWells]).toEqual([
+    expect([mergeFillers, mergeRisers, engraveNames, thickerWalls, biggerWells]).toEqual([
       true,
       true,
       true,
@@ -264,16 +264,16 @@ describe("toSerializable", () => {
     expect(back.ok && back.project.settings.minRiser).toBe(8.5);
   });
 
-  it("round-trips the one-wall switch: left out while off, written when on", () => {
+  it("round-trips the thicker-walls switch: left out while off, written when on", () => {
     const p = sampleProject();
-    expect(serializeProject(p, noForeign())).not.toContain("oneWall");
+    expect(serializeProject(p, noForeign())).not.toContain("thickerWalls");
     const text = serializeProject(
-      { ...p, settings: { ...p.settings, oneWall: true } },
+      { ...p, settings: { ...p.settings, thickerWalls: true } },
       noForeign(),
     );
-    expect(text).toContain('"oneWall":true');
+    expect(text).toContain('"thickerWalls":true');
     const back = parseProject(JSON.parse(text));
-    expect(back.ok && back.project.settings.oneWall).toBe(true);
+    expect(back.ok && back.project.settings.thickerWalls).toBe(true);
   });
 
   it("round-trips the bigger-wells switch: left out while off, written when on", () => {
@@ -320,7 +320,7 @@ describe("toSerializable", () => {
       expect(read.ok && read.project.settings.engraveNames).toBe(value);
       // the old key is read, so it is not reported as an unknown field (the file is of the
       // 0.1 line, so its one notice says it was upgraded)
-      expect(read.ok && read.notices.map((n) => n.code)).toEqual(["schema.migrated"]);
+      expect(read.ok && read.notices.map((n) => n.code)).toEqual([]);
     }
     // a file that has the new key reads it
     delete written.settings.engraveNumbers;

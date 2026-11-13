@@ -79,7 +79,7 @@ describe("splitRisers: a riser under a stack (spec §3 rule 2)", () => {
 
     it("sheds it from a tray the sizing layer realized with a long spare length: a spacer, no pocket", () => {
       const part = partOf([cards({ room: "max", separators: 2 })], "upright-long|strip|split1");
-      const r = realizeTray(part, { w: 82.8, d: 95.9, h: 90 }, DEFAULT_SETTINGS, {
+      const r = realizeTray(part, { w: 82.8, d: 97.4, h: 90 }, DEFAULT_SETTINGS, {
         lipped: false,
         level: 0,
       });
@@ -88,15 +88,15 @@ describe("splitRisers: a riser under a stack (spec §3 rule 2)", () => {
       const tray = traySpec({
         key: "a:p0:0",
         w: 82.8,
-        d: 95.9,
+        d: 97.4,
         h: 90,
         wall: r.wall,
         compartments: r.compartments,
       });
       const parts = splitRisers([tray], base());
       const shed = parts.find((t) => t.part === "riser");
-      expect(shed?.h).toBe(20.8);
-      expect(parts.find((t) => t.part === "tray")?.h).toBe(69.2);
+      expect(shed?.h).toBe(19.2);
+      expect(parts.find((t) => t.part === "tray")?.h).toBe(70.8);
     });
   });
 

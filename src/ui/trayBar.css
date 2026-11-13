@@ -84,6 +84,11 @@
   white-space: nowrap;
 }
 
+/* The kinds a tray of several holds, in the ink the facts are not: one more line, only for such a tray. */
+.tray-bar__holds {
+  color: var(--ink);
+}
+
 /* Main's Edit: 16 px of padding at the bar's 14 px type (the kit's 1 px edge makes it 15 here). */
 .tray-bar .tray-bar__edit {
   padding: 0 calc(var(--s-16) - 1px);
@@ -102,6 +107,12 @@
   right: 0;
   bottom: calc(100% + var(--s-6));
   z-index: 30;
+}
+
+/* In an editor's head the menu opens downward, over the form. */
+.tray-more--down .tray-more__panel {
+  top: calc(100% + var(--s-6));
+  bottom: auto;
 }
 
 /* An entry of the menu: its name over the line that says what it does. */

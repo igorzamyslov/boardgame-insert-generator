@@ -11,6 +11,14 @@
 // custom well asks for the full-depth cut with a floor notch now (a piece under 20 mm tall is
 // lifted from beneath, not by the top: pieceCutout in common.ts). Its size and arrangement are
 // as in 0.6; only that part's front-wall cut changed.
+//
+// Every cards, tiles and minis hash was recaptured on purpose (0.26.0, 2026-10-25: comfortable
+// clearances): card wells carry the larger clearances, a sleeved stack springs 10 %, tiles count 5 %
+// thicker, minis' pockets 1 mm roomier. Bits, tokens and custom wells
+// kept their hashes. Orders and arrangements are as before except one: tile columns' upright-c5
+// split3 now puts its two-column trays first and its single column last ([2, 2, 1], was [1, 2, 2]).
+// The three weights tie there, and splitBlocks settles a tie on float noise in the sums of the
+// new (2.1 mm) tile widths: either order is as good.
 import { describe, expect, it } from "vitest";
 import multiBlock from "../../test/fixtures/legacy/multi-block.json";
 import perPlayer from "../../test/fixtures/legacy/per-player.json";

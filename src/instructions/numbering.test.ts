@@ -110,7 +110,10 @@ describe("buildSpecOf", () => {
     const parts = numberParts(list);
     const names = trayNames(parts, []);
     const short = (p: (typeof parts)[number]) => names.get(p.spec.key)?.short;
-    const engraved = parts.map((p) => [p.spec.part, buildSpecOf(p, true, short(p)).partName]);
+    const engraved = parts.map((p) => [
+      p.spec.part,
+      buildSpecOf(p, true, names.get(p.spec.key)).partName,
+    ]);
     expect(engraved).toEqual([
       ["riser", short(parts[0] as (typeof parts)[number])],
       ["tray", short(parts[1] as (typeof parts)[number])],
@@ -123,7 +126,7 @@ describe("buildSpecOf", () => {
     }
     // switched off, without a name, or on a part that has none: the very same spec
     for (const p of parts) {
-      expect(buildSpecOf(p, false, short(p))).toBe(p.spec);
+      expect(buildSpecOf(p, false, names.get(p.spec.key))).toBe(p.spec);
       expect(buildSpecOf(p, true, undefined)).toBe(p.spec);
     }
   });
@@ -305,5 +308,31 @@ describe("numberParts", () => {
       orphan("zz:p0:0:spacer"),
     ]);
     expect(shuffled.map((p) => p.spec.key)).toEqual(parts.map((p) => p.spec.key));
+  });
+});
+
+describe("buildSpecOf: the names it hands the geometry", () => {
+  const part = numberParts([makeTray({ key: "a:p0:0" })])[0] as ReturnType<
+    typeof numberParts
+  >[number];
+
+  it("carries the longer versions and the kind of each well beside the short name", () => {
+    const spec = buildSpecOf(part, true, {
+      short: "Struc",
+      options: ["Structure bonus", "Struc"],
+      wells: ["Oil", ""],
+    });
+    expect(spec).toMatchObject({
+      partName: "Struc",
+      partNames: ["Structure bonus", "Struc"],
+      wellNames: ["Oil", ""],
+    });
+  });
+
+  it("adds nothing that is not there: one version, no kinds", () => {
+    const spec = buildSpecOf(part, true, { short: "Dice", options: ["Dice"], wells: ["", ""] });
+    expect(spec.partName).toBe("Dice");
+    expect("partNames" in spec).toBe(false);
+    expect("wellNames" in spec).toBe(false);
   });
 });

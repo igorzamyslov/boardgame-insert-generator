@@ -66,8 +66,7 @@ const GROUP_COUNTS = "A group's card in the rail says its counts";
 // 0.7.0 Task 10: a group's tray bar and the stage sentence of a split copy
 const GROUP_BAR = "A group's tray bar says its size";
 const SPLIT = "A split copy's stage sentence adds";
-// 0.7.0 Task 11: the group editor (GroupEdit) and its Remove group… question and note
-const GROUP_REMOVE = "Remove group… asks in place";
+// 0.7.0 Task 11: the group editor (GroupEdit) and its removal note
 const GROUP_REMOVED = "A group's removal is one note";
 const GROUP_ORDER = "The order of a group's items is set with";
 /** What a removal's lock notes can say, as sentences: pins, a size lock, or both (the actions' own words). */
@@ -77,13 +76,7 @@ const GROUP_LOCK_NOTES: readonly string[] = (() => {
   return [...pins, ...sizes, ...pins.flatMap((p) => sizes.map((z) => `${p} ${z}`))];
 })();
 /** The group editor's states (copy.board.test.tsx has a case for each; `kit-removed` is the copy test's own). */
-const GROUP_EDITS = [
-  "kit-edit",
-  "kit-remove",
-  "kit-removed",
-  "kit-split-edit",
-  "m-kit-edit",
-] as const;
+const GROUP_EDITS = ["kit-edit", "kit-removed", "kit-split-edit", "m-kit-edit"] as const;
 /** The rail's states and the phone sheet's (copy.board.test.tsx has a case for each). */
 const RAIL = [
   ...KIT_RAIL,
@@ -252,7 +245,10 @@ const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
 const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
 const EDITOR_ROOM_MORE = "Room for more is one row per item, in the contents' terms";
 const RESIZE = "The rail's handle is named";
-const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
+// 0.27.0: Duplicate in an item's editor
+const DUPLICATE = "An item can be duplicated from its editor";
+const EDITOR_REMOVE =
+  "Removing acts at once, with Undo; an upgrade is silent; the old-plan notice speaks of updating";
 const EDITOR_CHANGED = "More options marks what differs from its default";
 const EDITOR_ROOM = "Room around the pieces shows the insert's number and lets the item change it";
 const THIN_WALLS = "Walls' Thin choice is 1.0 mm all through";
@@ -276,8 +272,7 @@ const EDITOR_LABELS: readonly string[] = [
   "Something else",
   // the panel's frame
   "What's inside",
-  "Remove…",
-  "Remove {name}…",
+  "Remove {name}",
   // groups and their choices
   "None",
   "Auto",
@@ -402,20 +397,31 @@ export const SETTINGS_STATES: readonly string[] = [
   ...EXACT_GROUPS.map((g) => `settings-${g.id}`),
 ];
 const SET_FIRST = "Settings' first screen is the board's plain choices";
-const SET_EXACT = "Every setting the board does not show is under Exact numbers";
+const SET_EXACT = "Every number the board does not show is under Exact numbers";
 const SET_PRINTER = "My printer shows another printer on this insert as a row with Apply";
 const SET_DETAILS = "Printer details holds the own bed size, margin and layer height";
 const SET_RISERS = "Settings' first screen also has two riser rows";
 const SET_INTRO = "My printer's intro names the values it covers";
 const SET_PAGES = "Settings is one page and three doors, not three tabs";
 const SET_DISPLAY = "A project opens in the view the person chose: Display";
+const SET_APPEARANCE = "Dark mode: System / Light / Dark in Settings → Display, default System";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
 const SET_GAPS = "Fill the space that's left is one choice of what the engine does with spare room";
+const SET_GAPS_FIRST =
+  "Fill the space that's left and Unused space are on Settings' first screen, not among the Exact numbers";
+const SET_WALLS = "Thicker walls print no separate spacers";
+const PRESSED = "A measured stack is pressed together";
 const SET_KIND = "Rim between layers is one choice: Off, Auto, a rim and groove or a stepped base";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
+  // 0.26.0: the measure hint says the stack is measured pressed together (sizing adds the sleeves' spring).
+  {
+    text: "From the sleeve table. Measure your stack if decks come out tight, with the cards pressed together.",
+    states: "all",
+    ruling: PRESSED,
+  },
   // The phone's tray sheet says the filament where its board says "Printing: about 3.5 h, 58 g".
   { text: "Filament", states: SHEET_STATES, ruling: NO_TIME },
   { text: "about {n} g", states: SHEET_STATES, ruling: NO_TIME },
@@ -427,6 +433,11 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "{projection}, opens in {view}", states: SETTINGS_STATES, ruling: SET_PAGES },
   { text: "Top", states: SETTINGS_STATES, ruling: SET_DISPLAY },
   { text: "3D", states: SETTINGS_STATES, ruling: SET_DISPLAY },
+  { text: "Appearance", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
+  { text: "System", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
+  { text: "Light", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
+  { text: "Dark", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
+  { text: "System follows your device.", states: SETTINGS_STATES, ruling: SET_APPEARANCE },
   { text: "Open plans in", states: SETTINGS_STATES, ruling: SET_DISPLAY },
   { text: "Switching in the plan still works.", states: SETTINGS_STATES, ruling: SET_DISPLAY },
   // Task 14: Settings. The board's words, except where the Words table or the owner rules otherwise.
@@ -434,15 +445,18 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Room around trays and pieces", states: SETTINGS_STATES, ruling: SET_WORDS },
   { text: "Back to on", states: SETTINGS_STATES, ruling: SET_BACK },
   { text: "Back to off", states: SETTINGS_STATES, ruling: SET_BACK },
-  { text: "Spacers and space", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "Unused space", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "Solid block", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "Unused space", states: SETTINGS_STATES, ruling: SET_GAPS_FIRST },
+  { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_GAPS_FIRST },
+  { text: "Solid block", states: SETTINGS_STATES, ruling: SET_GAPS_FIRST },
+  {
+    text: "What a separate spacer is printed as.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS_FIRST,
+  },
   { text: "Fill the space that's left", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "Separate spacers", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "Bigger wells", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "Thicker walls", states: SETTINGS_STATES, ruling: SET_GAPS },
-  { text: "One thick wall", states: SETTINGS_STATES, ruling: SET_GAPS },
   {
     text: "Room left beside a tray is printed as separate spacers.",
     states: SETTINGS_STATES,
@@ -454,18 +468,12 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: SET_GAPS,
   },
   {
-    text: "Instead of a spacer, every wall and divider may get up to {n} mm thicker.",
+    text: "No separate spacers: the walls of the trays around the room take it, the outer walls first. Only room a printer bed cannot take is a spacer.",
     states: SETTINGS_STATES,
-    ruling: SET_GAPS,
-  },
-  {
-    text: "Instead of a spacer, one outer wall in each direction takes up to {n} mm, avoiding walls with a finger cut. A bigger gap still gets a spacer.",
-    states: SETTINGS_STATES,
-    ruling: SET_GAPS,
+    ruling: SET_WALLS,
   },
   { text: "{name} stays upright", states: MINIS_STATES, ruling: UPRIGHT },
   { text: "Never laid on its side", states: MINIS_STATES, ruling: UPRIGHT },
-  { text: "Back to separate spacers", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
   { text: "Thin", states: SETTINGS_STATES, ruling: THIN_WALLS },
   { text: "You set the floor or the dividers below.", states: SETTINGS_STATES, ruling: THIN_WALLS },
@@ -730,10 +738,17 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Doesn't fit", states: FIT_PROBLEMS, ruling: FIT_ROW },
   { text: "Make a new plan", states: ["workspace-banner"], ruling: BANNERS },
   {
-    text: "Trays printed from it won't stack with trays you print now.",
+    text: "Made with an older version of the app.",
     states: ["workspace-older"],
-    ruling: BANNERS,
+    ruling: EDITOR_REMOVE,
   },
+  {
+    text: "Update the plan to get the current tray shapes. Trays already printed from the old plan may not stack with new ones.",
+    states: ["workspace-older"],
+    ruling: EDITOR_REMOVE,
+  },
+  { text: "Update plan", states: ["workspace-older"], ruling: EDITOR_REMOVE },
+  { text: "Update plan to download", states: ["workspace-older"], ruling: EDITOR_REMOVE },
   { text: "Use the old plan", states: ["workspace-older"], ruling: BANNERS },
   { text: "Show all", states: ["workspace-notes"], ruling: NOTES },
   { text: "Warning:", states: ["workspace-notes"], ruling: NOTES },
@@ -1049,36 +1064,13 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     "Fills the room left in {name}'s tray. The tray doesn't get bigger.",
   ].map((text) => ({ text, states: EDITING, ruling: EDITOR_ROOM_MORE })),
   // asking before a removal, and the note after it (it sits in the stage slot, as the option notes do)
-  { text: "Remove “{name}” from the box?", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Remove", states: EDITING, ruling: EDITOR_REMOVE },
-  { text: "Cancel", states: EDITING, ruling: EDITOR_REMOVE },
+  { text: "Duplicate", states: EDITING, ruling: DUPLICATE },
   { text: "Removed “{name}”.", states: ["editor-removed"], ruling: EDITOR_REMOVE },
   { text: "Undo removal", states: ["editor-removed"], ruling: EDITOR_REMOVE },
   { text: "Dismiss", states: ["editor-removed", "kit-removed"], ruling: EDITOR_REMOVE },
-  // Remove group… (spec §7.4, §8): GroupEdit draws the button alone; the app asks, and says what went
-  {
-    text: "Remove the group “{name}”? Its {n} items stay, with {n} copies each.",
-    states: GROUP_EDITS,
-    ruling: GROUP_REMOVE,
-  },
-  {
-    text: "Remove the group “{name}”? Its {n} items stay.",
-    states: GROUP_EDITS,
-    ruling: GROUP_REMOVE,
-  },
-  {
-    text: "Remove the group “{name}”? Its 1 item stays, with {n} copies.",
-    states: GROUP_EDITS,
-    ruling: GROUP_REMOVE,
-  },
-  {
-    text: "Remove the group “{name}”? Its 1 item stays.",
-    states: GROUP_EDITS,
-    ruling: GROUP_REMOVE,
-  },
-  { text: "Remove the group “{name}”?", states: GROUP_EDITS, ruling: GROUP_REMOVE },
-  { text: "Remove group", states: GROUP_EDITS, ruling: GROUP_REMOVE },
-  { text: "Cancel", states: GROUP_EDITS, ruling: GROUP_REMOVE },
+  // Remove group (spec §7.4, §8): it acts at once; the app says what went
+  { text: "Remove group", states: GROUP_EDITS, ruling: EDITOR_REMOVE },
   {
     text: "{name} removed. Its items are back in the list.",
     states: ["kit-removed"],

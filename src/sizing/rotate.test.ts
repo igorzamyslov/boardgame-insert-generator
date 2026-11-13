@@ -9,7 +9,7 @@ import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./typ
 
 // 10 mm of spare stack length: short enough that it becomes a spacer rather than a wall
 // and a pocket, so there is a spacer here to turn.
-const outer: OuterSize = { w: 36.7, d: 95.7, h: 69.2 };
+const outer: OuterSize = { w: 39.23, d: 97.2, h: 70.7 };
 const realized = realizeTray(
   partOf([cards({ separators: 1, room: "max" })], "upright-long|strip|split1"),
   outer,
@@ -20,18 +20,18 @@ const realized = realizeTray(
 describe("rotateRealized", () => {
   it("turns compartments and spacers 90° counter-clockwise into the swapped outer", () => {
     const turned = rotateRealized(realized, outer);
-    expect(at(turned.compartments, 0)).toMatchObject({ x: 1.6, y: 1.6, w: 92.5, d: 33.5 });
+    expect(at(turned.compartments, 0)).toMatchObject({ x: 1.6, y: 1.6, w: 94, d: 36.03 });
     expect(at(turned.compartments, 0).features).toEqual([
-      { type: "wallCutout", side: "front", at: 47.85, width: 25, depth: 34, floorNotch: 0 },
-      { type: "wallCutout", side: "back", at: 47.85, width: 25, depth: 34, floorNotch: 0 },
+      { type: "wallCutout", side: "front", at: 48.6, width: 25, depth: 34.75, floorNotch: 0 },
+      { type: "wallCutout", side: "back", at: 48.6, width: 25, depth: 34.75, floorNotch: 0 },
     ]);
     expect(at(turned.spacers, 0)).toMatchObject({
       x: 1.6,
-      y: 25.1,
-      w: 92.5,
+      y: 27.63,
+      w: 94,
       d: 10,
       z: 1.2,
-      h: 63,
+      h: 64.5,
       rotated: true,
     });
   });

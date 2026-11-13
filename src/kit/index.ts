@@ -9,6 +9,7 @@ export { Dialog, Drawer, type DialogProps } from "./Dialog";
 export { Disclosure, type DisclosureProps } from "./Disclosure";
 export { DisclosureRow, type DisclosureRowProps } from "./DisclosureRow";
 export { Field, type FieldProps } from "./Field";
+export { FitText, useFitFont, type FitTextProps } from "./FitText";
 export {
   CloseButton,
   IconButton,

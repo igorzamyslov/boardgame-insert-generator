@@ -65,6 +65,9 @@ export interface PlacedTray {
   readonly needD: U;
   readonly capW: U;
   readonly capD: U;
+  /** The part of capW / capD that is thicker outer walls (`thickerWalls`), room for no contents. */
+  readonly wallW: U;
+  readonly wallD: U;
 }
 
 export interface PlacedLeftover {
@@ -130,7 +133,7 @@ export function overflowTotal(o: Overflow): U {
  * (a minus what the walls take), cap c (spec §7.2).
  * The excess over F is absorbed into the tray, with no filler part, only when the tray can take
  * it without anyone asking for a filler: room its contents may grow into (an unbounded axis has
- * all of it, a bounded one up to its cap: spec §5), or walls the user let grow (`wallAbsorb`),
+ * all of it, a bounded one up to its cap: spec §5), or walls the user let grow (`thickerWalls`),
  * together a; or when the excess minus the tray gap is too small to be a part at all (under
  * `minFiller`) so there is nowhere else for it to go. Past that the tray grows by g, the room its
  * contents may have, and the rest becomes a leftover (filler) beside it, so with nothing to grow
@@ -298,7 +301,7 @@ function beside(ctx: Ctx, region: Rect, foot: Ext, highX = false, highY = false)
 /**
  * Fills one leaf. A stack level is one tray plus whatever leftover its room has:
  * - the bottom tray takes the leaf footprint minus any leftover; slack the tray can't absorb
- *   (elastic axes, `wallAbsorb`) becomes a leftover strip of any width from ctx.minFiller up
+ *   (elastic axes, `thickerWalls`) becomes a leftover strip of any width from ctx.minFiller up
  *   that stands beside the whole stack, and a gap narrower than that is absorbed by the tray;
  *   bed and size-lock caps force a leftover of at least ctx.minFiller;
  * - tray k ≥ 1 stands flush in the tray below it (its groove takes the lip's place of the
@@ -406,6 +409,8 @@ export function placeStack(
       // From its own minimum: what the stack asks of it is room its growing contents take free
       capW: l.capW + (l.growW > 0 ? Math.max(0, F.w - l.minW) : 0),
       capD: l.capD + (l.growD > 0 ? Math.max(0, F.d - l.minD) : 0),
+      wallW: l.wallW,
+      wallD: l.wallD,
     };
     if (l.fixed) {
       lockOver += Math.max(0, foot.w - l.fixed.w) + Math.max(0, foot.d - l.fixed.d);

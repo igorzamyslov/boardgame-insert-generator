@@ -295,6 +295,15 @@ describe("ExportPanel", () => {
     expect(screen.queryByRole("button", { name: COMBINED })).toBeNull();
   });
 
+  it("keeps the support line once the file has downloaded", async () => {
+    render(<ExportPanel {...props()} />);
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    await screen.findByRole("button", { name: "Back to the plan" });
+    expect(screen.getByText(/^Support this tool/).tagName).toBe("P");
+    expect(screen.getByRole("link", { name: /^Ko-fi/ }).getAttribute("target")).toBe("_blank");
+    expect(screen.getByRole("link", { name: /^PayPal/ }).getAttribute("target")).toBe("_blank");
+  });
+
   it("is done with a Back to the plan, and says the file's name for a screen reader", async () => {
     const p = props();
     render(<ExportPanel {...p} />);

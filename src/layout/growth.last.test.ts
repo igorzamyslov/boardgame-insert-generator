@@ -57,13 +57,16 @@ describe("the context a layout is planned in", () => {
   });
 
   it("still counts thicker walls as room the plan may use: that choice is made in the plan", () => {
-    const withWalls = makeInput([boxReq("rigid", 50, 40, 10)], { settings: { wallAbsorb: 1.6 } });
+    const withWalls = makeInput([boxReq("rigid", 50, 40, 10)], {
+      settings: { thickerWalls: true },
+    });
     const planned = createCtx(withWalls, fakeMeasure, { growth: false }).metrics(
       { req: 0, variant: 0, part: 0 },
       false,
       0,
     );
-    expect(planned.capW).toBe(320);
+    expect(planned.capW).toBeGreaterThan(0);
+    expect(planned.capW).toBe(planned.wallW);
   });
 });
 

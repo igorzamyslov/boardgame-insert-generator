@@ -63,14 +63,14 @@ describe("minisOptions", () => {
     const block = at(standing.blocks, 0);
     expect(block.map((c) => c.contents)).toEqual(["Minis — Hero 1/2", "Minis — Hero 2/2"]);
     const pocket = at(block, 0);
-    expect(pocket).toMatchObject({ kind: "pocket", minW: 26, minD: 26, minH: 41 });
+    expect(pocket).toMatchObject({ kind: "pocket", minW: 27, minD: 27, minH: 42 });
     expect(pocket.elastic).toEqual({ w: false, d: false, h: false });
     expect(pocket.features).toEqual([
       { type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false },
       { type: "wallCutout", side: "back", depthFraction: 0.5, floorNotch: false },
     ]);
     // 25 × 25 × 40 on its side: as high as it is wide
-    expect(at(at(at(options, 1).blocks, 0), 0)).toMatchObject({ minW: 41, minD: 26, minH: 26 });
+    expect(at(at(at(options, 1).blocks, 0), 0)).toMatchObject({ minW: 42, minD: 27, minH: 27 });
   });
 
   describe("a short figure: a full-depth cut with a floor notch, front and back", () => {
@@ -228,7 +228,7 @@ describe("any side, any turn", () => {
     const { options } = minisOptions(c, s);
     expect(options.map((o) => o.id)).toContain("flat");
     const standing = at(at(at(options, 0).blocks, 0), 0);
-    expect(standing).toMatchObject({ minW: 34, minD: 102, minH: 42 });
+    expect(standing).toMatchObject({ minW: 35, minD: 103, minH: 43 });
     const flat = at(
       at(
         at(
@@ -239,7 +239,7 @@ describe("any side, any turn", () => {
       ),
       0,
     );
-    expect(flat).toMatchObject({ minW: 42, minD: 102, minH: 34 });
+    expect(flat).toMatchObject({ minW: 43, minD: 103, minH: 35 });
     expect(trayVolume(c)).toBeLessThan(trayVolume(c, "standing"));
   });
 
@@ -247,7 +247,7 @@ describe("any side, any turn", () => {
     const { options } = minisOptions(minis({ figures: [{ ...airship, keepUpright: true }] }), s);
     expect(options.map((o) => o.id)).toEqual(["standing", "standing-turned"]);
     for (const o of options) {
-      expect(at(at(o.blocks, 0), 0).minH).toBe(42);
+      expect(at(at(o.blocks, 0), 0).minH).toBe(43);
     }
   });
 
@@ -265,8 +265,8 @@ describe("any side, any turn", () => {
       options.filter((o) => o.id === "lying"),
       0,
     );
-    expect(at(at(lying.blocks, 0), 0).minH).toBe(42);
-    expect(at(at(lying.blocks, 1), 0).minH).toBe(26);
+    expect(at(at(lying.blocks, 0), 0).minH).toBe(43);
+    expect(at(at(lying.blocks, 1), 0).minH).toBe(27);
   });
 
   it("turns pockets in plan by itself: a turned option swaps w and d", () => {

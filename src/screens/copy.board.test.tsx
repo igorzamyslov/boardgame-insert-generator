@@ -411,17 +411,16 @@ const CASES: readonly Case[] = [
     state: "settings-search",
     board: "Settings",
     region: "drawer",
-    steps: searchSettings("unused"),
+    steps: searchSettings("clearance"),
   },
   { state: "settings-nomatch", board: "Settings", region: "drawer", steps: searchSettings("zzzz") },
   {
-    // Fill the space that's left on Thicker walls: its hint, the thickness box and the way back
+    // Fill the space that's left on Thicker walls: its hint, with no number under it
     state: "settings-spacers-walls",
     board: "Settings",
     region: "drawer",
     steps: () => {
-      openNumbers();
-      inDrawer(/^Spacers and space/);
+      openSettings();
       inDrawer("Thicker walls");
     },
   },
@@ -466,6 +465,8 @@ const CASES: readonly Case[] = [
   {
     state: "exporting-done",
     board: "Exporting",
+    // the support line is the Download dialog's
+    also: "Export",
     region: "dialog",
     steps: async () => {
       startBuild();
@@ -632,7 +633,6 @@ const CASES: readonly Case[] = [
     region: "plan",
     steps: () => {
       editRow(/^Market deck, /)();
-      fireEvent.click(screen.getByRole("button", { name: "Remove Market deck…" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove Market deck" }));
     },
   },
@@ -650,7 +650,7 @@ const CASES: readonly Case[] = [
     phone: true,
     steps: editMore(/^Heroes, /),
   },
-  // 0.7.0 Task 11: GroupEdit's editor (rail and stage), its Remove group… question, the toast of
+  // 0.7.0 Task 11: GroupEdit's editor (rail and stage), its removal, the toast of
   // a removal (the copy test's own state), and the phone's sheet (no board draws it: MobileEdit)
   {
     state: "kit-edit",
@@ -669,23 +669,12 @@ const CASES: readonly Case[] = [
     steps: editRow(/^Player kit, /),
   },
   {
-    state: "kit-remove",
-    board: "GroupEdit",
-    region: "rail",
-    seed: "harbour-kings-kit",
-    steps: () => {
-      editRow(/^Player kit, /)();
-      fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
-    },
-  },
-  {
     state: "kit-removed",
     board: "GroupEdit",
     region: "plan",
     seed: "harbour-kings-kit",
     steps: () => {
       editRow(/^Player kit, /)();
-      fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove group" }));
     },
   },

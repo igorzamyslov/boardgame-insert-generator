@@ -1,4 +1,5 @@
 // src/app/App.tsx
+import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
@@ -55,6 +56,8 @@ import { SettingsSheet, settingsPageFor } from "../ui/SettingsSheet";
 import type { SettingsPage } from "../ui/SettingsSheet";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
+import { TrayMore } from "../ui/TrayBar";
+import { trayEdits } from "../ui/trayActions";
 import { componentIdsOfTray, mm } from "../ui/identity";
 import { misfitOf, namedConflicts } from "../ui/noFit";
 import { volumeNote } from "../ui/volumeFit";
@@ -71,6 +74,7 @@ import {
   addComponent,
   addGroup,
   clearChoices,
+  duplicateComponent,
   freeTurn,
   lockedKeys,
   moveToGroup,
@@ -382,6 +386,38 @@ export function App(props: AppProps) {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [store]);
+
+  // Escape closes the open item or group editor wherever the focus is (the plan, the 3D canvas,
+  // the page itself), not only inside the editor: one window listener while an editor is open
+  // (DESIGN decision log, 0.28.3). It runs after every inner handler, so it takes only an Escape
+  // nobody took: a menu, a drag or a pick that ended (they preventDefault), a select's list, a
+  // dialog, a text field (the project name reverts on it).
+  const editorOpen = editingId !== null || editingGroupId !== null;
+  // Raised by that listener: the editor closes as its Done does, the focus back on its row.
+  const [closeRequest, setCloseRequest] = useState(0);
+  useEffect(() => {
+    if (!editorOpen) {
+      return;
+    }
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (
+        e.key !== "Escape" ||
+        e.defaultPrevented ||
+        e.isComposing ||
+        hasNativeUndo(e.target) ||
+        modalIsOpen(document)
+      ) {
+        return;
+      }
+      e.preventDefault();
+      setCloseRequest((n) => n + 1);
+    };
+    // On the window: after every document listener, such as the project menu's own Escape.
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [editorOpen]);
 
   const download = props.download ?? downloadBlob;
 
@@ -827,6 +863,55 @@ export function App(props: AppProps) {
       return notes;
     },
   };
+  // Duplicate in an item's editor: the copy is added below the item (one undo step) and opens.
+  const duplicateItem = (id: string): void => {
+    let copyId: string | null = null;
+    store.edit((q) => {
+      const made = duplicateComponent(q, id);
+      copyId = made.copyId;
+      return made.project;
+    });
+    const copy = store.state.project.peek().components.find((c) => c.id === copyId);
+    if (copy !== undefined) {
+      setEditingId(copy.id);
+      sayNotes([`Added “${copy.name}”.`]);
+    }
+  };
+  // A Swap or a Put on begun from an item's editor leaves the editor: the other tray is picked on
+  // the plan (or in 3D), with the tray's dock showing, as when the tray itself was selected.
+  const startPick = (key: string, mode: "swap" | "putOn"): void => {
+    setEditingId(null);
+    setEditingGroupId(null);
+    s.selection.value = key;
+    s.pickMode.value = mode;
+    s.swapFrom.value = key;
+    if (phone) {
+      setSheetOpen(false);
+    }
+  };
+  // The placement menu of an item's editor: the dock's ⋯, for an item with one tray to place.
+  const placementOf = (id: string): ComponentChildren => {
+    const mine = layout
+      ? printable.filter(
+          (t) => t.part === "tray" && componentIdsOfTray(t, project.components).includes(id),
+        )
+      : [];
+    const tray = mine[0];
+    if (tray === undefined || mine.length !== 1) {
+      return null;
+    }
+    return (
+      <TrayMore
+        project={project}
+        foreign={s.foreign.value}
+        tray={tray}
+        opens="down"
+        {...trayEdits(project, tray.key, store.edit)}
+        onSwap={() => startPick(tray.key, "swap")}
+        onPutOn={() => startPick(tray.key, "putOn")}
+      />
+    );
+  };
   // What's inside: the rail's list (the sheet's, on a phone), or a component's editor in its place.
   const whatsInside = (
     <WhatsInside
@@ -841,6 +926,7 @@ export function App(props: AppProps) {
         }
       }}
       openGroupId={editingGroupId}
+      closeRequest={closeRequest}
       onOpenGroupChange={(id) => {
         setEditingGroupId(id);
         if (id !== null) {
@@ -851,6 +937,8 @@ export function App(props: AppProps) {
       }}
       groupActions={groupActions}
       itemActions={itemActions}
+      onDuplicate={duplicateItem}
+      placementOf={placementOf}
       trays={listTrays}
       locks={project.locks}
       groups={project.groups}
@@ -1011,7 +1099,7 @@ export function App(props: AppProps) {
                     : undefined
         }
         // A blocked Download pressed while the old plan is kept brings its banner back:
-        // Reprint everything is the way out, and the person asked where it is.
+        // Update plan is the way out, and the person asked where it is.
         onBlockedDownload={() => {
           if (s.geometryOld.value && geometryKept !== null) {
             setGeometryKept(null);
@@ -1413,8 +1501,10 @@ export function App(props: AppProps) {
                         tapHint: true,
                         onSelect: pickIn3d,
                         onEscape: () => {
+                          const picking = s.swapFrom.value !== null;
                           s.swapFrom.value = null;
                           setPickNote(null);
+                          return picking;
                         },
                         ...props.viewerProps,
                       },

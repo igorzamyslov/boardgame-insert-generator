@@ -1,6 +1,7 @@
 // src/main.tsx
 import { render } from "preact";
 import { App } from "./app/App";
+import { startTheme } from "./ui/theme";
 import { loadGeometryClient, loadLayoutClient } from "./app/clients";
 import { createMeshSource } from "./app/meshes";
 import { connectWindow, createAppStore } from "./app/store";
@@ -15,6 +16,8 @@ import "./screens/header.css";
 import "./screens/rail.css";
 import "./screens/stage.css";
 import "./screens/firstVisit.css";
+
+startTheme();
 
 const store = createAppStore({
   projectStore: createProjectStore(),

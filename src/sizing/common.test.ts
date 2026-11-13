@@ -101,7 +101,7 @@ describe("componentIsValid", () => {
 
 describe("mainClearance", () => {
   it("is cardClearance × fit for cards and pieceClearance × fit otherwise", () => {
-    expect(mainClearance(cards(), { ...s, fit: 1.4 })).toBeCloseTo(2.1, 9);
+    expect(mainClearance(cards(), { ...s, fit: 1.4 })).toBeCloseTo(4.2, 9);
     expect(mainClearance(custom(), { ...s, fit: 0.7 })).toBeCloseTo(0.7, 9);
   });
 

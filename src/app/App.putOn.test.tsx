@@ -1,7 +1,8 @@
 // src/app/App.putOn.test.tsx
 // @vitest-environment jsdom
 // Put on… (0.15.0): More's item, the plan's prompt, the stack lock it writes (no pin), the dry run's
-// refusals in the pill, and the rail's "On <base>" chip with its ×.
+// refusals in the pill, and the rail's "On <base>" chip with its ×. The base is the Event cards: with
+// 0.26.0's roomier card wells the Market deck stack no longer fits on the Dice tray.
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
@@ -55,18 +56,18 @@ describe("Put on…", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "More about this tray" }));
     expect(store.canUndo.peek()).toBe(false);
-    press(/^Dice/);
+    press(/^Event cards/);
     const locks = store.state.project.value.locks;
     expect(locks.filter((l) => l.kind === "position")).toEqual([]);
     const stack = locks.find((l) => l.kind === "stack");
     expect(stack?.kind === "stack" ? stack.trayKeys.slice(-2) : []).toEqual([
-      key("Dice"),
+      key("Event cards"),
       key("Market deck"),
     ]);
     // done: the prompt is gone and the tray stays selected
     expect(screen.queryByText(/Pick the tray to put/)).toBeNull();
     expect(store.state.swapFrom.value).toBeNull();
-    expect(within(rail()).getByText("On Dice")).toBeTruthy();
+    expect(within(rail()).getByText("On Event cards")).toBeTruthy();
     expect(
       within(rail()).getByText("Trays put on another stay on it when the plan updates."),
     ).toBeTruthy();
@@ -76,13 +77,15 @@ describe("Put on…", () => {
   it("takes the tray off with the chip's ×, and Undo puts it back", () => {
     const { store } = seeded();
     putOn(/^Market deck/);
-    press(/^Dice/);
+    press(/^Event cards/);
     const locks = store.state.project.value.locks;
     // edits within a moment of each other are one step: the person's click comes later than that
     vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
-    fireEvent.click(within(rail()).getByRole("button", { name: "Take Market deck off Dice" }));
+    fireEvent.click(
+      within(rail()).getByRole("button", { name: "Take Market deck off Event cards" }),
+    );
     expect(store.state.project.value.locks).toEqual([]);
-    expect(within(rail()).queryByText("On Dice")).toBeNull();
+    expect(within(rail()).queryByText("On Event cards")).toBeNull();
     act(() => store.undo());
     expect(store.state.project.value.locks).toEqual(locks);
   });
@@ -147,7 +150,7 @@ describe("Put on…", () => {
       project,
       overrides: { viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(factory) } },
     });
-    const dice = project.components.find((c) => c.name === "Dice");
+    const dice = project.components.find((c) => c.name === "Event cards");
     press(/^Market deck/);
     fireEvent.click(
       within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "3D" }),

@@ -37,33 +37,27 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
   "lip/stepHeight": (s, v) => ({ ...s, lip: { ...s.lip, stepHeight: v } }),
   topPressFit: (s, v) => ({ ...s, topPressFit: v }),
   packingFactor: (s, v) => ({ ...s, packingFactor: v }),
-  wallAbsorb: (s, v) => ({ ...s, wallAbsorb: v }),
   infill: (s, v) => ({ ...s, infill: v }),
   playLimit: (s, v) => ({ ...s, playLimit: v }),
   minRiser: (s, v) => ({ ...s, minRiser: v }),
 };
 
 /**
- * What happens to the room that is left beside the trays (the engine's three ways to take it,
- * `biggerWells`, `wallAbsorb` and `oneWall`, and the default of none): it is printed as separate
- * spacers, goes into the wells, or the walls take it. They are one choice, because each replaces
- * the others while it is on.
+ * What happens to the room that is left beside the trays (the engine's two ways to take it,
+ * `biggerWells` and `thickerWalls`, and the default of none): it is printed as separate spacers,
+ * goes into the wells, or the walls take it. They are one choice, because each replaces the other
+ * while it is on.
  */
-export type SpareRoom = "spacer" | "wells" | "walls" | "one";
-
-/** What `wallAbsorb` starts at when "Thicker walls" is picked and none was set (mm; its range is 0 to 3). */
-export const STARTING_WALL_ABSORB = 1;
+export type SpareRoom = "spacer" | "wells" | "walls";
 
 export function spareRoomOf(s: Settings): SpareRoom {
-  return s.biggerWells ? "wells" : s.oneWall ? "one" : s.wallAbsorb !== 0 ? "walls" : "spacer";
+  return s.biggerWells ? "wells" : s.thickerWalls ? "walls" : "spacer";
 }
 
 /**
- * The settings with `choice`: separate spacers set all three to their defaults (no bigger wells, no
- * thicker walls, not one thick wall); bigger wells turn that on and one thick wall off (the wall
- * thickness stays in the file, as with one thick wall); thicker walls start at 1 mm unless an amount was set (they stay in the file while
- * one thick wall is chosen, which ignores them, so going back to thicker walls finds them again);
- * one thick wall turns that setting on.
+ * The settings with `choice`: separate spacers set both to their defaults (no bigger wells, no
+ * thicker walls); bigger wells turn that on and thicker walls off; thicker walls the other way
+ * round.
  */
 export function applySpareRoom(s: Settings, choice: SpareRoom): Settings {
   switch (choice) {
@@ -71,20 +65,12 @@ export function applySpareRoom(s: Settings, choice: SpareRoom): Settings {
       return {
         ...s,
         biggerWells: DEFAULT_SETTINGS.biggerWells,
-        oneWall: DEFAULT_SETTINGS.oneWall,
-        wallAbsorb: DEFAULT_SETTINGS.wallAbsorb,
+        thickerWalls: DEFAULT_SETTINGS.thickerWalls,
       };
     case "wells":
-      return { ...s, biggerWells: true, oneWall: false };
+      return { ...s, biggerWells: true, thickerWalls: false };
     case "walls":
-      return {
-        ...s,
-        biggerWells: false,
-        oneWall: false,
-        wallAbsorb: s.wallAbsorb !== 0 ? s.wallAbsorb : STARTING_WALL_ABSORB,
-      };
-    case "one":
-      return { ...s, biggerWells: false, oneWall: true };
+      return { ...s, biggerWells: false, thickerWalls: true };
   }
 }
 
@@ -114,8 +100,8 @@ function leavesDiffer(a: unknown, b: unknown, path = ""): string[] {
 /** The two numbers the "Room for fingers" switch writes: they are one setting to the person. */
 const FINGER_ROOM_LEAVES = ["fingerPocket/wallRoom", "fingerPocket/dividerRoom"];
 
-/** The three settings the "Fill the space that's left" choice writes: one setting to the person. */
-const SPARE_ROOM_LEAVES = ["wallAbsorb", "oneWall", "biggerWells"];
+/** The two settings the "Fill the space that's left" choice writes: one setting to the person. */
+const SPARE_ROOM_LEAVES = ["thickerWalls", "biggerWells"];
 
 /**
  * The settings the "My printer" tab draws (the printing options); every other one is on "This
@@ -126,7 +112,7 @@ const PRINTER_TAB_LEAVES = ["engraveNames", "mergeFillers"];
 /**
  * The settings that differ from their defaults, each one as the sheet draws it: a number, a choice
  * or a switch is one, "Room for fingers" is one though its switch writes two numbers, and so is
- * "Fill the space that's left" though its choice writes three settings.
+ * "Fill the space that's left" though its choice writes two settings.
  */
 function changedSettings(s: Settings): string[] {
   const leaves = leavesDiffer(s, DEFAULT_SETTINGS);

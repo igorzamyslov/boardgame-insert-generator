@@ -69,7 +69,7 @@ const SCENARIOS: { name: string; component: Component; changed: OptionId[] }[] =
       cornerReliefs: true,
       thickness: { mode: "preset", scale: 1.1 },
       copies: 4,
-      clearance: 3,
+      clearance: 4,
     }),
     changed: [
       "room",
@@ -171,7 +171,7 @@ describe("changedOptions", () => {
       separators: 0,
       dividers: 0,
       thickness: { mode: "preset", scale: 1 },
-      clearance: 1.5,
+      clearance: 3,
     });
     expect([...changedOptions(cards, DEFAULT_SETTINGS)]).toEqual([]);
     expect(optionsChanged(cards, DEFAULT_SETTINGS)).toBe(0);
@@ -186,7 +186,7 @@ describe("changedOptions", () => {
     expect(changedOptions(bulk, DEFAULT_SETTINGS).has("clearance")).toBe(false);
     // at Fit 2 the insert gives 2 mm, so 1 mm is the item's own
     expect(changedOptions(bulk, { ...DEFAULT_SETTINGS, fit: 2 }).has("clearance")).toBe(true);
-    expect(changedOptions(of("cards", { clearance: 1 }), DEFAULT_SETTINGS).has("clearance")).toBe(
+    expect(changedOptions(of("cards", { clearance: 1.5 }), DEFAULT_SETTINGS).has("clearance")).toBe(
       true,
     );
   });
@@ -225,7 +225,7 @@ describe("changedOptions", () => {
       separators: 2,
       thickness: { mode: "preset", scale: 1.1 },
       copies: 4,
-      clearance: 3,
+      clearance: 4,
     });
     // Shape: storage, finger cuts, corner holes, spacer plates
     expect(changedIn("shape", cards, DEFAULT_SETTINGS)).toBe(4);
@@ -277,12 +277,10 @@ describe("groupSummary: what a row of Tray settings holds, in its line", () => {
   });
 
   it("Room says the room for more, then the room around", () => {
-    expect(groupSummary("room", of("cards"), s)).toBe("1.5 mm around");
-    expect(groupSummary("room", of("cards", { room: 20 }), s)).toBe(
-      "20 more cards · 1.5 mm around",
-    );
+    expect(groupSummary("room", of("cards"), s)).toBe("3 mm around");
+    expect(groupSummary("room", of("cards", { room: 20 }), s)).toBe("20 more cards · 3 mm around");
     expect(groupSummary("room", of("cards", { room: "max" }), s)).toMatch(
-      /, as much as fits · 1\.5 mm around$/,
+      /, as much as fits · 3 mm around$/,
     );
     expect(groupSummary("room", of("bulk", { room: 20 }), s)).toBe("20% more pieces · 1 mm around");
     expect(groupSummary("room", of("bulk", { clearance: 2.5 }), s)).toBe("2.5 mm around");
@@ -354,7 +352,7 @@ describe("Tray settings: the way back, and what a row says changed", () => {
         separators: 2,
         thickness: { mode: "preset", scale: 1.1 },
         copies: 4,
-        clearance: 3,
+        clearance: 4,
       }),
     );
     expect(backs().map((b) => b.textContent)).toEqual(
@@ -367,7 +365,7 @@ describe("Tray settings: the way back, and what a row says changed", () => {
         "Back to 0",
         "Back to the sleeve table",
         "Back to 1",
-        "Back to 1.5",
+        "Back to 3",
       ]),
     );
     expect(document.body.textContent).not.toMatch(/is the default/);

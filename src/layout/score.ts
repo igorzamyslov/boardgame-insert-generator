@@ -96,7 +96,7 @@ export interface Score {
  *   one tray more than a whole one       =           300 000 (groups spec §6.3)
  * and two are preferences only:
  *   one part turned unlike its siblings  =            15 000
- *   one extra stack, or tray between     =            10 000
+ *   one extra stack, or tray between     =            18 000
  * and one for the loose pieces a person places by hand (spec §6, lever 2):
  *   one filler part (on top of `trays`)  =             20 000
  * and two preferences about how a stack and its fillers look (spec §6.4):
@@ -147,9 +147,13 @@ export const WEIGHTS: Readonly<ScoreTerms> = {
   // other tray between its parts). Both stay under `trays` (20 000, one filler to place by hand)
   // and `stacked` (50 000), so neither ever buys a filler or a stacked tray, far under `access`
   // (200 000, a buried "often" tray) and above `moved` (5 000) so a warm start can still be
-  // regrouped.
+  // regrouped. `scattered` is above two moved trays (10 000): regrouping an item with another tray
+  // standing between its trays moves two trays (the other goes out, one comes in), so a plan opened
+  // again and searched on (what the app does) must be able to pay it (owner, 2026-11-01: the
+  // Starter trays of Star Realms stayed split by the Counter tray after a change of settings; at
+  // 10 000 the regrouping was a tie and the search never took it).
   unturned: 15_000,
-  scattered: 10_000,
+  scattered: 18_000,
   // A filler is a loose piece to place by hand ("the less fillers I have to put manually, the
   // better"), so on top of the 20 000 every part costs it costs 20 000 of its own: twice a tray,
   // 40 000 in all. That is under `stacked` (50 000), so avoiding a filler never buys a stacked
@@ -216,9 +220,9 @@ const SEAL_REACH_U: U = toU(SEAL_REACH_MM);
  * waste (`usable`). Flush stacking costs an equal tray above nothing (it stands in the tray's own
  * footprint, whatever the lip).
  */
-function swollenOf(ctx: Ctx, t: PlacedTray): [U, U] {
-  const usableW = Math.min(t.w, t.minW + Math.max(0, t.capW - ctx.oneWallCap));
-  const usableD = Math.min(t.d, t.minD + Math.max(0, t.capD - ctx.oneWallCap));
+function swollenOf(t: PlacedTray): [U, U] {
+  const usableW = Math.min(t.w, t.minW + Math.max(0, t.capW - t.wallW));
+  const usableD = Math.min(t.d, t.minD + Math.max(0, t.capD - t.wallD));
   const axis = (own: U, need: U, size: U, usable: U): U =>
     Math.max(0, Math.min(size - usable, need - own)) / 2;
   return [axis(t.minW, t.needW, t.w, usableW), axis(t.minD, t.needD, t.d, usableD)];
@@ -241,7 +245,7 @@ function swollenTotal(ctx: Ctx, trays: readonly PlacedTray[]): number {
     if ((oftenAbove.get(t.stack) ?? -1) > t.level) {
       continue;
     }
-    const [w, d] = swollenOf(ctx, t);
+    const [w, d] = swollenOf(t);
     total += Math.min(SWOLLEN_CAP_MM, w / 100) ** 2 + Math.min(SWOLLEN_CAP_MM, d / 100) ** 2;
   }
   return Math.round(total);
@@ -346,8 +350,8 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
       hi: Math.max(at.hi, t.level),
       n: at.n + 1,
     });
-    const usableW = Math.min(t.w, t.minW + Math.max(0, t.capW - ctx.oneWallCap));
-    const usableD = Math.min(t.d, t.minD + Math.max(0, t.capD - ctx.oneWallCap));
+    const usableW = Math.min(t.w, t.minW + Math.max(0, t.capW - t.wallW));
+    const usableD = Math.min(t.d, t.minD + Math.max(0, t.capD - t.wallD));
     leftoverMm3 += volMm3(t.w, t.d, t.h) - volMm3(usableW, usableD, t.h);
     filamentMm3 += shell(ctx, t.w, t.d, t.h);
     const r = ctx.input.requirements[t.item.req];

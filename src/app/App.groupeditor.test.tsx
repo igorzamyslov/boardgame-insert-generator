@@ -2,7 +2,7 @@
 // @vitest-environment jsdom
 // The group editor (0.7.0 Task 11, G2): it opens from the card's header, the tray bar's Edit and the
 // status heading's "Edit <group>"; Copies, access and the order of the items are one undo step each;
-// Remove group… asks in place and is one step with its note and Undo removal.
+// Remove group acts at once and is one step with its note and Undo removal.
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
@@ -33,11 +33,6 @@ const names = (store: ReturnType<typeof renderApp>["store"]): string[] => {
     (id) => p.components.find((c) => c.id === id)?.name ?? "?",
   );
 };
-/** The timers of a moment (the focus a button hands on is set after the render). */
-const later = (): Promise<void> =>
-  act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  });
 const toast = (): string => document.querySelector(".removed-toast")?.textContent ?? "";
 const said = (): string => document.querySelector('[data-live="rail"]')?.textContent ?? "";
 
@@ -161,7 +156,7 @@ describe("what the editor shows", () => {
         .getAllByRole("listitem")
         .map((li) => li.querySelector(".ed-order__name")?.textContent),
     ).toEqual(["Starter deck", "Resources", "Hero"]);
-    expect(within(panel).getByRole("button", { name: "Remove group…" })).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "Remove group" })).toBeTruthy();
     // owner's ruling O2: the group's Extra room is not built, and leaves no placeholder
     expect(document.body.textContent).not.toMatch(/Extra room/);
   });
@@ -298,29 +293,20 @@ describe("the order in the tray", () => {
   });
 });
 
-describe("Remove group…", () => {
-  const ask = (): void => {
-    openFromCard();
-    fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
-  };
-
-  it("asks in place, naming what stays, and Cancel changes nothing", async () => {
+describe("Remove group", () => {
+  it("acts at once: no question, the card is gone, and Undo is on offer", () => {
     const { store } = renderApp({ project: kit() });
-    ask();
-    await later();
-    expect(
-      screen.getByText("Remove the group “Player kit”? Its 3 items stay, with 4 copies each."),
-    ).toBeTruthy();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    await later();
-    expect(store.state.project.value.groups).toHaveLength(1);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove group…" }));
+    openFromCard();
+    fireEvent.click(screen.getByRole("button", { name: "Remove group" }));
+    expect(screen.queryByText(/Remove the group/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(store.state.project.value.groups ?? []).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Undo removal" })).toBeTruthy();
   });
 
   it("is one undo step: each item has the group's copies, the card is gone, and the toast says so", () => {
     const { store } = renderApp({ project: kit() });
-    ask();
+    openFromCard();
     fireEvent.click(screen.getByRole("button", { name: "Remove group" }));
     const p = store.state.project.value;
     expect(p.groups ?? []).toHaveLength(0);
@@ -358,24 +344,12 @@ describe("Remove group…", () => {
         ],
       },
     });
-    ask();
+    openFromCard();
     fireEvent.click(screen.getByRole("button", { name: "Remove group" }));
     expect(store.state.project.value.locks).toHaveLength(0);
     expect(toast()).toContain(
       "Player kit removed. Its items are back in the list. 2 pins removed.",
     );
-  });
-
-  it("asks without the copies when the group has one", () => {
-    const base = kit();
-    const group = base.groups?.[0];
-    if (group === undefined) {
-      throw new Error("the kit seed has a group");
-    }
-    renderApp({ project: { ...base, groups: [{ ...group, copies: 1 }] } });
-    fireEvent.click(within(rail()).getByRole("button", { name: "Edit Player kit" }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
-    expect(screen.getByText("Remove the group “Player kit”? Its 3 items stay.")).toBeTruthy();
   });
 });
 

@@ -33,12 +33,17 @@ function solid(mesh: Mesh): Manifold {
   );
 }
 
+// The file was made with the old Standard card clearances (1.5 and 1 mm); the defaults are now 3 and
+// 2 mm (schema 0.4.0 migrates them). This test is about the joint, not card sizing, so it keeps the
+// old numbers in its own copy of the settings.
+const OLD_CLEARANCES = { cardClearance: 1.5, cardStackClearance: 1 };
+
 function owner(): Project {
   const parsed = parseProject(owner5);
   if (!parsed.ok) {
     throw new Error(parsed.error);
   }
-  return parsed.project;
+  return { ...parsed.project, settings: { ...parsed.project.settings, ...OLD_CLEARANCES } };
 }
 
 function stored(p: Project): TraySpec[] {

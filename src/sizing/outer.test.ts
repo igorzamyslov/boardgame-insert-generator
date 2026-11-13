@@ -85,8 +85,8 @@ describe("rowsOf", () => {
 
 describe("minOuter", () => {
   it("adds walls and floor around one upright deck", () => {
-    // inner 23.50 × 92.50, content 68 → 26.7 × 95.7 × 69.2
-    expect(minOuter(single, s, ground)).toEqual({ w: 26.7, d: 95.7, h: 69.2 });
+    // inner 26.03 × 94, content 69.5 → 29.23 × 97.2 × 70.7
+    expect(minOuter(single, s, ground)).toEqual({ w: 29.23, d: 97.2, h: 70.7 });
   });
 
   it("leaves room for the bottom chamfer c: w, d ≥ 2·(c + 0.8) and h ≥ c + 0.8", () => {
@@ -104,10 +104,10 @@ describe("minOuter", () => {
         "flat-c1|strip|split1",
         cfg,
       );
-    // A 1 mm tile and 0.9 mm walls: 2.8 × 2.8 × 2.2 at the default 0.4 mm chamfer (its cutouts
-    // need no room of their own).
+    // A 1 mm tile (counted 1.05 mm) and 0.9 mm walls: 2.8 × 2.8 × 2.25 at the default 0.4 mm
+    // chamfer (its cutouts need no room of their own).
     const narrow: Settings = { ...s, wall: 0.9 };
-    expect(minOuter(pip(1, narrow), narrow, ground)).toEqual({ w: 2.8, d: 2.8, h: 2.2 });
+    expect(minOuter(pip(1, narrow), narrow, ground)).toEqual({ w: 2.8, d: 2.8, h: 2.25 });
     // minOuter is plain arithmetic: a 3 mm chamfer on 0.9 mm walls is invalid for size() (settingsValid)
     // but still gives the chamfer minimums.
     const steep = { ...narrow, bottomChamfer: 3 };
@@ -141,21 +141,21 @@ describe("minOuter", () => {
   });
 
   it("uses the lipped wall on a tray that carries a lip", () => {
-    expect(minOuter(single, s, { lipped: true, level: 0 })).toEqual({ w: 29.3, d: 98.3, h: 69.2 });
+    expect(minOuter(single, s, { lipped: true, level: 0 })).toEqual({ w: 31.83, d: 99.8, h: 70.7 });
   });
 
   it("puts dividers between decks in a strip and between rows in rows2", () => {
-    // 23.50 + 1.2 + 13.98 = 38.68 inner
+    // 26.03 + 1.2 + 15.86 = 43.09 inner
     expect(minOuter(partOf(twoDecks, "upright-long|strip|split1"), s, ground)).toEqual({
-      w: 41.88,
-      d: 95.7,
-      h: 69.2,
+      w: 46.29,
+      d: 97.2,
+      h: 70.7,
     });
-    // rows: 92.5 + 1.2 + 92.5 = 186.2 inner
+    // rows: 94 + 1.2 + 94 = 189.2 inner
     expect(minOuter(partOf(twoDecks, "upright-long|rows2|split1"), s, ground)).toEqual({
-      w: 26.7,
-      d: 189.4,
-      h: 69.2,
+      w: 29.23,
+      d: 192.4,
+      h: 70.7,
     });
   });
 
@@ -169,7 +169,7 @@ describe("minOuter", () => {
       [cards({ sleeve: "none", decks: [{ name: "Solo", count: 1 }] })],
       "upright-long|strip|split1",
     );
-    expect(minOuter(solo, s, ground)).toEqual({ w: 4.53, d: 92.7, h: 66.2 });
+    expect(minOuter(solo, s, ground)).toEqual({ w: 5.53, d: 94.2, h: 67.7 });
   });
 
   it("gives sleeved Tarot cards a low flat tray next to the tall upright one", () => {
@@ -182,14 +182,14 @@ describe("minOuter", () => {
       }),
     ];
     expect(minOuter(partOf(tarot, "upright-long|strip|split1"), s, ground)).toEqual({
-      w: 38.81,
-      d: 127.7,
-      h: 75.7,
+      w: 42.16,
+      d: 129.2,
+      h: 77.2,
     });
     expect(minOuter(partOf(tarot, "flat|strip|split1"), s, ground)).toEqual({
-      w: 77.7,
-      d: 127.7,
-      h: 36.81,
+      w: 79.2,
+      d: 129.2,
+      h: 40.16,
     });
   });
 
@@ -225,7 +225,8 @@ describe("minOuter", () => {
     expect(minOuter(board, s, upper).h).toBe(3.65);
     expect(minOuter(board, s, ground).h).toBe(3.2);
     const pawn = partOf(
-      [minis({ figures: [{ name: "Pawn", w: 20, d: 20, h: 1, count: 1 }] })],
+      // no clearance: the pocket is as short as the groove allows (the default adds 2 mm)
+      [minis({ clearance: 0, figures: [{ name: "Pawn", w: 20, d: 20, h: 1, count: 1 }] })],
       "standing|strip|split1",
     );
     expect(minOuter(pawn, s, upper).h).toBe(3.65);
@@ -236,7 +237,7 @@ describe("minOuter", () => {
 
   it("never goes below MIN_WALL_MM walls and 0.8 mm dividers and floors", () => {
     const flimsy = { ...s, wall: 0.5, divider: 0.3, floor: 0.4 };
-    expect(minOuter(single, flimsy, ground)).toEqual({ w: 25.3, d: 94.3, h: 68.8 });
+    expect(minOuter(single, flimsy, ground)).toEqual({ w: 27.83, d: 95.8, h: 70.3 });
   });
 
   describe("settings that are not whole multiples of 0.01 mm", () => {
@@ -244,8 +245,8 @@ describe("minOuter", () => {
 
     it("rounds the wall up", () => {
       for (const [wall, w] of [
-        [1.234, 25.98],
-        [1.005, 25.52],
+        [1.234, 28.51],
+        [1.005, 28.05],
       ] as const) {
         const odd = tiny({ wall });
         const part = partOf([cards()], "upright-long|strip|split1", odd);
@@ -256,13 +257,13 @@ describe("minOuter", () => {
     it("rounds the divider up", () => {
       const odd = tiny({ divider: 1.234 });
       const part = partOf(twoDecks, "upright-long|strip|split1", odd);
-      expect(minOuter(part, odd, ground).w).toBe(41.92);
+      expect(minOuter(part, odd, ground).w).toBe(46.33);
     });
 
     it("rounds the floor up", () => {
       const odd = tiny({ floor: 1.234 });
       const part = partOf([cards()], "upright-long|strip|split1", odd);
-      expect(minOuter(part, odd, ground).h).toBe(69.24);
+      expect(minOuter(part, odd, ground).h).toBe(70.74);
     });
 
     it("rounds the lipped wall and the upper-tray height up", () => {
@@ -272,7 +273,7 @@ describe("minOuter", () => {
         "custom|strip|split1",
         odd,
       );
-      expect(minOuter(single, odd, { lipped: true, level: 0 }).w).toBe(29.38);
+      expect(minOuter(single, odd, { lipped: true, level: 0 }).w).toBe(31.91);
       expect(minOuter(thin, odd, { lipped: false, level: 1 }).h).toBe(3.66);
     });
   });

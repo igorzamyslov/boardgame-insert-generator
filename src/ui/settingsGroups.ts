@@ -1,6 +1,7 @@
 // src/ui/settingsGroups.ts
-// The groups of "Exact numbers" (Settings): the board's five, and "Spacers and space" for what the
-// board does not show (owner decision: the first screen is the board; everything else is here).
+// The groups of "Exact numbers" (Settings): the numbers the board does not show (owner decision:
+// the first screen is the board; every number else is here). Choices are not numbers: "Fill the
+// space that's left" and "Unused space" are on the first screen.
 // Pure: the sheet draws them, the tests pin which number is in which.
 
 export interface ExactGroup {
@@ -9,12 +10,6 @@ export interface ExactGroup {
   title: string;
   /** The `SETTING_RANGES` paths of the numbers inside, in the order they are drawn. */
   paths: readonly string[];
-  /**
-   * Choices that sit among the numbers (they are not in `SETTING_RANGES`). "spareRoom" is the choice
-   * between separate spacers, bigger wells, thicker walls and one thick wall: it draws the `wallAbsorb` number itself, so
-   * that path is in `paths` (an error there opens the group) but is not a row of its own.
-   */
-  extras?: readonly ("leftover" | "spareRoom")[];
 }
 
 export const EXACT_GROUPS: readonly ExactGroup[] = [
@@ -55,12 +50,6 @@ export const EXACT_GROUPS: readonly ExactGroup[] = [
     id: "shape",
     title: "Shape and printing",
     paths: ["bottomChamfer", "cornerRadius", "scoopRadius", "packingFactor", "infill", "playLimit"],
-  },
-  {
-    id: "spacers",
-    title: "Spacers and space",
-    paths: ["wallAbsorb"],
-    extras: ["leftover", "spareRoom"],
   },
 ];
 

@@ -9,7 +9,7 @@ import { isLockable, lockedKeys, sizeLockedKeys, stackOf, turnedKeys } from "../
 import { canTurn } from "../app/dryRun";
 import type { MeshSource } from "../app/meshes";
 import { printedHeight } from "../instructions/numbering";
-import { Button, CloseButton, Icon, IconButton, MenuItem, MenuPanel } from "../kit";
+import { Button, CloseButton, FitText, Icon, IconButton, MenuItem, MenuPanel } from "../kit";
 import type { ForeignData, Project, TraySpec } from "../model/types";
 import type { TrayLook } from "../plan/glyph";
 import { formatGrams } from "./estimates";
@@ -40,6 +40,8 @@ export interface TrayBarProps {
   layerCount?: number;
   /** A riser carries a tray: its name. */
   carries?: string | null;
+  /** The kinds the tray's wells hold, when it has several ("Oil, Metal, Wood, Food"): a line under the facts. */
+  holds?: string | null;
   /** What the compartments are, in words: the phone's line ("6 figure pockets"), and a group's ("5 compartments"). */
   compartments?: string | null;
   /** Where the part's mesh comes from, for the filament line; without it the bar gives none. */
@@ -101,9 +103,8 @@ function GroupSwatch({ cells }: { cells: NonNullable<TrayBarProps["cells"]> }) {
   );
 }
 
-/** What the bar knows about the tray: its rules, whether Turn can go, and the lines it says. */
-function useTrayFacts(p: TrayBarProps) {
-  const { project, tray, foreign } = p;
+/** What the tray is under (pin, turn, size lock, stack) and whether Turn can go: the ⋯ menu's facts. */
+function useTrayRules(project: Project, tray: TraySpec, foreign?: ForeignData) {
   const full = isLockable(tray);
   const pin = project.locks.find((l) => l.kind === "position" && l.trayKey === tray.key);
   const pinned = lockedKeys(project).has(tray.key);
@@ -114,12 +115,21 @@ function useTrayFacts(p: TrayBarProps) {
     () => (full ? canTurn(project, tray.key, foreign) : { ok: false as const, reason: "" }),
     [project, tray.key, full, foreign],
   );
+  const why = full && !turnCheck.ok ? turnCheck.reason : undefined;
+  const stack = full ? stackOf(project, tray).length : 1;
+  return { full, pinned, turned, sizeLocked, turnCheck, why, stack };
+}
+
+/** What the bar knows about the tray: its rules, and the lines it says. */
+function useTrayFacts(p: TrayBarProps) {
+  const { project, tray, foreign } = p;
+  const rules = useTrayRules(project, tray, foreign);
   // The filament of this part alone, from its built mesh, as the Download dialog counts it; the
   // line has none until the part is built (or when it cannot be, or no meshes were given).
   const built = p.buildSpec ?? tray;
   const alone = useMemo(() => [built], [built]);
   const filament = useFilament(
-    full ? p.meshes : undefined,
+    rules.full ? p.meshes : undefined,
     alone,
     project.settings,
     project.printer,
@@ -127,9 +137,7 @@ function useTrayFacts(p: TrayBarProps) {
   );
   const estimate = filament.status === "ready" ? formatGrams(filament.grams) : null;
   const size = `${mm(tray.w)} × ${mm(tray.d)} × ${mm(printedHeight(tray, project.settings))} mm`;
-  const why = full && !turnCheck.ok ? turnCheck.reason : undefined;
-  const stack = full ? stackOf(project, tray).length : 1;
-  return { full, pinned, turned, sizeLocked, turnCheck, why, estimate, size, stack };
+  return { ...rules, estimate, size };
 }
 
 /** How many trays a press holds, in words: a stack is held whole. */
@@ -230,7 +238,7 @@ function Entry(p: { name: string; line: string }) {
 
 interface MoreItemsProps {
   more: More;
-  facts: Facts;
+  facts: Rules;
   swapping: boolean;
   puttingOn: boolean;
   onPin: () => void;
@@ -322,7 +330,73 @@ function Told(p: { pinned: boolean; turned: boolean; sizeLocked: boolean }) {
   );
 }
 
-type Facts = ReturnType<typeof useTrayFacts>;
+type Rules = ReturnType<typeof useTrayRules>;
+
+export interface TrayMoreProps {
+  /** The project: its locks say what is pinned, and the dry run behind Turn reads its plan. */
+  project: Project;
+  foreign?: ForeignData;
+  /** The part the menu is about. */
+  tray: TraySpec;
+  /** A "Swap places with…" is under way from this tray. */
+  swapping?: boolean;
+  /** A "Put on…" is under way from this tray. */
+  puttingOn?: boolean;
+  /** The panel opens above the button (the dock, at the foot) or below it (an editor's head). */
+  opens?: "up" | "down";
+  onPin: () => void;
+  onTurn: () => void;
+  onSwap: () => void;
+  onPutOn: () => void;
+  onToggleSizeLock: () => void;
+}
+
+/**
+ * The ⋯ button of a tray and its menu: Keep here, Rotate 90°, Swap places with…, Put on…, Keep this
+ * size. One component for the dock and for an item's editor, so the placement actions are the same
+ * wherever they are offered. Nothing for a part the plan makes to fit the others.
+ */
+export function TrayMore(p: TrayMoreProps) {
+  const rules = useTrayRules(p.project, p.tray, p.foreign);
+  const more = useMore(p.swapping === true);
+  if (!rules.full) {
+    return null;
+  }
+  return (
+    <span
+      class={`tray-more${p.opens === "down" ? " tray-more--down" : ""}`}
+      ref={more.wrap}
+      onKeyDown={more.onKeyDown}
+      onBlurCapture={more.onBlurCapture}
+    >
+      {/* Always mounted, so a reader hears a pin or a size lock arrive. */}
+      <Told pinned={rules.pinned} turned={rules.turned} sizeLocked={rules.sizeLocked} />
+      <IconButton
+        variant="outlined"
+        label="More about this tray"
+        ref={more.trigger}
+        dot={rules.pinned || rules.sizeLocked}
+        aria-expanded={more.open}
+        aria-controls={more.open ? more.panelId : undefined}
+        icon={<Icon name="more" size={18} />}
+        onClick={more.toggle}
+      />
+      {more.open ? (
+        <MoreItems
+          more={more}
+          facts={rules}
+          swapping={p.swapping === true}
+          puttingOn={p.puttingOn === true}
+          onPin={p.onPin}
+          onTurn={p.onTurn}
+          onSwap={p.onSwap}
+          onPutOn={p.onPutOn}
+          onToggleSizeLock={p.onToggleSizeLock}
+        />
+      ) : null}
+    </span>
+  );
+}
 
 /**
  * The dock of the selected tray. A part the plan makes to fit the trays around it (a spacer, a
@@ -331,8 +405,6 @@ type Facts = ReturnType<typeof useTrayFacts>;
  */
 export function TrayBar(p: TrayBarProps) {
   const facts = useTrayFacts(p);
-  // A put-on closes the menu (its prompt and its refusals are sentences the menu would cover); a swap keeps it open.
-  const more = useMore(p.swapping === true);
   // A group's line (G1): the size, how many compartments, then the grams; the layer first only with two.
   const group = p.look?.group === true;
   const meta = facts.full
@@ -370,14 +442,17 @@ export function TrayBar(p: TrayBarProps) {
         />
       )}
       <span class="tray-bar__text">
-        <span class="tray-bar__name" title={p.name}>
+        <FitText class="tray-bar__name" title={p.name}>
           {p.name}
-        </span>
-        <span class="tray-bar__meta" title={meta}>
+        </FitText>
+        <FitText class="tray-bar__meta" title={meta}>
           {meta}
-        </span>
-        {/* Always mounted, so a reader hears a pin or a size lock arrive. */}
-        <Told pinned={facts.pinned} turned={facts.turned} sizeLocked={facts.sizeLocked} />
+        </FitText>
+        {p.holds ? (
+          <FitText class="tray-bar__meta tray-bar__holds" title={p.holds}>
+            {p.holds}
+          </FitText>
+        ) : null}
       </span>
       {facts.full ? (
         <>
@@ -386,36 +461,18 @@ export function TrayBar(p: TrayBarProps) {
               Edit
             </Button>
           ) : null}
-          <span
-            class="tray-more"
-            ref={more.wrap}
-            onKeyDown={more.onKeyDown}
-            onBlurCapture={more.onBlurCapture}
-          >
-            <IconButton
-              variant="outlined"
-              label="More about this tray"
-              ref={more.trigger}
-              dot={facts.pinned || facts.sizeLocked}
-              aria-expanded={more.open}
-              aria-controls={more.open ? more.panelId : undefined}
-              icon={<Icon name="more" size={18} />}
-              onClick={more.toggle}
-            />
-            {more.open ? (
-              <MoreItems
-                more={more}
-                facts={facts}
-                swapping={p.swapping === true}
-                puttingOn={p.puttingOn === true}
-                onPin={p.onPin}
-                onTurn={p.onTurn}
-                onSwap={p.onSwap}
-                onPutOn={p.onPutOn}
-                onToggleSizeLock={p.onToggleSizeLock}
-              />
-            ) : null}
-          </span>
+          <TrayMore
+            project={p.project}
+            foreign={p.foreign}
+            tray={p.tray}
+            swapping={p.swapping}
+            puttingOn={p.puttingOn}
+            onPin={p.onPin}
+            onTurn={p.onTurn}
+            onSwap={p.onSwap}
+            onPutOn={p.onPutOn}
+            onToggleSizeLock={p.onToggleSizeLock}
+          />
         </>
       ) : null}
       <CloseButton onClick={p.onClose} />

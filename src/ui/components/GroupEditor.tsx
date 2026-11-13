@@ -3,7 +3,7 @@
 // a phone): its name, Copies, how often it is reached for, the order of its items in the tray, and
 // Remove group…. The group's Extra room (G2's last row) is not built (owner's ruling O2).
 import type { ComponentChildren } from "preact";
-import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useRef } from "preact/hooks";
 import { Button, GripIcon, GroupGlyph, Icon, IconButton, IconTile, Stepper } from "../../kit";
 import { DEFAULT_GROUP_NAME } from "../../model/groups";
 import { shadeVars } from "../identity";
@@ -51,19 +51,6 @@ export interface GroupEditorProps {
   phone?: boolean;
   /** The phone's strip under the header: the tray drawn small and the stage sentence (or the note). */
   strip?: ComponentChildren;
-}
-
-/** "Remove the group “Player kit”? Its 3 items stay, with 4 copies each." (spec §7.4, §8) */
-export function removeQuestion(name: string, items: number, copies: number): string {
-  const head = `Remove the group “${name}”?`;
-  if (items === 0) {
-    return head;
-  }
-  const stay = items === 1 ? "Its 1 item stays" : `Its ${items} items stay`;
-  if (copies <= 1) {
-    return `${head} ${stay}.`;
-  }
-  return `${head} ${stay}, with ${copies} ${items === 1 ? "copies" : "copies each"}.`;
 }
 
 /** What a move says aloud, by names and never by place: "Hero is now first.", "Hero is now after Starter deck." */
@@ -206,11 +193,8 @@ export function GroupEditor({
   const name = group.name === "" ? DEFAULT_GROUP_NAME : group.name;
   const copies = group.copies ?? 1;
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const removeRef = useRef<HTMLButtonElement>(null);
-  const keepRef = useRef<HTMLButtonElement>(null);
   const copiesAlertId = useId();
   const copiesRefused = messagesOf(useFieldNotices(`/groups/${index}/copies`)).errors.length > 0;
-  const [asking, setAsking] = useState(false);
   // Escape leaves the editor, as Done does; one that something inside took (a menu, a drag) is theirs.
   const leaveOnEscape = (e: KeyboardEvent): void => {
     if (
@@ -233,27 +217,9 @@ export function GroupEditor({
     }
   }, []);
 
-  const ask = (yes: boolean): void => {
-    setAsking(yes);
-    // The button that had the focus goes: its counterpart takes it.
-    setTimeout(() => (yes ? keepRef : removeRef).current?.focus(), 0);
-  };
-  const answer = (
-    <div class="ed-ask" role="group" aria-label={`Remove the group ${name}?`}>
-      <span>{removeQuestion(name, members.length, copies)}</span>
-      <div class="ed-ask__buttons">
-        <Button variant="secondary" class="ed-remove-yes" onClick={onRemove}>
-          Remove group
-        </Button>
-        <Button variant="quiet" ref={keepRef} onClick={() => ask(false)}>
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
   const remove = (
-    <button type="button" class="ed-remove" ref={removeRef} onClick={() => ask(true)}>
-      Remove group…
+    <button type="button" class="ed-remove" onClick={onRemove}>
+      Remove group
     </button>
   );
   const copiesField = (
@@ -325,7 +291,7 @@ export function GroupEditor({
           {copiesField}
           {access}
           {order}
-          <div class="ed-remove-row">{asking ? answer : remove}</div>
+          <div class="ed-remove-row">{remove}</div>
         </div>
       </section>
     );
@@ -365,16 +331,10 @@ export function GroupEditor({
       {access}
       {order}
       <div class="ed-foot">
-        {asking ? (
-          answer
-        ) : (
-          <>
-            {remove}
-            <Button variant="primary" class="ed-done" onClick={onBack}>
-              Done
-            </Button>
-          </>
-        )}
+        {remove}
+        <Button variant="primary" class="ed-done" onClick={onBack}>
+          Done
+        </Button>
       </div>
     </section>
   );

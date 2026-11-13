@@ -109,7 +109,7 @@ describe("reading and writing", () => {
     if (!first.ok) {
       throw new Error(first.error);
     }
-    expect(first.notices).toEqual([]);
+    expect(first.notices.map((n) => n.code)).toEqual([]);
     expect(first.project.box.headroomAreas).toEqual([{ name: "Rulebook", w: 220, d: 150 }]);
     const again = parseProject(JSON.parse(serializeProject(first.project, first.foreign)));
     if (!again.ok) {

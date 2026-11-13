@@ -214,6 +214,78 @@ describe("leaving an editor", () => {
     expect(editor("Player kit")).toBeNull();
   });
 
+  describe("with Escape pressed anywhere (the editor's listener on the page)", () => {
+    const stageTile = (name: RegExp): HTMLElement =>
+      within(document.querySelector('[data-region="stage"]') as HTMLElement).getByRole("button", {
+        name,
+      });
+
+    it("on the page itself (focus fell to body)", () => {
+      renderApp({ project: plan() });
+      open();
+      (document.activeElement as HTMLElement | null)?.blur();
+      fireEvent.keyDown(document.body, { key: "Escape" });
+      expect(editor("Beta")).toBeNull();
+      expect(rowOf("b")).toBeTruthy();
+    });
+
+    it("on the plan, after a click there", () => {
+      renderApp({ project: plan() });
+      open();
+      fireEvent.keyDown(stageTile(/^Beta/), { key: "Escape" });
+      expect(editor("Beta")).toBeNull();
+    });
+
+    it("on the 3D view's place (an element outside the editor and the plan)", () => {
+      renderApp({ project: plan() });
+      open();
+      const canvas = document.createElement("canvas");
+      canvas.tabIndex = 0;
+      document.body.appendChild(canvas);
+      canvas.focus();
+      fireEvent.keyDown(canvas, { key: "Escape" });
+      canvas.remove();
+      expect(editor("Beta")).toBeNull();
+    });
+
+    it("in a group's editor", () => {
+      renderApp({ project: plan() });
+      fireEvent.click(within(railEl()).getByRole("button", { name: "Edit Player kit" }));
+      fireEvent.keyDown(document.body, { key: "Escape" });
+      expect(editor("Player kit")).toBeNull();
+    });
+
+    it("puts the focus back on the item's row", () => {
+      renderApp({ project: plan() });
+      open();
+      fireEvent.keyDown(document.body, { key: "Escape" });
+      expect(rowOf("b")).toBeTruthy();
+      expect(railEl().contains(document.activeElement)).toBe(true);
+    });
+
+    it("leaves the editor alone when a menu takes it first", () => {
+      renderApp({ project: plan() });
+      open();
+      const menuButton = screen.getByRole("button", { name: /^Project menu/ });
+      fireEvent.click(menuButton);
+      expect(menuButton.getAttribute("aria-expanded")).toBe("true");
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+      expect(menuButton.getAttribute("aria-expanded")).toBe("false");
+      expect(editor("Beta")).not.toBeNull();
+      fireEvent.keyDown(document.body, { key: "Escape" });
+      expect(editor("Beta")).toBeNull();
+    });
+
+    it("leaves a text field that is being edited alone", () => {
+      renderApp({ project: plan() });
+      open();
+      const name = screen.getByTitle("Rename this insert");
+      fireEvent.click(name);
+      fireEvent.keyDown(screen.getByRole("textbox", { name: "Project name" }), { key: "Escape" });
+      expect(editor("Beta")).not.toBeNull();
+    });
+  });
+
   it("when another item's tray is selected in the plan", () => {
     const { store } = renderApp({ project: plan() });
     open();

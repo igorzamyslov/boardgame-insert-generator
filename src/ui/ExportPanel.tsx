@@ -110,7 +110,7 @@ export function ExportPanel(p: ExportPanelProps) {
   const buildSpecs = useMemo(
     () =>
       plan.parts.map((part) =>
-        buildSpecOf(part, p.settings.engraveNames, names.get(part.spec.key)?.short),
+        buildSpecOf(part, p.settings.engraveNames, names.get(part.spec.key)),
       ),
     [plan, names, p.settings.engraveNames],
   );
@@ -319,9 +319,7 @@ export function ExportPanel(p: ExportPanelProps) {
     // The specs that were built (with their engraved name), not the plain ones: the mesh cache keys
     // on the whole spec.
     p.meshes.forget(
-      failed.map((f) =>
-        buildSpecOf(f.part, p.settings.engraveNames, names.get(f.part.spec.key)?.short),
-      ),
+      failed.map((f) => buildSpecOf(f.part, p.settings.engraveNames, names.get(f.part.spec.key))),
       p.settings,
     );
     setRetries((n) => n + 1);
@@ -646,7 +644,8 @@ export function ExportPanel(p: ExportPanelProps) {
         {view === "done" ? skippedNote : problemBoxes}
         {reasonLine}
         {view === "done" ? (
-          <div class="export-actions">
+          <div class="export-actions export-actions--done">
+            {support}
             <Button ref={back} variant="secondary" size="dialog" onClick={p.onClose}>
               Back to the plan
             </Button>

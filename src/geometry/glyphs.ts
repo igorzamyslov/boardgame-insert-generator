@@ -20,6 +20,12 @@ export const CAP_MAX_MM = 8;
 export const CAP_MIN_MM = 4;
 /** A capital height at least this large is a good size; the smallest sizes are only a last resort. */
 export const CAP_GOOD_MM = 6;
+/**
+ * The smallest size a name is worth printing at in full: a name that fits a face at this size or
+ * larger is taken as it is, and one that fits only at the smallest size gives way to a shorter
+ * version of itself that fits at this one (`planNamed`).
+ */
+export const CAP_WORTH_MM = 5;
 
 /** A text laid out at one size: closed polygons in mm, x along the line, y up, from its ink's lower left. */
 export interface TextLayout {

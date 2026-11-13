@@ -709,7 +709,7 @@ export function PlanBanner(p: PlanBannerProps) {
           <Notice
             tone="warn"
             title={OLD_TITLE}
-            primary={{ label: "Reprint everything", onClick: p.onReprint }}
+            primary={{ label: "Update plan", onClick: p.onReprint }}
             secondary={{ label: "Use the old plan", onClick: p.onKeepOld }}
           >
             {OLD_BODY}

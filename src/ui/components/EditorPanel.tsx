@@ -1,6 +1,6 @@
 // src/ui/components/EditorPanel.tsx
 import type { ComponentChildren } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import { Button, Icon, IconButton, IconTile } from "../../kit";
 import type { Component } from "../../model/types";
 import { KIND_TILES } from "../../screens/KindPicker";
@@ -29,8 +29,15 @@ export interface EditorPanelProps {
   onBack: () => void;
   /** What the back link says: the group's name when the item was opened from its editor. */
   backLabel?: string;
-  /** The removal was confirmed. */
+  /** Remove: it acts at once; the app says so with an Undo. */
   onRemove: () => void;
+  /** Duplicate: a copy of the item is added below it and its editor opens. Without it there is no button. */
+  onDuplicate?: () => void;
+  /**
+   * The tray's placement menu (Keep here, Rotate 90°…), when the item has one tray to place: the
+   * same menu as the tray dock's ⋯. The app builds it; the editor only gives it a place.
+   */
+  placement?: ComponentChildren;
   /**
    * The groups, for an item's Group row and its Copies; the app gives it. Without it the editor is
    * drawn alone: the item is in no group and has no Group row. An item in a group has "In <group>"
@@ -79,6 +86,8 @@ export function EditorPanel({
   onBack,
   backLabel,
   onRemove,
+  onDuplicate,
+  placement,
   onNote,
   grouping,
   phone = false,
@@ -86,10 +95,7 @@ export function EditorPanel({
 }: EditorPanelProps) {
   const name = c.name === "" ? "(unnamed)" : c.name;
   const who = sameName ? `${name} (item ${index + 1})` : name;
-  const [asking, setAsking] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const removeRef = useRef<HTMLButtonElement>(null);
-  const keepRef = useRef<HTMLButtonElement>(null);
 
   // The panel replaced the list: the reader starts at its top, and a screen reader hears whose it is.
   useEffect(() => {
@@ -103,41 +109,22 @@ export function EditorPanel({
     }
     onChange(next);
   };
-  const ask = (yes: boolean): void => {
-    setAsking(yes);
-    // The button that had the focus goes: its counterpart takes it.
-    setTimeout(() => (yes ? keepRef : removeRef).current?.focus(), 0);
-  };
-  const removeLabel = phone ? `Remove ${name}…` : "Remove…";
-  const answer = (
-    <div class="ed-ask" role="group" aria-label={`Remove ${who}?`}>
-      <span>{`Remove “${name}” from the box?`}</span>
-      <div class="ed-ask__buttons">
-        <Button
-          variant="secondary"
-          class="ed-remove-yes"
-          aria-label={`Remove ${who}`}
-          onClick={onRemove}
-        >
-          Remove
-        </Button>
-        <Button variant="quiet" ref={keepRef} onClick={() => ask(false)}>
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
   const remove = (
-    <button
-      type="button"
-      class="ed-remove"
-      ref={removeRef}
-      aria-label={`Remove ${who}…`}
-      onClick={() => ask(true)}
-    >
-      {removeLabel}
+    <button type="button" class="ed-remove" aria-label={`Remove ${who}`} onClick={onRemove}>
+      {phone ? `Remove ${name}` : "Remove"}
     </button>
   );
+  const duplicate =
+    onDuplicate === undefined ? null : (
+      <button
+        type="button"
+        class="ed-duplicate"
+        aria-label={`Duplicate ${who}`}
+        onClick={onDuplicate}
+      >
+        Duplicate
+      </button>
+    );
   // Escape leaves the editor, as Done does; one that something inside took (a menu, a drag) is theirs.
   const leaveOnEscape = (e: KeyboardEvent): void => {
     if (
@@ -186,6 +173,7 @@ export function EditorPanel({
           <h1 class="ed-bar__title" tabIndex={-1} ref={headingRef}>
             {name}
           </h1>
+          {placement}
           <Button variant="primary" class="ed-done" onClick={onBack}>
             Done
           </Button>
@@ -195,7 +183,10 @@ export function EditorPanel({
           <TextBox id={`${c.id}-name`} label="Name" value={c.name} onCommit={rename} />
           {inGroup}
           {kindEditor}
-          <div class="ed-remove-row">{asking ? answer : remove}</div>
+          <div class="ed-remove-row">
+            {duplicate}
+            {remove}
+          </div>
         </div>
       </section>
     );
@@ -226,20 +217,18 @@ export function EditorPanel({
             </label>
             {inGroup}
           </div>
+          {placement}
         </div>
       </div>
       {kindEditor}
       <div class="ed-foot">
-        {asking ? (
-          answer
-        ) : (
-          <>
-            {remove}
-            <Button variant="primary" class="ed-done" onClick={onBack}>
-              Done
-            </Button>
-          </>
-        )}
+        <span class="ed-foot__more">
+          {remove}
+          {duplicate}
+        </span>
+        <Button variant="primary" class="ed-done" onClick={onBack}>
+          Done
+        </Button>
       </div>
     </section>
   );

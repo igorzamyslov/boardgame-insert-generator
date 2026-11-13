@@ -2,7 +2,9 @@ import { DEFAULT_BOX, DEFAULT_PRINTER } from "./defaults";
 import { deepFreeze } from "./freeze";
 import type { Json } from "./json";
 import { migrateTo020 } from "./migrate-0.2";
+import { migrateTo040 } from "./migrate-0.4";
 import { migrateTo030 } from "./migrate-0.3";
+import { migrateTo050 } from "./migrate-0.5";
 import {
   isArrayIndex,
   isRecord,
@@ -66,6 +68,10 @@ export const MIGRATIONS: Migration[] = deepFreeze([
   { from: "0.1", to: "0.2.0", migrate: migrateTo020 },
   // 0.2 → 0.3.0: per-axis `growth` becomes one `room` per item (migrate-0.3.ts).
   { from: "0.2", to: "0.3.0", migrate: migrateTo030 },
+  // 0.3 → 0.4.0: the old card clearance defaults become the comfortable ones (migrate-0.4.ts).
+  { from: "0.3", to: "0.4.0", migrate: migrateTo040 },
+  // 0.4 → 0.5.0: `wallAbsorb` and `oneWall` become the one choice `thickerWalls` (migrate-0.5.ts).
+  { from: "0.4", to: "0.5.0", migrate: migrateTo050 },
 ]);
 
 export interface ParseOptions {
@@ -127,13 +133,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
     version = to;
     versionText = step.to;
   }
-  if (version !== file) {
-    notices.push({
-      level: "info",
-      code: SCHEMA_NOTICE_CODES.migrated,
-      message: `Upgraded from schema ${fileVersion} to ${opts.appSchemaVersion}.`,
-    });
-  }
+  // An upgrade is silent: a person has no use for a schema number. A real consequence gets its own notice.
 
   const fileCompat = compat(version);
   if (compareRank(fileCompat.rank, appCompat.rank) > 0) {
@@ -331,8 +331,8 @@ function compactSettings(out: Json): void {
   if (settings.engraveNames === DEFAULT_SETTINGS.engraveNames) {
     delete settings.engraveNames;
   }
-  if (settings.oneWall === DEFAULT_SETTINGS.oneWall) {
-    delete settings.oneWall;
+  if (settings.thickerWalls === DEFAULT_SETTINGS.thickerWalls) {
+    delete settings.thickerWalls;
   }
   if (settings.biggerWells === DEFAULT_SETTINGS.biggerWells) {
     delete settings.biggerWells;
