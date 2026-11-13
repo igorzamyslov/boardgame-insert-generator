@@ -179,6 +179,10 @@ describe("rules", () => {
   describe("makes no runtime request to another host", () => {
     const NETWORK_CALLS =
       /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b/;
+    // The one request there is: the anonymous count (decision log 2026-11-13). Its address is built
+    // in this file alone, from the build's site code.
+    // (A request by `new Image` is what it uses; png.ts draws one from a blob it made, no request.)
+    const ANALYTICS_FILE = "/src/app/analytics.ts";
     const NAMESPACE_HOSTS = ["www.w3.org", "schemas.openxmlformats.org", "schemas.microsoft.com"];
     // The feedback form (decision log 2026-11-13): GitHub's new-issue page is a link a person
     // follows, and Turnstile's script loads only when the dialog opens and a site key is set.
@@ -209,7 +213,9 @@ describe("rules", () => {
 
     it("calls no network API", () => {
       const found: string[] = [];
-      for (const path of appFiles.filter((p) => p !== "/src/feedback/feedback.ts")) {
+      for (const path of appFiles.filter(
+        (p) => p !== ANALYTICS_FILE && p !== "/src/feedback/feedback.ts",
+      )) {
         const file = parse(path);
         const visit = (node: ts.Node): void => {
           // a call or a `new`, by name: `fetch(…)`, `new WebSocket(…)`, `navigator.sendBeacon(…)`
@@ -254,6 +260,11 @@ describe("rules", () => {
         }
       }
       expect(found).toEqual([]);
+    });
+
+    it("names the counting service in analytics.ts only", () => {
+      const naming = appFiles.filter((f) => /goatcounter/i.test(literals(f).join("\n")));
+      expect(naming).toEqual([ANALYTICS_FILE]);
     });
 
     it("loads nothing from another host in the page itself", () => {

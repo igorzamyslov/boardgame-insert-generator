@@ -35,6 +35,9 @@ jobs:
         env:
           VITE_FEEDBACK_URL: ${{ vars.VITE_FEEDBACK_URL }}
           VITE_TURNSTILE_SITEKEY: ${{ vars.VITE_TURNSTILE_SITEKEY }}
+          # The GoatCounter site code, a repository variable (not a secret). Absent: the build
+          # counts nothing.
+          VITE_GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

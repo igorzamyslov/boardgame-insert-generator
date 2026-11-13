@@ -784,6 +784,10 @@ what to reprint. Behind-the-scenes changes get one short line saying the app is 
   [`docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md`](superpowers/specs/2026-10-11-boardgame-insert-generator-design.md)
   (§9 versioning).
 - Plan: [`docs/superpowers/plans/2026-10-16-ux-redesign.md`](superpowers/plans/2026-10-16-ux-redesign.md).
+- Analytics: [`docs/analytics.md`](analytics.md), the owner's steps to switch the anonymous count
+  on and what it counts. The only module that sends anything to another host is
+  `src/app/analytics.ts`; a new event is one name in `COUNT_EVENTS`, one `count(...)` call, a test
+  that it fires once and a line in that file and in the decision log.
 - Sections of §7 below:
   - 7.3 "Look": tokens, shades, fonts
   - 7.4 "Architecture": folders and data flow
