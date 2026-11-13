@@ -903,7 +903,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit in the
    (closing the dialog stops it), then says every tray is in the file; a tray that fails to build is
    listed under "Not exported" with its reason and one "Try again". Download says "Fix the fit to
    download" while nothing fits and is off while the plan is out of date. The dialog ends with a
-   quiet line with Ko-fi and PayPal links. On a phone, "Send file" is in the header and in this
+   quiet line, "For personal use · Terms". On a phone, "Send file" is in the header and in this
    dialog.
 9. **Packing guide.** The dialog's "Packing guide" card shows the packing order (bottom layer
    first), how it goes together (an exploded picture), a picture per layer, a "What goes where"
@@ -913,7 +913,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit in the
     that works (it speaks up only when saving is paused, fails or is blocked). There are no share
     links: the address bar never changes. The project menu (the header's menu button) has New
     insert, Your inserts (open or delete one), "Open file…", "Save file" and Settings, then, at
-    its end, the version and build id and one quiet line, "Licences · Legal notice · Privacy"; there is no footer. A phone's
+    its end, the version and build id and one quiet line, "Licences · Terms · Privacy"; there is no footer. A phone's
     menu starts with Redo, and its header has Undo and "Send file". A file holds the whole
     insert, so sending the file is how you share one. Opening a file opens it as a separate
     insert (a file whose id and content match a stored one just opens that one; one whose id

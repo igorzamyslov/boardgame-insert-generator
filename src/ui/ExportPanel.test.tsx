@@ -295,50 +295,20 @@ describe("ExportPanel", () => {
     expect(screen.queryByRole("button", { name: COMBINED })).toBeNull();
   });
 
-  it("keeps the support line once the file has downloaded", async () => {
+  it("says it is for personal use, with Terms opening the Terms page", () => {
+    render(<ExportPanel {...props()} />);
+    expect(screen.getByText(/^For personal use/).tagName).toBe("P");
+    const terms = screen.getByRole("link", { name: /^Terms/ });
+    expect(terms.getAttribute("href")).toBe("./terms.html");
+    expect(terms.getAttribute("target")).toBe("_blank");
+  });
+
+  it("keeps the done screen to its message and one button, with no small print", async () => {
     render(<ExportPanel {...props()} />);
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await screen.findByRole("button", { name: "Back to the plan" });
-    expect(screen.getByText(/^Support this tool/).tagName).toBe("P");
-    expect(screen.getByRole("link", { name: /^Ko-fi/ }).getAttribute("target")).toBe("_blank");
-    expect(screen.getByRole("link", { name: /^PayPal/ }).getAttribute("target")).toBe("_blank");
-  });
-
-  it("is done with a Back to the plan, and says the file's name for a screen reader", async () => {
-    const p = props();
-    render(<ExportPanel {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
-    const back = await screen.findByRole("button", { name: "Back to the plan" });
-    expect(back.classList.contains("k-btn--secondary")).toBe(true);
-    expect(back.classList.contains("k-btn--dialog")).toBe(true);
-    // the live region was on the page before it spoke
-    expect(document.querySelector("[data-live='build']")?.textContent).toBe(
-      "Downloaded Wing-span.3mf.",
-    );
-    fireEvent.click(back);
-    expect(p.onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("closes from its Close button", () => {
-    const p = props();
-    render(<ExportPanel {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(p.onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("support links open in a new tab", () => {
-    render(<ExportPanel {...props()} />);
-    const kofi = screen.getByRole("link", { name: /^Ko-fi/ });
-    const paypal = screen.getByRole("link", { name: /^PayPal/ });
-    expect(kofi.getAttribute("href")).toBe("https://ko-fi.com/igorzamyslov");
-    expect(paypal.getAttribute("href")).toBe("https://paypal.me/igorzamyslov");
-    for (const link of [kofi, paypal]) {
-      expect(link.getAttribute("target")).toBe("_blank");
-      expect(link.getAttribute("rel")).toBe("noopener noreferrer");
-    }
-    expect(screen.getByText(/^Support this tool/).tagName).toBe("P");
-    // one quiet line of text: the support row is not a second call to action
-    expect(kofi.classList.contains("k-btn")).toBe(false);
+    expect(screen.queryByText(/^For personal use/)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/ko-fi|paypal|support this tool/i);
   });
 
   it("says nothing about slicers or what the files open in", () => {
@@ -1032,7 +1002,7 @@ describe("ExportPanel", () => {
   });
 
   it("makes every control at least 44 px, and the dialog fill a phone", async () => {
-    // the buttons are the kit's (44 px, 48 and 54 for the cta); the one of its own is the support
+    // the buttons are the kit's (44 px, 48 and 54 for the cta); the one of its own is the small print
     // line's links, 20 px of text with a hit area that makes them 44
     expect(css).toMatch(/\.export-support a::before\s*\{[^}]*inset:\s*-12px -4px/);
     expect(css).toMatch(/\.export-problem__retry::before\s*\{[^}]*inset:\s*-2px 0/);

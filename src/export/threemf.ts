@@ -1,5 +1,7 @@
 import { Zip, ZipDeflate, strToU8 } from "fflate";
 import type { Mesh } from "../geometry/types";
+import { APP_VERSION } from "../model/version";
+import { TERMS_URL } from "./terms";
 import { ZIP_TIME } from "./zip";
 
 export interface ThreeMfPart {
@@ -69,10 +71,31 @@ function objectXml(id: number, part: ThreeMfPart): string {
 // 3D/3dmodel.model in chunks (one per object), so a large export never holds
 // the whole XML as one string. Triangles keep manifold's winding (CCW seen
 // from outside); each object gets one build item with an optional translation.
-export function* modelXmlChunks(parts: ThreeMfPart[]): Generator<string> {
+export interface ThreeMfMeta {
+  /** The insert's name: the model's Title. Left out when empty. */
+  title?: string;
+}
+
+// The 3MF core spec's predefined metadata names, before <resources>.
+function metadataXml(meta: ThreeMfMeta): string[] {
+  const entries: [string, string][] = [];
+  if (meta.title) {
+    entries.push(["Title", meta.title]);
+  }
+  entries.push(
+    ["Designer", "Made with Insert Generator"],
+    ["Application", `Insert Generator ${APP_VERSION}`],
+    ["LicenseTerms", `Personal use only. Not for sale. ${TERMS_URL}`],
+    ["Copyright", "Insert Generator, Igor Zamyslov"],
+  );
+  return entries.map(([k, v]) => ` <metadata name="${k}">${xmlAttr(v)}</metadata>`);
+}
+
+export function* modelXmlChunks(parts: ThreeMfPart[], meta: ThreeMfMeta = {}): Generator<string> {
   yield [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">',
+    ...metadataXml(meta),
     " <resources>",
     "",
   ].join("\n");
@@ -101,7 +124,7 @@ function addFile(zip: Zip, name: string, chunks: Iterable<string>): void {
 
 // 3MF package (OPC zip): [Content_Types].xml, _rels/.rels → /3D/3dmodel.model,
 // and the model with unit="millimeter".
-export function to3mf(parts: ThreeMfPart[]): Uint8Array {
+export function to3mf(parts: ThreeMfPart[], meta: ThreeMfMeta = {}): Uint8Array {
   const out: Uint8Array[] = [];
   const errors: Error[] = [];
   const zip = new Zip((err, data) => {
@@ -113,7 +136,7 @@ export function to3mf(parts: ThreeMfPart[]): Uint8Array {
   });
   addFile(zip, "[Content_Types].xml", [CONTENT_TYPES_XML]);
   addFile(zip, "_rels/.rels", [RELS_XML]);
-  addFile(zip, "3D/3dmodel.model", modelXmlChunks(parts));
+  addFile(zip, "3D/3dmodel.model", modelXmlChunks(parts, meta));
   zip.end();
   const [error] = errors;
   if (error) {

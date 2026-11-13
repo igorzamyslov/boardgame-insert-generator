@@ -35,10 +35,12 @@ Free, in your browser, nothing to install.
 - **Stays on your computer.** There is no account. Your projects are saved in your browser, and a
   project file is how you back one up or send it to a friend.
 
-## Support the project
+## Licence
 
-Insert Generator is free. If it saved you an evening of measuring, you can say thanks:
-[Ko-fi](https://ko-fi.com/igorzamyslov) or [PayPal](https://paypal.me/igorzamyslov).
+For personal, non-commercial use only ([PolyForm Noncommercial 1.0.0](LICENSE)). You can use the
+app, and the files and prints you make with it, for yourself and share them for free; selling them,
+or using the app or its code commercially, is not allowed. See the
+[Terms of use](https://igorzamyslov.github.io/boardgame-insert-generator/terms.html).
 
 ## Feedback
 
@@ -50,3 +52,8 @@ Found a bug, or want a kind of tray that is missing?
 Vite, TypeScript and Preact; the layout search and the geometry run in Web Workers. Start with
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) (guidelines, architecture, versioning, releasing),
 [`docs/DESIGN.md`](docs/DESIGN.md) (design rules) and [`CHANGELOG.md`](CHANGELOG.md).
+
+## Tips
+
+Enjoying it? You can buy me a coffee on [Ko-fi](https://ko-fi.com/igorzamyslov) or
+[PayPal](https://paypal.me/igorzamyslov).
