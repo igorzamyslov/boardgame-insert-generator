@@ -10,6 +10,8 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+## [0.32.2] - 2026-11-13
+
 ### Added
 
 - **Send feedback.** The project menu has a new "Send feedback" entry. Choose Idea, Problem or Something else, write your message, and add how to reach you if you like. It lands as a public issue on GitHub, so the form says to leave out anything private, and you need no GitHub account. "Attach my insert design" (off until you turn it on) sends your insert's file along. Until the sending service is switched on, Send opens GitHub's page with your words filled in, which does need an account.
@@ -27,6 +29,7 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 - **Send feedback** opens from the first screen too, before you have added anything.
 - The feedback form no longer grows when Cloudflare's "Verify you are human" check appears: it now sits beside Send, in space kept for it.
 - A focused "How to reach you" field shows one ring, not a second frame inside it.
+- Behind the scenes: a test run no longer fails now and then after its last test. The app is unchanged.
 
 ## [0.29.1] - 2026-11-01
 
