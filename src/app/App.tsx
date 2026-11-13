@@ -1572,15 +1572,6 @@ export function App(props: AppProps) {
           }}
         />
       ) : null}
-      {feedbackOpen ? (
-        <FeedbackDialog
-          config={readConfig(import.meta.env)}
-          appVersion={`${APP_VERSION} (${BUILD_ID})`}
-          userAgent={navigator.userAgent}
-          getProject={() => exportJsonText(saved, s.foreign.value)}
-          onClose={() => setFeedbackOpen(false)}
-        />
-      ) : null}
       {removedLive}
       {phone ? removedToast : null}
     </>
@@ -1674,6 +1665,16 @@ export function App(props: AppProps) {
               onMyPrinterChange={(p) => store.prefs.setPrinter(p)}
               onApplyPrinter={() => store.edit((q) => applyPrinter(q, store.prefs.printer.peek()))}
               onClose={() => setSettingsOpen(null)}
+            />
+          ) : null}
+          {/* on every screen, as the menu that opens it is (the first visit has no stage) */}
+          {feedbackOpen ? (
+            <FeedbackDialog
+              config={readConfig(import.meta.env)}
+              appVersion={`${APP_VERSION} (${BUILD_ID})`}
+              userAgent={navigator.userAgent}
+              getProject={() => exportJsonText(saved, s.foreign.value)}
+              onClose={() => setFeedbackOpen(false)}
             />
           ) : null}
         </SettingsContext.Provider>

@@ -21,6 +21,12 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 - The Privacy page now says what the feedback form sends and to whom.
 - The project's front page now shows what Insert Generator does, with pictures and a link to open it. The app itself is unchanged.
 
+### Fixed
+
+- **Send feedback** opens from the first screen too, before you have added anything.
+- The feedback form no longer grows when Cloudflare's "Verify you are human" check appears: it now sits beside Send, in space kept for it.
+- A focused "How to reach you" field shows one ring, not a second frame inside it.
+
 ## [0.29.1] - 2026-11-01
 
 ### Changed

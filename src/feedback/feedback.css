@@ -82,7 +82,8 @@
   font-weight: 600;
 }
 
-.fb-field .fb-box .fb-input:focus-visible {
+/* base.css gives a bare text input a focus border and glow; here the box shows the focus, once. */
+.fb-field .fb-input:focus-visible {
   border: 0;
   outline: none;
   box-shadow: none;
@@ -97,8 +98,14 @@
   color: var(--ink);
 }
 
-.fb-check:empty {
-  display: none;
+/* The check sits at the left of the Send row. */
+.fb-check {
+  margin-right: auto;
+}
+
+/* Turnstile's widget, when it shows, is 69 px tall: the row is that tall from the start. */
+.fb-actions--check {
+  min-height: 69px;
 }
 
 .fb-actions {
