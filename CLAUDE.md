@@ -11,8 +11,9 @@ Preact 11 with signals; layout optimizer and manifold geometry in Web Workers).
 - **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**: development guidelines. Architecture, rules by
   area, gotchas learned the hard way, and recipes (new setting, dialog, notice, string).
   Read it before writing code.
-- **[README.md](README.md)**: what the app does, and the versioning rules under
-  "How to add a kind of item".
+- **[README.md](README.md)**: the player-facing page (what the app is, a link to open it). Not
+  developer docs. The versioning rules are in DEVELOPMENT.md §7.5 "How to add a kind of item"
+  and §7.8 "Releasing".
 
 - **UI work** (anything visual): follow DEVELOPMENT.md → "UI work". Briefs carry the design
   boards, layout comes first, every task passes a screenshot-vs-board check, and the owner sees

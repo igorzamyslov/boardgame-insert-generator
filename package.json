@@ -1,6 +1,6 @@
 {
   "name": "insert-generator",
-  "version": "0.29.15",
+  "version": "0.29.16",
   "private": true,
   "type": "module",
   "scripts": {
