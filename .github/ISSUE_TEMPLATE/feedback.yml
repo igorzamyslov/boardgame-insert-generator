@@ -1,0 +1,35 @@
+name: Feedback
+description: An idea, a problem or anything else about Insert Generator
+title: "Feedback: "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for telling us. This is posted publicly on GitHub, so please leave out anything private.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is it about?
+      options:
+        - Idea
+        - Problem
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: message
+    attributes:
+      label: Your message
+    validations:
+      required: true
+  - type: input
+    id: contact
+    attributes:
+      label: How to reach you (optional)
+      description: An email or a GitHub name, only if you want to be asked about it.
+  - type: textarea
+    id: context
+    attributes:
+      label: Version and browser
+      description: Filled in for you. It helps to find a problem.

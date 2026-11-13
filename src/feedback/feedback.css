@@ -1,0 +1,124 @@
+/*
+ * src/feedback/feedback.css: the feedback dialog. The dialog itself is the kit's (`.k-dialog`:
+ * 22 px corners, 32 px padding, full screen below 600 px); this is what is in it. Tokens only.
+ */
+.fb-dialog {
+  width: min(520px, 100%);
+}
+
+.fb-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+}
+
+.fb-body > * {
+  flex: none;
+  margin: 0;
+}
+
+.fb-head {
+  display: flex;
+  gap: var(--s-16);
+  align-items: flex-start;
+}
+
+.fb-head__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-6);
+  min-width: 0;
+}
+
+.fb-h1 {
+  margin: 0;
+  font: 700 var(--h1-dialog) / normal var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.fb-sub {
+  color: var(--muted);
+}
+
+.fb-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+}
+
+.fb-label {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* A taller box for the message; the line field keeps the kit's 48 px. */
+.fb-field .fb-box {
+  align-items: stretch;
+  height: auto;
+  padding: var(--s-12);
+}
+
+/* The box draws the border and the focus (base.css); the input inside is bare, as the kit's field's is. */
+.fb-field .fb-input {
+  display: block;
+  flex: 1 1 0;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  font: 500 var(--text-field) / 1.4 var(--font-ui);
+  resize: vertical;
+}
+
+.fb-field .fb-input--line {
+  height: 100%;
+  font-weight: 600;
+}
+
+.fb-field .fb-box .fb-input:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+.fb-note {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.fb-line {
+  color: var(--ink);
+}
+
+.fb-check:empty {
+  display: none;
+}
+
+.fb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-16);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.fb-link {
+  position: relative;
+  margin-right: auto;
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+/* The line is 20 px tall; the target is 44 (DESIGN §2: 44 px controls). */
+.fb-link::before {
+  position: absolute;
+  inset: -12px -4px;
+  content: "";
+}
