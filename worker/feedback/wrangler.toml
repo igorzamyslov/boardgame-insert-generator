@@ -2,6 +2,9 @@
 name = "insert-generator-feedback"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
+# The public address is the workers.dev one; per-version preview addresses are not needed.
+workers_dev = true
+preview_urls = false
 
 [vars]
 GITHUB_REPO = "igorzamyslov/boardgame-insert-generator"
