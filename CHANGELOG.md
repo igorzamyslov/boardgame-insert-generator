@@ -10,6 +10,10 @@ New entries go under "Unreleased" until a version is cut; see "Changelog and rel
 
 ## [Unreleased]
 
+### Changed
+
+- The project's front page now shows what Insert Generator does, with pictures and a link to open it. The app itself is unchanged.
+
 ## [0.29.1] - 2026-11-01
 
 ### Changed

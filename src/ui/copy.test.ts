@@ -316,7 +316,7 @@ describe("copy", () => {
   });
 
   it("keeps the README to the same words", () => {
-    // The README says what the app does today: no mode switch, no numbered trays, no old controls.
+    // The README is for players (DESIGN.md decision log, 2026-11-13) and says what the app does today: no mode switch, no numbered trays, no old controls.
     for (const old of [
       /\bAdvanced\b/,
       /\bSimple mode\b/i,
@@ -332,8 +332,6 @@ describe("copy", () => {
     ]) {
       expect(readme).not.toMatch(old);
     }
-    expect(readme).toContain("Pin");
-    expect(readme).toContain("Try another arrangement");
     // The Not-column words, in the prose only: a code span (`...`) and a heading naming a file
     // or code is not copy, and "part" belongs to the download list.
     const prose = readme
