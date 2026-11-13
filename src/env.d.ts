@@ -10,3 +10,8 @@ declare var __shotsHold: Partial<Record<"export" | "search", Promise<void>>> | u
 // read of it. Absent in every real run.
 // eslint-disable-next-line no-var
 declare var __shotsScene: import("./viewer/shotsScene").ShotsScene | undefined;
+// The GoatCounter site code, set by the deploy workflow from a repository variable. Absent: nothing
+// is counted (src/app/analytics.ts).
+interface ImportMetaEnv {
+  readonly VITE_GOATCOUNTER_CODE?: string;
+}

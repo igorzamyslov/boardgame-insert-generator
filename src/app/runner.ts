@@ -8,6 +8,7 @@ import { validateProject } from "../model/validate";
 import { APP_VERSION } from "../model/version";
 import { size } from "../sizing";
 import { errorText } from "../util/errors";
+import { count } from "./analytics";
 import type { LayoutClient } from "./clients";
 import { shotsHold } from "./shotsHold";
 import type { RunKind, State } from "./state";
@@ -166,6 +167,10 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       state.run.value = { status: "done" };
     });
     if (result.layout) {
+      if (current.layout === undefined) {
+        // the first plan of a project, counted once: a project that has one never has none again
+        count("plan");
+      }
       hooks.onAccepted();
     }
   }
@@ -237,6 +242,9 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
         return;
       }
       failedRun = searchedInfeasible(result) ? { hash: input.inputsHash, iterations } : null;
+      if (failedRun !== null) {
+        count("plan-nofit");
+      }
       accept(result);
     } catch (e) {
       if (my !== token) {

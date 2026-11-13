@@ -1,6 +1,7 @@
 // src/app/App.tsx
 import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { count } from "./analytics";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Access, ComponentKind, Lock, Project } from "../model/types";
@@ -255,6 +256,9 @@ export function App(props: AppProps) {
   function showView(next: StageView): void {
     setPickNote(null);
     stageView.value = next;
+    if (next === "3d") {
+      count("view-3d");
+    }
   }
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
   const [exportOpen, setExportOpen] = useState(false);
@@ -443,8 +447,10 @@ export function App(props: AppProps) {
   // The editors and the sheet that hold an error: the status heading sends the reader to each.
   const problems = problemAreas(validation, project.components);
   // The settings sheet, over whichever view is showing; `page` is the one it opens on.
-  const openSettings = (page?: SettingsPage): void =>
+  const openSettings = (page?: SettingsPage): void => {
     setSettingsOpen({ page: page ?? settingsPageFor(validation) });
+    count("settings-open");
+  };
   // The box's editor, in the rail's place (a phone's sheet opens for it).
   const openBox = (): void => {
     setEditingId(null);
@@ -494,6 +500,7 @@ export function App(props: AppProps) {
   };
   const addComponentOfKind = (kind: ComponentKind): void => {
     store.edit((q) => addComponent(q, kind));
+    count(`add-${kind}`);
     // The new item opens at once, whether the Add was the rail's, the phone sheet's or the first visit's.
     setEditingId(store.state.project.peek().components.at(-1)?.id ?? null);
     setEditingGroupId(null);
@@ -531,6 +538,7 @@ export function App(props: AppProps) {
   }, [project.groups]);
   const addExample = (): void => {
     store.edit((q) => (["cards", "bulk", "tiles"] as const).reduce(addComponent, q));
+    count("start-example");
   };
   // Where each notice shows: the one banner, the project menu (with a dot), or inline.
   const noFit =
@@ -587,15 +595,17 @@ export function App(props: AppProps) {
         code: OPEN_FAILED_CODE,
         message: `Couldn't read ${file.name}: ${errorText(e)}`,
       });
+      count("file-open-failed");
       return;
     } finally {
       input.value = "";
     }
-    store.importJson(text);
+    count(store.importJson(text) ? "file-open" : "file-open-failed");
   }
   const saveFile = (): void => {
     download(exportJsonFile(saved, s.foreign.value), jsonFileName(saved));
     store.markSavedToFile();
+    count("file-save");
   };
   // Phone: the share sheet takes the file; where it can't, Send file is Save file.
   const sendFile = async (): Promise<void> => {
@@ -606,6 +616,7 @@ export function App(props: AppProps) {
     const result = await (props.share ?? shareFile)(file);
     if (result === "shared") {
       store.markSavedToFile();
+      count("file-save");
     } else if (result === "unsupported") {
       saveFile();
     }
@@ -1551,6 +1562,7 @@ export function App(props: AppProps) {
             setExportOpen(false);
             setAssemblyFor(project.id);
             guideHistory.push(project.id);
+            count("guide");
           }}
         />
       ) : null}
