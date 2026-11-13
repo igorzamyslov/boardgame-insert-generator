@@ -253,6 +253,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
               A step is the solid base under a tray that drops into the tray below it.
             </p>
           ) : null}
+          <p class="assembly-made">Made with Insert Generator · for personal use</p>
         </>
       )}
     </article>

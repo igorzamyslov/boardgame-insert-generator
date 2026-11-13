@@ -32,6 +32,12 @@ const layout = makeLayout("h", [
 ]);
 
 describe("AssemblyPage", () => {
+  it("ends with one quiet line, which prints too", () => {
+    render(<AssemblyPage project={deckProject()} layout={layout} onBack={vi.fn()} />);
+    expect(screen.getByText("Made with Insert Generator · for personal use")).toBeTruthy();
+    expect(printBlock).toContain(".assembly-made");
+  });
+
   it("shows one picture per layer, each with its parts", () => {
     const project = { ...deckProject(), name: "Wing span" };
     render(<AssemblyPage project={project} layout={layout} onBack={vi.fn()} />);

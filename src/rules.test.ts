@@ -2,7 +2,7 @@
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 import indexHtml from "../index.html?raw";
-import { SUPPORT_LINKS } from "./ui/ExportPanel";
+import { TERMS_URL } from "./export/terms";
 
 const styles = import.meta.glob<string>("./**/*.css", {
   query: "?raw",
@@ -174,7 +174,7 @@ describe("rules", () => {
   });
 
   // DESIGN §2 Hosting: the app makes no request to another host. Fonts, scripts, WASM and workers
-  // are bundled; Ko-fi and PayPal are links a person clicks, not requests; the XML namespaces of
+  // are bundled; the site address in the 3MF's licence line is text, not a request; the XML namespaces of
   // exported files are names, not addresses to fetch.
   describe("makes no runtime request to another host", () => {
     const NETWORK_CALLS =
@@ -225,13 +225,8 @@ describe("rules", () => {
       expect(found).toEqual([]);
     });
 
-    it("writes an absolute URL only for the support links and XML namespaces", () => {
-      const allowed = new Set([
-        ...NAMESPACE_HOSTS,
-        ...SUPPORT_LINKS.map((l) => new URL(l.href).host),
-      ]);
-      expect(allowed).toContain("ko-fi.com");
-      expect(allowed).toContain("paypal.me");
+    it("writes an absolute URL only for the site address and XML namespaces", () => {
+      const allowed = new Set([...NAMESPACE_HOSTS, new URL(TERMS_URL).host]);
       const found: string[] = [];
       for (const path of appFiles) {
         for (const text of literals(path)) {
