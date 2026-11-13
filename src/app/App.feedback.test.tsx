@@ -2,7 +2,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it } from "vitest";
-import { renderWorkspace } from "./test-app";
+import { renderApp, renderWorkspace } from "./test-app";
 
 afterEach(cleanup);
 
@@ -23,5 +23,13 @@ describe("Send feedback in the project menu", () => {
     fireEvent(dialog, new Event("cancel", { cancelable: true }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(button);
+  });
+
+  it("opens on the first visit too, before there is anything to plan", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: /^Project menu/ }));
+    const menu = screen.getByRole("group", { name: "Project" });
+    fireEvent.click(within(menu).getByRole("button", { name: "Send feedback" }));
+    expect(screen.getByRole("dialog", { name: "Send feedback" })).toBeTruthy();
   });
 });

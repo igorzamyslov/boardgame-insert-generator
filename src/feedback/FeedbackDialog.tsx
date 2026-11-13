@@ -266,16 +266,16 @@ export function FeedbackDialog(p: FeedbackDialogProps) {
               {viaWorker ? "" : ` ${GITHUB_NOTE}`}
             </p>
 
-            {/* Turnstile draws here, and only when it needs the person (it checks quietly first) */}
-            <div ref={checkBox} class="fb-check" />
-
             {error !== null ? (
               <Notice tone="warn" title="Not sent.">
                 {error}
               </Notice>
             ) : null}
 
-            <div class="fb-actions">
+            <div class={viaWorker ? "fb-actions fb-actions--check" : "fb-actions"}>
+              {/* Turnstile draws here, beside Send, and only when it needs the person (it checks
+                  quietly first); the row keeps its height, so the dialog does not jump */}
+              <div ref={checkBox} class="fb-check" />
               <Button
                 variant="primary"
                 size="dialog"
