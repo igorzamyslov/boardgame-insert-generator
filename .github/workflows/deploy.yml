@@ -28,8 +28,13 @@ jobs:
       # The type checks, the Vite build and the dist smoke test. Not the tests: main only
       # takes pull requests whose CI (sharded tests included) passed, and CI runs again on
       # the push to main.
+      # The feedback form's settings are repository variables (Settings, Secrets and variables,
+      # Actions, Variables); both are public values. Empty until the Worker is deployed: the
+      # form then sends people to GitHub instead. See worker/feedback/README.md.
       - run: npm run build:deploy
         env:
+          VITE_FEEDBACK_URL: ${{ vars.VITE_FEEDBACK_URL }}
+          VITE_TURNSTILE_SITEKEY: ${{ vars.VITE_TURNSTILE_SITEKEY }}
           # The GoatCounter site code, a repository variable (not a secret). Absent: the build
           # counts nothing.
           VITE_GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}

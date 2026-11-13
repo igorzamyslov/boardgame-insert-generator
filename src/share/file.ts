@@ -3,9 +3,12 @@ import type { ForeignData, ParseResult, Project } from "../model/types";
 import { MAX_INFLATED_BYTES } from "./link";
 
 /** Project file contents: pretty-printed JSON, so people can read and diff it. */
+export function exportJsonText(p: Project, foreign: ForeignData): string {
+  return `${JSON.stringify(toSerializable(p, foreign), null, 2)}\n`;
+}
+
 export function exportJsonFile(p: Project, foreign: ForeignData): Blob {
-  const json = `${JSON.stringify(toSerializable(p, foreign), null, 2)}\n`;
-  return new Blob([json], { type: "application/json" });
+  return new Blob([exportJsonText(p, foreign)], { type: "application/json" });
 }
 
 /** "My Game!" → "My-Game.insert.json"; only [A-Za-z0-9._-] survive. */

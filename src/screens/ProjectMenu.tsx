@@ -22,6 +22,8 @@ export interface ProjectMenuProps {
   onSaveFile: () => void;
   /** Goes to the settings section. */
   onSettings: () => void;
+  /** Opens the feedback dialog. */
+  onFeedback?: () => void;
   /** After a choice that leaves the menu. */
   onClose: () => void;
   /** Phone: the header has no Redo, so it is the menu's first item. */
@@ -197,6 +199,9 @@ export function ProjectMenu(props: ProjectMenuProps) {
       <MenuItem onClick={choose(props.onSaveFile)}>Save file</MenuItem>
       <MenuSeparator />
       <MenuItem onClick={choose(props.onSettings)}>Settings</MenuItem>
+      {props.onFeedback === undefined ? null : (
+        <MenuItem onClick={choose(props.onFeedback)}>Send feedback</MenuItem>
+      )}
       <MenuSeparator />
       <span class="pm-version">{`Insert Generator ${APP_VERSION} (${BUILD_ID})`}</span>
       <p class="pm-links">
