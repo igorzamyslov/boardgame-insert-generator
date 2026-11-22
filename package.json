@@ -1,6 +1,6 @@
 {
   "name": "insert-generator",
-  "version": "0.32.7",
+  "version": "0.32.8",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
@@ -38,7 +38,7 @@
     "@types/three": "^0.187.0",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
-    "fast-check": "^4.10.3",
+    "fast-check": "^4.11.0",
     "globals": "^17.14.0",
     "html-validate": "^11.21.1",
     "husky": "^9.1.7",
