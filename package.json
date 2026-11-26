@@ -1,6 +1,6 @@
 {
   "name": "insert-generator",
-  "version": "0.32.13",
+  "version": "0.32.14",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
@@ -34,7 +34,7 @@
     "@eslint/js": "^10.0.1",
     "@preact/preset-vite": "^2.10.6",
     "@testing-library/preact": "^3.2.6",
-    "@types/node": "^26.6.10",
+    "@types/node": "^26.6.11",
     "@types/three": "^0.187.0",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
